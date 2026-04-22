@@ -1,7 +1,6 @@
 # The `mods.yaml` file
 
-Every modpack managed by **gitrinth** has a `mods.yaml` file at its root. This
-file — modelled on Dart's [`pubspec.yaml`](https://dart.dev/tools/pub/pubspec) —
+Every modpack managed by **gitrinth** has a `mods.yaml` file at its root. It
 declares the modpack's identity, publishing metadata, target Minecraft
 environment, and the mods that belong to it.
 
@@ -12,6 +11,33 @@ assemble client and server distributions.
 
 A machine-readable schema lives alongside this document at
 [mods.schema.yaml](mods.schema.yaml).
+
+## Supported fields
+
+A `mods.yaml` file can contain the following top-level fields. The required
+fields are [`id`](#id), [`name`](#name), [`version`](#version),
+[`description`](#description), and [`environment`](#environment).
+
+| Field                             | Required | Description                                                                                                                                                                    |
+|-----------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`id`](#id)                       | yes      | Machine-readable identifier / Modrinth project slug.                                                                                                                           |
+| [`name`](#name)                   | yes      | Human-readable display name.                                                                                                                                                   |
+| [`version`](#version)             | yes      | The semver version of the modpack.                                                                                                                                             |
+| [`description`](#description)     | yes      | A short, public description.                                                                                                                                                   |
+| [`homepage`](#homepage)           | no       | URL of the modpack's home page.                                                                                                                                                |
+| [`repository`](#repository)       | no       | URL of the source repository.                                                                                                                                                  |
+| [`issue_tracker`](#issue_tracker) | no       | URL of the issue tracker.                                                                                                                                                      |
+| [`documentation`](#documentation) | no       | URL of the modpack's documentation.                                                                                                                                            |
+| [`publish_to`](#publish_to)       | no       | Where the modpack publishes to.                                                                                                                                                |
+| [`gallery`](#gallery)             | no       | Screenshots displayed on Modrinth.                                                                                                                                             |
+| [`categories`](#categories)       | no       | Modrinth categories for the modpack.                                                                                                                                           |
+| [`game`](#game)                   | no       | The game the modpack targets. Currently only `minecraft` is supported.                                                                                                         |
+| [`environment`](#environment)     | yes      | Target loader and Minecraft version.                                                                                                                                           |
+| [`mods`](#mods)                   | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
+| [`mod_overrides`](#mod_overrides) | no       | Overrides that win over any matching entry in `mods`, same syntax as `mods`.                                                                                                   |
+
+Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
+warning so typos don't silently disable options.
 
 ## Example
 
@@ -47,46 +73,20 @@ mods:
   sable: ^1.1.1+mc1.21.1
   jei: ^19.27.0.340
   iris:
+    version: ^1.8.12+1.21.1-neoforge
+    environment: client
+  netherportalfix:
+    version: ^21.1.1+neoforge-1.21.1
+    environment: server
 
 mod_overrides:
   jei:
     version: 19.27.0.340
-
-client_mods:
-  iris:
-
-server_mods:
 ```
 
-## Supported fields
+## Details
 
-A `mods.yaml` file can contain the following top-level fields. The required
-fields are [`id`](#id), [`name`](#name), [`version`](#version),
-[`description`](#description), and [`environment`](#environment).
-
-| Field | Required | Description |
-| --- | --- | --- |
-| [`id`](#id) | yes | Machine-readable identifier / Modrinth project slug. |
-| [`name`](#name) | yes | Human-readable display name. |
-| [`version`](#version) | yes | The semver version of the modpack. |
-| [`description`](#description) | yes | A short, public description. |
-| [`homepage`](#homepage) | no | URL of the modpack's home page. |
-| [`repository`](#repository) | no | URL of the source repository. |
-| [`issue_tracker`](#issue_tracker) | no | URL of the issue tracker. |
-| [`documentation`](#documentation) | no | URL of the modpack's documentation. |
-| [`publish_to`](#publish_to) | no | Where the modpack publishes to. |
-| [`gallery`](#gallery) | no | Screenshots displayed on Modrinth. |
-| [`categories`](#categories) | no | Modrinth categories for the modpack. |
-| [`environment`](#environment) | yes | Target loader and Minecraft version. |
-| [`mods`](#mods) | no | Mods included on both client and server. May be blank while the pack is being assembled. |
-| [`mod_overrides`](#mod_overrides) | no | Overrides that win over any matching entry in the lists above, same syntax as `mods`. |
-| [`client_mods`](#client_mods) | no | Client-only mods. |
-| [`server_mods`](#server_mods) | no | Server-only mods. |
-
-Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
-warning so typos don't silently disable options.
-
----
+Each supported field is described in detail below.
 
 ### `id`
 
@@ -99,7 +99,7 @@ A valid `id`:
 - uses only lowercase ASCII letters, digits, and underscores (`a`–`z`,
   `0`–`9`, `_`);
 - starts with a letter;
-- is not a Dart or YAML reserved word.
+- is not a YAML reserved word.
 
 ```yaml
 id: example_modpack
@@ -177,11 +177,11 @@ documentation: https://example.com/modpack/docs
 
 **Optional.** Controls where `gitrinth publish` uploads the modpack.
 
-| Value | Meaning |
-| --- | --- |
-| *unset* | Publish to Modrinth (the default). |
-| `none` | Never publish. `gitrinth publish` will refuse to run. |
-| *URL* | Publish to a custom Modrinth-compatible server. |
+| Value   | Meaning                                               |
+|---------|-------------------------------------------------------|
+| *unset* | Publish to Modrinth (the default).                    |
+| `none`  | Never publish. `gitrinth publish` will refuse to run. |
+| *URL*   | Publish to a custom Modrinth-compatible server.       |
 
 ```yaml
 publish_to: none
@@ -213,6 +213,17 @@ categories:
   - technology
 ```
 
+### `game`
+
+**Optional.** The game the modpack targets. Currently `minecraft` is the only
+supported value, and is also the default when the field is omitted. The field
+exists so that future versions of `gitrinth` can target additional games
+without a breaking schema change.
+
+```yaml
+game: minecraft
+```
+
 ### `environment`
 
 **Required.** Describes the target Minecraft environment for the modpack.
@@ -224,11 +235,11 @@ environment:
   gitrinth: ^1.0.0
 ```
 
-| Key | Required | Description |
-| --- | --- | --- |
-| `loader` | yes | The mod loader. One of `forge`, `fabric`, `neoforge` (also accepted as `neoForge`). |
-| `mc-version` | yes | The **exact** Minecraft version (for example `1.21.1`). Ranges are not permitted. |
-| `gitrinth` | no | A version constraint on the `gitrinth` CLI itself, using Dart pub–style ranges (for example `^1.0.0` or `">=1.0.0 <2.0.0"`). |
+| Key          | Required | Description                                                                                                                  |
+|--------------|----------|------------------------------------------------------------------------------------------------------------------------------|
+| `loader`     | yes      | The mod loader. One of `forge`, `fabric`, `neoforge` (also accepted as `neoForge`).                                          |
+| `mc-version` | yes      | The **exact** Minecraft version (for example `1.21.1`). Ranges are not permitted.                                            |
+| `gitrinth`   | no       | A version constraint on the `gitrinth` CLI itself, using semver range syntax (for example `^1.0.0` or `">=1.0.0 <2.0.0"`).   |
 
 #### `loader`
 
@@ -258,19 +269,16 @@ single Minecraft version so that mod-version resolution is deterministic.
 #### `gitrinth`
 
 Declares which versions of the `gitrinth` CLI the modpack is known to work
-with. Unlike mod versions, this field accepts the full Dart pub range syntax
+with. Unlike mod versions, this field accepts the full semver range syntax
 (`^`, `>=`, `<`, `<=`, `>`), because the compatibility window for the tool
 itself may span several majors.
 
----
-
 ### Mod dependencies
 
-`mods`, `client_mods`, `server_mods`, and `mod_overrides` all map a mod
-identifier to a **mod dependency**. The syntax mirrors Dart pub's
-[dependencies](https://dart.dev/tools/pub/dependencies): every entry takes
-one of two forms — a short form (just a version constraint) or a long
-form (a map with a source and, usually, a version).
+[`mods`](#mods) and [`mod_overrides`](#mod_overrides) both map a mod
+identifier to a **mod dependency**. Every entry takes one of two forms — a
+short form (just a version constraint) or a long form (a map with a source,
+a version, and/or a per-mod [`environment`](#per-mod-environment)).
 
 A mod identifier is the Modrinth project slug (the URL segment at
 `modrinth.com/mod/<slug>`).
@@ -289,8 +297,11 @@ mods:
 
 #### Long form
 
-The value is a map identifying a **source** — where `gitrinth` should fetch
-the mod from — and, optionally, a `version` constraint.
+The value is a map with any combination of:
+
+- a `version` — a [mod-version constraint](#mod-version-constraints);
+- an `environment` — see [Per-mod environment](#per-mod-environment);
+- at most one **source** — where `gitrinth` should fetch the mod from.
 
 ```yaml
 mods:
@@ -318,34 +329,129 @@ mods:
       ref: main
       path: mods/deep_mod
     version: ^1.2.0
+
+  # Long form with only a per-mod environment.
+  iris:
+    environment: client
 ```
 
 Each entry must specify **at most one** of `hosted`, `url`, `path`, or
 `git`. Omitting all four is equivalent to `hosted:` on the default
 Modrinth instance — useful when you only want to express a version
-constraint in the long form.
+constraint or an `environment` in the long form.
 
-| Source | Publishable? | Notes |
-| --- | --- | --- |
-| *(none)* | yes | Default Modrinth instance. |
-| `hosted` | yes | Any Modrinth-compatible server. Value is a base URL. |
-| `url` | no | Direct download URL for a `.jar`. |
-| `path` | no | Local filesystem path relative to `mods.yaml`. |
-| `git` | no | `owner/repo` shorthand or a `{url, ref, path}` object. The resolved tree must contain a `mods.toml` describing the mod. |
+| Source   | Publishable? | Notes                                                |
+|----------|--------------|------------------------------------------------------|
+| *(none)* | yes          | Default Modrinth instance.                           |
+| `hosted` | yes          | Any Modrinth-compatible server. Value is a base URL. |
+| `url`    | no           | Direct download URL for a `.jar`.                    |
+| `path`   | no           | Local filesystem path relative to `mods.yaml`.       |
+| `git`    | no           | See [Git sources](#git-sources).                     |
 
 **Caution.** `url`, `path`, and `git` sources produce a modpack that is
 not publishable to Modrinth. `gitrinth publish` will refuse to upload it
 and will name the entries responsible.
+
+#### Git sources
+
+The `git` source fetches a mod directly from a Git repository. It is the
+easiest way to depend on a fork, a pre-release branch, or a mod that is
+not published to Modrinth at all.
+
+Three forms are accepted:
+
+```yaml
+mods:
+  # 1. GitHub "owner/repo" shorthand.
+  #    Expanded to https://github.com/<owner>/<repo>.git and checked
+  #    out on the repository's default branch.
+  forked_jei:
+    git: example/forked_jei
+
+  # 2. A full git URL — https, ssh, or git:// — again on the default
+  #    branch.
+  forked_iris:
+    git: https://github.com/example/forked_iris.git
+
+  # 3. An object form with url, ref, and/or path.
+  deep_mod:
+    git:
+      url: git@github.com:example/monorepo.git
+      ref: mc-1.21.1-backports
+      path: mods/deep_mod
+    version: ^1.2.0
+```
+
+The object form accepts:
+
+- **`url`** *(required)* — Any Git-supported URL: `https://…`,
+  `git@host:…` (SSH), `git://…`, or a local path. SSH URLs are the
+  recommended way to reach private repositories: `gitrinth` shells out
+  to the ambient `git` CLI, so your usual SSH keys and credential
+  helpers work without extra configuration.
+- **`ref`** *(optional)* — Any reference `git checkout` will accept — a
+  branch name, tag, or full commit hash. Defaults to the repository's
+  default branch. For reproducible builds, prefer a tag or commit hash
+  over a branch.
+- **`path`** *(optional)* — Path **inside** the repository where the mod
+  lives, relative to the repo root. Use this when a single repo hosts
+  more than one mod (a monorepo layout). Defaults to the repo root.
+
+The resolved tree — the repository at `ref`, entered at `path` — must
+contain a `mods.toml` file describing the mod. `gitrinth` reads that file
+for the mod's identifier, version, and declared mod dependencies.
+
+When both a `version` constraint and a `git` source are specified, the
+constraint is matched against the `version` declared inside the resolved
+`mods.toml` rather than against a Modrinth version. Resolution fails if
+the two disagree, which guards against accidentally pulling a branch
+that has drifted out of the expected version range.
+
+**Caching.** Git sources are cloned into `gitrinth`'s local cache on
+first resolution and re-used on subsequent runs. Pinning `ref` to a tag
+or commit hash is the simplest way to keep collaborators' client and
+server builds locked to the same revision.
+
+**Publishing.** As with `url` and `path`, a `git` source makes the
+modpack non-publishable to Modrinth.
+
+#### Per-mod environment
+
+A long-form mod entry may include an `environment` field that restricts
+which side of the pack the mod is shipped with.
+
+| Value    | Meaning                                                                                                                          |
+|----------|----------------------------------------------------------------------------------------------------------------------------------|
+| `client` | Include the mod only in the client distribution.                                                                                 |
+| `server` | Include the mod only in the server distribution.                                                                                 |
+| `both`   | Include the mod on both sides. This is the default when `environment` is omitted, and is the only option for short-form entries. |
+
+```yaml
+mods:
+  create: ^6.0.10+mc1.21.1   # short form → ships to both sides
+  iris:
+    version: ^1.8.12+1.21.1-neoforge
+    environment: client
+  spark:
+    version: ^1.10.0
+    environment: server
+  jei:
+    environment: client      # no version → latest compatible, client only
+```
+
+Because `environment` is a per-mod property, a mod cannot be simultaneously
+client-only and server-only. To restrict the side, switch the short-form
+entry to long form and add the field.
 
 #### Mod-version constraints
 
 A mod-version constraint describes which version of a mod is acceptable.
 Exactly three forms are supported:
 
-| Form | Example | Meaning |
-| --- | --- | --- |
-| Exact | `19.27.0.340` | Use this version and no other. Resolution fails if it is not compatible with the environment or with another mod. |
-| Blank | *(empty value)* | Use the **latest** version of the mod that is compatible with [`environment`](#environment) and every other mod. |
+| Form  | Example            | Meaning                                                                                                                                                       |
+|-------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Exact | `19.27.0.340`      | Use this version and no other. Resolution fails if it is not compatible with the environment or with another mod.                                             |
+| Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with [`environment`](#environment) and every other mod.                                              |
 | Caret | `^6.0.10+mc1.21.1` | Use the latest version that is both compatible with the environment and *compatible with* `6.0.10+mc1.21.1` (same major for `1.x.y`, same minor for `0.x.y`). |
 
 Blank short-form entries must still include the trailing colon:
@@ -366,8 +472,13 @@ rely on `gitrinth` to select a compatible build.
 
 ### `mods`
 
-**Required.** Mods shipped to both the client and the server. Entries use
-the [mod dependency](#mod-dependencies) syntax.
+**Optional.** Every mod in the pack. Entries use the [mod
+dependency](#mod-dependencies) syntax — short form (version only) or
+long form (source, version, and/or [`environment`](#per-mod-environment)).
+
+The field may be blank (`mods:` with no value, or omitted entirely) while
+the modpack is still being assembled — `gitrinth` will resolve and
+publish a pack with zero mods if asked to.
 
 ```yaml
 mods:
@@ -376,6 +487,8 @@ mods:
   sable: ^1.1.1+mc1.21.1
   jei: ^19.27.0.340
   iris:
+    version: ^1.8.12+1.21.1-neoforge
+    environment: client
   journeymap:
     hosted: https://modrinth.example.com
     version: ^5.10.0
@@ -383,14 +496,12 @@ mods:
 
 ### `mod_overrides`
 
-**Optional.** The direct analogue of pub's
-[`dependency_overrides`](https://dart.dev/tools/pub/dependencies#dependency-overrides).
-Entries use the exact same [mod dependency](#mod-dependencies) syntax as
-`mods`, and take precedence over any matching entry in [`mods`](#mods),
-[`client_mods`](#client_mods), or [`server_mods`](#server_mods) regardless
-of which list it appears in.
+**Optional.** Overrides for individual mod entries. Uses the exact same
+[mod dependency](#mod-dependencies) syntax as `mods`, and takes precedence
+over any matching entry in [`mods`](#mods).
 
-Use `mod_overrides` to pin a version or redirect a mod to a different
+Use `mod_overrides` to pin a version, flip the
+[`environment`](#per-mod-environment), or redirect a mod to a different
 source without editing the main `mods` list — for example when testing a
 local build or a fork.
 
@@ -410,47 +521,22 @@ mod_overrides:
     version: ^1.8.12
 ```
 
-### `client_mods`
-
-**Optional.** Mods that are only included when building the client
-distribution. Entries use the same [mod dependency](#mod-dependencies)
-syntax as [`mods`](#mods).
-
-```yaml
-client_mods:
-  iris:
-```
-
-An identifier may appear in either `mods` or `client_mods` — not both. If
-the same mod is needed on both sides, declare it once in `mods`.
-
-### `server_mods`
-
-**Optional.** Mods that are only included when building the server
-distribution. Entries use the same [mod dependency](#mod-dependencies)
-syntax as [`mods`](#mods).
-
-```yaml
-server_mods:
-  spark:
-```
-
----
-
 ## Resolution
 
 When `gitrinth` installs or updates a modpack it:
 
 1. Reads `mods.yaml` and validates its structure against the schema.
-2. Merges [`mods`](#mods), [`client_mods`](#client_mods), and
-   [`server_mods`](#server_mods) into the set of mods to resolve, applying
-   any [`mod_overrides`](#mod_overrides).
+2. Applies [`mod_overrides`](#mod_overrides) on top of the matching
+   entries in [`mods`](#mods) to produce the final set of mod
+   dependencies.
 3. For each mod, queries Modrinth (or the override source) for every version
    whose `loader` and `mc-version` match [`environment`](#environment).
 4. Filters that list with the mod's version constraint.
 5. Picks the highest remaining version, preferring versions that are
    compatible with every *other* mod's declared dependencies.
-6. Writes the chosen versions to `mods.lock` so subsequent runs are
+6. Partitions the resolved mods into client and server distributions
+   using each mod's [`environment`](#per-mod-environment) (default `both`).
+7. Writes the chosen versions to `mods.lock` so subsequent runs are
    reproducible.
 
 If step 4 yields an empty set for any mod, resolution fails and `gitrinth`

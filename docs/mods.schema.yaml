@@ -2,9 +2,8 @@ $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://gitrinth.dev/schemas/mods.schema.yaml
 title: mods.yaml
 description: |
-  Schema for a gitrinth modpack manifest. Modelled on the Dart pubspec.yaml
-  specification (https://dart.dev/tools/pub/pubspec) and tailored for
-  Modrinth-hosted Minecraft mods.
+  Schema for a gitrinth modpack manifest, targeting Modrinth-hosted
+  Minecraft mods.
 
 type: object
 additionalProperties: false
@@ -93,6 +92,17 @@ properties:
       minLength: 1
     uniqueItems: true
 
+  game:
+    description: |
+      The game the modpack targets. Currently only "minecraft" is supported;
+      the field exists so future gitrinth releases can target additional
+      games without a breaking schema change. Defaults to "minecraft" when
+      omitted.
+    type: [string, "null"]
+    enum:
+      - minecraft
+      - null
+
   environment:
     type: object
     description: Target Minecraft environment for the modpack.
@@ -119,8 +129,8 @@ properties:
       gitrinth:
         type: [string, "null"]
         description: |
-          Version constraint on the gitrinth CLI, using Dart pub-style
-          ranges (e.g. "^1.0.0" or ">=1.0.0 <2.0.0"). May be blank.
+          Version constraint on the gitrinth CLI, using semver range
+          syntax (e.g. "^1.0.0" or ">=1.0.0 <2.0.0"). May be blank.
         minLength: 1
 
   mods:
@@ -136,25 +146,8 @@ properties:
   mod_overrides:
     description: |
       Overrides for individual mods. Uses the exact same value syntax as
-      `mods` and takes precedence over any matching entry in `mods`,
-      `client_mods`, or `server_mods`. Analogous to Dart pub's
-      `dependency_overrides`. May be blank.
-    oneOf:
-      - type: "null"
-      - $ref: "#/$defs/modMap"
-
-  client_mods:
-    description: |
-      Mods only included when building the client distribution. May be
-      blank.
-    oneOf:
-      - type: "null"
-      - $ref: "#/$defs/modMap"
-
-  server_mods:
-    description: |
-      Mods only included when building the server distribution. May be
-      blank.
+      `mods` and takes precedence over any matching entry in `mods`. May
+      be blank.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
@@ -175,8 +168,7 @@ $defs:
 
   modDependency:
     description: |
-      A single mod dependency. Modelled on Dart pub's dependencies
-      (https://dart.dev/tools/pub/dependencies). Either:
+      A single mod dependency. Either:
         - Short form: a mod-version constraint (string or null), fetched
           from the default Modrinth instance.
         - Long form: an object specifying at most one source (`hosted`,
@@ -197,6 +189,14 @@ $defs:
     properties:
       version:
         $ref: "#/$defs/modVersion"
+      environment:
+        description: |
+          Which side of the modpack this mod ships with. Defaults to
+          "both" when omitted.
+        enum:
+          - client
+          - server
+          - both
       hosted:
         type: string
         format: uri

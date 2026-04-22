@@ -20,6 +20,8 @@ categories:
   - multiplayer
   - technology
 
+game: minecraft # Optional. The game the modpack targets. Currently only "minecraft" is supported.
+
 environment:
   loader: neoforge # Required. The mod loader that the modpack is for. Supported values are "forge", "fabric", and "neoforge".
   mc-version: 1.21.1 # Required. The exact Minecraft version that the modpack is for.
@@ -31,7 +33,12 @@ mods:
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
   jei: ^19.27.0.340
-  iris: ^1.8.12+1.21.1-neoforge
+  iris:
+    version: ^1.8.12+1.21.1-neoforge
+    environment: client # Optional. Specify mods that should only be included in the client or server modpack. If omitted, the mod will be included in both. This is only required if the mod on modrinth is mislabeled or if you want a slimmer client/server modpack.
+  netherportalfix:
+    version: ^21.1.1+neoforge-1.21.1
+    environment: server
 
 mod_overrides:
   # Optional. Override a mod's version on modrinth or specify a direct download URL for a mod.
@@ -43,8 +50,13 @@ mod_overrides:
     # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.
     # git: getBoolean/jei # Optional. Specify a git repository to download a mod from. The repository should contain a mods.toml file in the root directory with the mod's metadata.
 
-client_mods:
-  # Optional. Specify mods that should only be included in the client modpack
-  iris:
+resource_packs:
 
-server_mods: # Optional. Specify mods that should only be included in the server modpack
+data_packs:
+
+shaders:
+
+servers:
+  # Optional. Servers to be included by default when Minecraft is launched.
+  - name: Example Server
+    address: play.example.com
