@@ -469,6 +469,11 @@ Locked 15 entries to mods.lock.
 the analogue of Dart's `dependency_overrides`. As in `pub`, overrides
 are edited directly in the manifest; there is no CLI wrapper.
 
+Overrides may also live in a standalone
+[`mods_overrides.yaml`](mods-overrides-yaml.md) alongside
+`mods.yaml`. Both are merged during resolution, with
+`mods_overrides.yaml` winning on conflicting keys.
+
 ## Exit codes
 
 | Code | Meaning                                        |
@@ -498,6 +503,7 @@ are edited directly in the manifest; there is no CLI wrapper.
 | Path                                                         | Purpose                                                       |
 |--------------------------------------------------------------|---------------------------------------------------------------|
 | `./mods.yaml`                                                | Modpack manifest. See [`mods.yaml`](mods-yaml.md).            |
+| `./mods_overrides.yaml`                                      | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md). |
 | `./mods.lock`                                                | Resolved versions. Commit to git. Analogue of `pubspec.lock`. |
 | `./build/`                                                   | Default output directory for [`build`](#build).               |
 | `./<slug>-<version>.mrpack`                                  | Default output path for [`pack`](#pack).                      |
@@ -523,8 +529,11 @@ compatibility window.
 
 - [`mods.yaml` reference](mods-yaml.md) — the manifest every command
   operates on.
-- [`mods.schema.yaml`](mods.schema.yaml) — machine-readable schema
-  editors can wire up for in-file validation.
+- [`mods_overrides.yaml` reference](mods-overrides-yaml.md) — optional
+  standalone overrides file.
+- [`mods.schema.yaml`](../assets/schema/mods.schema.yaml) and
+  [`mods-overrides.schema.yaml`](../assets/schema/mods-overrides.schema.yaml) —
+  machine-readable schemas editors can wire up for in-file validation.
 - [Dart `pub` command reference](https://dart.dev/tools/pub/cmd) — the
   upstream design `gitrinth` tracks.
 - [Modrinth API docs](https://docs.modrinth.com) — upstream service.

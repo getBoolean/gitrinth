@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../assets/schema/mods-overrides.schema.yaml
+overrides:
+  # Pin a version but keep the default Modrinth source.
+  jei:
+    version: 19.27.0.340
+
+  # Redirect to a local build.
+  create:
+    path: ./mods/create-dev.jar
+
+  # Use a fork from git.
+  iris:
+    git: my-org/iris-fork
+    version: ^1.8.12

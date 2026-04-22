@@ -10,7 +10,7 @@ version of every mod that satisfies its compatibility requirements, and
 assemble client and server distributions.
 
 A machine-readable schema lives alongside this document at
-[mods.schema.yaml](mods.schema.yaml).
+[mods.schema.yaml](../assets/schema/mods.schema.yaml).
 
 ## Supported fields
 
@@ -865,6 +865,12 @@ Because keys are globally unique across Modrinth project types, a single
 `overrides` entry unambiguously targets one entry in `mods`,
 `resource_packs`, `data_packs`, `shaders`, or `plugins`.
 
+Overrides may also live in a companion
+[`mods_overrides.yaml`](mods-overrides-yaml.md) file — an object
+with a single top-level `overrides:` key carrying the same map.
+When both are present, entries in `mods_overrides.yaml` win on
+conflicting keys and all other keys are unioned.
+
 ### `servers`
 
 **Optional.** Default servers embedded in the client distribution's
@@ -904,10 +910,13 @@ building the server distribution.
 When `gitrinth` installs or updates a modpack it:
 
 1. Reads `mods.yaml` and validates its structure against the schema.
-2. Applies [`overrides`](#overrides) on top of the matching entries in
-   [`mods`](#mods), [`resource_packs`](#resource_packs),
-   [`data_packs`](#data_packs), [`shaders`](#shaders), and
-   [`plugins`](#plugins) to produce the final set of dependencies.
+2. Merges [`overrides`](#overrides) with any
+   [`mods_overrides.yaml`](mods-overrides-yaml.md) (the latter wins
+   on conflicting keys), then applies the merged map on top of the
+   matching entries in [`mods`](#mods),
+   [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
+   [`shaders`](#shaders), and [`plugins`](#plugins) to produce the
+   final set of dependencies.
 3. For each entry, queries Modrinth (or the override source) for every
    version whose `loader` and `mc-version` match the modpack's
    [`loader`](#loader) and [`mc-version`](#mc-version).
@@ -929,7 +938,7 @@ If step 4 yields an empty set for any entry, resolution fails and
 
 ## See also
 
-- [`mods.schema.yaml`](mods.schema.yaml) — machine-readable schema.
+- [`mods.schema.yaml`](../assets/schema/mods.schema.yaml) — machine-readable schema.
 - [Dart `pubspec.yaml` reference](https://dart.dev/tools/pub/pubspec) — the
   specification this file is modelled on.
 - [Modrinth API docs](https://docs.modrinth.com) — for the project slugs,

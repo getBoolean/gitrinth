@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../docs/mods.schema.yaml
+# yaml-language-server: $schema=../assets/schema/mods.schema.yaml
 slug: example_modpack
 name: Example Modpack
 version: 0.1.0
