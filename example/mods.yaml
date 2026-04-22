@@ -1,24 +1,42 @@
 # yaml-language-server: $schema=../docs/mods.schema.yaml
-name: Example Modpack
-id: example_modpack
+slug: example_modpack # Required. Modrinth project slug for the modpack (modrinth.com/modpack/<slug>).
+name: Example Modpack # Required. Display name shown on Modrinth and in launcher UIs.
+version: 0.1.0 # Required. Semver version of the modpack. Increment with each release.
 description: Required. A short description of the modpack. This will be
   displayed on modrinth and should give users a good idea of what the modpack is
   about. It should be concise and informative, ideally no more than a few
   sentences.
-version: 0.1.0 # Required. The version of the modpack. This should follow semantic versioning (e.g. 1.0.0, 2.1.3, etc.) and should be incremented with each release of the modpack.
-homepage: # Optional. URL pointing to the package's homepage (or source code repository).
-repository: # Optional. URL pointing to the package's source code repository.
-issue_tracker: # Optional. URL pointing to an issue tracker for the package.
-documentation: # Optional. URL pointing to documentation for the package.
+
+project:
+  # Optional. Modrinth project metadata — every sub-field maps 1:1 to Modrinth's createProject API.
+  body: ./README.md # Optional. Long-form description. Inline markdown or a path (relative to mods.yaml) to a markdown file.
+  homepage: # Optional. URL of the modpack's home page.
+  source_url: # Optional. URL of the source repository.
+  issues_url: # Optional. URL of the issue tracker.
+  wiki_url: # Optional. URL of user-facing documentation.
+  discord_url: # Optional. Discord invite URL.
+  license_id: MIT # Optional. SPDX license identifier (e.g. "MIT", "Apache-2.0").
+  license_url: # Optional. URL to the full license text.
+  donation_urls:
+    # Optional. Donation links shown on the Modrinth project page.
+    - id: example-kofi
+      platform: Ko-fi
+      url: https://ko-fi.com/example
+  categories:
+    # Optional. Primary Modrinth categories for the modpack.
+    - multiplayer
+    - technology
+  additional_categories:
+    # Optional. Secondary Modrinth categories — searchable but non-primary.
+    - magic
+  client_side: required # Optional. Enum: required / optional / unsupported / unknown.
+  server_side: required # Optional. Enum: required / optional / unsupported / unknown.
+  gallery:
+    # Optional. Screenshot paths relative to mods.yaml, used for the Modrinth gallery.
+    - ./screenshots/screenshot1.png
+    - ./screenshots/screenshot2.png
+
 publish_to: none # Optional. Set to "none" to prevent accidentally publishing the package on modrinth.
-gallery:
-  # Optional. Specify a list of screenshot files to display on the modpack's modrinth page. These should be local paths to image files (e.g. ./screenshots/screenshot1.png).
-  - ./screenshots/screenshot1.png
-  - ./screenshots/screenshot2.png
-categories:
-  # Optional. Specify a list of categories for the modpack. These should be valid modrinth categories.
-  - multiplayer
-  - technology
 
 game: minecraft # Optional. The game the modpack targets. Currently only "minecraft" is supported.
 
@@ -28,7 +46,7 @@ environment:
   gitrinth: ">=1.0.0 < 2.0.0" # Optional. Specify the versions of the gitrinth library this modpack project is compatible with.
 
 mods:
-  # Required. These mods will be included in both server and client modpacks.
+  # Required. Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
   create: ^6.0.10+mc1.21.1
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
@@ -41,15 +59,15 @@ mods:
     environment: server
 
 resource_packs:
-  # Optional. Resource packs to include in the modpack. Same syntax as `mods`.
+  # Optional. Keys are Modrinth project slugs (modrinth.com/resourcepack/<slug>).
   faithful-32x: ^1.21.1-december-2025
 
 data_packs:
-  # Optional. Data packs to include in the modpack. Same syntax as `mods`.
+  # Optional. Keys are Modrinth project slugs (modrinth.com/datapack/<slug>).
   terralith: ^2.5.8
 
 shaders:
-  # Optional. Shader packs to include in the modpack. Same syntax as `mods`.
+  # Optional. Keys are Modrinth project slugs (modrinth.com/shader/<slug>).
   complementary-shaders: ^4.7.2
 
 overrides:

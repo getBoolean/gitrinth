@@ -8,7 +8,7 @@ description: |
 type: object
 additionalProperties: false
 required:
-  - id
+  - slug
   - name
   - version
   - description
@@ -16,19 +16,21 @@ required:
 
 properties:
 
-  id:
+  slug:
     type: string
     description: |
-      Machine-readable identifier of the modpack, used as the Modrinth
-      project slug and in generated artifact filenames. Lowercase ASCII
-      letters, digits, and underscores; must start with a letter.
+      Modrinth project slug for the modpack — the URL segment at
+      modrinth.com/modpack/<slug>. Also used in generated artifact
+      filenames. Lowercase ASCII letters, digits, and underscores;
+      must start with a letter.
     pattern: ^[a-z][a-z0-9_]*$
 
   name:
     type: string
     description: |
       Human-readable display name of the modpack, shown on the Modrinth
-      project page. Any non-empty string.
+      project page. Maps to Modrinth's `title` field. Any non-empty
+      string.
     minLength: 1
 
   version:
@@ -42,25 +44,139 @@ properties:
     description: Short, public-facing summary shown on Modrinth.
     minLength: 1
 
-  homepage:
-    type: [string, "null"]
-    format: uri
-    description: URL of the modpack's home page.
+  project:
+    type: [object, "null"]
+    additionalProperties: false
+    description: |
+      Modrinth project metadata. Every field in this block maps 1:1 to
+      the corresponding field in Modrinth's createProject API. All
+      sub-fields are optional; the whole block may be omitted.
+    properties:
 
-  repository:
-    type: [string, "null"]
-    format: uri
-    description: URL of the modpack's source repository.
+      body:
+        type: [string, "null"]
+        description: |
+          Long-form project description shown on the Modrinth project
+          page. Either inline markdown, or a path (relative to
+          mods.yaml) to a markdown file. If the value resolves to an
+          existing file, gitrinth reads the file at publish time;
+          otherwise the value is treated as literal markdown.
 
-  issue_tracker:
-    type: [string, "null"]
-    format: uri
-    description: URL of the modpack's issue tracker.
+      homepage:
+        type: [string, "null"]
+        format: uri
+        description: URL of the modpack's home page.
 
-  documentation:
-    type: [string, "null"]
-    format: uri
-    description: URL of the modpack's user-facing documentation.
+      source_url:
+        type: [string, "null"]
+        format: uri
+        description: URL of the modpack's source repository.
+
+      issues_url:
+        type: [string, "null"]
+        format: uri
+        description: URL of the modpack's issue tracker.
+
+      wiki_url:
+        type: [string, "null"]
+        format: uri
+        description: URL of the modpack's user-facing documentation.
+
+      discord_url:
+        type: [string, "null"]
+        format: uri
+        description: URL of the modpack's Discord invite.
+
+      license_id:
+        type: [string, "null"]
+        description: |
+          SPDX identifier of the modpack's license (e.g. "MIT",
+          "Apache-2.0").
+
+      license_url:
+        type: [string, "null"]
+        format: uri
+        description: URL pointing at the full license text.
+
+      donation_urls:
+        type: [array, "null"]
+        description: |
+          Links to platforms where users can donate to the modpack
+          author. Each entry matches Modrinth's donation_urls shape.
+        items:
+          type: object
+          additionalProperties: false
+          required:
+            - id
+            - platform
+            - url
+          properties:
+            id:
+              type: string
+              minLength: 1
+              description: Modrinth donation-platform identifier (e.g. "ko-fi", "patreon").
+            platform:
+              type: string
+              minLength: 1
+              description: Human-readable platform name displayed on the project page.
+            url:
+              type: string
+              format: uri
+              description: Donation URL on the platform.
+
+      categories:
+        type: [array, "null"]
+        description: |
+          Primary Modrinth modpack categories. Values must match
+          Modrinth's catalogue of modpack tags.
+        items:
+          type: string
+          minLength: 1
+        uniqueItems: true
+
+      additional_categories:
+        type: [array, "null"]
+        description: |
+          Secondary Modrinth modpack categories — searchable but
+          non-primary. They affect Modrinth search results but do not
+          appear as primary tags on the project page.
+        items:
+          type: string
+          minLength: 1
+        uniqueItems: true
+
+      client_side:
+        type: [string, "null"]
+        enum:
+          - required
+          - optional
+          - unsupported
+          - unknown
+          - null
+        description: |
+          Client-side compatibility declared for the modpack, shown on
+          the Modrinth project page.
+
+      server_side:
+        type: [string, "null"]
+        enum:
+          - required
+          - optional
+          - unsupported
+          - unknown
+          - null
+        description: |
+          Server-side compatibility declared for the modpack, shown on
+          the Modrinth project page.
+
+      gallery:
+        type: [array, "null"]
+        description: |
+          List of screenshot paths relative to mods.yaml. Used to
+          populate the Modrinth gallery when publishing.
+        items:
+          type: string
+          minLength: 1
 
   publish_to:
     description: |
@@ -72,25 +188,6 @@ properties:
       - const: none
       - type: string
         format: uri
-
-  gallery:
-    type: [array, "null"]
-    description: |
-      List of screenshot paths relative to mods.yaml. Used to populate the
-      Modrinth gallery when publishing.
-    items:
-      type: string
-      minLength: 1
-
-  categories:
-    type: [array, "null"]
-    description: |
-      List of Modrinth modpack categories. Values must match Modrinth's
-      catalogue of modpack tags.
-    items:
-      type: string
-      minLength: 1
-    uniqueItems: true
 
   game:
     description: |
