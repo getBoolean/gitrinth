@@ -1,9 +1,7 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 $id: https://gitrinth.dev/schemas/mods.schema.yaml
 title: mods.yaml
-description: |
-  Schema for a gitrinth modpack manifest, targeting Modrinth-hosted
-  Minecraft mods.
+description: Gitrinth modpack manifest for Modrinth-hosted Minecraft mods.
 
 type: object
 additionalProperties: false
@@ -20,85 +18,71 @@ properties:
   slug:
     type: string
     description: |
-      Modrinth project slug for the modpack — the URL segment at
-      modrinth.com/modpack/<slug>. Also used in generated artifact
-      filenames. Lowercase ASCII letters, digits, and underscores;
-      must start with a letter.
+      Modrinth project slug — the URL segment at
+      modrinth.com/modpack/<slug>. Also used in artifact filenames.
     pattern: ^[a-z][a-z0-9_]*$
 
   name:
     type: string
-    description: |
-      Human-readable display name of the modpack, shown on the Modrinth
-      project page. Maps to Modrinth's `title` field. Any non-empty
-      string.
+    description: Display name shown on Modrinth. Maps to Modrinth's `title`.
     minLength: 1
 
   version:
     type: string
-    description: |
-      Semantic version of the modpack itself, e.g. "1.0.0", "0.4.0-beta.1".
+    description: Semantic version, e.g. "1.0.0", "0.4.0-beta.1".
     pattern: ^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)*$
 
   description:
     type: string
-    description: Short, public-facing summary shown on Modrinth.
+    description: Summary shown on Modrinth.
     minLength: 1
 
   project:
     type: [object, "null"]
     additionalProperties: false
     description: |
-      Modrinth project metadata. Every field in this block maps 1:1 to
-      the corresponding field in Modrinth's createProject API. All
-      sub-fields are optional; the whole block may be omitted.
+      Modrinth project metadata. Fields map 1:1 to Modrinth's
+      createProject API. All sub-fields optional.
     properties:
 
       body:
         type: [string, "null"]
         description: |
-          Long-form project description shown on the Modrinth project
-          page. Either inline markdown, or a path (relative to
-          mods.yaml) to a markdown file. If the value resolves to an
-          existing file, gitrinth reads the file at publish time;
-          otherwise the value is treated as literal markdown.
+          Long-form description shown on Modrinth. Inline markdown, or
+          a path (relative to mods.yaml) to a markdown file.
 
       source_url:
         type: [string, "null"]
         format: uri
-        description: URL of the modpack's source repository.
+        description: Source repository URL.
 
       issues_url:
         type: [string, "null"]
         format: uri
-        description: URL of the modpack's issue tracker.
+        description: Issue tracker URL.
 
       wiki_url:
         type: [string, "null"]
         format: uri
-        description: URL of the modpack's user-facing documentation.
+        description: Documentation URL.
 
       discord_url:
         type: [string, "null"]
         format: uri
-        description: URL of the modpack's Discord invite.
+        description: Discord invite URL.
 
       license_id:
         type: [string, "null"]
-        description: |
-          SPDX identifier of the modpack's license (e.g. "MIT",
-          "Apache-2.0").
+        description: SPDX license identifier (e.g. "MIT", "Apache-2.0").
 
       license_url:
         type: [string, "null"]
         format: uri
-        description: URL pointing at the full license text.
+        description: License text URL.
 
       donation_urls:
         type: [array, "null"]
-        description: |
-          Links to platforms where users can donate to the modpack
-          author. Each entry matches Modrinth's donation_urls shape.
+        description: Donation platform links.
         items:
           type: object
           additionalProperties: false
@@ -108,13 +92,7 @@ properties:
           properties:
             platform:
               type: string
-              description: |
-                Modrinth donation-platform identifier — one of the short
-                ids returned by Modrinth's `GET /tag/donation_platform`
-                endpoint. The `gitrinth` CLI expands this id into
-                Modrinth's separate `id` and display-name pair when
-                publishing, so the list is fixed and custom identifiers
-                are rejected.
+              description: Modrinth donation-platform id from `GET /tag/donation_platform`.
               enum:
                 - patreon
                 - bmac
@@ -125,13 +103,11 @@ properties:
             url:
               type: string
               format: uri
-              description: Donation URL on the platform.
+              description: Donation URL.
 
       categories:
         type: [array, "null"]
-        description: |
-          Primary Modrinth modpack categories. Values must match
-          Modrinth's catalogue of modpack tags.
+        description: Primary Modrinth modpack categories.
         items:
           type: string
           minLength: 1
@@ -139,10 +115,7 @@ properties:
 
       additional_categories:
         type: [array, "null"]
-        description: |
-          Secondary Modrinth modpack categories — searchable but
-          non-primary. They affect Modrinth search results but do not
-          appear as primary tags on the project page.
+        description: Secondary categories — searchable but not shown as primary tags.
         items:
           type: string
           minLength: 1
@@ -157,9 +130,7 @@ properties:
           - unknown
           - null
         default: required
-        description: |
-          Client-side compatibility declared for the modpack, shown on
-          the Modrinth project page.
+        description: Client-side compatibility.
 
       server_side:
         type: [string, "null"]
@@ -170,54 +141,33 @@ properties:
           - unknown
           - null
         default: required
-        description: |
-          Server-side compatibility declared for the modpack, shown on
-          the Modrinth project page.
+        description: Server-side compatibility.
 
       gallery:
         type: [array, "null"]
-        description: |
-          List of screenshot paths relative to mods.yaml. Used to
-          populate the Modrinth gallery when publishing.
+        description: Screenshot paths relative to mods.yaml. Populates the Modrinth gallery.
         items:
           type: string
           minLength: 1
 
   publish_to:
     description: |
-      URL of the Modrinth-compatible server `gitrinth publish` uploads the
-      modpack to. Omit (or set `null`) to publish to modrinth.com, the
-      default.
+      URL of the Modrinth-compatible server `gitrinth publish` uploads
+      to. Omit (or set `null`) to publish to modrinth.com. Set to
+      `none` to disable publishing.
     type: [string, "null"]
     format: uri
 
   loader:
     type: string
     description: |
-      The mod loader the modpack targets. Three roles:
-        - Version resolution: gitrinth only considers published mod,
-          resource-pack, data-pack, shader, and plugin versions tagged
-          with this loader when picking the latest compatible version.
-        - Published compatibility: declared as the modpack's supported
-          loader on Modrinth when `gitrinth publish` uploads the pack.
-        - Server distribution selection: combined with `mc-version`,
-          `loader` determines which server binary gitrinth downloads
-          and bundles into the server distribution — a Forge/Fabric/
-          NeoForge/Sponge installer, or the latest stable Paper/Spigot/
-          Folia/Bukkit build for the target Minecraft version. Users
-          never pin the server binary in this file and do not add it
-          manually after the build.
-      Values are plain YAML strings and do not need to be quoted.
+      Mod loader the modpack targets. Drives version resolution,
+      Modrinth compatibility, and server-binary selection.
 
-      When `loader` is `bukkit`, `folia`, `paper`, or `spigot` (the
-      "plugin loaders"), every entry under `mods` is bundled into the
-      client-side modpack only, regardless of its declared `environment`
-      — those loaders do not run Forge/Fabric-style mods server-side.
-      `resource_packs` and `data_packs` remain compatible with plugin
-      loaders and honour their declared `environment`. `plugins` ship to
-      the server distribution. `shaders` are always client-only under
-      every loader. `sponge` behaves like `forge`, `fabric`, and
-      `neoforge` with no override.
+      Under plugin loaders (`bukkit`, `folia`, `paper`, `spigot`),
+      `mods` ship client-only regardless of `environment`; `plugins`
+      ship server-only. `shaders` are always client-only; `sponge`
+      behaves like `forge`/`fabric`/`neoforge`.
     enum:
       - forge
       - fabric
@@ -231,99 +181,68 @@ properties:
   mc-version:
     type: string
     description: |
-      Exact Minecraft version, e.g. "1.21.1". Ranges and wildcards are
-      not permitted. Three roles:
-        - Version resolution: gitrinth only considers published mod,
-          resource-pack, data-pack, shader, and plugin versions tagged
-          with this Minecraft version when picking the latest compatible
-          version.
-        - Published compatibility: declared as the modpack's supported
-          Minecraft version on Modrinth when `gitrinth publish` uploads
-          the pack.
-        - Server distribution selection: together with `loader`, the
-          `mc-version` is what gitrinth uses to pick the server binary
-          bundled into the server distribution. Users do not specify the
-          server binary; it is not added manually.
+      Exact Minecraft version, e.g. "1.21.1". No ranges or wildcards.
+      Drives version resolution, Modrinth compatibility, and
+      server-binary selection alongside `loader`.
     pattern: ^\d+\.\d+(?:\.\d+)?$
 
   tooling:
     type: [object, "null"]
-    description: |
-      Version constraints on the tooling used to build this modpack.
+    description: Tooling version constraints.
     additionalProperties: false
     properties:
       gitrinth:
         type: [string, "null"]
-        description: |
-          Version constraint on the gitrinth CLI, using semver range
-          syntax (e.g. "^1.0.0" or ">=1.0.0 <2.0.0"). May be blank.
+        description: Semver range for the gitrinth CLI (e.g. "^1.0.0", ">=1.0.0 <2.0.0").
         minLength: 1
 
   mods:
     description: |
-      Mods included in the modpack. Keys are Modrinth project slugs;
-      values are dependencies (short or long form). May be blank — useful
-      for a modpack that is still being assembled.
+      Mods, keyed by Modrinth project slug. Values are dependencies
+      (short or long form).
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
   resource_packs:
-    description: |
-      Resource packs included in the modpack. Same syntax as `mods`; keys
-      are Modrinth project slugs, values are dependencies (short or long
-      form). May be blank.
+    description: Resource packs. Same syntax as `mods`.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
   data_packs:
-    description: |
-      Data packs included in the modpack. Same syntax as `mods`; keys are
-      Modrinth project slugs, values are dependencies (short or long form).
-      May be blank.
+    description: Data packs. Same syntax as `mods`.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
   shaders:
     description: |
-      Shader packs included in the modpack. Same syntax as `mods` except
-      that the per-entry `environment` field is not permitted — shaders
-      are always client-only. Keys are Modrinth project slugs; values
-      are dependencies (short or long form). May be blank.
+      Shader packs. Same syntax as `mods`; `environment` is not
+      permitted — shaders are always client-only.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/forcedEnvModMap"
 
   plugins:
     description: |
-      Server plugins included in the modpack. Same syntax as `mods`
-      except that the per-entry `environment` field is not permitted —
-      plugins are always server-only, the analogue of shaders being
-      always client-only. Keys are Modrinth project slugs (from
-      modrinth.com/plugin/<slug>), values are dependencies (short or
-      long form). May be blank.
+      Server plugins. Same syntax as `mods`; `environment` is not
+      permitted — plugins are always server-only.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/forcedEnvModMap"
 
   overrides:
     description: |
-      Overrides for individual entries in `mods`, `resource_packs`,
-      `data_packs`, `shaders`, or `plugins`. Uses the exact same value
-      syntax as `mods` and takes precedence over any matching entry in
-      those fields. Keys are Modrinth project slugs. May be blank.
+      Overrides entries in `mods`, `resource_packs`, `data_packs`,
+      `shaders`, or `plugins`.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
   servers:
     type: [array, "null"]
-    description: |
-      Default servers embedded in the client distribution's server list.
-      Each entry is shown in the multiplayer menu when players launch the
-      modpack.
+    description: Default servers in the client's multiplayer menu.
     items:
       type: object
       additionalProperties: false
@@ -334,22 +253,19 @@ properties:
         name:
           type: string
           minLength: 1
-          description: Display name of the server in the multiplayer menu.
+          description: Display name in the multiplayer menu.
         address:
           type: string
           minLength: 1
-          description: Server address, optionally including a port (e.g. "play.example.com:25565").
+          description: Server address, optional port (e.g. "play.example.com:25565").
 
 $defs:
 
   modVersion:
     description: |
-      A mod-version constraint. Either:
-        - blank / null, meaning the latest compatible version
-        - any non-empty version string, optionally prefixed with `^` for a
-          caret constraint (e.g. "19.27.0.340", "^6.0.10+mc1.21.1",
-          "^r5.7.1"). Mod authors use a wide variety of version formats,
-          so the string itself is not pattern-validated here.
+      Mod-version constraint. Either `any` (latest compatible), or a
+      version string with optional `^` caret prefix (e.g. "19.27.0.340",
+      "^6.0.10+mc1.21.1").
     oneOf:
       - type: "null"
       - type: string
@@ -357,13 +273,9 @@ $defs:
 
   modDependency:
     description: |
-      A single mod dependency. Either:
-        - Short form: a mod-version constraint (string or null), fetched
-          from the default Modrinth instance.
-        - Long form: an object specifying at most one source (`hosted`,
-          `url`, `path`, or `git`) and, optionally, a `version`
-          constraint. Omitting all source fields is equivalent to the
-          default Modrinth source.
+      Mod dependency. Short form: a version constraint (from default
+      Modrinth). Long form: object with at most one source (`hosted`,
+      `url`, `path`, `git`) and optional `version`.
     oneOf:
       - $ref: "#/$defs/modVersion"
       - $ref: "#/$defs/modSource"
@@ -371,17 +283,15 @@ $defs:
   modSource:
     type: object
     description: |
-      Long-form mod dependency. Specify at most one of `hosted`, `url`,
-      `path`, or `git`. `url`, `path`, and `git` sources make the modpack
-      non-publishable to Modrinth.
+      Long-form mod dependency. At most one of `hosted`, `url`, `path`,
+      `git`. `url`, `path`, and `git` make the modpack non-publishable
+      to Modrinth.
     additionalProperties: false
     properties:
       version:
         $ref: "#/$defs/modVersion"
       environment:
-        description: |
-          Which side of the modpack this mod ships with. Defaults to
-          "both" when omitted.
+        description: Which side this mod ships with.
         default: both
         enum:
           - client
@@ -394,16 +304,16 @@ $defs:
       url:
         type: string
         format: uri
-        description: Direct download URL for a mod .jar file.
+        description: Direct .jar download URL.
       path:
         type: string
-        description: Local filesystem path relative to mods.yaml.
+        description: Local path relative to mods.yaml.
         minLength: 1
       git:
         description: |
-          Git source. Either an "owner/repo" shorthand string, a full git
-          URL, or an object with `url` and optionally `ref` and `path`.
-          The resolved tree must contain a mods.toml describing the mod.
+          Git source: `owner/repo` shorthand, a git URL, or an object
+          with `url` and optional `ref`/`path`. Resolved tree must
+          contain a mods.toml.
         oneOf:
           - type: string
             minLength: 1
@@ -436,8 +346,7 @@ $defs:
 
   modMap:
     type: object
-    description: |
-      Map of Modrinth project slug to mod dependency (short or long form).
+    description: Map of Modrinth project slug to mod dependency.
     propertyNames:
       pattern: ^[a-z0-9][a-z0-9_-]*$
     additionalProperties:
@@ -446,12 +355,8 @@ $defs:
   forcedEnvSource:
     type: object
     description: |
-      Long-form dependency for sections whose side is fixed by the
-      section itself — `shaders` (always client-only) and `plugins`
-      (always server-only). Structurally identical to `modSource`
-      except that the `environment` field is not permitted. Declaring
-      `environment` on an entry in these sections is a schema error;
-      the section already decides the side.
+      Long-form dependency for `shaders` and `plugins`. Same as
+      `modSource` but `environment` is not permitted.
     additionalProperties: false
     errorMessage:
       additionalProperties: "`environment` is not allowed here — shaders are always client-only and plugins are always server-only. Remove this field; the section itself decides the side."
@@ -465,15 +370,15 @@ $defs:
       url:
         type: string
         format: uri
-        description: Direct download URL for a .jar file.
+        description: Direct .jar download URL.
       path:
         type: string
-        description: Local filesystem path relative to mods.yaml.
+        description: Local path relative to mods.yaml.
         minLength: 1
       git:
         description: |
-          Git source. Either an "owner/repo" shorthand string, a full git
-          URL, or an object with `url` and optionally `ref` and `path`.
+          Git source: `owner/repo` shorthand, a git URL, or an object
+          with `url` and optional `ref`/`path`.
         oneOf:
           - type: string
             minLength: 1
@@ -507,10 +412,8 @@ $defs:
   forcedEnvModMap:
     type: object
     description: |
-      Map of Modrinth project slug to dependency (short or long form),
-      with the per-entry `environment` field disallowed. Used for
-      sections whose environment is fixed by the section itself:
-      `shaders` (always client-only) and `plugins` (always server-only).
+      Map for `shaders` and `plugins` — same as `modMap` but
+      `environment` is disallowed on entries.
     propertyNames:
       pattern: ^[a-z0-9][a-z0-9_-]*$
     additionalProperties:
