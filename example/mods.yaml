@@ -34,9 +34,10 @@ project:
 
 publish_to: none # Default: modrinth.com. Set to a URL to publish to a different Modrinth-compatible server.
 
-environment:
-  loader: neoforge # Enum: forge, fabric, neoforge.
-  mc-version: 1.21.1 # Exact version only — no ranges.
+loader: neoforge # Enum: forge, fabric, neoforge.
+mc-version: 1.21.1 # Exact version only — no ranges.
+
+tooling:
   gitrinth: ">=1.0.0 < 2.0.0" # Semver range constraint on the gitrinth CLI version.
 
 mods:

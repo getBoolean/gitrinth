@@ -2,7 +2,7 @@
 
 Every modpack managed by **gitrinth** has a `mods.yaml` file at its root. It
 declares the modpack's identity, publishing metadata, target Minecraft
-environment, and the mods that belong to it.
+loader and version, and the mods that belong to it.
 
 The `gitrinth` CLI reads `mods.yaml` to pull each declared mod from
 [Modrinth](https://modrinth.com) (or another configured source), resolve a
@@ -16,7 +16,8 @@ A machine-readable schema lives alongside this document at
 
 A `mods.yaml` file can contain the following top-level fields. The required
 fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
-[`description`](#description), and [`environment`](#environment).
+[`description`](#description), [`loader`](#loader), and
+[`mc-version`](#mc-version).
 
 | Field                               | Required | Description                                                                                                                                                                    |
 |-------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -26,7 +27,9 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                  |
 | [`project`](#project)               | no       | Modrinth project metadata — links, body, license, gallery, categories, client/server compatibility. See below for the full list of sub-fields.                                 |
 | [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                |
-| [`environment`](#environment)       | yes      | Target loader and Minecraft version.                                                                                                                                           |
+| [`loader`](#loader)                 | yes      | The mod loader the modpack targets (`forge`, `fabric`, or `neoforge`).                                                                                                         |
+| [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                               |
+| [`tooling`](#tooling)               | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                      |
 | [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
 | [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
 | [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
@@ -69,9 +72,10 @@ project:
 
 publish_to: https://modrinth.com
 
-environment:
-  loader: neoforge
-  mc-version: 1.21.1
+loader: neoforge
+mc-version: 1.21.1
+
+tooling:
   gitrinth: ^1.0.0
 
 mods:
@@ -389,24 +393,9 @@ uploads the modpack to.
 publish_to: https://modrinth.example.com
 ```
 
-### `environment`
+### `loader`
 
-**Required.** Describes the target Minecraft environment for the modpack.
-
-```yaml
-environment:
-  loader: neoforge
-  mc-version: 1.21.1
-  gitrinth: ^1.0.0
-```
-
-| Key          | Required | Description                                                                                                                |
-|--------------|----------|----------------------------------------------------------------------------------------------------------------------------|
-| `loader`     | yes      | The mod loader. One of `forge`, `fabric`, `neoforge` (also accepted as `neoForge`).                                        |
-| `mc-version` | yes      | The **exact** Minecraft version (for example `1.21.1`). Ranges are not permitted.                                          |
-| `gitrinth`   | no       | A version constraint on the `gitrinth` CLI itself, using semver range syntax (for example `^1.0.0` or `">=1.0.0 <2.0.0"`). |
-
-#### `loader`
+**Required.** The mod loader the modpack targets.
 
 Supported loaders:
 
@@ -419,17 +408,35 @@ Supported loaders:
 Values are plain YAML strings and do not need to be quoted:
 
 ```yaml
-environment:
-  loader: neoforge
+loader: neoforge
 ```
 
 `gitrinth` rejects any value outside the list above.
 
-#### `mc-version`
+### `mc-version`
 
-`mc-version` must be an exact Minecraft release such as `1.21.1`. Version
-ranges and wildcards are intentionally disallowed — a modpack targets a
-single Minecraft version so that mod-version resolution is deterministic.
+**Required.** The exact Minecraft release the modpack targets, for
+example `1.21.1`. Version ranges and wildcards are intentionally
+disallowed — a modpack targets a single Minecraft version so that
+mod-version resolution is deterministic.
+
+```yaml
+mc-version: 1.21.1
+```
+
+### `tooling`
+
+**Optional.** Version constraints on the tooling used to build the
+modpack. The block may be omitted entirely when no constraint is needed.
+
+```yaml
+tooling:
+  gitrinth: ^1.0.0
+```
+
+| Key        | Required | Description                                                                                                                |
+|------------|----------|----------------------------------------------------------------------------------------------------------------------------|
+| `gitrinth` | no       | A version constraint on the `gitrinth` CLI itself, using semver range syntax (for example `^1.0.0` or `">=1.0.0 <2.0.0"`). |
 
 #### `gitrinth`
 
@@ -437,6 +444,11 @@ Declares which versions of the `gitrinth` CLI the modpack is known to work
 with. Unlike mod versions, this field accepts the full semver range syntax
 (`^`, `>=`, `<`, `<=`, `>`), because the compatibility window for the tool
 itself may span several majors.
+
+```yaml
+tooling:
+  gitrinth: ^1.0.0
+```
 
 ### Mod dependencies
 
@@ -627,7 +639,7 @@ Three forms are supported:
 | Form  | Example            | Meaning                                                                                                                                                       |
 |-------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Exact | `19.27.0.340`      | Use this version and no other. Resolution fails if it is not compatible with the environment or with another mod.                                             |
-| Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with [`environment`](#environment) and every other mod.                                              |
+| Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with the declared [`loader`](#loader) and [`mc-version`](#mc-version) and every other mod.           |
 | Caret | `^6.0.10+mc1.21.1` | Use the latest version that is both compatible with the environment and *compatible with* `6.0.10+mc1.21.1` (same major for `1.x.y`, same minor for `0.x.y`). |
 
 The version string itself is whatever the mod author publishes — copy it
@@ -644,8 +656,9 @@ mods:
 ```
 
 Since the Minecraft version and loader already live in
-[`environment`](#environment), a shorter constraint like `^6.0.10` is
-usually enough; `gitrinth` picks the matching build.
+[`loader`](#loader) and [`mc-version`](#mc-version), a shorter
+constraint like `^6.0.10` is usually enough; `gitrinth` picks the
+matching build.
 
 ### `mods`
 
@@ -779,8 +792,8 @@ When `gitrinth` installs or updates a modpack it:
    [`data_packs`](#data_packs), and [`shaders`](#shaders) to produce the
    final set of dependencies.
 3. For each entry, queries Modrinth (or the override source) for every
-   version whose `loader` and `mc-version` match
-   [`environment`](#environment).
+   version whose `loader` and `mc-version` match the modpack's
+   [`loader`](#loader) and [`mc-version`](#mc-version).
 4. Filters that list with the entry's version constraint.
 5. Picks the highest remaining version, preferring versions that are
    compatible with every *other* entry's declared dependencies.

@@ -12,7 +12,8 @@ required:
   - name
   - version
   - description
-  - environment
+  - loader
+  - mc-version
 
 properties:
 
@@ -190,29 +191,29 @@ properties:
     type: [string, "null"]
     format: uri
 
-  environment:
-    type: object
-    description: Target Minecraft environment for the modpack.
+  loader:
+    type: string
+    description: |
+      The mod loader the modpack targets. Values are plain YAML
+      strings and do not need to be quoted.
+    enum:
+      - forge
+      - fabric
+      - neoforge
+
+  mc-version:
+    type: string
+    description: |
+      Exact Minecraft version, e.g. "1.21.1". Ranges and wildcards are
+      not permitted.
+    pattern: ^\d+\.\d+(?:\.\d+)?$
+
+  tooling:
+    type: [object, "null"]
+    description: |
+      Version constraints on the tooling used to build this modpack.
     additionalProperties: false
-    required:
-      - loader
-      - mc-version
     properties:
-      loader:
-        type: string
-        description: |
-          The mod loader the modpack targets. Values
-          are plain YAML strings and do not need to be quoted.
-        enum:
-          - forge
-          - fabric
-          - neoforge
-      mc-version:
-        type: string
-        description: |
-          Exact Minecraft version, e.g. "1.21.1". Ranges and wildcards are
-          not permitted.
-        pattern: ^\d+\.\d+(?:\.\d+)?$
       gitrinth:
         type: [string, "null"]
         description: |
