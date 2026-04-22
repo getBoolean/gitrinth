@@ -194,12 +194,19 @@ properties:
   loader:
     type: string
     description: |
-      The mod loader the modpack targets. Two roles:
+      The mod loader the modpack targets. Three roles:
         - Version resolution: gitrinth only considers published mod,
           resource-pack, data-pack, shader, and plugin versions tagged
           with this loader when picking the latest compatible version.
         - Published compatibility: declared as the modpack's supported
           loader on Modrinth when `gitrinth publish` uploads the pack.
+        - Server distribution selection: combined with `mc-version`,
+          `loader` determines which server binary gitrinth downloads
+          and bundles into the server distribution — a Forge/Fabric/
+          NeoForge/Sponge installer, or the latest stable Paper/Spigot/
+          Folia/Bukkit build for the target Minecraft version. Users
+          never pin the server binary in this file and do not add it
+          manually after the build.
       Values are plain YAML strings and do not need to be quoted.
 
       When `loader` is `bukkit`, `folia`, `paper`, or `spigot` (the
@@ -225,13 +232,18 @@ properties:
     type: string
     description: |
       Exact Minecraft version, e.g. "1.21.1". Ranges and wildcards are
-      not permitted. Two roles:
+      not permitted. Three roles:
         - Version resolution: gitrinth only considers published mod,
-          resource-pack, data-pack, and shader versions tagged with this
-          Minecraft version when picking the latest compatible version.
+          resource-pack, data-pack, shader, and plugin versions tagged
+          with this Minecraft version when picking the latest compatible
+          version.
         - Published compatibility: declared as the modpack's supported
           Minecraft version on Modrinth when `gitrinth publish` uploads
           the pack.
+        - Server distribution selection: together with `loader`, the
+          `mc-version` is what gitrinth uses to pick the server binary
+          bundled into the server distribution. Users do not specify the
+          server binary; it is not added manually.
     pattern: ^\d+\.\d+(?:\.\d+)?$
 
   tooling:
@@ -276,21 +288,25 @@ properties:
 
   shaders:
     description: |
-      Shader packs included in the modpack. Same syntax as `mods`; keys
-      are Modrinth project slugs, values are dependencies (short or long
-      form). May be blank.
-    oneOf:
-      - type: "null"
-      - $ref: "#/$defs/modMap"
-
-  plugins:
-    description: |
-      Server plugins included in the modpack. Same syntax as `mods`; keys
-      are Modrinth project slugs (from modrinth.com/plugin/<slug>), values
+      Shader packs included in the modpack. Same syntax as `mods` except
+      that the per-entry `environment` field is not permitted — shaders
+      are always client-only. Keys are Modrinth project slugs; values
       are dependencies (short or long form). May be blank.
     oneOf:
       - type: "null"
-      - $ref: "#/$defs/modMap"
+      - $ref: "#/$defs/forcedEnvModMap"
+
+  plugins:
+    description: |
+      Server plugins included in the modpack. Same syntax as `mods`
+      except that the per-entry `environment` field is not permitted —
+      plugins are always server-only, the analogue of shaders being
+      always client-only. Keys are Modrinth project slugs (from
+      modrinth.com/plugin/<slug>), values are dependencies (short or
+      long form). May be blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/forcedEnvModMap"
 
   overrides:
     description: |
@@ -426,3 +442,85 @@ $defs:
       pattern: ^[a-z0-9][a-z0-9_-]*$
     additionalProperties:
       $ref: "#/$defs/modDependency"
+
+  forcedEnvSource:
+    type: object
+    description: |
+      Long-form dependency for sections whose side is fixed by the
+      section itself — `shaders` (always client-only) and `plugins`
+      (always server-only). Structurally identical to `modSource`
+      except that the `environment` field is not permitted. Declaring
+      `environment` on an entry in these sections is a schema error;
+      the section already decides the side.
+    additionalProperties: false
+    errorMessage:
+      additionalProperties: "`environment` is not allowed here — shaders are always client-only and plugins are always server-only. Remove this field; the section itself decides the side."
+    properties:
+      version:
+        $ref: "#/$defs/modVersion"
+      hosted:
+        type: string
+        format: uri
+        description: Base URL of a Modrinth-compatible server.
+      url:
+        type: string
+        format: uri
+        description: Direct download URL for a .jar file.
+      path:
+        type: string
+        description: Local filesystem path relative to mods.yaml.
+        minLength: 1
+      git:
+        description: |
+          Git source. Either an "owner/repo" shorthand string, a full git
+          URL, or an object with `url` and optionally `ref` and `path`.
+        oneOf:
+          - type: string
+            minLength: 1
+          - type: object
+            additionalProperties: false
+            required: [ url ]
+            properties:
+              url:
+                type: string
+                minLength: 1
+              ref:
+                type: string
+                minLength: 1
+              path:
+                type: string
+                minLength: 1
+    allOf:
+      - not:
+          required: [ hosted, url ]
+      - not:
+          required: [ hosted, path ]
+      - not:
+          required: [ hosted, git ]
+      - not:
+          required: [ url, path ]
+      - not:
+          required: [ url, git ]
+      - not:
+          required: [ path, git ]
+
+  forcedEnvModMap:
+    type: object
+    description: |
+      Map of Modrinth project slug to dependency (short or long form),
+      with the per-entry `environment` field disallowed. Used for
+      sections whose environment is fixed by the section itself:
+      `shaders` (always client-only) and `plugins` (always server-only).
+    propertyNames:
+      pattern: ^[a-z0-9][a-z0-9_-]*$
+    additionalProperties:
+      # Dispatch on value shape so the validator reports a specific
+      # error (e.g. "`environment` is not allowed") rather than the
+      # generic "matches 0 schemas" that oneOf produces when every
+      # branch fails.
+      if:
+        type: object
+      then:
+        $ref: "#/$defs/forcedEnvSource"
+      else:
+        $ref: "#/$defs/modVersion"

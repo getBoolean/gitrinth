@@ -33,8 +33,8 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
 | [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
 | [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
-| [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`.                                                                                                                     |
-| [`plugins`](#plugins)               | no       | Server plugins to ship with the pack. Same syntax as `mods`.                                                                                                                   |
+| [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`. Always client-only — `environment` is rejected.                                                                     |
+| [`plugins`](#plugins)               | no       | Server plugins to ship with the pack. Same syntax as `mods`. Always server-only — `environment` is rejected.                                                                   |
 | [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                   |
 | [`servers`](#servers)               | no       | Default servers embedded in the client's multiplayer menu.                                                                                                                     |
 
@@ -399,7 +399,7 @@ publish_to: https://modrinth.example.com
 
 ### `loader`
 
-**Required.** The mod loader the modpack targets. `loader` has two roles:
+**Required.** The mod loader the modpack targets. `loader` has three roles:
 
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods), [`resource_packs`](#resource_packs),
@@ -413,6 +413,15 @@ publish_to: https://modrinth.example.com
   modpack, `loader` is declared as the modpack's supported loader on
   Modrinth. End users see it on the project page, and launchers use it
   to decide whether the pack is installable.
+- **Server distribution selection.** The server distribution assembled
+  by [`gitrinth build`](cli.md#build) includes the matching server
+  binary — the Forge/Fabric/NeoForge/Sponge installer for the pack's
+  [`mc-version`](#mc-version), or the latest stable Paper/Spigot/Folia
+  build for that `mc-version` (or a vanilla-derived jar for `bukkit`).
+  `gitrinth` resolves the binary automatically from `loader` +
+  [`mc-version`](#mc-version); the modpack does not declare it, and it
+  is not added manually after the build. Pinning the exact build is
+  deferred to a future release.
 
 Supported loaders:
 
@@ -446,7 +455,8 @@ of these loaders:
   [`environment`](#per-mod-environment) value. (Mods do not load on a
   plugin server, so shipping them to the server side would be dead
   weight.)
-- [`plugins`](#plugins) ship to the server distribution, as usual.
+- [`plugins`](#plugins) ship to the server distribution — always, the
+  same as under every other loader.
 - [`resource_packs`](#resource_packs) and [`data_packs`](#data_packs)
   behave the same way they do under `forge`/`fabric`/`neoforge` — data
   packs are world-level content that plugin servers load natively, and
@@ -464,7 +474,7 @@ every entry honours its declared [`environment`](#per-mod-environment).
 example `1.21.1`. Version ranges and wildcards are intentionally
 disallowed — a modpack targets a single Minecraft version so that
 mod-version resolution is deterministic. Like [`loader`](#loader),
-`mc-version` has two roles:
+`mc-version` has three roles:
 
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods), [`resource_packs`](#resource_packs),
@@ -478,6 +488,11 @@ mod-version resolution is deterministic. Like [`loader`](#loader),
   modpack, `mc-version` is declared as the modpack's supported
   Minecraft version on Modrinth. End users see it on the project page,
   and launchers use it to decide whether the pack is installable.
+- **Server distribution selection.** Together with [`loader`](#loader),
+  `mc-version` is what `gitrinth` uses to pick the server binary
+  bundled into the server distribution. The user does not specify the
+  server binary, and it is not added after the build — see the
+  [Server distribution selection](#loader) role on `loader`.
 
 ```yaml
 mc-version: 1.21.1
@@ -516,7 +531,9 @@ tooling:
 and [`overrides`](#overrides) all map a Modrinth project slug to a **mod
 dependency**. Every entry takes one of two forms — a short form (just a
 version constraint) or a long form (a map with a source, a version, and/or
-a per-mod [`environment`](#per-mod-environment)).
+a per-mod [`environment`](#per-mod-environment)). The `environment`
+field is not permitted on entries under [`shaders`](#shaders) or
+[`plugins`](#plugins), whose sides are fixed by the section itself.
 
 **Keys are Modrinth project slugs.** Every key under `mods`,
 `resource_packs`, `data_packs`, `shaders`, `plugins`, and `overrides` is
@@ -691,10 +708,12 @@ Because `environment` is a per-mod property, a mod cannot be simultaneously
 client-only and server-only. To restrict the side, switch the short-form
 entry to long form and add the field.
 
-**Overridden by plugin loaders.** When [`loader`](#loader) is
-`bukkit`, `folia`, `paper`, or `spigot`, `environment` is ignored on
-[`mods`](#mods) entries — they are always packed into the client
-distribution. See [Plugin loaders](#plugin-loaders).
+**Overridden by section.** `environment` is **rejected** on
+[`shaders`](#shaders) (always client-only) and [`plugins`](#plugins)
+(always server-only) — declaring the field on an entry in either
+section is a schema error. It is also ignored on [`mods`](#mods)
+entries when [`loader`](#loader) is `bukkit`, `folia`, `paper`, or
+`spigot` (always client-only — see [Plugin loaders](#plugin-loaders)).
 
 #### Mod-version constraints
 
@@ -783,8 +802,10 @@ data_packs:
 **Optional.** Shader packs to ship with the modpack. Keys are [Modrinth
 project slugs](#mod-dependencies) (from `modrinth.com/shader/<slug>`);
 values use the same [mod dependency](#mod-dependencies) syntax as
-[`mods`](#mods). Shaders are always client-only regardless of any per-mod
-[`environment`](#per-mod-environment).
+[`mods`](#mods), except that the per-entry
+[`environment`](#per-mod-environment) field is not permitted —
+shaders are always client-only. `gitrinth` rejects a `mods.yaml` that
+declares `environment` on a shader entry.
 
 ```yaml
 shaders:
@@ -797,14 +818,16 @@ shaders:
 **Optional.** Server plugins to ship with the modpack. Keys are [Modrinth
 project slugs](#mod-dependencies) (from `modrinth.com/plugin/<slug>`);
 values use the same [mod dependency](#mod-dependencies) syntax as
-[`mods`](#mods).
+[`mods`](#mods), except that the per-entry
+[`environment`](#per-mod-environment) field is not permitted — plugins
+are always server-only, the analogue of [`shaders`](#shaders) being
+always client-only. `gitrinth` rejects a `mods.yaml` that declares
+`environment` on a plugin entry.
 
 ```yaml
 plugins:
   luckperms: ^5.4.0
-  worldedit:
-    version: ^7.3.0
-    environment: server
+  worldedit: ^7.3.0
 ```
 
 ### `overrides`
@@ -880,9 +903,10 @@ When `gitrinth` installs or updates a modpack it:
 6. Partitions the resolved entries into client and server distributions
    using each entry's [`environment`](#per-mod-environment) (default
    `both`; shaders and the [`servers`](#servers) list are always
-   client-only; when [`loader`](#loader) is `bukkit`, `folia`, `paper`,
-   or `spigot`, [`mods`](#mods) entries are additionally forced to
-   client-only — see [Plugin loaders](#plugin-loaders)).
+   client-only; plugins are always server-only; when
+   [`loader`](#loader) is `bukkit`, `folia`, `paper`, or `spigot`,
+   [`mods`](#mods) entries are additionally forced to client-only — see
+   [Plugin loaders](#plugin-loaders)).
 7. Writes the chosen versions to `mods.lock` so subsequent runs are
    reproducible.
 
