@@ -18,23 +18,27 @@ A `mods.yaml` file can contain the following top-level fields. The required
 fields are [`id`](#id), [`name`](#name), [`version`](#version),
 [`description`](#description), and [`environment`](#environment).
 
-| Field                             | Required | Description                                                                                                                                                                    |
-|-----------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`id`](#id)                       | yes      | Machine-readable identifier / Modrinth project slug.                                                                                                                           |
-| [`name`](#name)                   | yes      | Human-readable display name.                                                                                                                                                   |
-| [`version`](#version)             | yes      | The semver version of the modpack.                                                                                                                                             |
-| [`description`](#description)     | yes      | A short, public description.                                                                                                                                                   |
-| [`homepage`](#homepage)           | no       | URL of the modpack's home page.                                                                                                                                                |
-| [`repository`](#repository)       | no       | URL of the source repository.                                                                                                                                                  |
-| [`issue_tracker`](#issue_tracker) | no       | URL of the issue tracker.                                                                                                                                                      |
-| [`documentation`](#documentation) | no       | URL of the modpack's documentation.                                                                                                                                            |
-| [`publish_to`](#publish_to)       | no       | Where the modpack publishes to.                                                                                                                                                |
-| [`gallery`](#gallery)             | no       | Screenshots displayed on Modrinth.                                                                                                                                             |
-| [`categories`](#categories)       | no       | Modrinth categories for the modpack.                                                                                                                                           |
-| [`game`](#game)                   | no       | The game the modpack targets. Currently only `minecraft` is supported.                                                                                                         |
-| [`environment`](#environment)     | yes      | Target loader and Minecraft version.                                                                                                                                           |
-| [`mods`](#mods)                   | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
-| [`mod_overrides`](#mod_overrides) | no       | Overrides that win over any matching entry in `mods`, same syntax as `mods`.                                                                                                   |
+| Field                               | Required | Description                                                                                                                                                                    |
+|-------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`id`](#id)                         | yes      | Machine-readable identifier / Modrinth project slug.                                                                                                                           |
+| [`name`](#name)                     | yes      | Human-readable display name.                                                                                                                                                   |
+| [`version`](#version)               | yes      | The semver version of the modpack.                                                                                                                                             |
+| [`description`](#description)       | yes      | A short, public description.                                                                                                                                                   |
+| [`homepage`](#homepage)             | no       | URL of the modpack's home page.                                                                                                                                                |
+| [`repository`](#repository)         | no       | URL of the source repository.                                                                                                                                                  |
+| [`issue_tracker`](#issue_tracker)   | no       | URL of the issue tracker.                                                                                                                                                      |
+| [`documentation`](#documentation)   | no       | URL of the modpack's documentation.                                                                                                                                            |
+| [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                |
+| [`gallery`](#gallery)               | no       | Screenshots displayed on Modrinth.                                                                                                                                             |
+| [`categories`](#categories)         | no       | Modrinth categories for the modpack.                                                                                                                                           |
+| [`game`](#game)                     | no       | The game the modpack targets. Currently only `minecraft` is supported.                                                                                                         |
+| [`environment`](#environment)       | yes      | Target loader and Minecraft version.                                                                                                                                           |
+| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
+| [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
+| [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
+| [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`.                                                                                                                     |
+| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, or `shaders`.                                                                              |
+| [`servers`](#servers)               | no       | Default servers embedded in the client's multiplayer menu.                                                                                                                     |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
 warning so typos don't silently disable options.
@@ -79,9 +83,22 @@ mods:
     version: ^21.1.1+neoforge-1.21.1
     environment: server
 
-mod_overrides:
+resource_packs:
+  faithful-32x: ^1.21.1
+
+data_packs:
+  terralith: ^2.5.4
+
+shaders:
+  complementary-shaders: ^4.7.2
+
+overrides:
   jei:
     version: 19.27.0.340
+
+servers:
+  - name: Example Server
+    address: play.example.com
 ```
 
 ## Details
@@ -235,11 +252,11 @@ environment:
   gitrinth: ^1.0.0
 ```
 
-| Key          | Required | Description                                                                                                                  |
-|--------------|----------|------------------------------------------------------------------------------------------------------------------------------|
-| `loader`     | yes      | The mod loader. One of `forge`, `fabric`, `neoforge` (also accepted as `neoForge`).                                          |
-| `mc-version` | yes      | The **exact** Minecraft version (for example `1.21.1`). Ranges are not permitted.                                            |
-| `gitrinth`   | no       | A version constraint on the `gitrinth` CLI itself, using semver range syntax (for example `^1.0.0` or `">=1.0.0 <2.0.0"`).   |
+| Key          | Required | Description                                                                                                                |
+|--------------|----------|----------------------------------------------------------------------------------------------------------------------------|
+| `loader`     | yes      | The mod loader. One of `forge`, `fabric`, `neoforge` (also accepted as `neoForge`).                                        |
+| `mc-version` | yes      | The **exact** Minecraft version (for example `1.21.1`). Ranges are not permitted.                                          |
+| `gitrinth`   | no       | A version constraint on the `gitrinth` CLI itself, using semver range syntax (for example `^1.0.0` or `">=1.0.0 <2.0.0"`). |
 
 #### `loader`
 
@@ -275,13 +292,15 @@ itself may span several majors.
 
 ### Mod dependencies
 
-[`mods`](#mods) and [`mod_overrides`](#mod_overrides) both map a mod
-identifier to a **mod dependency**. Every entry takes one of two forms — a
-short form (just a version constraint) or a long form (a map with a source,
-a version, and/or a per-mod [`environment`](#per-mod-environment)).
+[`mods`](#mods), [`resource_packs`](#resource_packs),
+[`data_packs`](#data_packs), [`shaders`](#shaders), and
+[`overrides`](#overrides) all map a Modrinth project slug to a **mod
+dependency**. Every entry takes one of two forms — a short form (just a
+version constraint) or a long form (a map with a source, a version, and/or
+a per-mod [`environment`](#per-mod-environment)).
 
-A mod identifier is the Modrinth project slug (the URL segment at
-`modrinth.com/mod/<slug>`).
+The identifier is the Modrinth project slug (the URL segment at
+`modrinth.com/<project-type>/<slug>`).
 
 #### Short form
 
@@ -461,14 +480,13 @@ mods:
   iris:
 ```
 
-The `+` suffix (`+mc1.21.1`, `+1.21.1-neoforge`) is the mod's Modrinth
-build/loader metadata. When present on a caret constraint, the suffix is
-treated as part of the required identity — only versions with a matching
-suffix are considered.
+Some mods use version strings like `6.0.10+mc1.21.1` or
+`1.8.12+1.21.1-neoforge`. The `+…` is part of the version number —
+copy it exactly as it appears on Modrinth.
 
-Because the exact Minecraft version and loader already live in
-[`environment`](#environment), most mod entries can omit the suffix and
-rely on `gitrinth` to select a compatible build.
+Since the Minecraft version and loader already live in
+[`environment`](#environment), a shorter constraint like `^6.0.10` is
+usually enough; `gitrinth` picks the matching build.
 
 ### `mods`
 
@@ -494,19 +512,62 @@ mods:
     version: ^5.10.0
 ```
 
-### `mod_overrides`
+### `resource_packs`
 
-**Optional.** Overrides for individual mod entries. Uses the exact same
-[mod dependency](#mod-dependencies) syntax as `mods`, and takes precedence
-over any matching entry in [`mods`](#mods).
-
-Use `mod_overrides` to pin a version, flip the
-[`environment`](#per-mod-environment), or redirect a mod to a different
-source without editing the main `mods` list — for example when testing a
-local build or a fork.
+**Optional.** Resource packs to ship with the modpack. Entries use the
+same [mod dependency](#mod-dependencies) syntax as [`mods`](#mods) — keys
+are Modrinth project slugs (from `modrinth.com/resourcepack/<slug>`),
+values are short-form version constraints or long-form maps.
 
 ```yaml
-mod_overrides:
+resource_packs:
+  faithful-32x: ^1.21.1
+  xalis-enchanted-books:
+    version: ^1.3.0
+    environment: client
+```
+
+### `data_packs`
+
+**Optional.** Data packs to ship with the modpack. Entries use the same
+[mod dependency](#mod-dependencies) syntax as [`mods`](#mods) — keys are
+Modrinth project slugs (from `modrinth.com/datapack/<slug>`).
+
+```yaml
+data_packs:
+  terralith: ^2.5.4
+  incendium: ^5.3.4
+```
+
+### `shaders`
+
+**Optional.** Shader packs to ship with the modpack. Entries use the same
+[mod dependency](#mod-dependencies) syntax as [`mods`](#mods) — keys are
+Modrinth project slugs (from `modrinth.com/shader/<slug>`). Shaders are
+always client-only regardless of any per-mod
+[`environment`](#per-mod-environment).
+
+```yaml
+shaders:
+  complementary-shaders: ^4.7.2
+  bsl-shaders:
+```
+
+### `overrides`
+
+**Optional.** Overrides for individual entries in [`mods`](#mods),
+[`resource_packs`](#resource_packs), [`data_packs`](#data_packs), or
+[`shaders`](#shaders). Uses the exact same [mod
+dependency](#mod-dependencies) syntax, and takes precedence over any
+matching entry in those fields.
+
+Use `overrides` to pin a version, flip the
+[`environment`](#per-mod-environment), or redirect an entry to a
+different source without editing the main list — for example when testing
+a local build or a fork.
+
+```yaml
+overrides:
   # Pin a version but keep the default Modrinth source.
   jei:
     version: 19.27.0.340
@@ -521,26 +582,55 @@ mod_overrides:
     version: ^1.8.12
 ```
 
+Because keys are Modrinth project slugs — which are globally unique
+across project types — a single `overrides` entry unambiguously targets
+one entry in `mods`, `resource_packs`, `data_packs`, or `shaders`.
+
+### `servers`
+
+**Optional.** Default servers embedded in the client distribution's
+multiplayer menu. Each entry is an object with a `name` and an `address`.
+
+| Key       | Required | Description                                                             |
+|-----------|----------|-------------------------------------------------------------------------|
+| `name`    | yes      | Display name shown in the multiplayer server list.                      |
+| `address` | yes      | Server address, optionally including a port (`play.example.com:25565`). |
+
+```yaml
+servers:
+  - name: Example Server
+    address: play.example.com
+  - name: Community Realms
+    address: realms.example.com:25566
+```
+
+Servers only appear in the client distribution; they are ignored when
+building the server distribution.
+
 ## Resolution
 
 When `gitrinth` installs or updates a modpack it:
 
 1. Reads `mods.yaml` and validates its structure against the schema.
-2. Applies [`mod_overrides`](#mod_overrides) on top of the matching
-   entries in [`mods`](#mods) to produce the final set of mod
-   dependencies.
-3. For each mod, queries Modrinth (or the override source) for every version
-   whose `loader` and `mc-version` match [`environment`](#environment).
-4. Filters that list with the mod's version constraint.
+2. Applies [`overrides`](#overrides) on top of the matching entries in
+   [`mods`](#mods), [`resource_packs`](#resource_packs),
+   [`data_packs`](#data_packs), and [`shaders`](#shaders) to produce the
+   final set of dependencies.
+3. For each entry, queries Modrinth (or the override source) for every
+   version whose `loader` and `mc-version` match
+   [`environment`](#environment).
+4. Filters that list with the entry's version constraint.
 5. Picks the highest remaining version, preferring versions that are
-   compatible with every *other* mod's declared dependencies.
-6. Partitions the resolved mods into client and server distributions
-   using each mod's [`environment`](#per-mod-environment) (default `both`).
+   compatible with every *other* entry's declared dependencies.
+6. Partitions the resolved entries into client and server distributions
+   using each entry's [`environment`](#per-mod-environment) (default
+   `both`; shaders and the [`servers`](#servers) list are always
+   client-only).
 7. Writes the chosen versions to `mods.lock` so subsequent runs are
    reproducible.
 
-If step 4 yields an empty set for any mod, resolution fails and `gitrinth`
-reports which constraint was unsatisfiable.
+If step 4 yields an empty set for any entry, resolution fails and
+`gitrinth` reports which constraint was unsatisfiable.
 
 ## See also
 

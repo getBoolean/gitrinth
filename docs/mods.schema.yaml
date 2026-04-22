@@ -135,22 +135,71 @@ properties:
 
   mods:
     description: |
-      Mods included in both the client and server distributions. Keys are
-      Modrinth project slugs; values are mod dependencies (short or long
-      form). May be blank — useful for a modpack that is still being
-      assembled.
+      Mods included in the modpack. Keys are Modrinth project slugs;
+      values are dependencies (short or long form). May be blank — useful
+      for a modpack that is still being assembled.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
-  mod_overrides:
+  resource_packs:
     description: |
-      Overrides for individual mods. Uses the exact same value syntax as
-      `mods` and takes precedence over any matching entry in `mods`. May
-      be blank.
+      Resource packs included in the modpack. Same syntax as `mods`; keys
+      are Modrinth project slugs, values are dependencies (short or long
+      form). May be blank.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
+
+  data_packs:
+    description: |
+      Data packs included in the modpack. Same syntax as `mods`; keys are
+      Modrinth project slugs, values are dependencies (short or long form).
+      May be blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
+
+  shaders:
+    description: |
+      Shader packs included in the modpack. Same syntax as `mods`; keys
+      are Modrinth project slugs, values are dependencies (short or long
+      form). May be blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
+
+  overrides:
+    description: |
+      Overrides for individual entries in `mods`, `resource_packs`,
+      `data_packs`, or `shaders`. Uses the exact same value syntax as
+      `mods` and takes precedence over any matching entry in those fields.
+      Keys are Modrinth project slugs. May be blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
+
+  servers:
+    type: [array, "null"]
+    description: |
+      Default servers embedded in the client distribution's server list.
+      Each entry is shown in the multiplayer menu when players launch the
+      modpack.
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - address
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Display name of the server in the multiplayer menu.
+        address:
+          type: string
+          minLength: 1
+          description: Server address, optionally including a port (e.g. "play.example.com:25565").
 
 $defs:
 
