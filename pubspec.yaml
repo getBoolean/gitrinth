@@ -1,7 +1,10 @@
-name: modrinth_git_modpacks
-description: A sample command-line application with basic argument parsing.
-version: 0.0.1
+name: gitrinth
+description: A tool for managing modpacks on modrinth using git.
+version: 1.0.0
 # repository: https://github.com/my_org/my_repo
+
+executables:
+  gitrinth: main
 
 environment:
   sdk: ^3.11.0
