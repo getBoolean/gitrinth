@@ -54,8 +54,7 @@ project:
   license_id: MIT
   license_url:
   donation_urls:
-    - id: example-kofi
-      platform: Ko-fi
+    - platform: ko-fi
       url: https://ko-fi.com/example
   categories:
     - multiplayer
@@ -177,8 +176,7 @@ project:
   license_id: MIT
   license_url:
   donation_urls:
-    - id: example-kofi
-      platform: Ko-fi
+    - platform: ko-fi
       url: https://ko-fi.com/example
   categories:
     - multiplayer
@@ -270,23 +268,34 @@ project:
 #### `donation_urls`
 
 **Optional.** Links to platforms where users can donate to the modpack
-author. Each entry is an object with `id`, `platform`, and `url`, matching
-Modrinth's `donation_urls` shape exactly.
+author. Each entry is an object with a `platform` and a `url`. The
+`gitrinth` CLI expands `platform` into Modrinth's separate `id` and
+display-name pair at publish time, so the list below is exhaustive and
+custom values are rejected.
 
 | Key        | Required | Description                                                             |
 |------------|----------|-------------------------------------------------------------------------|
-| `id`       | yes      | Modrinth donation-platform identifier (for example `ko-fi`, `patreon`). |
-| `platform` | yes      | Human-readable platform name displayed on the project page.             |
+| `platform` | yes      | Modrinth donation-platform identifier. Must be one of the values below. |
 | `url`      | yes      | Donation URL on the platform.                                           |
+
+Supported `platform` values, sourced from Modrinth's
+`GET /tag/donation_platform` endpoint:
+
+| `platform` | Displayed as      |
+|------------|-------------------|
+| `patreon`  | Patreon           |
+| `bmac`     | Buy Me A Coffee   |
+| `paypal`   | PayPal            |
+| `github`   | GitHub Sponsors   |
+| `ko-fi`    | Ko-fi             |
+| `other`    | Other             |
 
 ```yaml
 project:
   donation_urls:
-    - id: example-kofi
-      platform: Ko-fi
+    - platform: ko-fi
       url: https://ko-fi.com/example
-    - id: example-patreon
-      platform: Patreon
+    - platform: patreon
       url: https://patreon.com/example
 ```
 

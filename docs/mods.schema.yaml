@@ -102,18 +102,25 @@ properties:
           type: object
           additionalProperties: false
           required:
-            - id
             - platform
             - url
           properties:
-            id:
-              type: string
-              minLength: 1
-              description: Modrinth donation-platform identifier (e.g. "ko-fi", "patreon").
             platform:
               type: string
-              minLength: 1
-              description: Human-readable platform name displayed on the project page.
+              description: |
+                Modrinth donation-platform identifier — one of the short
+                ids returned by Modrinth's `GET /tag/donation_platform`
+                endpoint. The `gitrinth` CLI expands this id into
+                Modrinth's separate `id` and display-name pair when
+                publishing, so the list is fixed and custom identifiers
+                are rejected.
+              enum:
+                - patreon
+                - bmac
+                - paypal
+                - github
+                - ko-fi
+                - other
             url:
               type: string
               format: uri

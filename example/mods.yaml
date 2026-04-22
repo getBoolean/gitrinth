@@ -17,8 +17,7 @@ project:
   license_id: MIT
   license_url:
   donation_urls:
-    - id: example-kofi
-      platform: Ko-fi
+    - platform: ko-fi
       url: https://ko-fi.com/example
   categories:
     - multiplayer
