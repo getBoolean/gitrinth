@@ -62,11 +62,6 @@ properties:
           existing file, gitrinth reads the file at publish time;
           otherwise the value is treated as literal markdown.
 
-      homepage:
-        type: [string, "null"]
-        format: uri
-        description: URL of the modpack's home page.
-
       source_url:
         type: [string, "null"]
         format: uri
@@ -153,6 +148,7 @@ properties:
           - unsupported
           - unknown
           - null
+        default: required
         description: |
           Client-side compatibility declared for the modpack, shown on
           the Modrinth project page.
@@ -165,6 +161,7 @@ properties:
           - unsupported
           - unknown
           - null
+        default: required
         description: |
           Server-side compatibility declared for the modpack, shown on
           the Modrinth project page.
@@ -182,23 +179,13 @@ properties:
     description: |
       Controls where `gitrinth publish` uploads the modpack. Set to "none"
       to disable publishing, or to a URL to target a custom Modrinth-
-      compatible server. Omit for the default Modrinth instance.
+      compatible server. Omit (or set `null`) to publish to the main
+      Modrinth instance, the default.
     oneOf:
       - type: "null"
       - const: none
       - type: string
         format: uri
-
-  game:
-    description: |
-      The game the modpack targets. Currently only "minecraft" is supported;
-      the field exists so future gitrinth releases can target additional
-      games without a breaking schema change. Defaults to "minecraft" when
-      omitted.
-    type: [string, "null"]
-    enum:
-      - minecraft
-      - null
 
   environment:
     type: object
@@ -302,15 +289,16 @@ $defs:
 
   modVersion:
     description: |
-      A mod-version constraint. Exactly one of:
-        - an exact version (e.g. "19.27.0.340", "6.0.10+mc1.21.1")
+      A mod-version constraint. Either:
         - blank / null, meaning the latest compatible version
-        - a caret constraint (e.g. "^6.0.10+mc1.21.1") for the latest
-          version compatible with the given one
+        - any non-empty version string, optionally prefixed with `^` for a
+          caret constraint (e.g. "19.27.0.340", "^6.0.10+mc1.21.1",
+          "^r5.7.1"). Mod authors use a wide variety of version formats,
+          so the string itself is not pattern-validated here.
     oneOf:
       - type: "null"
       - type: string
-        pattern: ^(?:\^)?\d+\.\d+(?:\.\d+)?(?:\.\d+)?(?:[-+][0-9A-Za-z.+\-]+)?$
+        minLength: 1
 
   modDependency:
     description: |
@@ -339,6 +327,7 @@ $defs:
         description: |
           Which side of the modpack this mod ships with. Defaults to
           "both" when omitted.
+        default: both
         enum:
           - client
           - server

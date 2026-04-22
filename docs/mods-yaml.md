@@ -26,7 +26,6 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`description`](#description)         | yes      | Short, public-facing tagline.                                                                                                                                                  |
 | [`project`](#project)                 | no       | Modrinth project metadata — links, body, license, gallery, categories, client/server compatibility. See below for the full list of sub-fields.                                 |
 | [`publish_to`](#publish_to)           | no       | Where the modpack publishes to.                                                                                                                                                |
-| [`game`](#game)                       | no       | The game the modpack targets. Currently only `minecraft` is supported.                                                                                                         |
 | [`environment`](#environment)         | yes      | Target loader and Minecraft version.                                                                                                                                           |
 | [`mods`](#mods)                       | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
 | [`resource_packs`](#resource_packs)   | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
@@ -48,7 +47,6 @@ description: A short, public-facing summary of the modpack.
 
 project:
   body: ./README.md
-  homepage: https://example.com/modpack
   source_url: https://github.com/example/modpack
   issues_url: https://github.com/example/modpack/issues
   wiki_url: https://example.com/modpack/docs
@@ -71,8 +69,6 @@ project:
     - ./screenshots/base.png
 
 publish_to: none
-
-game: minecraft
 
 environment:
   loader: neoforge
@@ -174,7 +170,6 @@ block may be omitted, set to `null`, or partially filled.
 ```yaml
 project:
   body: ./README.md
-  homepage: https://example.com/modpack
   source_url: https://github.com/example/modpack
   issues_url: https://github.com/example/modpack/issues
   wiki_url: https://example.com/modpack/docs
@@ -210,16 +205,6 @@ with a real file, use a YAML `|` block.
 ```yaml
 project:
   body: ./README.md
-```
-
-#### `homepage`
-
-**Optional.** URL of the modpack's home page. Use this when the modpack has
-a dedicated site; otherwise prefer [`source_url`](#source_url).
-
-```yaml
-project:
-  homepage: https://example.com/modpack
 ```
 
 #### `source_url`
@@ -336,12 +321,14 @@ project:
 **Optional.** Client-side compatibility declared for the modpack, shown
 on the Modrinth project page.
 
-| Value         | Meaning                                                                |
-|---------------|------------------------------------------------------------------------|
-| `required`    | The modpack requires a client install to function (the usual default). |
-| `optional`    | The modpack can be used on the client but doesn't have to be.          |
-| `unsupported` | The modpack cannot be installed on the client.                         |
-| `unknown`     | Compatibility is not declared.                                         |
+| Value         | Meaning                                                       |
+|---------------|---------------------------------------------------------------|
+| `required`    | The modpack requires a client install to function (default).  |
+| `optional`    | The modpack can be used on the client but doesn't have to be. |
+| `unsupported` | The modpack cannot be installed on the client.                |
+| `unknown`     | Compatibility is not declared.                                |
+
+Defaults to `required` when omitted.
 
 ```yaml
 project:
@@ -352,6 +339,7 @@ project:
 
 **Optional.** Server-side compatibility declared for the modpack, shown
 on the Modrinth project page. Same enum as [`client_side`](#client_side).
+Defaults to `required` when omitted.
 
 ```yaml
 project:
@@ -386,17 +374,6 @@ publish_to: none
 
 Setting `publish_to: none` is the recommended guard for private or work-in-
 progress modpacks to prevent an accidental publish.
-
-### `game`
-
-**Optional.** The game the modpack targets. Currently `minecraft` is the only
-supported value, and is also the default when the field is omitted. The field
-exists so that future versions of `gitrinth` can target additional games
-without a breaking schema change.
-
-```yaml
-game: minecraft
-```
 
 ### `environment`
 
@@ -626,7 +603,7 @@ entry to long form and add the field.
 #### Mod-version constraints
 
 A mod-version constraint describes which version of a mod is acceptable.
-Exactly three forms are supported:
+Three forms are supported:
 
 | Form  | Example            | Meaning                                                                                                                                                       |
 |-------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -634,16 +611,18 @@ Exactly three forms are supported:
 | Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with [`environment`](#environment) and every other mod.                                              |
 | Caret | `^6.0.10+mc1.21.1` | Use the latest version that is both compatible with the environment and *compatible with* `6.0.10+mc1.21.1` (same major for `1.x.y`, same minor for `0.x.y`). |
 
+The version string itself is whatever the mod author publishes — copy it
+exactly as it appears on Modrinth. `gitrinth` doesn't constrain the
+format, so entries like `6.0.10+mc1.21.1`, `1.8.12+1.21.1-neoforge`, and
+`r5.7.1` are all valid. A leading `^` turns any of them into a caret
+constraint.
+
 Blank short-form entries must still include the trailing colon:
 
 ```yaml
 mods:
   iris:
 ```
-
-Some mods use version strings like `6.0.10+mc1.21.1` or
-`1.8.12+1.21.1-neoforge`. The `+…` is part of the version number —
-copy it exactly as it appears on Modrinth.
 
 Since the Minecraft version and loader already live in
 [`environment`](#environment), a shorter constraint like `^6.0.10` is

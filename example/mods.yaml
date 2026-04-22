@@ -1,77 +1,71 @@
 # yaml-language-server: $schema=../docs/mods.schema.yaml
-slug: example_modpack # Required. Modrinth project slug for the modpack (modrinth.com/modpack/<slug>).
-name: Example Modpack # Required. Display name shown on Modrinth and in launcher UIs.
-version: 0.1.0 # Required. Semver version of the modpack. Increment with each release.
+slug: example_modpack
+name: Example Modpack
+version: 0.1.0
 description: Required. A short description of the modpack. This will be
   displayed on modrinth and should give users a good idea of what the modpack is
   about. It should be concise and informative, ideally no more than a few
   sentences.
 
 project:
-  # Optional. Modrinth project metadata — every sub-field maps 1:1 to Modrinth's createProject API.
-  body: ./README.md # Optional. Long-form description. Inline markdown or a path (relative to mods.yaml) to a markdown file.
-  homepage: # Optional. URL of the modpack's home page.
-  source_url: # Optional. URL of the source repository.
-  issues_url: # Optional. URL of the issue tracker.
-  wiki_url: # Optional. URL of user-facing documentation.
-  discord_url: # Optional. Discord invite URL.
-  license_id: MIT # Optional. SPDX license identifier (e.g. "MIT", "Apache-2.0").
-  license_url: # Optional. URL to the full license text.
+  # Every sub-field maps 1:1 to Modrinth's createProject API.
+  body: ./README.md
+  source_url:
+  issues_url:
+  wiki_url:
+  discord_url:
+  license_id: MIT
+  license_url:
   donation_urls:
-    # Optional. Donation links shown on the Modrinth project page.
     - id: example-kofi
       platform: Ko-fi
       url: https://ko-fi.com/example
   categories:
-    # Optional. Primary Modrinth categories for the modpack.
     - multiplayer
     - technology
   additional_categories:
-    # Optional. Secondary Modrinth categories — searchable but non-primary.
+    # Searchable but non-primary.
     - magic
-  client_side: required # Optional. Enum: required / optional / unsupported / unknown.
-  server_side: required # Optional. Enum: required / optional / unsupported / unknown.
+  client_side: required # Enum: required, optional, unsupported, unknown. Default: required.
+  server_side: required # Enum: required, optional, unsupported, unknown. Default: required.
   gallery:
-    # Optional. Screenshot paths relative to mods.yaml, used for the Modrinth gallery.
+    # Paths relative to mods.yaml.
     - ./screenshots/screenshot1.png
     - ./screenshots/screenshot2.png
 
-publish_to: none # Optional. Set to "none" to prevent accidentally publishing the package on modrinth.
-
-game: minecraft # Optional. The game the modpack targets. Currently only "minecraft" is supported.
+publish_to: none # Set to "none" to prevent accidental publishing. Default: publish to the main Modrinth instance.
 
 environment:
-  loader: neoforge # Required. The mod loader that the modpack is for. Supported values are "forge", "fabric", and "neoforge".
-  mc-version: 1.21.1 # Required. The exact Minecraft version that the modpack is for.
-  gitrinth: ">=1.0.0 < 2.0.0" # Optional. Specify the versions of the gitrinth library this modpack project is compatible with.
+  loader: neoforge # Enum: forge, fabric, neoforge.
+  mc-version: 1.21.1 # Exact version only — no ranges.
+  gitrinth: ">=1.0.0 < 2.0.0" # Semver range constraint on the gitrinth CLI version.
 
 mods:
-  # Required. Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
+  # Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
   create: ^6.0.10+mc1.21.1
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
   jei: ^19.27.0.340
   iris:
     version: ^1.8.12+1.21.1-neoforge
-    environment: client # Optional. Specify mods that should only be included in the client or server modpack. If omitted, the mod will be included in both. This is only required if the mod on modrinth is mislabeled or if you want a slimmer client/server modpack.
+    environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
   netherportalfix:
     version: ^21.1.1+neoforge-1.21.1
     environment: server
 
 resource_packs:
-  # Optional. Keys are Modrinth project slugs (modrinth.com/resourcepack/<slug>).
+  # Keys are Modrinth project slugs (modrinth.com/resourcepack/<slug>).
   faithful-32x: ^1.21.1-december-2025
 
 data_packs:
-  # Optional. Keys are Modrinth project slugs (modrinth.com/datapack/<slug>).
+  # Keys are Modrinth project slugs (modrinth.com/datapack/<slug>).
   terralith: ^2.5.8
 
 shaders:
-  # Optional. Keys are Modrinth project slugs (modrinth.com/shader/<slug>).
-  complementary-shaders: ^4.7.2
+  # Keys are Modrinth project slugs (modrinth.com/shader/<slug>).
+  complementary-shaders: ^r5.7.1
 
 overrides:
-  # Optional. Overrides for entries in mods, resource_packs, data_packs, or shaders.
   # Caution: If you specify a direct download URL, the modpack will not be able to be published on modrinth.
   jei:
     version: 19.27.0.340
@@ -81,6 +75,6 @@ overrides:
     # git: getBoolean/jei # Optional. Specify a git repository to download a mod from. The repository should contain a mods.toml file in the root directory with the mod's metadata.
 
 servers:
-  # Optional. Servers to be included by default when Minecraft is launched.
+  # Shown in the client's multiplayer server list.
   - name: Example Server
     address: play.example.com
