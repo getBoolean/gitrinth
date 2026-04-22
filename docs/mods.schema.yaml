@@ -177,15 +177,11 @@ properties:
 
   publish_to:
     description: |
-      Controls where `gitrinth publish` uploads the modpack. Set to "none"
-      to disable publishing, or to a URL to target a custom Modrinth-
-      compatible server. Omit (or set `null`) to publish to the main
-      Modrinth instance, the default.
-    oneOf:
-      - type: "null"
-      - const: none
-      - type: string
-        format: uri
+      URL of the Modrinth-compatible server `gitrinth publish` uploads the
+      modpack to. Omit (or set `null`) to publish to modrinth.com, the
+      default.
+    type: [string, "null"]
+    format: uri
 
   environment:
     type: object

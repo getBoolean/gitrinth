@@ -18,21 +18,21 @@ A `mods.yaml` file can contain the following top-level fields. The required
 fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 [`description`](#description), and [`environment`](#environment).
 
-| Field                                 | Required | Description                                                                                                                                                                    |
-|---------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`slug`](#slug)                       | yes      | Modrinth project slug for the modpack.                                                                                                                                         |
-| [`name`](#name)                       | yes      | Human-readable display name.                                                                                                                                                   |
-| [`version`](#version)                 | yes      | The semver version of the modpack.                                                                                                                                             |
-| [`description`](#description)         | yes      | Short, public-facing tagline.                                                                                                                                                  |
-| [`project`](#project)                 | no       | Modrinth project metadata — links, body, license, gallery, categories, client/server compatibility. See below for the full list of sub-fields.                                 |
-| [`publish_to`](#publish_to)           | no       | Where the modpack publishes to.                                                                                                                                                |
-| [`environment`](#environment)         | yes      | Target loader and Minecraft version.                                                                                                                                           |
-| [`mods`](#mods)                       | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
-| [`resource_packs`](#resource_packs)   | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
-| [`data_packs`](#data_packs)           | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
-| [`shaders`](#shaders)                 | no       | Shader packs to ship with the pack. Same syntax as `mods`.                                                                                                                     |
-| [`overrides`](#overrides)             | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, or `shaders`.                                                                              |
-| [`servers`](#servers)                 | no       | Default servers embedded in the client's multiplayer menu.                                                                                                                     |
+| Field                               | Required | Description                                                                                                                                                                    |
+|-------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`slug`](#slug)                     | yes      | Modrinth project slug for the modpack.                                                                                                                                         |
+| [`name`](#name)                     | yes      | Human-readable display name.                                                                                                                                                   |
+| [`version`](#version)               | yes      | The semver version of the modpack.                                                                                                                                             |
+| [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                  |
+| [`project`](#project)               | no       | Modrinth project metadata — links, body, license, gallery, categories, client/server compatibility. See below for the full list of sub-fields.                                 |
+| [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                |
+| [`environment`](#environment)       | yes      | Target loader and Minecraft version.                                                                                                                                           |
+| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
+| [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
+| [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
+| [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`.                                                                                                                     |
+| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, or `shaders`.                                                                              |
+| [`servers`](#servers)               | no       | Default servers embedded in the client's multiplayer menu.                                                                                                                     |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
 warning so typos don't silently disable options.
@@ -68,7 +68,7 @@ project:
     - ./screenshots/overview.png
     - ./screenshots/base.png
 
-publish_to: none
+publish_to: https://modrinth.com
 
 environment:
   loader: neoforge
@@ -338,7 +338,15 @@ project:
 #### `server_side`
 
 **Optional.** Server-side compatibility declared for the modpack, shown
-on the Modrinth project page. Same enum as [`client_side`](#client_side).
+on the Modrinth project page.
+
+| Value         | Meaning                                                       |
+|---------------|---------------------------------------------------------------|
+| `required`    | The modpack requires a server install to function (default).  |
+| `optional`    | The modpack can be used on the server but doesn't have to be. |
+| `unsupported` | The modpack cannot be installed on the server.                |
+| `unknown`     | Compatibility is not declared.                                |
+
 Defaults to `required` when omitted.
 
 ```yaml
@@ -360,20 +368,17 @@ project:
 
 ### `publish_to`
 
-**Optional.** Controls where `gitrinth publish` uploads the modpack.
+**Optional.** URL of the Modrinth-compatible server `gitrinth publish`
+uploads the modpack to.
 
-| Value   | Meaning                                               |
-|---------|-------------------------------------------------------|
-| *unset* | Publish to Modrinth (the default).                    |
-| `none`  | Never publish. `gitrinth publish` will refuse to run. |
-| *URL*   | Publish to a custom Modrinth-compatible server.       |
+| Value   | Meaning                                                        |
+|---------|----------------------------------------------------------------|
+| *unset* | Publish to modrinth.com (the default).                         |
+| *URL*   | Publish to the Modrinth-compatible server at that URL instead. |
 
 ```yaml
-publish_to: none
+publish_to: https://modrinth.example.com
 ```
-
-Setting `publish_to: none` is the recommended guard for private or work-in-
-progress modpacks to prevent an accidental publish.
 
 ### `environment`
 

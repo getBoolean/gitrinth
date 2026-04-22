@@ -33,7 +33,7 @@ project:
     - ./screenshots/screenshot1.png
     - ./screenshots/screenshot2.png
 
-publish_to: none # Set to "none" to prevent accidental publishing. Default: publish to the main Modrinth instance.
+publish_to: none # Default: modrinth.com. Set to a URL to publish to a different Modrinth-compatible server.
 
 environment:
   loader: neoforge # Enum: forge, fabric, neoforge.
