@@ -34,7 +34,8 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
 | [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
 | [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`.                                                                                                                     |
-| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, or `shaders`.                                                                              |
+| [`plugins`](#plugins)               | no       | Server plugins to ship with the pack. Same syntax as `mods`.                                                                                                                   |
+| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                   |
 | [`servers`](#servers)               | no       | Default servers embedded in the client's multiplayer menu.                                                                                                                     |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
@@ -98,6 +99,9 @@ data_packs:
 
 shaders:
   complementary-shaders: ^4.7.2
+
+plugins:
+  luckperms: ^5.4.0
 
 overrides:
   jei:
@@ -399,9 +403,9 @@ publish_to: https://modrinth.example.com
 
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods), [`resource_packs`](#resource_packs),
-  [`data_packs`](#data_packs), [`shaders`](#shaders), and
-  [`overrides`](#overrides), `gitrinth` only considers published
-  versions tagged with this loader. Combined with
+  [`data_packs`](#data_packs), [`shaders`](#shaders),
+  [`plugins`](#plugins), and [`overrides`](#overrides), `gitrinth` only
+  considers published versions tagged with this loader. Combined with
   [`mc-version`](#mc-version), this determines which "latest" version
   satisfies a blank or caret [mod-version
   constraint](#mod-version-constraints).
@@ -417,6 +421,11 @@ Supported loaders:
 - `neoforge` — also accepted as `neoForge` for compatibility with the
   project's brand casing. The lowercase spelling matches Modrinth's
   loader tag and is preferred.
+- `sponge`
+- `bukkit`
+- `folia`
+- `paper`
+- `spigot`
 
 Values are plain YAML strings and do not need to be quoted:
 
@@ -425,6 +434,29 @@ loader: neoforge
 ```
 
 `gitrinth` rejects any value outside the list above.
+
+#### Plugin loaders
+
+`bukkit`, `folia`, `paper`, and `spigot` are plugin-based server
+platforms — they do not run Forge/Fabric-style client mods. Under one
+of these loaders:
+
+- Every entry under [`mods`](#mods) is bundled into the **client-side
+  modpack only**, regardless of any per-mod
+  [`environment`](#per-mod-environment) value. (Mods do not load on a
+  plugin server, so shipping them to the server side would be dead
+  weight.)
+- [`plugins`](#plugins) ship to the server distribution, as usual.
+- [`resource_packs`](#resource_packs) and [`data_packs`](#data_packs)
+  behave the same way they do under `forge`/`fabric`/`neoforge` — data
+  packs are world-level content that plugin servers load natively, and
+  resource packs can still be served to clients. Their per-mod
+  [`environment`](#per-mod-environment) is honoured.
+- [`shaders`](#shaders) remain client-only, the same as under every
+  other loader.
+
+`forge`, `fabric`, `neoforge`, and `sponge` apply no such override:
+every entry honours its declared [`environment`](#per-mod-environment).
 
 ### `mc-version`
 
@@ -436,11 +468,12 @@ mod-version resolution is deterministic. Like [`loader`](#loader),
 
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods), [`resource_packs`](#resource_packs),
-  [`data_packs`](#data_packs), [`shaders`](#shaders), and
-  [`overrides`](#overrides), `gitrinth` only considers published
-  versions tagged with this Minecraft version. Combined with
-  [`loader`](#loader), this is what makes blank and caret [mod-version
-  constraints](#mod-version-constraints) resolve deterministically.
+  [`data_packs`](#data_packs), [`shaders`](#shaders),
+  [`plugins`](#plugins), and [`overrides`](#overrides), `gitrinth` only
+  considers published versions tagged with this Minecraft version.
+  Combined with [`loader`](#loader), this is what makes blank and caret
+  [mod-version constraints](#mod-version-constraints) resolve
+  deterministically.
 - **Published compatibility.** When `gitrinth publish` uploads the
   modpack, `mc-version` is declared as the modpack's supported
   Minecraft version on Modrinth. End users see it on the project page,
@@ -479,18 +512,19 @@ tooling:
 ### Mod dependencies
 
 [`mods`](#mods), [`resource_packs`](#resource_packs),
-[`data_packs`](#data_packs), [`shaders`](#shaders), and
-[`overrides`](#overrides) all map a Modrinth project slug to a **mod
+[`data_packs`](#data_packs), [`shaders`](#shaders), [`plugins`](#plugins),
+and [`overrides`](#overrides) all map a Modrinth project slug to a **mod
 dependency**. Every entry takes one of two forms — a short form (just a
 version constraint) or a long form (a map with a source, a version, and/or
 a per-mod [`environment`](#per-mod-environment)).
 
 **Keys are Modrinth project slugs.** Every key under `mods`,
-`resource_packs`, `data_packs`, `shaders`, and `overrides` is the Modrinth
-project slug — the URL segment at `modrinth.com/<project-type>/<slug>` —
-not Modrinth's internal project `id`. For example, the mod at
-`modrinth.com/mod/jei` uses the key `jei`. Slugs are globally unique
-across project types, so `overrides` entries resolve unambiguously.
+`resource_packs`, `data_packs`, `shaders`, `plugins`, and `overrides` is
+the Modrinth project slug — the URL segment at
+`modrinth.com/<project-type>/<slug>` — not Modrinth's internal project
+`id`. For example, the mod at `modrinth.com/mod/jei` uses the key `jei`.
+Slugs are globally unique across project types, so `overrides` entries
+resolve unambiguously.
 
 #### Short form
 
@@ -562,9 +596,9 @@ targeting a mod), `url`, `path`, and `git` sources produce a modpack
 that is not publishable to Modrinth. `gitrinth publish` will refuse to
 upload it and will name the entries responsible. These sources are
 permitted for [`resource_packs`](#resource_packs),
-[`data_packs`](#data_packs), and [`shaders`](#shaders) without affecting
-publishability — the Publishable? column above applies only when the
-entry is a mod.
+[`data_packs`](#data_packs), [`shaders`](#shaders), and
+[`plugins`](#plugins) without affecting publishability — the
+Publishable? column above applies only when the entry is a mod.
 
 #### Git sources
 
@@ -656,6 +690,11 @@ mods:
 Because `environment` is a per-mod property, a mod cannot be simultaneously
 client-only and server-only. To restrict the side, switch the short-form
 entry to long form and add the field.
+
+**Overridden by plugin loaders.** When [`loader`](#loader) is
+`bukkit`, `folia`, `paper`, or `spigot`, `environment` is ignored on
+[`mods`](#mods) entries — they are always packed into the client
+distribution. See [Plugin loaders](#plugin-loaders).
 
 #### Mod-version constraints
 
@@ -753,12 +792,27 @@ shaders:
   bsl-shaders:
 ```
 
+### `plugins`
+
+**Optional.** Server plugins to ship with the modpack. Keys are [Modrinth
+project slugs](#mod-dependencies) (from `modrinth.com/plugin/<slug>`);
+values use the same [mod dependency](#mod-dependencies) syntax as
+[`mods`](#mods).
+
+```yaml
+plugins:
+  luckperms: ^5.4.0
+  worldedit:
+    version: ^7.3.0
+    environment: server
+```
+
 ### `overrides`
 
 **Optional.** Overrides for individual entries in [`mods`](#mods),
-[`resource_packs`](#resource_packs), [`data_packs`](#data_packs), or
-[`shaders`](#shaders). Keys are [Modrinth project
-slugs](#mod-dependencies); values use the same [mod
+[`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
+[`shaders`](#shaders), or [`plugins`](#plugins). Keys are [Modrinth
+project slugs](#mod-dependencies); values use the same [mod
 dependency](#mod-dependencies) syntax and take precedence over any
 matching entry in those fields.
 
@@ -785,7 +839,7 @@ overrides:
 
 Because keys are globally unique across Modrinth project types, a single
 `overrides` entry unambiguously targets one entry in `mods`,
-`resource_packs`, `data_packs`, or `shaders`.
+`resource_packs`, `data_packs`, `shaders`, or `plugins`.
 
 ### `servers`
 
@@ -815,8 +869,8 @@ When `gitrinth` installs or updates a modpack it:
 1. Reads `mods.yaml` and validates its structure against the schema.
 2. Applies [`overrides`](#overrides) on top of the matching entries in
    [`mods`](#mods), [`resource_packs`](#resource_packs),
-   [`data_packs`](#data_packs), and [`shaders`](#shaders) to produce the
-   final set of dependencies.
+   [`data_packs`](#data_packs), [`shaders`](#shaders), and
+   [`plugins`](#plugins) to produce the final set of dependencies.
 3. For each entry, queries Modrinth (or the override source) for every
    version whose `loader` and `mc-version` match the modpack's
    [`loader`](#loader) and [`mc-version`](#mc-version).
@@ -826,7 +880,9 @@ When `gitrinth` installs or updates a modpack it:
 6. Partitions the resolved entries into client and server distributions
    using each entry's [`environment`](#per-mod-environment) (default
    `both`; shaders and the [`servers`](#servers) list are always
-   client-only).
+   client-only; when [`loader`](#loader) is `bukkit`, `folia`, `paper`,
+   or `spigot`, [`mods`](#mods) entries are additionally forced to
+   client-only — see [Plugin loaders](#plugin-loaders)).
 7. Writes the chosen versions to `mods.lock` so subsequent runs are
    reproducible.
 

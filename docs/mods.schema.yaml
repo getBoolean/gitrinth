@@ -196,15 +196,30 @@ properties:
     description: |
       The mod loader the modpack targets. Two roles:
         - Version resolution: gitrinth only considers published mod,
-          resource-pack, data-pack, and shader versions tagged with this
-          loader when picking the latest compatible version.
+          resource-pack, data-pack, shader, and plugin versions tagged
+          with this loader when picking the latest compatible version.
         - Published compatibility: declared as the modpack's supported
           loader on Modrinth when `gitrinth publish` uploads the pack.
       Values are plain YAML strings and do not need to be quoted.
+
+      When `loader` is `bukkit`, `folia`, `paper`, or `spigot` (the
+      "plugin loaders"), every entry under `mods` is bundled into the
+      client-side modpack only, regardless of its declared `environment`
+      — those loaders do not run Forge/Fabric-style mods server-side.
+      `resource_packs` and `data_packs` remain compatible with plugin
+      loaders and honour their declared `environment`. `plugins` ship to
+      the server distribution. `shaders` are always client-only under
+      every loader. `sponge` behaves like `forge`, `fabric`, and
+      `neoforge` with no override.
     enum:
       - forge
       - fabric
       - neoforge
+      - bukkit
+      - folia
+      - paper
+      - spigot
+      - sponge
 
   mc-version:
     type: string
@@ -268,12 +283,21 @@ properties:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
+  plugins:
+    description: |
+      Server plugins included in the modpack. Same syntax as `mods`; keys
+      are Modrinth project slugs (from modrinth.com/plugin/<slug>), values
+      are dependencies (short or long form). May be blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
+
   overrides:
     description: |
       Overrides for individual entries in `mods`, `resource_packs`,
-      `data_packs`, or `shaders`. Uses the exact same value syntax as
-      `mods` and takes precedence over any matching entry in those fields.
-      Keys are Modrinth project slugs. May be blank.
+      `data_packs`, `shaders`, or `plugins`. Uses the exact same value
+      syntax as `mods` and takes precedence over any matching entry in
+      those fields. Keys are Modrinth project slugs. May be blank.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
