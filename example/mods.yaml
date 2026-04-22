@@ -75,5 +75,10 @@ overrides:
 
 servers:
   # Shown in the client's multiplayer server list.
-  - name: Example Server
+  example_server:
+    name: Example Server
     address: play.example.com
+  complex-cobblemon:
+  example_server_2:
+    name: Example Server 2
+    hosted: https://some-modrinth-server.com

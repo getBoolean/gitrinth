@@ -241,23 +241,15 @@ properties:
       - $ref: "#/$defs/modMap"
 
   servers:
-    type: [array, "null"]
-    description: Default servers in the client's multiplayer menu.
-    items:
-      type: object
-      additionalProperties: false
-      required:
-        - name
-        - address
-      properties:
-        name:
-          type: string
-          minLength: 1
-          description: Display name in the multiplayer menu.
-        address:
-          type: string
-          minLength: 1
-          description: Server address, optional port (e.g. "play.example.com:25565").
+    description: |
+      Default servers in the client's multiplayer menu, keyed by Modrinth
+      server slug. A blank value looks the slug up on the default Modrinth
+      instance. Long-form entries may override the display `name`, pin an
+      explicit `address`, or redirect the lookup to a Modrinth-compatible
+      server via `hosted`.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/serverMap"
 
 $defs:
 
@@ -427,3 +419,46 @@ $defs:
         $ref: "#/$defs/forcedEnvSource"
       else:
         $ref: "#/$defs/modVersion"
+
+  serverMap:
+    type: object
+    description: Map of Modrinth server slug to server entry.
+    propertyNames:
+      pattern: ^[a-z0-9][a-z0-9_-]*$
+    additionalProperties:
+      $ref: "#/$defs/serverEntry"
+
+  serverEntry:
+    description: |
+      Server entry. Blank — the slug is looked up on the default Modrinth
+      instance and its `name` and `address` are used as-is. Long form —
+      a map overriding the display `name`, pinning an explicit `address`,
+      or redirecting the lookup to a Modrinth-compatible server via
+      `hosted`. `address` and `hosted` are mutually exclusive; `name` is
+      an independent override.
+    oneOf:
+      - type: "null"
+      - type: object
+        additionalProperties: false
+        properties:
+          name:
+            type: string
+            minLength: 1
+            description: |
+              Display name override shown in the multiplayer menu. Without
+              this, the name from Modrinth is used.
+          address:
+            type: string
+            minLength: 1
+            description: |
+              Server address, optional port (e.g. "play.example.com:25565").
+              When omitted, fetched from the Modrinth API using the key.
+          hosted:
+            type: string
+            format: uri
+            description: |
+              Base URL of a Modrinth-compatible server to look up the slug
+              on. The `hosted:` analogue on `mods`.
+        allOf:
+          - not:
+              required: [ address, hosted ]

@@ -108,7 +108,8 @@ overrides:
     version: 19.27.0.340
 
 servers:
-  - name: Example Server
+  example_server:
+    name: Example Server
     address: play.example.com
 ```
 
@@ -867,19 +868,32 @@ Because keys are globally unique across Modrinth project types, a single
 ### `servers`
 
 **Optional.** Default servers embedded in the client distribution's
-multiplayer menu. Each entry is an object with a `name` and an `address`.
+multiplayer menu. Keys are Modrinth server slugs (from
+`modrinth.com/server/<slug>`).
 
-| Key       | Required | Description                                                             |
-|-----------|----------|-------------------------------------------------------------------------|
-| `name`    | yes      | Display name shown in the multiplayer server list.                      |
-| `address` | yes      | Server address, optionally including a port (`play.example.com:25565`). |
+A blank value looks the slug up on the default Modrinth instance and
+uses the returned name and address as-is. A map value may override any
+of:
+
+| Key       | Required | Description                                                                                                              |
+|-----------|----------|--------------------------------------------------------------------------------------------------------------------------|
+| `name`    | no       | Display name override. Without this, the name returned by Modrinth is used.                                              |
+| `address` | no       | Server address, optionally with a port (`play.example.com:25565`). When omitted, fetched from Modrinth using the key.    |
+| `hosted`  | no       | Base URL of a Modrinth-compatible server to look up the slug on. The [`hosted:`](#long-form) analogue on [`mods`](#mods).|
+
+`address` and `hosted` are mutually exclusive — once `address` is
+given, the Modrinth lookup is bypassed. `name` is independent and may
+appear alongside either.
 
 ```yaml
 servers:
-  - name: Example Server
+  example_server:
+    name: Example Server
     address: play.example.com
-  - name: Community Realms
-    address: realms.example.com:25566
+  complex-cobblemon:            # Blank → fetch name + address from Modrinth.
+  example_server_2:
+    name: Example Server 2
+    hosted: https://modrinth.example.com
 ```
 
 Servers only appear in the client distribution; they are ignored when
