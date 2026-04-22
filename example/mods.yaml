@@ -42,6 +42,7 @@ environment:
 
 mods:
   # Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
+  # Caution: `url`, `path`, and `git` sources make the modpack unpublishable on modrinth.
   create: ^6.0.10+mc1.21.1
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
@@ -66,7 +67,6 @@ shaders:
   complementary-shaders: ^r5.7.1
 
 overrides:
-  # Caution: If you specify a direct download URL, the modpack will not be able to be published on modrinth.
   jei:
     version: 19.27.0.340
     # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.

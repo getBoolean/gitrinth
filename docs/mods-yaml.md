@@ -505,9 +505,14 @@ constraint or an `environment` in the long form.
 | `path`   | no           | Local filesystem path relative to `mods.yaml`.       |
 | `git`    | no           | See [Git sources](#git-sources).                     |
 
-**Caution.** `url`, `path`, and `git` sources produce a modpack that is
-not publishable to Modrinth. `gitrinth publish` will refuse to upload it
-and will name the entries responsible.
+**Caution.** For [`mods`](#mods) entries (and [`overrides`](#overrides)
+targeting a mod), `url`, `path`, and `git` sources produce a modpack
+that is not publishable to Modrinth. `gitrinth publish` will refuse to
+upload it and will name the entries responsible. These sources are
+permitted for [`resource_packs`](#resource_packs),
+[`data_packs`](#data_packs), and [`shaders`](#shaders) without affecting
+publishability — the Publishable? column above applies only when the
+entry is a mod.
 
 #### Git sources
 
