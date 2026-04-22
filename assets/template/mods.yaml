@@ -1,0 +1,22 @@
+slug: {{slug}}
+name: {{name}}
+version: {{version}}
+description: {{description}}
+
+loader: {{loader}}
+mc-version: {{mc-version}}
+
+tooling:
+  gitrinth: ">={{gitrinth-version}} <{{gitrinth-next-major}}"
+
+mods:
+
+resource_packs:
+
+data_packs:
+
+shaders:
+
+plugins:
+
+servers:
