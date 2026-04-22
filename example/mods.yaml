@@ -1,0 +1,48 @@
+name: Example Modpack
+description: Required. A short description of the modpack. This will be
+  displayed on modrinth and should give users a good idea of what the modpack is
+  about. It should be concise and informative, ideally no more than a few
+  sentences.
+version: 0.1.0 # Required. The version of the modpack. This should follow semantic versioning (e.g. 1.0.0, 2.1.3, etc.) and should be incremented with each release of the modpack.
+homepage: # Optional. URL pointing to the package's homepage (or source code repository).
+repository: # Optional. URL pointing to the package's source code repository.
+issue_tracker: # Optional. URL pointing to an issue tracker for the package.
+documentation: # Optional. URL pointing to documentation for the package.
+publish_to: none # Optional. Set to "none" to prevent accidentally publishing the package on modrinth.
+gallery:
+  # Optional. Specify a list of screenshot files to display on the modpack's modrinth page. These should be local paths to image files (e.g. ./screenshots/screenshot1.png).
+  - ./screenshots/screenshot1.png
+  - ./screenshots/screenshot2.png
+categories:
+  # Optional. Specify a list of categories for the modpack. These should be valid modrinth categories.
+  - multiplayer
+  - technology
+
+environment:
+  loader: neoforge # Required. The mod loader that the modpack is for. Supported values are "forge", "fabric", and "neoForge".
+  mc-version: 1.21.1 # Required. The exact Minecraft version that the modpack is for.
+  gitrinth: ">=1.0.0 < 2.0.0" # Optional. Specify the versions of the gitrinth library this modpack project is compatible with.
+
+mods:
+  # Required. These mods will be included in both server and client modpacks.
+  create: ^6.0.10+mc1.21.1
+  create-aeronautics: ^1.1.0+mc1.21.1
+  sable: ^1.1.1+mc1.21.1
+  jei: ^19.27.0.340
+  iris: ^1.8.12+1.21.1-neoforge
+
+mod_overrides:
+  # Optional. Override a mod's version on modrinth or specify a direct download URL for a mod.
+  # Caution: If you specify a direct download URL, the modpack will not be able to be published on modrinth.
+  jei:
+    version: 19.27.0.340
+    # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.
+    # url: https://example.com/path/to/jei.jar
+    # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.
+    # git: getBoolean/jei # Optional. Specify a git repository to download a mod from. The repository should contain a mods.toml file in the root directory with the mod's metadata.
+
+client_mods:
+  # Optional. Specify mods that should only be included in the client modpack
+  iris:
+
+server_mods: # Optional. Specify mods that should only be included in the server modpack

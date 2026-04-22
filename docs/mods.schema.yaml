@@ -1,0 +1,199 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://gitrinth.dev/schemas/mods.schema.yaml
+title: mods.yaml
+description: |
+  Schema for a gitrinth modpack manifest. Modelled on the Dart pubspec.yaml
+  specification (https://dart.dev/tools/pub/pubspec) and tailored for
+  Modrinth-hosted Minecraft mods.
+
+type: object
+additionalProperties: false
+required:
+  - name
+  - version
+  - description
+  - environment
+  - mods
+
+properties:
+
+  name:
+    type: string
+    description: |
+      Identifier of the modpack. Lowercase ASCII letters, digits, and
+      underscores; must start with a letter.
+    pattern: ^[a-z][a-z0-9_]*$
+
+  version:
+    type: string
+    description: |
+      Semantic version of the modpack itself, e.g. "1.0.0", "0.4.0-beta.1".
+    pattern: ^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)*$
+
+  description:
+    type: string
+    description: Short, public-facing summary shown on Modrinth.
+    minLength: 1
+
+  homepage:
+    type: string
+    format: uri
+    description: URL of the modpack's home page.
+
+  repository:
+    type: string
+    format: uri
+    description: URL of the modpack's source repository.
+
+  issue_tracker:
+    type: string
+    format: uri
+    description: URL of the modpack's issue tracker.
+
+  documentation:
+    type: string
+    format: uri
+    description: URL of the modpack's user-facing documentation.
+
+  publish_to:
+    description: |
+      Controls where `gitrinth publish` uploads the modpack. Set to "none"
+      to disable publishing, or to a URL to target a custom Modrinth-
+      compatible server. Omit for the default Modrinth instance.
+    oneOf:
+      - const: none
+      - type: string
+        format: uri
+
+  gallery:
+    type: array
+    description: |
+      List of screenshot paths relative to mods.yaml. Used to populate the
+      Modrinth gallery when publishing.
+    items:
+      type: string
+      minLength: 1
+
+  categories:
+    type: array
+    description: |
+      List of Modrinth modpack categories. Values must match Modrinth's
+      catalogue of modpack tags.
+    items:
+      type: string
+      minLength: 1
+    uniqueItems: true
+
+  environment:
+    type: object
+    description: Target Minecraft environment for the modpack.
+    additionalProperties: false
+    required:
+      - loader
+      - mc-version
+    properties:
+      loader:
+        description: The mod loader the modpack targets.
+        enum:
+          - forge
+          - fabric
+          - neoForge
+      mc-version:
+        type: string
+        description: |
+          Exact Minecraft version, e.g. "1.21.1". Ranges and wildcards are
+          not permitted.
+        pattern: ^\d+\.\d+(?:\.\d+)?$
+      gitrinth:
+        type: string
+        description: |
+          Version constraint on the gitrinth CLI, using Dart pub-style
+          ranges (e.g. "^1.0.0" or ">=1.0.0 <2.0.0").
+        minLength: 1
+
+  mods:
+    description: |
+      Mods included in both the client and server distributions. Keys are
+      Modrinth project slugs; values are mod-version constraints.
+    $ref: '#/$defs/modMap'
+
+  mod_overrides:
+    type: object
+    description: |
+      Per-mod overrides that take precedence over entries in `mods`,
+      `client_mods`, and `server_mods`. Use to pin a version or to fetch
+      a mod from a source other than the default Modrinth instance.
+    additionalProperties:
+      $ref: '#/$defs/modOverride'
+
+  client_mods:
+    description: Mods only included when building the client distribution.
+    $ref: '#/$defs/modMap'
+
+  server_mods:
+    description: Mods only included when building the server distribution.
+    $ref: '#/$defs/modMap'
+
+$defs:
+
+  modVersion:
+    description: |
+      A mod-version constraint. Exactly one of:
+        - an exact version (e.g. "19.27.0.340", "6.0.10+mc1.21.1")
+        - blank / null, meaning the latest compatible version
+        - a caret constraint (e.g. "^6.0.10+mc1.21.1") for the latest
+          version compatible with the given one
+    oneOf:
+      - type: 'null'
+      - type: string
+        pattern: ^(?:\^)?\d+\.\d+(?:\.\d+)?(?:\.\d+)?(?:[-+][0-9A-Za-z.+\-]+)?$
+
+  modMap:
+    type: object
+    description: Map of Modrinth project slug to mod-version constraint.
+    propertyNames:
+      pattern: ^[a-z0-9][a-z0-9_-]*$
+    additionalProperties:
+      $ref: '#/$defs/modVersion'
+
+  modOverride:
+    type: object
+    description: |
+      Override for a single mod. Specify at most one source field (`hosted`,
+      `url`, `path`, or `git`). `url`, `path`, and `git` sources make the
+      modpack non-publishable to Modrinth.
+    additionalProperties: false
+    properties:
+      version:
+        $ref: '#/$defs/modVersion'
+      hosted:
+        type: string
+        format: uri
+        description: Base URL of a Modrinth-compatible server.
+      url:
+        type: string
+        format: uri
+        description: Direct download URL for a mod .jar file.
+      path:
+        type: string
+        description: Local filesystem path relative to mods.yaml.
+        minLength: 1
+      git:
+        type: string
+        description: |
+          "owner/repo" reference. The repository must contain a mods.toml
+          at its root describing the mod.
+        pattern: ^[^/\s]+/[^/\s]+$
+    allOf:
+      - not:
+          required: [hosted, url]
+      - not:
+          required: [hosted, path]
+      - not:
+          required: [hosted, git]
+      - not:
+          required: [url, path]
+      - not:
+          required: [url, git]
+      - not:
+          required: [path, git]
