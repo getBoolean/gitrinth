@@ -395,7 +395,20 @@ publish_to: https://modrinth.example.com
 
 ### `loader`
 
-**Required.** The mod loader the modpack targets.
+**Required.** The mod loader the modpack targets. `loader` has two roles:
+
+- **Version resolution.** When picking the version of each entry in
+  [`mods`](#mods), [`resource_packs`](#resource_packs),
+  [`data_packs`](#data_packs), [`shaders`](#shaders), and
+  [`overrides`](#overrides), `gitrinth` only considers published
+  versions tagged with this loader. Combined with
+  [`mc-version`](#mc-version), this determines which "latest" version
+  satisfies a blank or caret [mod-version
+  constraint](#mod-version-constraints).
+- **Published compatibility.** When `gitrinth publish` uploads the
+  modpack, `loader` is declared as the modpack's supported loader on
+  Modrinth. End users see it on the project page, and launchers use it
+  to decide whether the pack is installable.
 
 Supported loaders:
 
@@ -418,7 +431,20 @@ loader: neoforge
 **Required.** The exact Minecraft release the modpack targets, for
 example `1.21.1`. Version ranges and wildcards are intentionally
 disallowed — a modpack targets a single Minecraft version so that
-mod-version resolution is deterministic.
+mod-version resolution is deterministic. Like [`loader`](#loader),
+`mc-version` has two roles:
+
+- **Version resolution.** When picking the version of each entry in
+  [`mods`](#mods), [`resource_packs`](#resource_packs),
+  [`data_packs`](#data_packs), [`shaders`](#shaders), and
+  [`overrides`](#overrides), `gitrinth` only considers published
+  versions tagged with this Minecraft version. Combined with
+  [`loader`](#loader), this is what makes blank and caret [mod-version
+  constraints](#mod-version-constraints) resolve deterministically.
+- **Published compatibility.** When `gitrinth publish` uploads the
+  modpack, `mc-version` is declared as the modpack's supported
+  Minecraft version on Modrinth. End users see it on the project page,
+  and launchers use it to decide whether the pack is installable.
 
 ```yaml
 mc-version: 1.21.1

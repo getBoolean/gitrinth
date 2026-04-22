@@ -194,8 +194,13 @@ properties:
   loader:
     type: string
     description: |
-      The mod loader the modpack targets. Values are plain YAML
-      strings and do not need to be quoted.
+      The mod loader the modpack targets. Two roles:
+        - Version resolution: gitrinth only considers published mod,
+          resource-pack, data-pack, and shader versions tagged with this
+          loader when picking the latest compatible version.
+        - Published compatibility: declared as the modpack's supported
+          loader on Modrinth when `gitrinth publish` uploads the pack.
+      Values are plain YAML strings and do not need to be quoted.
     enum:
       - forge
       - fabric
@@ -205,7 +210,13 @@ properties:
     type: string
     description: |
       Exact Minecraft version, e.g. "1.21.1". Ranges and wildcards are
-      not permitted.
+      not permitted. Two roles:
+        - Version resolution: gitrinth only considers published mod,
+          resource-pack, data-pack, and shader versions tagged with this
+          Minecraft version when picking the latest compatible version.
+        - Published compatibility: declared as the modpack's supported
+          Minecraft version on Modrinth when `gitrinth publish` uploads
+          the pack.
     pattern: ^\d+\.\d+(?:\.\d+)?$
 
   tooling:
