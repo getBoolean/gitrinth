@@ -1,4 +1,6 @@
+# yaml-language-server: $schema=../docs/mods.schema.yaml
 name: Example Modpack
+id: example_modpack
 description: Required. A short description of the modpack. This will be
   displayed on modrinth and should give users a good idea of what the modpack is
   about. It should be concise and informative, ideally no more than a few
@@ -19,7 +21,7 @@ categories:
   - technology
 
 environment:
-  loader: neoforge # Required. The mod loader that the modpack is for. Supported values are "forge", "fabric", and "neoForge".
+  loader: neoforge # Required. The mod loader that the modpack is for. Supported values are "forge", "fabric", and "neoforge".
   mc-version: 1.21.1 # Required. The exact Minecraft version that the modpack is for.
   gitrinth: ">=1.0.0 < 2.0.0" # Optional. Specify the versions of the gitrinth library this modpack project is compatible with.
 

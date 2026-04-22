@@ -9,20 +9,28 @@ description: |
 type: object
 additionalProperties: false
 required:
+  - id
   - name
   - version
   - description
   - environment
-  - mods
 
 properties:
+
+  id:
+    type: string
+    description: |
+      Machine-readable identifier of the modpack, used as the Modrinth
+      project slug and in generated artifact filenames. Lowercase ASCII
+      letters, digits, and underscores; must start with a letter.
+    pattern: ^[a-z][a-z0-9_]*$
 
   name:
     type: string
     description: |
-      Identifier of the modpack. Lowercase ASCII letters, digits, and
-      underscores; must start with a letter.
-    pattern: ^[a-z][a-z0-9_]*$
+      Human-readable display name of the modpack, shown on the Modrinth
+      project page. Any non-empty string.
+    minLength: 1
 
   version:
     type: string
@@ -36,22 +44,22 @@ properties:
     minLength: 1
 
   homepage:
-    type: string
+    type: [string, "null"]
     format: uri
     description: URL of the modpack's home page.
 
   repository:
-    type: string
+    type: [string, "null"]
     format: uri
     description: URL of the modpack's source repository.
 
   issue_tracker:
-    type: string
+    type: [string, "null"]
     format: uri
     description: URL of the modpack's issue tracker.
 
   documentation:
-    type: string
+    type: [string, "null"]
     format: uri
     description: URL of the modpack's user-facing documentation.
 
@@ -61,12 +69,13 @@ properties:
       to disable publishing, or to a URL to target a custom Modrinth-
       compatible server. Omit for the default Modrinth instance.
     oneOf:
+      - type: "null"
       - const: none
       - type: string
         format: uri
 
   gallery:
-    type: array
+    type: [array, "null"]
     description: |
       List of screenshot paths relative to mods.yaml. Used to populate the
       Modrinth gallery when publishing.
@@ -75,7 +84,7 @@ properties:
       minLength: 1
 
   categories:
-    type: array
+    type: [array, "null"]
     description: |
       List of Modrinth modpack categories. Values must match Modrinth's
       catalogue of modpack tags.
@@ -93,11 +102,14 @@ properties:
       - mc-version
     properties:
       loader:
-        description: The mod loader the modpack targets.
+        type: string
+        description: |
+          The mod loader the modpack targets. Values
+          are plain YAML strings and do not need to be quoted.
         enum:
           - forge
           - fabric
-          - neoForge
+          - neoforge
       mc-version:
         type: string
         description: |
@@ -105,34 +117,47 @@ properties:
           not permitted.
         pattern: ^\d+\.\d+(?:\.\d+)?$
       gitrinth:
-        type: string
+        type: [string, "null"]
         description: |
           Version constraint on the gitrinth CLI, using Dart pub-style
-          ranges (e.g. "^1.0.0" or ">=1.0.0 <2.0.0").
+          ranges (e.g. "^1.0.0" or ">=1.0.0 <2.0.0"). May be blank.
         minLength: 1
 
   mods:
     description: |
       Mods included in both the client and server distributions. Keys are
-      Modrinth project slugs; values are mod-version constraints.
-    $ref: '#/$defs/modMap'
+      Modrinth project slugs; values are mod dependencies (short or long
+      form). May be blank — useful for a modpack that is still being
+      assembled.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
 
   mod_overrides:
-    type: object
     description: |
-      Per-mod overrides that take precedence over entries in `mods`,
-      `client_mods`, and `server_mods`. Use to pin a version or to fetch
-      a mod from a source other than the default Modrinth instance.
-    additionalProperties:
-      $ref: '#/$defs/modOverride'
+      Overrides for individual mods. Uses the exact same value syntax as
+      `mods` and takes precedence over any matching entry in `mods`,
+      `client_mods`, or `server_mods`. Analogous to Dart pub's
+      `dependency_overrides`. May be blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
 
   client_mods:
-    description: Mods only included when building the client distribution.
-    $ref: '#/$defs/modMap'
+    description: |
+      Mods only included when building the client distribution. May be
+      blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
 
   server_mods:
-    description: Mods only included when building the server distribution.
-    $ref: '#/$defs/modMap'
+    description: |
+      Mods only included when building the server distribution. May be
+      blank.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/modMap"
 
 $defs:
 
@@ -144,28 +169,34 @@ $defs:
         - a caret constraint (e.g. "^6.0.10+mc1.21.1") for the latest
           version compatible with the given one
     oneOf:
-      - type: 'null'
+      - type: "null"
       - type: string
         pattern: ^(?:\^)?\d+\.\d+(?:\.\d+)?(?:\.\d+)?(?:[-+][0-9A-Za-z.+\-]+)?$
 
-  modMap:
-    type: object
-    description: Map of Modrinth project slug to mod-version constraint.
-    propertyNames:
-      pattern: ^[a-z0-9][a-z0-9_-]*$
-    additionalProperties:
-      $ref: '#/$defs/modVersion'
+  modDependency:
+    description: |
+      A single mod dependency. Modelled on Dart pub's dependencies
+      (https://dart.dev/tools/pub/dependencies). Either:
+        - Short form: a mod-version constraint (string or null), fetched
+          from the default Modrinth instance.
+        - Long form: an object specifying at most one source (`hosted`,
+          `url`, `path`, or `git`) and, optionally, a `version`
+          constraint. Omitting all source fields is equivalent to the
+          default Modrinth source.
+    oneOf:
+      - $ref: "#/$defs/modVersion"
+      - $ref: "#/$defs/modSource"
 
-  modOverride:
+  modSource:
     type: object
     description: |
-      Override for a single mod. Specify at most one source field (`hosted`,
-      `url`, `path`, or `git`). `url`, `path`, and `git` sources make the
-      modpack non-publishable to Modrinth.
+      Long-form mod dependency. Specify at most one of `hosted`, `url`,
+      `path`, or `git`. `url`, `path`, and `git` sources make the modpack
+      non-publishable to Modrinth.
     additionalProperties: false
     properties:
       version:
-        $ref: '#/$defs/modVersion'
+        $ref: "#/$defs/modVersion"
       hosted:
         type: string
         format: uri
@@ -179,21 +210,45 @@ $defs:
         description: Local filesystem path relative to mods.yaml.
         minLength: 1
       git:
-        type: string
         description: |
-          "owner/repo" reference. The repository must contain a mods.toml
-          at its root describing the mod.
-        pattern: ^[^/\s]+/[^/\s]+$
+          Git source. Either an "owner/repo" shorthand string, a full git
+          URL, or an object with `url` and optionally `ref` and `path`.
+          The resolved tree must contain a mods.toml describing the mod.
+        oneOf:
+          - type: string
+            minLength: 1
+          - type: object
+            additionalProperties: false
+            required: [ url ]
+            properties:
+              url:
+                type: string
+                minLength: 1
+              ref:
+                type: string
+                minLength: 1
+              path:
+                type: string
+                minLength: 1
     allOf:
       - not:
-          required: [hosted, url]
+          required: [ hosted, url ]
       - not:
-          required: [hosted, path]
+          required: [ hosted, path ]
       - not:
-          required: [hosted, git]
+          required: [ hosted, git ]
       - not:
-          required: [url, path]
+          required: [ url, path ]
       - not:
-          required: [url, git]
+          required: [ url, git ]
       - not:
-          required: [path, git]
+          required: [ path, git ]
+
+  modMap:
+    type: object
+    description: |
+      Map of Modrinth project slug to mod dependency (short or long form).
+    propertyNames:
+      pattern: ^[a-z0-9][a-z0-9_-]*$
+    additionalProperties:
+      $ref: "#/$defs/modDependency"
