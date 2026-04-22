@@ -175,16 +175,20 @@ entry to [`mods`](mods-yaml.md#mods),
 [`servers`](mods-yaml.md#servers), then re-resolve.
 
 ```text
-gitrinth add <slug>[@<constraint>] [--section <section>]
-            [--env <client|server|both>]
+gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--hosted <url> | --url <url> | --path <path> | --git <repo>]
             [--ref <ref>] [--subpath <path>]
+            [--name <name>] [--address <host>]
             [--dry-run]
 ```
 
+The target section is inferred from the slug's Modrinth project type —
+mods to [`mods`](mods-yaml.md#mods), resource packs to
+[`resource_packs`](mods-yaml.md#resource_packs), and so on. `url:`,
+`path:`, and `git:` sources infer from the artifact's file type.
+
 | Option      | Description                                                                                         |
 |-------------|-----------------------------------------------------------------------------------------------------|
-| `--section` | Target section. Defaults to a guess from the slug's Modrinth project type.                          |
 | `--env`     | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                           |
 | `--hosted`  | Use a [`hosted:` source](mods-yaml.md#long-form). The `pub add --hosted` analogue.                  |
 | `--url`     | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
@@ -192,12 +196,15 @@ gitrinth add <slug>[@<constraint>] [--section <section>]
 | `--git`     | Use a [`git:` source](mods-yaml.md#git-sources). The `pub add --git-url` analogue.                  |
 | `--ref`     | With `--git`, pin to a branch, tag, or commit. Matches `pub add --git-ref`.                         |
 | `--subpath` | With `--git`, enter a sub-path inside the repo. Matches `pub add --git-path`.                       |
+| `--name`    | Server display name. Implies the [`servers`](mods-yaml.md#servers) section.                         |
+| `--address` | Server address. Implies the [`servers`](mods-yaml.md#servers) section.                              |
 | `--dry-run` | Print the edit without writing.                                                                     |
 
-**Servers.** With `--section servers`, `<slug>` is the Modrinth server
-slug (or any key, if `--address` is given). `--name` and `--address`
-populate the long form; omit both to record a blank short-form entry
-that Modrinth resolves at build time.
+**Servers.** A Modrinth slug whose project type is "server" is added
+to [`servers`](mods-yaml.md#servers) automatically. Passing `--name`
+or `--address` also targets that section and populates the long form;
+omit both to record a blank short-form entry that Modrinth resolves at
+build time.
 
 ```console
 $ gitrinth add jei@^19.27.0
@@ -206,9 +213,9 @@ $ gitrinth add iris@^1.8.12 --env client
 Added iris ^1.8.12 to mods (client only).
 $ gitrinth add forked_jei --git example/forked_jei --ref mc-1.21.1
 Added forked_jei to mods (git: example/forked_jei@mc-1.21.1).
-$ gitrinth add complex-cobblemon --section servers
+$ gitrinth add complex-cobblemon
 Added server complex-cobblemon (resolved from Modrinth at build time).
-$ gitrinth add example_server --section servers --name "Example" --address play.example.com
+$ gitrinth add example_server --name "Example" --address play.example.com
 Added server example_server "Example" (play.example.com).
 ```
 
@@ -218,10 +225,11 @@ Analogue of [`pub remove`](https://dart.dev/tools/pub/cmd/pub-remove).
 Remove an entry and re-resolve. Identifies the target by slug.
 
 ```text
-gitrinth remove <slug> [--section <section>] [--dry-run]
+gitrinth remove <slug> [--dry-run]
 ```
 
-If the slug appears in more than one section, `--section` is required.
+The section is inferred from where `<slug>` currently lives in
+`mods.yaml`.
 
 ### `deps`
 
