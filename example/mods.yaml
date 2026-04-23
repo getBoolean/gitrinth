@@ -27,7 +27,14 @@ project:
 
 publish_to: none # Default: modrinth.com. Set to a URL to publish to a different Modrinth-compatible server.
 
-loader: neoforge # Enum: forge, fabric, neoforge, sponge, bukkit, folia, paper, spigot. Under plugin loaders (bukkit/folia/paper/spigot), `mods` entries are forced client-side; resource_packs/data_packs/plugins partition normally; shaders are always client-only.
+loader:
+  # Per-section loaders. `mods` is required; `shaders` is required when
+  # the shaders section is non-empty; `plugins` is deferred until plugin
+  # support lands. resource_packs and data_packs each have a single
+  # valid Modrinth loader (minecraft, datapack) and are never declared
+  # here.
+  mods: neoforge # Enum: forge, fabric, neoforge (MVP). sponge/bukkit/folia/paper/spigot deferred.
+  shaders: iris # Enum: iris, optifine, canvas, vanilla.
 mc-version: 1.21.1 # Exact version only — no ranges.
 
 tooling:

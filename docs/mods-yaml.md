@@ -27,7 +27,7 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                  |
 | [`project`](#project)               | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                          |
 | [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                |
-| [`loader`](#loader)                 | yes      | The mod loader the modpack targets (`forge`, `fabric`, or `neoforge`).                                                                                                         |
+| [`loader`](#loader)                 | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                 |
 | [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                               |
 | [`tooling`](#tooling)               | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                      |
 | [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
@@ -66,7 +66,9 @@ project:
 
 publish_to: https://modrinth.com
 
-loader: neoforge
+loader:
+  mods: neoforge
+  shaders: iris
 mc-version: 1.21.1
 
 tooling:
@@ -337,56 +339,69 @@ publish_to: https://modrinth.example.com
 
 ### `loader`
 
-**Required.** The mod loader the modpack targets. `loader` has three roles:
-
-- **Version resolution.** When picking the version of each entry in
-  [`mods`](#mods), [`resource_packs`](#resource_packs),
-  [`data_packs`](#data_packs), [`shaders`](#shaders),
-  [`plugins`](#plugins), and [`overrides`](#overrides), `gitrinth` only
-  considers published versions tagged with this loader. Combined with
-  [`mc-version`](#mc-version), this determines which "latest" version
-  satisfies a blank or caret [mod-version
-  constraint](#mod-version-constraints).
-- **Published compatibility.** When `gitrinth publish` uploads the
-  modpack, `loader` is declared as the modpack's supported loader on
-  Modrinth. End users see it on the project page, and launchers use it
-  to decide whether the pack is installable.
-- **Server distribution selection.** The server distribution assembled
-  by [`gitrinth build`](cli.md#build) includes the matching server
-  binary — the Forge/Fabric/NeoForge/Sponge installer for the pack's
-  [`mc-version`](#mc-version), or the latest stable Paper/Spigot/Folia
-  build for that `mc-version` (or a vanilla-derived jar for `bukkit`).
-  `gitrinth` resolves the binary automatically from `loader` +
-  [`mc-version`](#mc-version); the modpack does not declare it, and it
-  is not added manually after the build. Pinning the exact build is
-  deferred to a future release.
-
-Supported loaders:
-
-- `forge`
-- `fabric`
-- `neoforge` — also accepted as `neoForge` for compatibility with the
-  project's brand casing. The lowercase spelling matches Modrinth's
-  loader tag and is preferred.
-- `sponge`
-- `bukkit`
-- `folia`
-- `paper`
-- `spigot`
-
-Values are plain YAML strings and do not need to be quoted:
+**Required.** An object declaring which loader applies to each kind
+of content the pack ships. Different content types on Modrinth use
+different loader vocabularies — a shader version is tagged `iris`,
+not `neoforge` — so each section that has a choice declares its own
+loader.
 
 ```yaml
-loader: neoforge
+loader:
+  mods: neoforge
+  shaders: iris
 ```
 
-`gitrinth` rejects any value outside the list above.
+Recognised keys:
+
+| Key                | Required                                                           | Values                                                     |
+|--------------------|--------------------------------------------------------------------|------------------------------------------------------------|
+| `loader.mods`      | **Yes.**                                                           | `forge`, `fabric`, `neoforge` (MVP).                       |
+| `loader.shaders`   | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`.                   |
+| `loader.plugins`   | Deferred — accepted by the schema, rejected by the CLI in the MVP. | `bukkit`, `folia`, `paper`, `spigot`.                      |
+
+`resource_packs` and `data_packs` each have a single valid Modrinth
+loader (`minecraft` and `datapack` respectively), so they are not
+declared under `loader`.
+
+`loader.mods` has three roles:
+
+- **Version resolution.** When picking the version of each entry in
+  [`mods`](#mods) and [`overrides`](#overrides) (when the override
+  targets a mod), `gitrinth` only considers published mod versions
+  tagged with this loader. Combined with
+  [`mc-version`](#mc-version), this determines which "latest"
+  version satisfies a blank or caret
+  [mod-version constraint](#mod-version-constraints).
+- **Published compatibility.** When `gitrinth publish` uploads the
+  modpack, `loader.mods` is declared as the modpack's supported
+  loader on Modrinth. End users see it on the project page, and
+  launchers use it to decide whether the pack is installable.
+- **Server distribution selection.** The server distribution
+  assembled by [`gitrinth build`](cli.md#build) includes the
+  matching server binary — the Forge/Fabric/NeoForge/Sponge
+  installer for the pack's [`mc-version`](#mc-version), or the
+  latest stable Paper/Spigot/Folia build for that `mc-version` (or a
+  vanilla-derived jar for `bukkit`). `gitrinth` resolves the binary
+  automatically from `loader.mods` + [`mc-version`](#mc-version); the
+  modpack does not declare it, and it is not added manually after
+  the build. Pinning the exact build is deferred to a future
+  release.
+
+`loader.shaders` applies version resolution for entries under
+[`shaders:`](#shaders): `gitrinth` only considers shader versions
+tagged with the declared shader loader. Leaving it out while `shaders:`
+has entries is a parse error, with a message pointing at the missing
+key.
+
+Omitting the object entirely, supplying a scalar value
+(`loader: neoforge`), or adding an unknown key (`loader: { foo: bar }`)
+is a parse error. `gitrinth` rejects any value outside the enums above.
 
 #### Plugin loaders
 
-`bukkit`, `folia`, `paper`, and `spigot` are plugin-based server
-platforms — they do not run Forge/Fabric-style client mods. Under one
-of these loaders:
+`bukkit`, `folia`, `paper`, and `spigot` (set via `loader.plugins`
+when plugin support lands) are plugin-based server platforms — they
+do not run Forge/Fabric-style client mods. Under one of these loaders:
 
 - Every entry under [`mods`](#mods) is bundled into the **client-side
   modpack only**, regardless of any per-mod

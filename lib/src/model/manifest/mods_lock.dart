@@ -45,7 +45,7 @@ class LockedEntry with LockedEntryMappable {
 @MappableClass()
 class ModsLock with ModsLockMappable {
   final String gitrinthVersion;
-  final Loader loader;
+  final LoaderConfig loader;
   final String mcVersion;
   final Map<String, LockedEntry> mods;
   final Map<String, LockedEntry> resourcePacks;

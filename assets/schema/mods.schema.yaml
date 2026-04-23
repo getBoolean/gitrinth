@@ -127,24 +127,48 @@ properties:
     format: uri
 
   loader:
-    type: string
+    type: object
     description: |
-      Mod loader the modpack targets. Drives version resolution,
-      Modrinth compatibility, and server-binary selection.
+      Per-section loaders. `mods` is required; `shaders` and `plugins`
+      are optional and only needed when the corresponding section has
+      entries. `resource_packs` and `data_packs` have a single valid
+      Modrinth loader each (`minecraft`, `datapack`) and are never
+      declared here.
 
       Under plugin loaders (`bukkit`, `folia`, `paper`, `spigot`),
       `mods` ship client-only regardless of `environment`; `plugins`
       ship server-only. `shaders` are always client-only; `sponge`
       behaves like `forge`/`fabric`/`neoforge`.
-    enum:
-      - forge
-      - fabric
-      - neoforge
-      - bukkit
-      - folia
-      - paper
-      - spigot
-      - sponge
+    required:
+      - mods
+    additionalProperties: false
+    properties:
+      mods:
+        description: |
+          Mod loader the modpack targets. Drives version resolution,
+          Modrinth compatibility, and server-binary selection.
+        enum:
+          - forge
+          - fabric
+          - neoforge
+      shaders:
+        description: |
+          Shader loader. Required when the `shaders` section has
+          entries; otherwise omit.
+        enum:
+          - iris
+          - optifine
+          - canvas
+          - vanilla
+      plugins:
+        description: |
+          Plugin loader. Deferred in the MVP — accepted by the schema
+          but rejected by the parser until plugin support lands.
+        enum:
+          - bukkit
+          - folia
+          - paper
+          - spigot
 
   mc-version:
     type: string

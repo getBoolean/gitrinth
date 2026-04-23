@@ -15,6 +15,11 @@ class FakeModrinth {
   final Map<String, List<Map<String, dynamic>>> versions;
   final Map<String, Uint8List> artifacts;
 
+  /// Last query-parameter map seen on `GET /v2/project/<slug>/version`,
+  /// keyed by slug. Tests can assert which `loaders`/`game_versions`
+  /// filters the CLI sent (or didn't send) for a given request.
+  final Map<String, Map<String, String>> lastVersionQuery = {};
+
   FakeModrinth({
     Map<String, Map<String, dynamic>>? projects,
     Map<String, List<Map<String, dynamic>>>? versions,
@@ -97,6 +102,9 @@ class FakeModrinth {
         final tail = path.substring('/v2/project/'.length);
         if (tail.endsWith('/version')) {
           final slug = tail.substring(0, tail.length - '/version'.length);
+          lastVersionQuery[slug] = Map<String, String>.from(
+            req.uri.queryParameters,
+          );
           final list = versions[slug];
           if (list == null) {
             req.response.statusCode = 404;

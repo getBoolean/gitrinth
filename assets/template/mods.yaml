@@ -3,7 +3,8 @@ name: {{name}}
 version: {{version}}
 description: {{description}}
 
-loader: {{loader}}
+loader:
+  mods: {{loader}}
 mc-version: {{mc-version}}
 
 tooling:

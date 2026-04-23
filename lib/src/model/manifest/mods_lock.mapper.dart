@@ -442,7 +442,7 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
   static ModsLockMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ModsLockMapper._());
-      LoaderMapper.ensureInitialized();
+      LoaderConfigMapper.ensureInitialized();
       LockedEntryMapper.ensureInitialized();
     }
     return _instance!;
@@ -456,8 +456,11 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
     'gitrinthVersion',
     _$gitrinthVersion,
   );
-  static Loader _$loader(ModsLock v) => v.loader;
-  static const Field<ModsLock, Loader> _f$loader = Field('loader', _$loader);
+  static LoaderConfig _$loader(ModsLock v) => v.loader;
+  static const Field<ModsLock, LoaderConfig> _f$loader = Field(
+    'loader',
+    _$loader,
+  );
   static String _$mcVersion(ModsLock v) => v.mcVersion;
   static const Field<ModsLock, String> _f$mcVersion = Field(
     'mcVersion',
@@ -569,6 +572,7 @@ extension ModsLockValueCopy<$R, $Out> on ObjectCopyWith<$R, ModsLock, $Out> {
 
 abstract class ModsLockCopyWith<$R, $In extends ModsLock, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
+  LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader;
   MapCopyWith<
     $R,
     String,
@@ -599,7 +603,7 @@ abstract class ModsLockCopyWith<$R, $In extends ModsLock, $Out>
   get shaders;
   $R call({
     String? gitrinthVersion,
-    Loader? loader,
+    LoaderConfig? loader,
     String? mcVersion,
     Map<String, LockedEntry>? mods,
     Map<String, LockedEntry>? resourcePacks,
@@ -617,6 +621,9 @@ class _ModsLockCopyWithImpl<$R, $Out>
   @override
   late final ClassMapperBase<ModsLock> $mapper =
       ModsLockMapper.ensureInitialized();
+  @override
+  LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader =>
+      $value.loader.copyWith.$chain((v) => call(loader: v));
   @override
   MapCopyWith<
     $R,
@@ -668,7 +675,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
   @override
   $R call({
     String? gitrinthVersion,
-    Loader? loader,
+    LoaderConfig? loader,
     String? mcVersion,
     Map<String, LockedEntry>? mods,
     Map<String, LockedEntry>? resourcePacks,

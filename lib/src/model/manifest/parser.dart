@@ -28,8 +28,43 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
   final name = _requireString(map, 'name', filePath);
   final version = _requireString(map, 'version', filePath);
   final description = _requireString(map, 'description', filePath);
-  final loader = _parseLoader(map['loader'], filePath);
+  final loader = _parseLoaderConfig(map['loader'], filePath);
   final mcVersion = _requireString(map, 'mc-version', filePath);
+
+  final mods = _parseSection(map['mods'], 'mods', filePath, allowEnv: true);
+  final resourcePacks = _parseSection(
+    map['resource_packs'],
+    'resource_packs',
+    filePath,
+    allowEnv: true,
+  );
+  final dataPacks = _parseSection(
+    map['data_packs'],
+    'data_packs',
+    filePath,
+    allowEnv: true,
+  );
+  final shaders = _parseSection(
+    map['shaders'],
+    'shaders',
+    filePath,
+    allowEnv: false,
+    forcedEnv: Environment.client,
+  );
+  final overrides = _parseSection(
+    map['overrides'],
+    'overrides',
+    filePath,
+    allowEnv: true,
+  );
+
+  if (shaders.isNotEmpty && loader.shaders == null) {
+    throw _err(
+      "$filePath: manifest has entries under 'shaders:' but no "
+      "'loader.shaders' declared. Add e.g. `shaders: iris` under the "
+      '`loader:` object.',
+    );
+  }
 
   return ModsYaml(
     slug: slug,
@@ -38,32 +73,11 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     description: description,
     loader: loader,
     mcVersion: mcVersion,
-    mods: _parseSection(map['mods'], 'mods', filePath, allowEnv: true),
-    resourcePacks: _parseSection(
-      map['resource_packs'],
-      'resource_packs',
-      filePath,
-      allowEnv: true,
-    ),
-    dataPacks: _parseSection(
-      map['data_packs'],
-      'data_packs',
-      filePath,
-      allowEnv: true,
-    ),
-    shaders: _parseSection(
-      map['shaders'],
-      'shaders',
-      filePath,
-      allowEnv: false,
-      forcedEnv: Environment.client,
-    ),
-    overrides: _parseSection(
-      map['overrides'],
-      'overrides',
-      filePath,
-      allowEnv: true,
-    ),
+    mods: mods,
+    resourcePacks: resourcePacks,
+    dataPacks: dataPacks,
+    shaders: shaders,
+    overrides: overrides,
   );
 }
 
@@ -93,20 +107,32 @@ ModsLock parseModsLock(String yamlText, {required String filePath}) {
   }
   final map = _toPlainMap(raw);
   final gitrinthVersion = _requireString(map, 'gitrinth-version', filePath);
-  final loader = _parseLoader(map['loader'], filePath);
+  final loader = _parseLoaderConfig(map['loader'], filePath);
   final mcVersion = _requireString(map, 'mc-version', filePath);
+  final mods = _parseLockSection(map['mods'], 'mods', filePath);
+  final resourcePacks = _parseLockSection(
+    map['resource_packs'],
+    'resource_packs',
+    filePath,
+  );
+  final dataPacks = _parseLockSection(map['data_packs'], 'data_packs', filePath);
+  final shaders = _parseLockSection(map['shaders'], 'shaders', filePath);
+
+  if (shaders.isNotEmpty && loader.shaders == null) {
+    throw _err(
+      "$filePath: lockfile has entries under 'shaders:' but no "
+      "'loader.shaders' declared.",
+    );
+  }
+
   return ModsLock(
     gitrinthVersion: gitrinthVersion,
     loader: loader,
     mcVersion: mcVersion,
-    mods: _parseLockSection(map['mods'], 'mods', filePath),
-    resourcePacks: _parseLockSection(
-      map['resource_packs'],
-      'resource_packs',
-      filePath,
-    ),
-    dataPacks: _parseLockSection(map['data_packs'], 'data_packs', filePath),
-    shaders: _parseLockSection(map['shaders'], 'shaders', filePath),
+    mods: mods,
+    resourcePacks: resourcePacks,
+    dataPacks: dataPacks,
+    shaders: shaders,
   );
 }
 
@@ -313,10 +339,52 @@ Channel? _parseChannelField(dynamic raw, String filePath, String where) {
   return parsed;
 }
 
-Loader _parseLoader(dynamic raw, String filePath) {
+LoaderConfig _parseLoaderConfig(dynamic raw, String filePath) {
   if (raw == null) {
     throw _err('$filePath: loader is required.');
   }
+  if (raw is! Map) {
+    throw _err(
+      '$filePath: loader must be an object (e.g. '
+      '`loader: { mods: neoforge }`). The scalar form is no longer '
+      'supported.',
+    );
+  }
+  final map = _toPlainMap(raw);
+  const allowed = {'mods', 'shaders', 'plugins'};
+  for (final key in map.keys) {
+    if (!allowed.contains(key)) {
+      throw _err(
+        '$filePath: loader key "$key" is not recognized '
+        '(allowed: mods, shaders, plugins).',
+      );
+    }
+  }
+
+  final modsRaw = map['mods'];
+  if (modsRaw == null) {
+    throw _err(
+      '$filePath: loader.mods is required (e.g. `mods: neoforge`).',
+    );
+  }
+  final mods = _parseModLoader(modsRaw, filePath);
+
+  ShaderLoader? shaders;
+  if (map.containsKey('shaders')) {
+    shaders = _parseShaderLoader(map['shaders'], filePath);
+  }
+
+  if (map.containsKey('plugins')) {
+    throw _err(
+      '$filePath: plugin loader support is deferred; remove '
+      '`loader.plugins` until the MVP lands it.',
+    );
+  }
+
+  return LoaderConfig(mods: mods, shaders: shaders);
+}
+
+Loader _parseModLoader(dynamic raw, String filePath) {
   final lower = raw.toString().toLowerCase();
   switch (lower) {
     case 'forge':
@@ -327,8 +395,27 @@ Loader _parseLoader(dynamic raw, String filePath) {
       return Loader.neoforge;
     default:
       throw _err(
-        '$filePath: loader "$raw" is not supported in MVP '
+        '$filePath: loader.mods "$raw" is not supported in MVP '
         '(allowed: forge, fabric, neoforge).',
+      );
+  }
+}
+
+ShaderLoader _parseShaderLoader(dynamic raw, String filePath) {
+  final lower = raw.toString().toLowerCase();
+  switch (lower) {
+    case 'iris':
+      return ShaderLoader.iris;
+    case 'optifine':
+      return ShaderLoader.optifine;
+    case 'canvas':
+      return ShaderLoader.canvas;
+    case 'vanilla':
+      return ShaderLoader.vanilla;
+    default:
+      throw _err(
+        '$filePath: loader.shaders "$raw" is not recognized '
+        '(allowed: iris, optifine, canvas, vanilla).',
       );
   }
 }

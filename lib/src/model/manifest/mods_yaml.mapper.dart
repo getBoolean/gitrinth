@@ -58,6 +58,114 @@ extension LoaderMapperExtension on Loader {
   }
 }
 
+class ShaderLoaderMapper extends EnumMapper<ShaderLoader> {
+  ShaderLoaderMapper._();
+
+  static ShaderLoaderMapper? _instance;
+  static ShaderLoaderMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ShaderLoaderMapper._());
+    }
+    return _instance!;
+  }
+
+  static ShaderLoader fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  ShaderLoader decode(dynamic value) {
+    switch (value) {
+      case r'iris':
+        return ShaderLoader.iris;
+      case r'optifine':
+        return ShaderLoader.optifine;
+      case r'canvas':
+        return ShaderLoader.canvas;
+      case r'vanilla':
+        return ShaderLoader.vanilla;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(ShaderLoader self) {
+    switch (self) {
+      case ShaderLoader.iris:
+        return r'iris';
+      case ShaderLoader.optifine:
+        return r'optifine';
+      case ShaderLoader.canvas:
+        return r'canvas';
+      case ShaderLoader.vanilla:
+        return r'vanilla';
+    }
+  }
+}
+
+extension ShaderLoaderMapperExtension on ShaderLoader {
+  String toValue() {
+    ShaderLoaderMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<ShaderLoader>(this) as String;
+  }
+}
+
+class PluginLoaderMapper extends EnumMapper<PluginLoader> {
+  PluginLoaderMapper._();
+
+  static PluginLoaderMapper? _instance;
+  static PluginLoaderMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = PluginLoaderMapper._());
+    }
+    return _instance!;
+  }
+
+  static PluginLoader fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  PluginLoader decode(dynamic value) {
+    switch (value) {
+      case r'bukkit':
+        return PluginLoader.bukkit;
+      case r'folia':
+        return PluginLoader.folia;
+      case r'paper':
+        return PluginLoader.paper;
+      case r'spigot':
+        return PluginLoader.spigot;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(PluginLoader self) {
+    switch (self) {
+      case PluginLoader.bukkit:
+        return r'bukkit';
+      case PluginLoader.folia:
+        return r'folia';
+      case PluginLoader.paper:
+        return r'paper';
+      case PluginLoader.spigot:
+        return r'spigot';
+    }
+  }
+}
+
+extension PluginLoaderMapperExtension on PluginLoader {
+  String toValue() {
+    PluginLoaderMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<PluginLoader>(this) as String;
+  }
+}
+
 class EnvironmentMapper extends EnumMapper<Environment> {
   EnvironmentMapper._();
 
@@ -210,6 +318,149 @@ extension ChannelMapperExtension on Channel {
     ChannelMapper.ensureInitialized();
     return MapperContainer.globals.toValue<Channel>(this) as String;
   }
+}
+
+class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
+  LoaderConfigMapper._();
+
+  static LoaderConfigMapper? _instance;
+  static LoaderConfigMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = LoaderConfigMapper._());
+      LoaderMapper.ensureInitialized();
+      ShaderLoaderMapper.ensureInitialized();
+      PluginLoaderMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'LoaderConfig';
+
+  static Loader _$mods(LoaderConfig v) => v.mods;
+  static const Field<LoaderConfig, Loader> _f$mods = Field('mods', _$mods);
+  static ShaderLoader? _$shaders(LoaderConfig v) => v.shaders;
+  static const Field<LoaderConfig, ShaderLoader> _f$shaders = Field(
+    'shaders',
+    _$shaders,
+    opt: true,
+  );
+  static PluginLoader? _$plugins(LoaderConfig v) => v.plugins;
+  static const Field<LoaderConfig, PluginLoader> _f$plugins = Field(
+    'plugins',
+    _$plugins,
+    opt: true,
+  );
+
+  @override
+  final MappableFields<LoaderConfig> fields = const {
+    #mods: _f$mods,
+    #shaders: _f$shaders,
+    #plugins: _f$plugins,
+  };
+
+  static LoaderConfig _instantiate(DecodingData data) {
+    return LoaderConfig(
+      mods: data.dec(_f$mods),
+      shaders: data.dec(_f$shaders),
+      plugins: data.dec(_f$plugins),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static LoaderConfig fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<LoaderConfig>(map);
+  }
+
+  static LoaderConfig fromJson(String json) {
+    return ensureInitialized().decodeJson<LoaderConfig>(json);
+  }
+}
+
+mixin LoaderConfigMappable {
+  String toJson() {
+    return LoaderConfigMapper.ensureInitialized().encodeJson<LoaderConfig>(
+      this as LoaderConfig,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return LoaderConfigMapper.ensureInitialized().encodeMap<LoaderConfig>(
+      this as LoaderConfig,
+    );
+  }
+
+  LoaderConfigCopyWith<LoaderConfig, LoaderConfig, LoaderConfig> get copyWith =>
+      _LoaderConfigCopyWithImpl<LoaderConfig, LoaderConfig>(
+        this as LoaderConfig,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return LoaderConfigMapper.ensureInitialized().stringifyValue(
+      this as LoaderConfig,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return LoaderConfigMapper.ensureInitialized().equalsValue(
+      this as LoaderConfig,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return LoaderConfigMapper.ensureInitialized().hashValue(
+      this as LoaderConfig,
+    );
+  }
+}
+
+extension LoaderConfigValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, LoaderConfig, $Out> {
+  LoaderConfigCopyWith<$R, LoaderConfig, $Out> get $asLoaderConfig =>
+      $base.as((v, t, t2) => _LoaderConfigCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class LoaderConfigCopyWith<$R, $In extends LoaderConfig, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({Loader? mods, ShaderLoader? shaders, PluginLoader? plugins});
+  LoaderConfigCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
+}
+
+class _LoaderConfigCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, LoaderConfig, $Out>
+    implements LoaderConfigCopyWith<$R, LoaderConfig, $Out> {
+  _LoaderConfigCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<LoaderConfig> $mapper =
+      LoaderConfigMapper.ensureInitialized();
+  @override
+  $R call({Loader? mods, Object? shaders = $none, Object? plugins = $none}) =>
+      $apply(
+        FieldCopyWithData({
+          if (mods != null) #mods: mods,
+          if (shaders != $none) #shaders: shaders,
+          if (plugins != $none) #plugins: plugins,
+        }),
+      );
+  @override
+  LoaderConfig $make(CopyWithData data) => LoaderConfig(
+    mods: data.get(#mods, or: $value.mods),
+    shaders: data.get(#shaders, or: $value.shaders),
+    plugins: data.get(#plugins, or: $value.plugins),
+  );
+
+  @override
+  LoaderConfigCopyWith<$R2, LoaderConfig, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _LoaderConfigCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class EntrySourceMapper extends ClassMapperBase<EntrySource> {
@@ -819,7 +1070,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
   static ModsYamlMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ModsYamlMapper._());
-      LoaderMapper.ensureInitialized();
+      LoaderConfigMapper.ensureInitialized();
       ModEntryMapper.ensureInitialized();
     }
     return _instance!;
@@ -839,8 +1090,11 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     'description',
     _$description,
   );
-  static Loader _$loader(ModsYaml v) => v.loader;
-  static const Field<ModsYaml, Loader> _f$loader = Field('loader', _$loader);
+  static LoaderConfig _$loader(ModsYaml v) => v.loader;
+  static const Field<ModsYaml, LoaderConfig> _f$loader = Field(
+    'loader',
+    _$loader,
+  );
   static String _$mcVersion(ModsYaml v) => v.mcVersion;
   static const Field<ModsYaml, String> _f$mcVersion = Field(
     'mcVersion',
@@ -970,6 +1224,7 @@ extension ModsYamlValueCopy<$R, $Out> on ObjectCopyWith<$R, ModsYaml, $Out> {
 
 abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
+  LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get mods;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
@@ -985,7 +1240,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     String? name,
     String? version,
     String? description,
-    Loader? loader,
+    LoaderConfig? loader,
     String? mcVersion,
     Map<String, ModEntry>? mods,
     Map<String, ModEntry>? resourcePacks,
@@ -1004,6 +1259,9 @@ class _ModsYamlCopyWithImpl<$R, $Out>
   @override
   late final ClassMapperBase<ModsYaml> $mapper =
       ModsYamlMapper.ensureInitialized();
+  @override
+  LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader =>
+      $value.loader.copyWith.$chain((v) => call(loader: v));
   @override
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get mods => MapCopyWith(
@@ -1045,7 +1303,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     String? name,
     String? version,
     String? description,
-    Loader? loader,
+    LoaderConfig? loader,
     String? mcVersion,
     Map<String, ModEntry>? mods,
     Map<String, ModEntry>? resourcePacks,

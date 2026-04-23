@@ -6,6 +6,12 @@ part 'mods_yaml.mapper.dart';
 enum Loader { forge, fabric, neoforge }
 
 @MappableEnum()
+enum ShaderLoader { iris, optifine, canvas, vanilla }
+
+@MappableEnum()
+enum PluginLoader { bukkit, folia, paper, spigot }
+
+@MappableEnum()
 enum Environment { client, server, both }
 
 @MappableEnum()
@@ -13,6 +19,19 @@ enum Section { mods, resourcePacks, dataPacks, shaders }
 
 @MappableEnum()
 enum Channel { release, beta, alpha }
+
+@MappableClass()
+class LoaderConfig with LoaderConfigMappable {
+  final Loader mods;
+  final ShaderLoader? shaders;
+  final PluginLoader? plugins;
+
+  const LoaderConfig({
+    required this.mods,
+    this.shaders,
+    this.plugins,
+  });
+}
 
 @MappableClass(discriminatorKey: 'kind')
 sealed class EntrySource with EntrySourceMappable {
@@ -59,7 +78,7 @@ class ModsYaml with ModsYamlMappable {
   final String name;
   final String version;
   final String description;
-  final Loader loader;
+  final LoaderConfig loader;
   final String mcVersion;
   final Map<String, ModEntry> mods;
   final Map<String, ModEntry> resourcePacks;

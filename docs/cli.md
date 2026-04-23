@@ -309,7 +309,8 @@ name: example_modpack
 version: 0.1.0
 description: A new Modrinth modpack.
 
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 
 tooling:

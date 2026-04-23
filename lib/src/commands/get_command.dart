@@ -65,16 +65,38 @@ class GetCommand extends GitrinthCommand {
       _checkUserEntriesPresentInLock(merged, existingLock);
     }
 
-    final loaderName = merged.loader.name;
+    final loaderConfig = merged.loader;
     final mc = merged.mcVersion;
     final slugCache = <String, String?>{};
+
+    final slugToSection = <String, Section>{};
+    for (final section in Section.values) {
+      for (final slug in merged.sectionEntries(section).keys) {
+        slugToSection[slug] = section;
+      }
+    }
+
+    List<String>? filterForSection(Section section) {
+      switch (section) {
+        case Section.mods:
+          return [loaderConfig.mods.name];
+        case Section.shaders:
+          return [loaderConfig.shaders!.name];
+        case Section.resourcePacks:
+        case Section.dataPacks:
+          return null;
+      }
+    }
 
     final resolver = Resolver(
       listVersions: (slug) async {
         try {
+          final section = slugToSection[slug] ?? Section.mods;
+          final loaderFilter = filterForSection(section);
           return await api.listVersions(
             slug,
-            loadersJson: encodeFilterArray([loaderName]),
+            loadersJson:
+                loaderFilter == null ? null : encodeFilterArray(loaderFilter),
             gameVersionsJson: encodeFilterArray([mc]),
           );
         } on Object catch (e) {
@@ -101,7 +123,7 @@ class GetCommand extends GitrinthCommand {
     );
 
     console.detail(
-      'Resolving with loader=$loaderName mc=$mc...',
+      'Resolving with loader.mods=${loaderConfig.mods.name} mc=$mc...',
     );
     final resolution = await resolver.resolve(merged, existingLock: existingLock);
 

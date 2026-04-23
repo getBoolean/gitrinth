@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 void main() {
   ModsLock sample() => const ModsLock(
         gitrinthVersion: '0.1.0',
-        loader: Loader.neoforge,
+        loader: LoaderConfig(mods: Loader.neoforge),
         mcVersion: '1.21.1',
         mods: {
           'create': LockedEntry(

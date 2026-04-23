@@ -26,7 +26,8 @@ void main() {
       final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
       expect(mods, contains('slug: example_modpack'));
       expect(mods, contains('name: example_modpack'));
-      expect(mods, contains('loader: neoforge'));
+      expect(mods, contains('loader:'));
+      expect(mods, contains('mods: neoforge'));
       expect(mods, contains('mc-version: 1.21.1'));
       expect(mods, contains('tooling:'));
 
@@ -46,7 +47,7 @@ void main() {
       expect(out.exitCode, 0, reason: out.stderr);
 
       final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
-      expect(mods, contains('loader: fabric'));
+      expect(mods, contains('mods: fabric'));
       expect(mods, contains('mc-version: 1.20.1'));
     });
 

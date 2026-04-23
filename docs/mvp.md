@@ -54,7 +54,9 @@ gitrinth create [--loader <loader>] [--mc-version <version>]
 ```
 
 - `<directory>` — target directory (required).
-- `--loader <loader>` — defaults to `neoforge`.
+- `--loader <loader>` — pre-fills `loader.mods` in the scaffolded
+  `mods.yaml`. Defaults to `neoforge`. `loader.shaders` is added by hand
+  once the pack has shader entries.
 - `--mc-version <version>` — defaults to `1.21.1`.
 - `--slug <slug>`
 - `--name <name>`
@@ -134,8 +136,17 @@ Deferred: `-q`/`--quiet`, `--offline`, `--no-color`, `--config`.
 
 ## Loaders
 
-Only `forge`, `fabric`, and `neoforge`. The plugin loaders (`bukkit`,
-`folia`, `paper`, `spigot`) and `sponge` are deferred.
+`loader` is an object keyed by section. In the MVP:
+
+- `loader.mods` (required) — one of `forge`, `fabric`, `neoforge`.
+  Plugin loaders (`bukkit`, `folia`, `paper`, `spigot`) and `sponge`
+  are deferred.
+- `loader.shaders` (required when `shaders:` has entries) — one of
+  `iris`, `optifine`, `canvas`, `vanilla`.
+- `loader.plugins` — deferred with plugin support.
+
+`resource_packs` and `data_packs` each have a single valid Modrinth
+loader (`minecraft`, `datapack`) and are never declared under `loader`.
 
 ## Sources
 

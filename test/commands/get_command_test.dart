@@ -64,7 +64,8 @@ slug: testpack
 name: TestPack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   jei: ^1.0.0
@@ -120,7 +121,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   a:
@@ -148,7 +150,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   a: ^1.0.0
@@ -180,7 +183,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   jei:
@@ -209,7 +213,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   a: beta
@@ -240,7 +245,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   a:
@@ -269,7 +275,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   does-not-exist: ^1.0.0
@@ -318,7 +325,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   b: ^1.0.0
@@ -333,5 +341,182 @@ mods:
     final second = await runCli(['-C', packDir.path, 'get'], environment: env);
     expect(second.exitCode, 0, reason: second.stderr);
     expect(second.stdout, contains('cache hit'));
+  });
+
+  test('shader slug resolves with loader.shaders and iris-tagged version', () async {
+    final jarBytes = Uint8List.fromList(List.generate(32, (i) => i + 1));
+    final sha = modrinth.addArtifact(
+      'complementary-reimagined',
+      'complementary-reimagined-r5.7.1.zip',
+      jarBytes,
+    );
+    modrinth.versions['complementary-reimagined'] = [
+      {
+        'id': 'COMP_V1',
+        'project_id': 'COMP_ID',
+        'version_number': 'r5.7.1',
+        'files': [
+          {
+            'url':
+                '${modrinth.downloadBaseUrl}/complementary-reimagined/complementary-reimagined-r5.7.1.zip',
+            'filename': 'complementary-reimagined-r5.7.1.zip',
+            'hashes': {'sha512': sha},
+            'size': jarBytes.length,
+            'primary': true,
+          }
+        ],
+        'dependencies': [],
+        'loaders': ['iris', 'optifine'],
+        'game_versions': ['1.21.1'],
+      }
+    ];
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  shaders: iris
+mc-version: 1.21.1
+shaders:
+  complementary-reimagined: ^r5.7.1
+''');
+
+    final out = await runCli(
+      ['-C', packDir.path, 'get'],
+      environment: {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      },
+    );
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
+    expect(lockText, contains('shaders:'));
+    expect(lockText, contains('complementary-reimagined:'));
+    expect(lockText, contains('version: r5.7.1'));
+
+    // The CLI must have sent loaders=["iris"] on the shader request,
+    // not the mod loader.
+    final shaderQuery = modrinth.lastVersionQuery['complementary-reimagined'];
+    expect(shaderQuery, isNotNull);
+    expect(shaderQuery!['loaders'], '["iris"]');
+  });
+
+  test('resource-pack slug resolves without a loaders filter', () async {
+    final zipBytes = Uint8List.fromList(List.generate(16, (i) => i + 2));
+    final sha = modrinth.addArtifact(
+      'faithful-32x',
+      'faithful-32x-1.21.zip',
+      zipBytes,
+    );
+    modrinth.versions['faithful-32x'] = [
+      {
+        'id': 'FAITH_V1',
+        'project_id': 'FAITH_ID',
+        'version_number': '1.21.1-december-2025',
+        'files': [
+          {
+            'url':
+                '${modrinth.downloadBaseUrl}/faithful-32x/faithful-32x-1.21.zip',
+            'filename': 'faithful-32x-1.21.zip',
+            'hashes': {'sha512': sha},
+            'size': zipBytes.length,
+            'primary': true,
+          }
+        ],
+        'dependencies': [],
+        'loaders': ['minecraft'],
+        'game_versions': ['1.21.1'],
+      }
+    ];
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+resource_packs:
+  faithful-32x: ^1.21.1-december-2025
+''');
+
+    final out = await runCli(
+      ['-C', packDir.path, 'get'],
+      environment: {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      },
+    );
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
+    expect(lockText, contains('resource_packs:'));
+    expect(lockText, contains('faithful-32x:'));
+
+    final rpQuery = modrinth.lastVersionQuery['faithful-32x'];
+    expect(rpQuery, isNotNull);
+    expect(rpQuery!.containsKey('loaders'), isFalse,
+        reason: 'resource_packs requests must omit the loaders filter');
+  });
+
+  test('data-pack slug resolves without a loaders filter', () async {
+    final zipBytes = Uint8List.fromList(List.generate(16, (i) => i + 3));
+    final sha = modrinth.addArtifact(
+      'terralith',
+      'terralith-2.5.8.zip',
+      zipBytes,
+    );
+    modrinth.versions['terralith'] = [
+      {
+        'id': 'TERRA_V1',
+        'project_id': 'TERRA_ID',
+        'version_number': '2.5.8',
+        'files': [
+          {
+            'url':
+                '${modrinth.downloadBaseUrl}/terralith/terralith-2.5.8.zip',
+            'filename': 'terralith-2.5.8.zip',
+            'hashes': {'sha512': sha},
+            'size': zipBytes.length,
+            'primary': true,
+          }
+        ],
+        'dependencies': [],
+        'loaders': ['datapack'],
+        'game_versions': ['1.21.1'],
+      }
+    ];
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+data_packs:
+  terralith: ^2.5.8
+''');
+
+    final out = await runCli(
+      ['-C', packDir.path, 'get'],
+      environment: {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      },
+    );
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
+    expect(lockText, contains('data_packs:'));
+    expect(lockText, contains('terralith:'));
+
+    final dpQuery = modrinth.lastVersionQuery['terralith'];
+    expect(dpQuery, isNotNull);
+    expect(dpQuery!.containsKey('loaders'), isFalse,
+        reason: 'data_packs requests must omit the loaders filter');
   });
 }

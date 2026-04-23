@@ -11,7 +11,8 @@ slug: example_pack
 name: Example Pack
 version: 0.1.0
 description: an example
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   create: ^6.0.10+mc1.21.1
@@ -21,7 +22,8 @@ mods:
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.slug, 'example_pack');
       expect(m.name, 'Example Pack');
-      expect(m.loader, Loader.neoforge);
+      expect(m.loader.mods, Loader.neoforge);
+      expect(m.loader.shaders, isNull);
       expect(m.mcVersion, '1.21.1');
       expect(m.mods.keys, containsAll(['create', 'jei', 'iris']));
       expect(m.mods['create']!.constraintRaw, '^6.0.10+mc1.21.1');
@@ -36,7 +38,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: fabric
+loader:
+  mods: fabric
 mc-version: 1.20.1
 mods:
   iris:
@@ -64,7 +67,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: forge
+loader:
+  mods: forge
 mc-version: 1.21.1
 mods:
   bad:
@@ -83,7 +87,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: forge
+loader:
+  mods: forge
 mc-version: 1.21.1
 mods:
   bad:
@@ -98,7 +103,8 @@ mods:
     test('missing required fields fail with ValidationError', () {
       final yaml = '''
 slug: pack
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 ''';
       expect(
@@ -113,12 +119,106 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: bukkit
+loader:
+  mods: bukkit
 mc-version: 1.21.1
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
         throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects scalar loader form with clean-break message', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader: neoforge
+mc-version: 1.21.1
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('loader must be an object'),
+              contains('scalar form is no longer supported'),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('shaders entries require loader.shaders', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+shaders:
+  my-shader: ^1.0.0
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains("entries under 'shaders:'"),
+              contains("loader.shaders"),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('parses loader.shaders and exposes it on ModsYaml', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  shaders: iris
+mc-version: 1.21.1
+shaders:
+  my-shader: ^1.0.0
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.loader.mods, Loader.neoforge);
+      expect(m.loader.shaders, ShaderLoader.iris);
+      expect(m.shaders['my-shader']!.constraintRaw, '^1.0.0');
+    });
+
+    test('rejects loader.plugins as deferred', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  plugins: paper
+mc-version: 1.21.1
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('plugin loader support is deferred'),
+          ),
+        ),
       );
     });
 
@@ -128,7 +228,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   jei: beta
@@ -144,7 +245,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   jei: ^1.8
@@ -160,7 +262,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   jei:
@@ -178,7 +281,8 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
 mc-version: 1.21.1
 mods:
   jei:
@@ -203,7 +307,9 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-loader: neoforge
+loader:
+  mods: neoforge
+  shaders: iris
 mc-version: 1.21.1
 shaders:
   my-shader:
