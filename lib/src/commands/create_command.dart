@@ -5,7 +5,7 @@ import 'package:path/path.dart' as p;
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
-import '../io/templates.dart';
+import '../model/templates.dart';
 import '../version.dart';
 
 const List<String> _allowedLoaders = ['forge', 'fabric', 'neoforge'];

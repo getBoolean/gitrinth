@@ -28,7 +28,7 @@ void main() {
     });
 
     test('stubbed command exits 1 (user error)', () async {
-      final out = await runCli(['get']);
+      final out = await runCli(['add', 'create']);
       expect(out.exitCode, 1);
       expect(out.stderr, contains('not yet implemented'));
     });

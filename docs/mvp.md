@@ -16,7 +16,7 @@ Scaffolding:
 Commands:
 
 - [x] `create` — fully implemented.
-- [ ] `get` — stub; exits `1`.
+- [x] `get` — fully implemented.
 - [ ] `add` — stub; exits `1`.
 - [ ] `remove` — stub; exits `1`.
 - [ ] `build` — stub; exits `1`.
@@ -24,10 +24,10 @@ Commands:
 
 Supporting work:
 
-- [ ] `mods.yaml` read/write (typed model; `yaml` + `yaml_edit` deps).
-- [ ] Modrinth API client (version lookup, project-validity check).
-- [ ] Resolver and `mods.lock` format.
-- [ ] Artifact cache (platform cache root, hash-verified download).
+- [ ] `mods.yaml` read/write — read done; write (`add`/`remove`) still needs `yaml_edit`.
+- [x] Modrinth API client (version lookup; project-validity check still deferred).
+- [x] Resolver and `mods.lock` format.
+- [x] Artifact cache (platform cache root, hash-verified download).
 - [ ] `.mrpack` archive builder.
 - [ ] Modrinth slug-validity check in `create` (currently deferred).
 

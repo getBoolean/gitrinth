@@ -1,5 +1,21 @@
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+
+import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
+import '../cli/exit_codes.dart';
+import '../model/manifest/emitter.dart';
+import '../model/manifest/mods_lock.dart';
+import '../model/manifest/mods_yaml.dart';
+import '../model/manifest/overrides_merger.dart';
+import '../model/modrinth/project.dart';
+import '../model/resolver/resolver.dart';
+import '../model/resolver/result.dart';
+import '../service/manifest_io.dart';
+import '../service/modrinth_api.dart';
+import '../version.dart';
 
 class GetCommand extends GitrinthCommand {
   @override
@@ -30,7 +46,304 @@ class GetCommand extends GitrinthCommand {
 
   @override
   Future<int> run() async {
-    // TODO(mvp): implement get — resolver + mods.lock + artifact cache.
-    throw const UserError('get: not yet implemented.');
+    final results = argResults!;
+    final dryRun = results['dry-run'] as bool;
+    final enforce = results['enforce-lockfile'] as bool;
+
+    final api = read(modrinthApiProvider);
+    final cache = read(cacheProvider);
+    final downloader = read(downloaderProvider);
+
+    final io = ManifestIo();
+    final manifest = io.readModsYaml();
+    final overrides = io.readOverrides();
+    final merged = applyOverrides(manifest, overrides);
+    final existingLock = io.readModsLock();
+
+    if (enforce) {
+      _checkUserEntriesPresentInLock(merged, existingLock);
+    }
+
+    final loaderName = merged.loader.name;
+    final mc = merged.mcVersion;
+    final slugCache = <String, String?>{};
+
+    final resolver = Resolver(
+      listVersions: (slug) async {
+        try {
+          return await api.listVersions(
+            slug,
+            loadersJson: encodeFilterArray([loaderName]),
+            gameVersionsJson: encodeFilterArray([mc]),
+          );
+        } on Object catch (e) {
+          if (e is GitrinthException) rethrow;
+          throw UserError('failed to list versions for $slug: $e');
+        }
+      },
+      resolveSlugForProjectId: (projectId) async {
+        if (slugCache.containsKey(projectId)) return slugCache[projectId];
+        try {
+          final Project p = await api.getProject(projectId);
+          slugCache[projectId] = p.slug;
+          return p.slug;
+        } on Object {
+          slugCache[projectId] = null;
+          return null;
+        }
+      },
+    );
+
+    console.detail(
+      'Resolving with loader=$loaderName mc=$mc...',
+    );
+    final resolution = await resolver.resolve(merged, existingLock: existingLock);
+
+    final newLock = _buildLock(merged, resolution);
+    final diff = _diffLocks(existingLock, newLock);
+
+    if (gitrinthRunner.verbose) {
+      _printDiff(diff);
+    }
+
+    if (enforce && diff.isNotEmpty) {
+      throw ValidationError(
+        'mods.lock is out of date (--enforce-lockfile). '
+        '${diff.length} change(s) would be applied.',
+      );
+    }
+
+    if (dryRun) {
+      _printDiff(diff, force: true);
+      if (diff.isNotEmpty) {
+        return exitValidationError;
+      }
+      return exitOk;
+    }
+
+    final newLockText = emitModsLock(newLock);
+    io.writeModsLock(newLockText);
+
+    int downloaded = 0;
+    int hits = 0;
+    for (final section in Section.values) {
+      final sectionMap = newLock.sectionFor(section);
+      for (final entry in sectionMap.entries) {
+        final locked = entry.value;
+        switch (locked.sourceKind) {
+          case LockedSourceKind.modrinth:
+            final file = locked.file;
+            if (file == null || file.url == null) continue;
+            final dest = cache.modrinthPath(
+              projectId: locked.projectId!,
+              versionId: locked.versionId!,
+              filename: file.name,
+            );
+            final existed = File(dest).existsSync();
+            await downloader.downloadTo(
+              url: file.url!,
+              destinationPath: dest,
+              expectedSha512: file.sha512,
+            );
+            if (existed) {
+              hits++;
+              console.detail('cache hit:  ${locked.slug} -> $dest');
+            } else {
+              downloaded++;
+              console.detail('downloaded: ${locked.slug} -> $dest');
+            }
+            break;
+          case LockedSourceKind.url:
+            final file = locked.file;
+            if (file == null || file.url == null) continue;
+            // url-source caching is keyed by sha512; if we don't have one
+            // (first download) we use a slug-stable filename under the
+            // unverified prefix.
+            final dest = file.sha512 != null
+                ? cache.urlPath(sha512: file.sha512!, filename: file.name)
+                : p.join(cache.urlRoot, '_unverified', locked.slug, file.name);
+            final existed = File(dest).existsSync();
+            await downloader.downloadTo(
+              url: file.url!,
+              destinationPath: dest,
+              expectedSha512: file.sha512,
+            );
+            if (existed) {
+              hits++;
+            } else {
+              downloaded++;
+            }
+            break;
+          case LockedSourceKind.path:
+            // Nothing to fetch.
+            break;
+        }
+      }
+    }
+
+    final summary = StringBuffer()
+      ..write('Locked ')
+      ..write(diff.where((d) => d.kind != _DiffKind.unchanged).length)
+      ..write(' change(s); ')
+      ..write(downloaded)
+      ..write(' downloaded, ')
+      ..write(hits)
+      ..write(' cache hit(s).');
+    console.info(summary.toString());
+
+    return exitOk;
   }
+
+  void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
+    if (lock == null) {
+      throw const ValidationError(
+        'mods.lock is missing (--enforce-lockfile).',
+      );
+    }
+    final missing = <String>[];
+    for (final section in Section.values) {
+      final entries = manifest.sectionEntries(section);
+      final lockSection = lock.sectionFor(section);
+      for (final slug in entries.keys) {
+        if (!lockSection.containsKey(slug)) missing.add(slug);
+      }
+    }
+    if (missing.isNotEmpty) {
+      throw ValidationError(
+        'mods.lock is missing user-declared entries (--enforce-lockfile): '
+        '${missing.join(', ')}',
+      );
+    }
+  }
+
+  ModsLock _buildLock(ModsYaml manifest, ResolutionResult resolution) {
+    final byKind = <Section, Map<String, LockedEntry>>{
+      for (final s in Section.values) s: <String, LockedEntry>{},
+    };
+    for (final r in resolution.entries) {
+      byKind[r.section]![r.slug] = LockedEntry(
+        slug: r.slug,
+        sourceKind: LockedSourceKind.modrinth,
+        version: r.version.versionNumber,
+        projectId: r.version.projectId,
+        versionId: r.version.id,
+        file: LockedFile(
+          name: r.file.filename,
+          url: r.file.url,
+          sha512: r.file.sha512,
+          size: r.file.size,
+        ),
+        env: r.env,
+        auto: r.auto,
+      );
+    }
+    // url: and path: entries from the manifest.
+    for (final section in Section.values) {
+      final entries = manifest.sectionEntries(section);
+      entries.forEach((slug, entry) {
+        final src = entry.source;
+        if (src is UrlEntrySource) {
+          byKind[section]![slug] = LockedEntry(
+            slug: slug,
+            sourceKind: LockedSourceKind.url,
+            file: LockedFile(name: _filenameFromUrl(src.url), url: src.url),
+            env: entry.env,
+          );
+        } else if (src is PathEntrySource) {
+          byKind[section]![slug] = LockedEntry(
+            slug: slug,
+            sourceKind: LockedSourceKind.path,
+            path: src.path,
+            env: entry.env,
+          );
+        }
+      });
+    }
+    return ModsLock(
+      gitrinthVersion: packageVersion,
+      loader: manifest.loader,
+      mcVersion: manifest.mcVersion,
+      mods: byKind[Section.mods]!,
+      resourcePacks: byKind[Section.resourcePacks]!,
+      dataPacks: byKind[Section.dataPacks]!,
+      shaders: byKind[Section.shaders]!,
+    );
+  }
+
+  String _filenameFromUrl(String url) {
+    final uri = Uri.parse(url);
+    if (uri.pathSegments.isEmpty) return 'artifact.jar';
+    return uri.pathSegments.last;
+  }
+
+  List<_LockDiff> _diffLocks(ModsLock? oldLock, ModsLock newLock) {
+    final out = <_LockDiff>[];
+    for (final section in Section.values) {
+      final newMap = newLock.sectionFor(section);
+      final oldMap = oldLock?.sectionFor(section) ?? const <String, LockedEntry>{};
+      final allSlugs = {...oldMap.keys, ...newMap.keys}.toList()..sort();
+      for (final slug in allSlugs) {
+        final oldEntry = oldMap[slug];
+        final newEntry = newMap[slug];
+        if (oldEntry == null && newEntry != null) {
+          out.add(_LockDiff(_DiffKind.added, section, slug,
+              before: null, after: newEntry));
+        } else if (oldEntry != null && newEntry == null) {
+          out.add(_LockDiff(_DiffKind.removed, section, slug,
+              before: oldEntry, after: null));
+        } else if (oldEntry != null && newEntry != null) {
+          if (!_equalLocked(oldEntry, newEntry)) {
+            out.add(_LockDiff(_DiffKind.updated, section, slug,
+                before: oldEntry, after: newEntry));
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  bool _equalLocked(LockedEntry a, LockedEntry b) {
+    return a.sourceKind == b.sourceKind &&
+        a.version == b.version &&
+        a.projectId == b.projectId &&
+        a.versionId == b.versionId &&
+        a.path == b.path &&
+        a.env == b.env &&
+        a.auto == b.auto &&
+        a.file?.name == b.file?.name &&
+        a.file?.url == b.file?.url &&
+        a.file?.sha512 == b.file?.sha512 &&
+        a.file?.size == b.file?.size;
+  }
+
+  void _printDiff(List<_LockDiff> diff, {bool force = false}) {
+    if (!force && !gitrinthRunner.verbose) return;
+    if (diff.isEmpty) {
+      console.info('mods.lock unchanged.');
+      return;
+    }
+    for (final d in diff) {
+      final symbol = switch (d.kind) {
+        _DiffKind.added => '+',
+        _DiffKind.removed => '-',
+        _DiffKind.updated => '~',
+        _DiffKind.unchanged => ' ',
+      };
+      final beforeV = d.before?.version ?? d.before?.path ?? '(none)';
+      final afterV = d.after?.version ?? d.after?.path ?? '(none)';
+      console.info('$symbol ${d.section.name}/${d.slug}: $beforeV -> $afterV');
+    }
+  }
+}
+
+enum _DiffKind { added, removed, updated, unchanged }
+
+class _LockDiff {
+  final _DiffKind kind;
+  final Section section;
+  final String slug;
+  final LockedEntry? before;
+  final LockedEntry? after;
+  const _LockDiff(this.kind, this.section, this.slug,
+      {this.before, this.after});
 }

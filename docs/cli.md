@@ -444,7 +444,7 @@ Overrides may also live in a standalone
 | `./mods.lock`                  | Resolved versions. Commit to git.                                                   |
 | `./build/`                     | Default output directory for [`build`](#build).                                     |
 | `./<slug>-<version>.mrpack`    | Default output path for [`pack`](#pack).                                            |
-| Platform cache directory       | Cache root. Override via `GITRINTH_CACHE`.                                          |
+| `~/.gitrinth_cache/`           | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`. |
 | Platform config directory      | User config — stored tokens, default server URL. Override via `GITRINTH_CONFIG`.    |
 
 ## Compatibility

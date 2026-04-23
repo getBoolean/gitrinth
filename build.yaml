@@ -20,3 +20,11 @@ targets:
             readmeTemplate: assets/template/README.md
             gitignoreTemplate: assets/template/gitignore.tmpl
             modrinthIgnoreTemplate: assets/template/modrinth_ignore.tmpl
+      dart_mappable_builder:
+        enabled: true
+        generate_for:
+          - lib/src/model/**.dart
+      retrofit_generator:
+        enabled: true
+        generate_for:
+          - lib/src/service/modrinth_api.dart

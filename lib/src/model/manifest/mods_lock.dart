@@ -1,0 +1,84 @@
+import 'package:dart_mappable/dart_mappable.dart';
+
+import 'mods_yaml.dart';
+
+part 'mods_lock.mapper.dart';
+
+@MappableEnum()
+enum LockedSourceKind { modrinth, url, path }
+
+@MappableClass()
+class LockedFile with LockedFileMappable {
+  final String name;
+  final String? url;
+  final String? sha512;
+  final int? size;
+
+  const LockedFile({required this.name, this.url, this.sha512, this.size});
+}
+
+@MappableClass()
+class LockedEntry with LockedEntryMappable {
+  final String slug;
+  final LockedSourceKind sourceKind;
+  final String? version;
+  final String? projectId;
+  final String? versionId;
+  final LockedFile? file;
+  final String? path;
+  final Environment env;
+  final bool auto;
+
+  const LockedEntry({
+    required this.slug,
+    required this.sourceKind,
+    this.version,
+    this.projectId,
+    this.versionId,
+    this.file,
+    this.path,
+    this.env = Environment.both,
+    this.auto = false,
+  });
+}
+
+@MappableClass()
+class ModsLock with ModsLockMappable {
+  final String gitrinthVersion;
+  final Loader loader;
+  final String mcVersion;
+  final Map<String, LockedEntry> mods;
+  final Map<String, LockedEntry> resourcePacks;
+  final Map<String, LockedEntry> dataPacks;
+  final Map<String, LockedEntry> shaders;
+
+  const ModsLock({
+    required this.gitrinthVersion,
+    required this.loader,
+    required this.mcVersion,
+    this.mods = const {},
+    this.resourcePacks = const {},
+    this.dataPacks = const {},
+    this.shaders = const {},
+  });
+
+  Iterable<MapEntry<String, LockedEntry>> get allEntries sync* {
+    yield* mods.entries;
+    yield* resourcePacks.entries;
+    yield* dataPacks.entries;
+    yield* shaders.entries;
+  }
+
+  Map<String, LockedEntry> sectionFor(Section section) {
+    switch (section) {
+      case Section.mods:
+        return mods;
+      case Section.resourcePacks:
+        return resourcePacks;
+      case Section.dataPacks:
+        return dataPacks;
+      case Section.shaders:
+        return shaders;
+    }
+  }
+}

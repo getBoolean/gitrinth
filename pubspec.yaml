@@ -14,10 +14,20 @@ workspace:
 
 dependencies:
   args: ^2.7.0
+  collection: ^1.18.0
+  crypto: ^3.0.3
+  dart_mappable: ^4.2.2
+  dio: ^5.4.0
   path: ^1.9.0
+  pub_semver: ^2.1.4
+  retrofit: ^4.1.0
+  riverpod: ^2.5.1
+  yaml: ^3.1.2
 
 dev_dependencies:
   asset_strings_builder: any
   build_runner: ^2.4.0
+  dart_mappable_builder: ^4.2.2
   lints: ^6.0.0
+  retrofit_generator: ^10.2.5
   test: ^1.25.6

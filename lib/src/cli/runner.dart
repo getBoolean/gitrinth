@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:riverpod/riverpod.dart';
 
+import '../app/container.dart';
 import '../commands/add_command.dart';
 import '../commands/build_command.dart';
 import '../commands/create_command.dart';
@@ -15,9 +17,11 @@ import 'exit_codes.dart';
 
 class GitrinthRunner extends CommandRunner<int> {
   bool verbose = false;
+  final ProviderContainer container;
 
-  GitrinthRunner()
-      : super(
+  GitrinthRunner({ProviderContainer? container})
+      : container = container ?? buildContainer(),
+        super(
           'gitrinth',
           'Manage Modrinth modpacks declared in mods.yaml.',
         ) {
@@ -76,8 +80,11 @@ class GitrinthRunner extends CommandRunner<int> {
   }
 }
 
-Future<int> runGitrinth(List<String> arguments) async {
-  final runner = GitrinthRunner();
+Future<int> runGitrinth(
+  List<String> arguments, {
+  ProviderContainer? container,
+}) async {
+  final runner = GitrinthRunner(container: container);
   try {
     return await runner.run(arguments);
   } on GitrinthException catch (e) {
@@ -95,5 +102,7 @@ Future<int> runGitrinth(List<String> arguments) async {
       stderr.writeln(stack);
     }
     return exitUserError;
+  } finally {
+    runner.container.dispose();
   }
 }
