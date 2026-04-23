@@ -31,6 +31,16 @@ Supporting work:
 - [ ] `.mrpack` archive builder.
 - [ ] Modrinth slug-validity check in `create` (currently deferred).
 
+## Release channels
+
+Each entry in `mods.yaml` may declare a release-channel floor as either
+the shorthand scalar form (`some-mod: beta`) or the long form
+(`channel: beta` alongside `version:`). The floor is inclusive — `beta`
+admits `release` + `beta`, `alpha` admits all three. When no channel is
+declared on an entry, every Modrinth `version_type` is admitted (same as
+`alpha`); add `channel: release` to a single entry if you want to
+exclude betas/alphas for that mod only.
+
 ## Commands
 
 ### [`create`](cli.md#create)

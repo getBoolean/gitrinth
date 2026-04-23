@@ -1,6 +1,7 @@
 import 'package:yaml/yaml.dart';
 
 import '../../cli/exceptions.dart';
+import '../resolver/constraint.dart';
 import 'mods_lock.dart';
 import 'mods_overrides.dart';
 import 'mods_yaml.dart';
@@ -218,14 +219,24 @@ ModEntry _parseEntry(
   required bool allowEnv,
   Environment? forcedEnv,
 }) {
-  // Short forms: null (latest), or a scalar version constraint.
+  // Short forms: null (latest), a channel token, or a scalar version constraint.
   if (raw == null) {
     return ModEntry(slug: slug, constraintRaw: null, env: forcedEnv ?? Environment.both);
   }
   if (raw is String || raw is num || raw is bool) {
+    final asText = raw.toString();
+    final channelFromShorthand = parseChannelToken(asText);
+    if (channelFromShorthand != null) {
+      return ModEntry(
+        slug: slug,
+        constraintRaw: null,
+        channel: channelFromShorthand,
+        env: forcedEnv ?? Environment.both,
+      );
+    }
     return ModEntry(
       slug: slug,
-      constraintRaw: raw.toString(),
+      constraintRaw: asText,
       env: forcedEnv ?? Environment.both,
     );
   }
@@ -266,6 +277,8 @@ ModEntry _parseEntry(
 
   final versionRaw = m['version'];
   final constraintRaw = versionRaw?.toString();
+  final channel =
+      _parseChannelField(m['channel'], filePath, '$sectionName/$slug');
 
   Environment env = forcedEnv ?? Environment.both;
   final envRaw = m['environment'];
@@ -280,7 +293,24 @@ ModEntry _parseEntry(
   }
   if (forcedEnv != null) env = forcedEnv;
 
-  return ModEntry(slug: slug, constraintRaw: constraintRaw, env: env, source: source);
+  return ModEntry(
+    slug: slug,
+    constraintRaw: constraintRaw,
+    channel: channel,
+    env: env,
+    source: source,
+  );
+}
+
+Channel? _parseChannelField(dynamic raw, String filePath, String where) {
+  if (raw == null) return null;
+  final parsed = parseChannelToken(raw.toString());
+  if (parsed == null) {
+    throw _err(
+      '$filePath: $where channel "$raw" must be one of release, beta, alpha.',
+    );
+  }
+  return parsed;
 }
 
 Loader _parseLoader(dynamic raw, String filePath) {

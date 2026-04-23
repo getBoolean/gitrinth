@@ -19,6 +19,8 @@ class Version with VersionMappable {
   final List<String> gameVersions;
   @MappableField(key: 'date_published')
   final String? datePublished;
+  @MappableField(key: 'version_type')
+  final String? versionType;
 
   const Version({
     required this.id,
@@ -29,6 +31,7 @@ class Version with VersionMappable {
     required this.loaders,
     required this.gameVersions,
     this.datePublished,
+    this.versionType,
   });
 
   VersionFile? get primaryFile {

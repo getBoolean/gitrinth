@@ -162,6 +162,56 @@ extension SectionMapperExtension on Section {
   }
 }
 
+class ChannelMapper extends EnumMapper<Channel> {
+  ChannelMapper._();
+
+  static ChannelMapper? _instance;
+  static ChannelMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ChannelMapper._());
+    }
+    return _instance!;
+  }
+
+  static Channel fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  Channel decode(dynamic value) {
+    switch (value) {
+      case r'release':
+        return Channel.release;
+      case r'beta':
+        return Channel.beta;
+      case r'alpha':
+        return Channel.alpha;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(Channel self) {
+    switch (self) {
+      case Channel.release:
+        return r'release';
+      case Channel.beta:
+        return r'beta';
+      case Channel.alpha:
+        return r'alpha';
+    }
+  }
+}
+
+extension ChannelMapperExtension on Channel {
+  String toValue() {
+    ChannelMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<Channel>(this) as String;
+  }
+}
+
 class EntrySourceMapper extends ClassMapperBase<EntrySource> {
   EntrySourceMapper._();
 
@@ -594,6 +644,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
   static ModEntryMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ModEntryMapper._());
+      ChannelMapper.ensureInitialized();
       EnvironmentMapper.ensureInitialized();
       EntrySourceMapper.ensureInitialized();
     }
@@ -609,6 +660,12 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
   static const Field<ModEntry, String> _f$constraintRaw = Field(
     'constraintRaw',
     _$constraintRaw,
+    opt: true,
+  );
+  static Channel? _$channel(ModEntry v) => v.channel;
+  static const Field<ModEntry, Channel> _f$channel = Field(
+    'channel',
+    _$channel,
     opt: true,
   );
   static Environment _$env(ModEntry v) => v.env;
@@ -630,6 +687,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
   final MappableFields<ModEntry> fields = const {
     #slug: _f$slug,
     #constraintRaw: _f$constraintRaw,
+    #channel: _f$channel,
     #env: _f$env,
     #source: _f$source,
   };
@@ -638,6 +696,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     return ModEntry(
       slug: data.dec(_f$slug),
       constraintRaw: data.dec(_f$constraintRaw),
+      channel: data.dec(_f$channel),
       env: data.dec(_f$env),
       source: data.dec(_f$source),
     );
@@ -704,6 +763,7 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
   $R call({
     String? slug,
     String? constraintRaw,
+    Channel? channel,
     Environment? env,
     EntrySource? source,
   });
@@ -725,12 +785,14 @@ class _ModEntryCopyWithImpl<$R, $Out>
   $R call({
     String? slug,
     Object? constraintRaw = $none,
+    Object? channel = $none,
     Environment? env,
     EntrySource? source,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
       if (constraintRaw != $none) #constraintRaw: constraintRaw,
+      if (channel != $none) #channel: channel,
       if (env != null) #env: env,
       if (source != null) #source: source,
     }),
@@ -739,6 +801,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
   ModEntry $make(CopyWithData data) => ModEntry(
     slug: data.get(#slug, or: $value.slug),
     constraintRaw: data.get(#constraintRaw, or: $value.constraintRaw),
+    channel: data.get(#channel, or: $value.channel),
     env: data.get(#env, or: $value.env),
     source: data.get(#source, or: $value.source),
   );

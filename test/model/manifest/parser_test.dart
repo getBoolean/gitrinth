@@ -122,6 +122,81 @@ mc-version: 1.21.1
       );
     });
 
+    test('short-form channel token sets channel and leaves constraint null', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader: neoforge
+mc-version: 1.21.1
+mods:
+  jei: beta
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['jei']!.channel, Channel.beta);
+      expect(m.mods['jei']!.constraintRaw, isNull);
+    });
+
+    test('short-form version constraint leaves channel null', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader: neoforge
+mc-version: 1.21.1
+mods:
+  jei: ^1.8
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['jei']!.channel, isNull);
+      expect(m.mods['jei']!.constraintRaw, '^1.8');
+    });
+
+    test('long-form accepts both version and channel', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader: neoforge
+mc-version: 1.21.1
+mods:
+  jei:
+    version: ^1.8
+    channel: beta
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['jei']!.constraintRaw, '^1.8');
+      expect(m.mods['jei']!.channel, Channel.beta);
+    });
+
+    test('unknown channel token raises scoped ValidationError', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader: neoforge
+mc-version: 1.21.1
+mods:
+  jei:
+    version: ^1.8
+    channel: nightly
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('jei'),
+          ),
+        ),
+      );
+    });
+
     test('shaders entries cannot declare environment', () {
       final yaml = '''
 slug: pack

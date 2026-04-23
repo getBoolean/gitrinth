@@ -40,10 +40,15 @@ class Resolver {
           // url:/path: sources don't take part in resolution.
           return;
         }
+        // Permissive default: an entry with no explicit channel accepts
+        // every Modrinth `version_type`. Users narrow to `release`/`beta`
+        // only when they want a stricter stability floor.
+        final effectiveChannel = entry.channel ?? Channel.alpha;
         roots.add(
           RootConstraint(
             slug: slug,
             constraint: parseConstraint(entry.constraintRaw),
+            channel: effectiveChannel,
             isUserDeclared: true,
           ),
         );

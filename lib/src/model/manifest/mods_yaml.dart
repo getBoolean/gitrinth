@@ -11,6 +11,9 @@ enum Environment { client, server, both }
 @MappableEnum()
 enum Section { mods, resourcePacks, dataPacks, shaders }
 
+@MappableEnum()
+enum Channel { release, beta, alpha }
+
 @MappableClass(discriminatorKey: 'kind')
 sealed class EntrySource with EntrySourceMappable {
   const EntrySource();
@@ -37,12 +40,14 @@ class PathEntrySource extends EntrySource with PathEntrySourceMappable {
 class ModEntry with ModEntryMappable {
   final String slug;
   final String? constraintRaw;
+  final Channel? channel;
   final Environment env;
   final EntrySource source;
 
   const ModEntry({
     required this.slug,
     this.constraintRaw,
+    this.channel,
     this.env = Environment.both,
     this.source = const ModrinthEntrySource(),
   });

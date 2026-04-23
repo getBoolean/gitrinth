@@ -212,11 +212,19 @@ $defs:
 
   modVersion:
     description: |
-      Mod-version constraint. Either `any` (latest compatible), or a
-      version string with optional `^` caret prefix (e.g. "19.27.0.340",
-      "^6.0.10+mc1.21.1").
-    oneOf:
+      Short-form mod dependency. One of: null (latest of any
+      `version_type`), a release-channel token (`release`, `beta`,
+      `alpha`) that pins the stability floor, or a version string with
+      optional `^` caret prefix (e.g. "19.27.0.340", "^6.0.10+mc1.21.1").
+      When no channel is declared (null or a version constraint), every
+      `version_type` is admitted.
+    anyOf:
       - type: "null"
+      - type: string
+        enum:
+          - release
+          - beta
+          - alpha
       - type: string
         minLength: 1
 
@@ -238,6 +246,16 @@ $defs:
     properties:
       version:
         $ref: "#/$defs/modVersion"
+      channel:
+        description: |
+          Release-channel floor for this entry. Stability floors:
+          `release` admits only stable releases, `beta` admits
+          `release` + `beta`, `alpha` admits all. Omit to default to
+          `alpha` (any `version_type`).
+        enum:
+          - release
+          - beta
+          - alpha
       environment:
         description: Which side this mod ships with.
         default: both
@@ -284,6 +302,16 @@ $defs:
     properties:
       version:
         $ref: "#/$defs/modVersion"
+      channel:
+        description: |
+          Release-channel floor for this entry. Stability floors:
+          `release` admits only stable releases, `beta` admits
+          `release` + `beta`, `alpha` admits all. Omit to default to
+          `alpha` (any `version_type`).
+        enum:
+          - release
+          - beta
+          - alpha
       hosted:
         type: string
         format: uri

@@ -1,4 +1,5 @@
 import 'package:gitrinth/src/cli/exceptions.dart';
+import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/resolver/constraint.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:test/test.dart';
@@ -64,6 +65,48 @@ void main() {
 
     test('throws on truly unparseable strings', () {
       expect(() => parseModrinthVersion('abc'), throwsFormatException);
+    });
+  });
+
+  group('parseChannelToken', () {
+    test('round-trips each channel', () {
+      expect(parseChannelToken('release'), Channel.release);
+      expect(parseChannelToken('beta'), Channel.beta);
+      expect(parseChannelToken('alpha'), Channel.alpha);
+    });
+
+    test('is case-insensitive and whitespace-tolerant', () {
+      expect(parseChannelToken('  BETA '), Channel.beta);
+      expect(parseChannelToken('Alpha'), Channel.alpha);
+      expect(parseChannelToken('RELEASE'), Channel.release);
+    });
+
+    test('returns null for non-channel tokens (falls through to constraint)', () {
+      expect(parseChannelToken('^1.0.0'), isNull);
+      expect(parseChannelToken('1.2.3'), isNull);
+      expect(parseChannelToken(''), isNull);
+      expect(parseChannelToken(null), isNull);
+    });
+
+    test('rejects unknown channel-shaped tokens', () {
+      // Unknown tokens return null; the caller (parser) raises ValidationError
+      // when it required a channel.
+      expect(parseChannelToken('nightly'), isNull);
+      expect(parseChannelToken('stable'), isNull);
+    });
+  });
+
+  group('allowedVersionTypes', () {
+    test('release admits release only', () {
+      expect(allowedVersionTypes(Channel.release), {'release'});
+    });
+
+    test('beta admits release and beta', () {
+      expect(allowedVersionTypes(Channel.beta), {'release', 'beta'});
+    });
+
+    test('alpha admits all channels', () {
+      expect(allowedVersionTypes(Channel.alpha), {'release', 'beta', 'alpha'});
     });
   });
 }

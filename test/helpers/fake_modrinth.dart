@@ -40,6 +40,56 @@ class FakeModrinth {
     return sha512.convert(bytes).toString();
   }
 
+  /// Registers a single canned version under [slug]. Returns the generated
+  /// version-id so tests can assert against it. Builds the artifact bytes
+  /// on the fly and hashes them.
+  ///
+  /// [versionType] is the Modrinth `version_type` ("release" | "beta" |
+  /// "alpha"); omit to leave it unset (the resolver treats missing as
+  /// "release").
+  String registerVersion({
+    required String slug,
+    required String versionNumber,
+    String? versionType,
+    String projectId = '',
+    String loader = 'neoforge',
+    String gameVersion = '1.21.1',
+  }) {
+    final pid = projectId.isEmpty ? '${slug}_ID' : projectId;
+    final versionId = '${slug}_${versionNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_')}';
+    final filename = '$slug-$versionNumber.jar';
+    final bytes = Uint8List.fromList(
+      List.generate(16, (i) => (versionNumber.codeUnitAt(i % versionNumber.length) + i) & 0xff),
+    );
+    final sha = addArtifact(slug, filename, bytes);
+    projects.putIfAbsent(slug, () => <String, dynamic>{
+          'id': pid,
+          'slug': slug,
+          'title': slug,
+          'project_type': 'mod',
+        });
+    final entry = <String, dynamic>{
+      'id': versionId,
+      'project_id': pid,
+      'version_number': versionNumber,
+      'files': [
+        {
+          'url': '$downloadBaseUrl/$slug/$filename',
+          'filename': filename,
+          'hashes': {'sha512': sha},
+          'size': bytes.length,
+          'primary': true,
+        }
+      ],
+      'dependencies': <dynamic>[],
+      'loaders': [loader],
+      'game_versions': [gameVersion],
+    };
+    if (versionType != null) entry['version_type'] = versionType;
+    versions.putIfAbsent(slug, () => <Map<String, dynamic>>[]).add(entry);
+    return versionId;
+  }
+
   void _handle(HttpRequest req) async {
     final path = req.uri.path;
     try {

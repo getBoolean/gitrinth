@@ -66,6 +66,13 @@ class VersionMapper extends ClassMapperBase<Version> {
     key: r'date_published',
     opt: true,
   );
+  static String? _$versionType(Version v) => v.versionType;
+  static const Field<Version, String> _f$versionType = Field(
+    'versionType',
+    _$versionType,
+    key: r'version_type',
+    opt: true,
+  );
 
   @override
   final MappableFields<Version> fields = const {
@@ -77,6 +84,7 @@ class VersionMapper extends ClassMapperBase<Version> {
     #loaders: _f$loaders,
     #gameVersions: _f$gameVersions,
     #datePublished: _f$datePublished,
+    #versionType: _f$versionType,
   };
 
   static Version _instantiate(DecodingData data) {
@@ -89,6 +97,7 @@ class VersionMapper extends ClassMapperBase<Version> {
       loaders: data.dec(_f$loaders),
       gameVersions: data.dec(_f$gameVersions),
       datePublished: data.dec(_f$datePublished),
+      versionType: data.dec(_f$versionType),
     );
   }
 
@@ -168,6 +177,7 @@ abstract class VersionCopyWith<$R, $In extends Version, $Out>
     List<String>? loaders,
     List<String>? gameVersions,
     String? datePublished,
+    String? versionType,
   });
   VersionCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -222,6 +232,7 @@ class _VersionCopyWithImpl<$R, $Out>
     List<String>? loaders,
     List<String>? gameVersions,
     Object? datePublished = $none,
+    Object? versionType = $none,
   }) => $apply(
     FieldCopyWithData({
       if (id != null) #id: id,
@@ -232,6 +243,7 @@ class _VersionCopyWithImpl<$R, $Out>
       if (loaders != null) #loaders: loaders,
       if (gameVersions != null) #gameVersions: gameVersions,
       if (datePublished != $none) #datePublished: datePublished,
+      if (versionType != $none) #versionType: versionType,
     }),
   );
   @override
@@ -244,6 +256,7 @@ class _VersionCopyWithImpl<$R, $Out>
     loaders: data.get(#loaders, or: $value.loaders),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
     datePublished: data.get(#datePublished, or: $value.datePublished),
+    versionType: data.get(#versionType, or: $value.versionType),
   );
 
   @override

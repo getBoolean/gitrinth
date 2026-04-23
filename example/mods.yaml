@@ -40,11 +40,15 @@ mods:
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
   jei: ^19.27.0.340
+  # Shorthand scalar form: pin the stability floor on the beta channel
+  # (releases still win when newer — stability floor, not exact match).
+  some-shader: beta
   iris:
     version: ^1.8.12+1.21.1-neoforge
     environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
   netherportalfix:
     version: ^21.1.1+neoforge-1.21.1
+    channel: release # Long form: pair an explicit version range with a release-only floor (otherwise defaults to any version_type).
     environment: server
 
 resource_packs:

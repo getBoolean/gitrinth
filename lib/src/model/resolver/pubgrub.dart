@@ -1,6 +1,7 @@
 import 'package:pub_semver/pub_semver.dart';
 
 import '../../cli/exceptions.dart';
+import '../manifest/mods_yaml.dart';
 import '../modrinth/dependency.dart';
 import '../modrinth/version.dart' as modrinth;
 import 'constraint.dart';
@@ -12,11 +13,13 @@ typedef ResolveSlug = Future<String?> Function(String projectId);
 class RootConstraint {
   final String slug;
   final VersionConstraint constraint;
+  final Channel channel;
   final bool isUserDeclared;
   const RootConstraint({
     required this.slug,
     required this.constraint,
     required this.isUserDeclared,
+    this.channel = Channel.alpha,
   });
 }
 
@@ -65,6 +68,7 @@ class PubGrubSolver {
     );
     for (final r in roots) {
       state.addConstraint(r.slug, r.constraint);
+      state.addChannel(r.slug, r.channel);
     }
     if (await _solveStep(state)) {
       return PubGrubResult(
@@ -102,6 +106,8 @@ class PubGrubSolver {
     });
     final slug = undecided.first;
     final constraint = state.constraints[slug]!;
+    final channel = state.channels[slug] ?? Channel.alpha;
+    final allowed = allowedVersionTypes(channel);
 
     final allVersions = await _versionsFor(slug);
     if (allVersions.isEmpty) {
@@ -112,6 +118,8 @@ class PubGrubSolver {
     // Collect (parsed_version, modrinth_version) candidates.
     final candidates = <_Candidate>[];
     for (final v in allVersions) {
+      final vt = v.versionType ?? 'release';
+      if (!allowed.contains(vt)) continue;
       try {
         final parsed = parseModrinthVersion(v.versionNumber);
         if (constraint.allows(parsed)) {
@@ -126,7 +134,8 @@ class PubGrubSolver {
     if (candidates.isEmpty) {
       state.recordConflict(
         slug,
-        'no version satisfies $constraint (saw ${allVersions.length} candidates).',
+        'no version satisfies $constraint on channel ${channel.name} '
+        '(saw ${allVersions.length} candidates).',
       );
       return false;
     }
@@ -161,6 +170,11 @@ class PubGrubSolver {
           }
           // Add an "any" constraint plus a version pin if dep.versionId given.
           state.addConstraint(depSlug, VersionConstraint.any);
+          // Transitive deps inherit the permissive default (all
+          // version_types admitted). A user who wants to pin the stability
+          // floor of a transitive must declare it explicitly as a direct
+          // entry.
+          state.addChannel(depSlug, Channel.alpha);
           // versionId-pinned deps will be enforced when we recurse.
         } else if (dep.dependencyType == DependencyType.incompatible) {
           final depProjectId = dep.projectId;
@@ -213,6 +227,7 @@ class _Candidate {
 
 class _SolverState {
   final Map<String, VersionConstraint> constraints = {};
+  final Map<String, Channel> channels = {};
   final Map<String, modrinth.Version> decisions = {};
   final Set<String> incompatibleSlugs = {};
   final Map<String, String> lockSuggestions;
@@ -229,6 +244,31 @@ class _SolverState {
     } else {
       constraints[slug] = existing.intersect(c);
     }
+  }
+
+  /// Merge a channel declaration with any existing one for [slug], keeping
+  /// the **more permissive** (lower-stability) floor. Conflicting declarations
+  /// (e.g. top-level beta + entry-level release-after-override, or a second
+  /// declaration via mods_overrides) widen rather than narrow — narrowing
+  /// would surprise users whose intent when declaring a channel is "at least
+  /// this stable."
+  void addChannel(String slug, Channel c) {
+    final existing = channels[slug];
+    if (existing == null) {
+      channels[slug] = c;
+      return;
+    }
+    channels[slug] = _widerChannel(existing, c);
+  }
+
+  static Channel _widerChannel(Channel a, Channel b) {
+    // alpha > beta > release in permissiveness.
+    int rank(Channel ch) => switch (ch) {
+          Channel.release => 0,
+          Channel.beta => 1,
+          Channel.alpha => 2,
+        };
+    return rank(a) >= rank(b) ? a : b;
   }
 
   void recordConflict(String slug, String why) {
@@ -260,6 +300,7 @@ class _SolverState {
   _Snapshot snapshot() {
     return _Snapshot(
       constraints: Map.of(constraints),
+      channels: Map.of(channels),
       decisions: Map.of(decisions),
       incompatibleSlugs: Set.of(incompatibleSlugs),
     );
@@ -269,6 +310,9 @@ class _SolverState {
     constraints
       ..clear()
       ..addAll(s.constraints);
+    channels
+      ..clear()
+      ..addAll(s.channels);
     decisions
       ..clear()
       ..addAll(s.decisions);
@@ -280,10 +324,12 @@ class _SolverState {
 
 class _Snapshot {
   final Map<String, VersionConstraint> constraints;
+  final Map<String, Channel> channels;
   final Map<String, modrinth.Version> decisions;
   final Set<String> incompatibleSlugs;
   _Snapshot({
     required this.constraints,
+    required this.channels,
     required this.decisions,
     required this.incompatibleSlugs,
   });
