@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 
 import '../app/providers.dart';
@@ -77,7 +78,12 @@ class GetCommand extends GitrinthCommand {
             gameVersionsJson: encodeFilterArray([mc]),
           );
         } on Object catch (e) {
-          if (e is GitrinthException) rethrow;
+          // ModrinthErrorInterceptor wraps HTTP failures in a DioException
+          // whose .error is a GitrinthException with a user-friendly message
+          // (including the 404 "project not found" case). Surface it as-is
+          // rather than prefixing "failed to list versions for $slug:".
+          final err = (e is DioException) ? e.error : e;
+          if (err is GitrinthException) throw err;
           throw UserError('failed to list versions for $slug: $e');
         }
       },

@@ -57,7 +57,7 @@ data_packs:
   terralith: ^2.5.8
 
 shaders:
-  complementary-shaders: ^r5.7.1
+  complementary-reimagined: ^r5.7.1
 
 plugins:
 

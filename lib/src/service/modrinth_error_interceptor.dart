@@ -9,6 +9,25 @@ class ModrinthErrorInterceptor extends Interceptor {
   void onError(DioException err, ErrorInterceptorHandler handler) {
     final response = err.response;
     final reqUri = err.requestOptions.uri;
+    final status = response?.statusCode;
+
+    // Modrinth returns 404 on `/project/<slug>` and `/project/<slug>/version`
+    // when the slug doesn't exist (filter mismatches return an empty array
+    // with 200). Surface the slug directly instead of the raw URL + status.
+    if (status == 404) {
+      final slug = _projectSlugFromPath(reqUri.path);
+      if (slug != null) {
+        _rejectWith(
+          err,
+          handler,
+          UserError(
+            "Modrinth project '$slug' not found. Verify the slug on modrinth.com.",
+          ),
+        );
+        return;
+      }
+    }
+
     String? bodyMessage;
     if (response != null) {
       final data = response.data;
@@ -25,16 +44,26 @@ class ModrinthErrorInterceptor extends Interceptor {
         }
       }
     }
-    final status = response?.statusCode;
     final summary = bodyMessage != null
         ? '$bodyMessage (HTTP ${status ?? '?'})'
         : 'HTTP ${status ?? '?'} ${response?.statusMessage ?? err.message ?? ''}'
             .trim();
-    final wrapped = UserError('Modrinth request failed for $reqUri: $summary');
+    _rejectWith(
+      err,
+      handler,
+      UserError('Modrinth request failed for $reqUri: $summary'),
+    );
+  }
+
+  void _rejectWith(
+    DioException err,
+    ErrorInterceptorHandler handler,
+    UserError wrapped,
+  ) {
     handler.reject(
       DioException(
         requestOptions: err.requestOptions,
-        response: response,
+        response: err.response,
         type: err.type,
         error: wrapped,
         stackTrace: err.stackTrace,
@@ -42,4 +71,18 @@ class ModrinthErrorInterceptor extends Interceptor {
       ),
     );
   }
+}
+
+/// Returns the slug from `/v2/project/<slug>` or `/v2/project/<slug>/version`,
+/// or null if the path doesn't match that shape.
+String? _projectSlugFromPath(String path) {
+  final segments =
+      path.split('/').where((s) => s.isNotEmpty).toList(growable: false);
+  final i = segments.indexOf('project');
+  if (i < 0 || i + 1 >= segments.length) return null;
+  final tail = segments.sublist(i + 2);
+  if (tail.isEmpty || (tail.length == 1 && tail.first == 'version')) {
+    return Uri.decodeComponent(segments[i + 1]);
+  }
+  return null;
 }

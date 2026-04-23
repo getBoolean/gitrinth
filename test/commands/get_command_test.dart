@@ -263,6 +263,33 @@ mods:
     expect(lockText, contains('version: 2.0.1-beta'));
   });
 
+  test('unknown slug emits a friendly error naming the slug', () async {
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader: neoforge
+mc-version: 1.21.1
+mods:
+  does-not-exist: ^1.0.0
+''');
+
+    final out = await runCli(
+      ['-C', packDir.path, 'get'],
+      environment: {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      },
+    );
+    expect(out.exitCode, isNot(0), reason: out.stderr);
+    expect(out.stderr, contains("'does-not-exist'"));
+    expect(out.stderr, contains('not found'));
+    expect(out.stderr, isNot(contains('DioException')));
+    expect(out.stderr, isNot(contains('HTTP 404')));
+    expect(out.stderr, isNot(contains('failed to list versions')));
+  });
+
   test('re-run is a no-op (cache hit)', () async {
     final jarBytes = Uint8List.fromList(List.generate(32, (i) => i));
     final sha = modrinth.addArtifact('b', 'b-1.0.0.jar', jarBytes);
