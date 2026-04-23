@@ -25,7 +25,7 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`name`](#name)                     | yes      | Human-readable display name.                                                                                                                                                   |
 | [`version`](#version)               | yes      | The semver version of the modpack.                                                                                                                                             |
 | [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                  |
-| [`project`](#project)               | no       | Modrinth project metadata — links, body, license, gallery, categories, client/server compatibility. See below for the full list of sub-fields.                                 |
+| [`project`](#project)               | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                          |
 | [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                |
 | [`loader`](#loader)                 | yes      | The mod loader the modpack targets (`forge`, `fabric`, or `neoforge`).                                                                                                         |
 | [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                               |
@@ -36,7 +36,6 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`. Always client-only — `environment` is rejected.                                                                     |
 | [`plugins`](#plugins)               | no       | Server plugins to ship with the pack. Same syntax as `mods`. Always server-only — `environment` is rejected.                                                                   |
 | [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                   |
-| [`servers`](#servers)               | no       | Default servers embedded in the client's multiplayer menu.                                                                                                                     |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
 warning so typos don't silently disable options.
@@ -57,9 +56,6 @@ project:
   discord_url: https://discord.gg/example
   license_id: MIT
   license_url:
-  donation_urls:
-    - platform: ko-fi
-      url: https://ko-fi.com/example
   categories:
     - multiplayer
     - technology
@@ -67,9 +63,6 @@ project:
     - magic
   client_side: required
   server_side: required
-  gallery:
-    - ./screenshots/overview.png
-    - ./screenshots/base.png
 
 publish_to: https://modrinth.com
 
@@ -106,11 +99,6 @@ plugins:
 overrides:
   jei:
     version: 19.27.0.340
-
-servers:
-  example_server:
-    name: Example Server
-    address: play.example.com
 ```
 
 ## Details
@@ -184,9 +172,6 @@ project:
   discord_url: https://discord.gg/example
   license_id: MIT
   license_url:
-  donation_urls:
-    - platform: ko-fi
-      url: https://ko-fi.com/example
   categories:
     - multiplayer
     - technology
@@ -194,8 +179,6 @@ project:
     - magic
   client_side: required
   server_side: required
-  gallery:
-    - ./screenshots/overview.png
 ```
 
 #### `body`
@@ -274,40 +257,6 @@ project:
   license_url: https://example.com/modpack/LICENSE
 ```
 
-#### `donation_urls`
-
-**Optional.** Links to platforms where users can donate to the modpack
-author. Each entry is an object with a `platform` and a `url`. The
-`gitrinth` CLI expands `platform` into Modrinth's separate `id` and
-display-name pair at publish time, so the list below is exhaustive and
-custom values are rejected.
-
-| Key        | Required | Description                                                             |
-|------------|----------|-------------------------------------------------------------------------|
-| `platform` | yes      | Modrinth donation-platform identifier. Must be one of the values below. |
-| `url`      | yes      | Donation URL on the platform.                                           |
-
-Supported `platform` values, sourced from Modrinth's
-`GET /tag/donation_platform` endpoint:
-
-| `platform` | Displayed as      |
-|------------|-------------------|
-| `patreon`  | Patreon           |
-| `bmac`     | Buy Me A Coffee   |
-| `paypal`   | PayPal            |
-| `github`   | GitHub Sponsors   |
-| `ko-fi`    | Ko-fi             |
-| `other`    | Other             |
-
-```yaml
-project:
-  donation_urls:
-    - platform: ko-fi
-      url: https://ko-fi.com/example
-    - platform: patreon
-      url: https://patreon.com/example
-```
-
 #### `categories`
 
 **Optional.** Primary Modrinth modpack categories applied when publishing.
@@ -370,18 +319,6 @@ Defaults to `required` when omitted.
 ```yaml
 project:
   server_side: required
-```
-
-#### `gallery`
-
-**Optional.** A list of screenshots to upload as part of the modpack's
-Modrinth gallery. Each entry is a path relative to `mods.yaml`.
-
-```yaml
-project:
-  gallery:
-    - ./screenshots/overview.png
-    - ./screenshots/base.png
 ```
 
 ### `publish_to`
@@ -579,27 +516,15 @@ mods:
   local_mod:
     path: ./mods/local_mod.jar
 
-  # GitHub-style "owner/repo" shorthand.
-  forked_mod:
-    git: getBoolean/forked_mod
-
-  # Git source with a specific ref and sub-path.
-  deep_mod:
-    git:
-      url: https://github.com/example/deep_mod.git
-      ref: main
-      path: mods/deep_mod
-    version: ^1.2.0
-
   # Long form with only a per-mod environment.
   iris:
     environment: client
 ```
 
-Each entry must specify **at most one** of `hosted`, `url`, `path`, or
-`git`. Omitting all four is equivalent to `hosted:` on the default
-Modrinth instance — useful when you only want to express a version
-constraint or an `environment` in the long form.
+Each entry must specify **at most one** of `hosted`, `url`, or `path`.
+Omitting all three is equivalent to `hosted:` on the default Modrinth
+instance — useful when you only want to express a version constraint
+or an `environment` in the long form.
 
 | Source   | Publishable? | Notes                                                |
 |----------|--------------|------------------------------------------------------|
@@ -607,79 +532,15 @@ constraint or an `environment` in the long form.
 | `hosted` | yes          | Any Modrinth-compatible server. Value is a base URL. |
 | `url`    | no           | Direct download URL for a `.jar`.                    |
 | `path`   | no           | Local filesystem path relative to `mods.yaml`.       |
-| `git`    | no           | See [Git sources](#git-sources).                     |
 
 **Caution.** For [`mods`](#mods) entries (and [`overrides`](#overrides)
-targeting a mod), `url`, `path`, and `git` sources produce a modpack
-that is not publishable to Modrinth. `gitrinth publish` will refuse to
-upload it and will name the entries responsible. These sources are
-permitted for [`resource_packs`](#resource_packs),
-[`data_packs`](#data_packs), [`shaders`](#shaders), and
-[`plugins`](#plugins) without affecting publishability — the
-Publishable? column above applies only when the entry is a mod.
-
-#### Git sources
-
-The `git` source fetches a mod directly from a Git repository. It is the
-easiest way to depend on a fork, a pre-release branch, or a mod that is
-not published to Modrinth at all.
-
-Three forms are accepted:
-
-```yaml
-mods:
-  # 1. GitHub "owner/repo" shorthand.
-  #    Expanded to https://github.com/<owner>/<repo>.git and checked
-  #    out on the repository's default branch.
-  forked_jei:
-    git: example/forked_jei
-
-  # 2. A full git URL — https, ssh, or git:// — again on the default
-  #    branch.
-  forked_iris:
-    git: https://github.com/example/forked_iris.git
-
-  # 3. An object form with url, ref, and/or path.
-  deep_mod:
-    git:
-      url: git@github.com:example/monorepo.git
-      ref: mc-1.21.1-backports
-      path: mods/deep_mod
-    version: ^1.2.0
-```
-
-The object form accepts:
-
-- **`url`** *(required)* — Any Git-supported URL: `https://…`,
-  `git@host:…` (SSH), `git://…`, or a local path. SSH URLs are the
-  recommended way to reach private repositories: `gitrinth` shells out
-  to the ambient `git` CLI, so your usual SSH keys and credential
-  helpers work without extra configuration.
-- **`ref`** *(optional)* — Any reference `git checkout` will accept — a
-  branch name, tag, or full commit hash. Defaults to the repository's
-  default branch. For reproducible builds, prefer a tag or commit hash
-  over a branch.
-- **`path`** *(optional)* — Path **inside** the repository where the mod
-  lives, relative to the repo root. Use this when a single repo hosts
-  more than one mod (a monorepo layout). Defaults to the repo root.
-
-The resolved tree — the repository at `ref`, entered at `path` — must
-contain a `mods.toml` file describing the mod. `gitrinth` reads that file
-for the mod's identifier, version, and declared mod dependencies.
-
-When both a `version` constraint and a `git` source are specified, the
-constraint is matched against the `version` declared inside the resolved
-`mods.toml` rather than against a Modrinth version. Resolution fails if
-the two disagree, which guards against accidentally pulling a branch
-that has drifted out of the expected version range.
-
-**Caching.** Git sources are cloned into `gitrinth`'s local cache on
-first resolution and re-used on subsequent runs. Pinning `ref` to a tag
-or commit hash is the simplest way to keep collaborators' client and
-server builds locked to the same revision.
-
-**Publishing.** As with `url` and `path`, a `git` source makes the
-modpack non-publishable to Modrinth.
+targeting a mod), `url` and `path` sources produce a modpack that is
+not publishable to Modrinth. `gitrinth publish` will refuse to upload
+it and will name the entries responsible. These sources are permitted
+for [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
+[`shaders`](#shaders), and [`plugins`](#plugins) without affecting
+publishability — the Publishable? column above applies only when the
+entry is a mod.
 
 #### Per-mod environment
 
@@ -854,11 +715,6 @@ overrides:
   # Redirect to a local build.
   create:
     path: ./mods/create-dev.jar
-
-  # Use a fork from git.
-  iris:
-    git: my-org/iris-fork
-    version: ^1.8.12
 ```
 
 Because keys are globally unique across Modrinth project types, a single
@@ -870,40 +726,6 @@ Overrides may also live in a companion
 with a single top-level `overrides:` key carrying the same map.
 When both are present, entries in `mods_overrides.yaml` win on
 conflicting keys and all other keys are unioned.
-
-### `servers`
-
-**Optional.** Default servers embedded in the client distribution's
-multiplayer menu. Keys are Modrinth server slugs (from
-`modrinth.com/server/<slug>`).
-
-A blank value looks the slug up on the default Modrinth instance and
-uses the returned name and address as-is. A map value may override any
-of:
-
-| Key       | Required | Description                                                                                                              |
-|-----------|----------|--------------------------------------------------------------------------------------------------------------------------|
-| `name`    | no       | Display name override. Without this, the name returned by Modrinth is used.                                              |
-| `address` | no       | Server address, optionally with a port (`play.example.com:25565`). When omitted, fetched from Modrinth using the key.    |
-| `hosted`  | no       | Base URL of a Modrinth-compatible server to look up the slug on. The [`hosted:`](#long-form) analogue on [`mods`](#mods).|
-
-`address` and `hosted` are mutually exclusive — once `address` is
-given, the Modrinth lookup is bypassed. `name` is independent and may
-appear alongside either.
-
-```yaml
-servers:
-  example_server:
-    name: Example Server
-    address: play.example.com
-  complex-cobblemon:            # Blank → fetch name + address from Modrinth.
-  example_server_2:
-    name: Example Server 2
-    hosted: https://modrinth.example.com
-```
-
-Servers only appear in the client distribution; they are ignored when
-building the server distribution.
 
 ## Resolution
 
@@ -925,11 +747,10 @@ When `gitrinth` installs or updates a modpack it:
    compatible with every *other* entry's declared dependencies.
 6. Partitions the resolved entries into client and server distributions
    using each entry's [`environment`](#per-mod-environment) (default
-   `both`; shaders and the [`servers`](#servers) list are always
-   client-only; plugins are always server-only; when
-   [`loader`](#loader) is `bukkit`, `folia`, `paper`, or `spigot`,
-   [`mods`](#mods) entries are additionally forced to client-only — see
-   [Plugin loaders](#plugin-loaders)).
+   `both`; shaders are always client-only; plugins are always
+   server-only; when [`loader`](#loader) is `bukkit`, `folia`, `paper`,
+   or `spigot`, [`mods`](#mods) entries are additionally forced to
+   client-only — see [Plugin loaders](#plugin-loaders)).
 7. Writes the chosen versions to `mods.lock` so subsequent runs are
    reproducible.
 

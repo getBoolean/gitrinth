@@ -31,10 +31,6 @@ overrides:
 
   create:
     path: ./mods/create-dev.jar
-
-  iris:
-    git: my-org/iris-fork
-    version: ^1.8.12
 ```
 
 An empty file, a file containing just `overrides:` with no value,

@@ -14,7 +14,7 @@ properties:
     description: |
       Map of Modrinth project slug to mod dependency (short or long
       form). Pins a version, flips `environment`, or redirects an
-      entry to an alternate source (`hosted`, `url`, `path`, `git`).
+      entry to an alternate source (`hosted`, `url`, `path`).
       Same shape as `overrides` in mods.yaml.
     oneOf:
       - type: "null"

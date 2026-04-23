@@ -137,22 +137,19 @@ gitrinth outdated [--json]
 Add an entry to [`mods`](mods-yaml.md#mods),
 [`resource_packs`](mods-yaml.md#resource_packs),
 [`data_packs`](mods-yaml.md#data_packs),
-[`shaders`](mods-yaml.md#shaders),
-[`plugins`](mods-yaml.md#plugins), or
-[`servers`](mods-yaml.md#servers), then re-resolve.
+[`shaders`](mods-yaml.md#shaders), or
+[`plugins`](mods-yaml.md#plugins), then re-resolve.
 
 ```text
 gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
-            [--hosted <url> | --url <url> | --path <path> | --git <repo>]
-            [--ref <ref>] [--subpath <path>]
-            [--name <name>] [--address <host>]
+            [--hosted <url> | --url <url> | --path <path>]
             [--dry-run]
 ```
 
 The target section is inferred from the slug's Modrinth project type —
 mods to [`mods`](mods-yaml.md#mods), resource packs to
-[`resource_packs`](mods-yaml.md#resource_packs), and so on. `url:`,
-`path:`, and `git:` sources infer from the artifact's file type.
+[`resource_packs`](mods-yaml.md#resource_packs), and so on. `url:` and
+`path:` sources infer from the artifact's file type.
 
 | Option      | Description                                                                                         |
 |-------------|-----------------------------------------------------------------------------------------------------|
@@ -160,11 +157,6 @@ mods to [`mods`](mods-yaml.md#mods), resource packs to
 | `--hosted`  | Use a [`hosted:` source](mods-yaml.md#long-form).                                                   |
 | `--url`     | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
 | `--path`    | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
-| `--git`     | Use a [`git:` source](mods-yaml.md#git-sources).                                                    |
-| `--ref`     | With `--git`, pin to a branch, tag, or commit.                                                      |
-| `--subpath` | With `--git`, enter a sub-path inside the repo.                                                     |
-| `--name`    | Server display name. Implies the [`servers`](mods-yaml.md#servers) section.                         |
-| `--address` | Server address. Implies the [`servers`](mods-yaml.md#servers) section.                              |
 | `--dry-run` | Print the edit without writing.                                                                     |
 
 ### `remove`
@@ -254,9 +246,8 @@ gitrinth token remove <server-url>
 
 ### `cache`
 
-Inspect, clean, or repair the local cache — downloaded `.jar` files,
-cloned git repositories for `git:` sources, and Modrinth metadata
-snapshots.
+Inspect, clean, or repair the local cache — downloaded `.jar` files
+and Modrinth metadata snapshots.
 
 ```text
 gitrinth cache list [--path]
@@ -324,10 +315,9 @@ gitrinth build [--env <client|server|both>] [--output <path>]
 
 Partitioning follows
 [`environment`](mods-yaml.md#per-mod-environment): default `both`;
-shaders and [`servers`](mods-yaml.md#servers) are client-only;
-[`plugins`](mods-yaml.md#plugins) are server-only. Under plugin loaders
-(`bukkit`, `folia`, `paper`, `spigot`),
-[`mods`](mods-yaml.md#mods) are forced client-only;
+shaders are client-only; [`plugins`](mods-yaml.md#plugins) are
+server-only. Under plugin loaders (`bukkit`, `folia`, `paper`,
+`spigot`), [`mods`](mods-yaml.md#mods) are forced client-only;
 [`resource_packs`](mods-yaml.md#resource_packs) and
 [`data_packs`](mods-yaml.md#data_packs) partition normally. See
 [Plugin loaders](mods-yaml.md#plugin-loaders).
@@ -346,8 +336,8 @@ gitrinth pack [--output <path>]
 | `--output`, `-o` | Override the output path. Defaults to `./<slug>-<version>.mrpack`. |
 
 Refuses to run if any [`mods`](mods-yaml.md#mods) or mod-targeting
-[`overrides`](mods-yaml.md#overrides) entry uses a `url`, `path`, or
-`git` source.
+[`overrides`](mods-yaml.md#overrides) entry uses a `url` or `path`
+source.
 
 ### `unpack`
 
@@ -408,7 +398,6 @@ Overrides may also live in a standalone
 | `GITRINTH_MODRINTH_URL`      | every command  | Override the default Modrinth base URL.                          |
 | `NO_COLOR`                   | every command  | Disables ANSI colour when set. Equivalent to `--no-color`.       |
 | `HTTPS_PROXY` / `HTTP_PROXY` | every command  | Standard proxy variables, honoured by every HTTP request.        |
-| `GIT_*`                      | `git:` sources | Passed through to the ambient `git` CLI.                         |
 
 ## Files
 

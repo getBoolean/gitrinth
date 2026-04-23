@@ -20,6 +20,17 @@ deferred post-MVP.
 - [`-C`, `--directory`](cli.md#global-options)
 - [`-v`, `--verbose`](cli.md#global-options)
 
+## Loaders
+
+Only `forge`, `fabric`, and `neoforge`. The plugin loaders (`bukkit`,
+`folia`, `paper`, `spigot`) and `sponge` are deferred.
+
+## Sources
+
+Only the default Modrinth instance, `url:`, and `path:`. The
+[`hosted:`](cli.md#token) source for alternate Modrinth-compatible
+servers is deferred.
+
 ## Files
 
 - [`mods.yaml`](cli.md#files)
@@ -34,7 +45,10 @@ deferred post-MVP.
 ## Deferred
 
 See [`cli.md`](cli.md) for the full surface. Deferred groups:
-[publishing](cli.md#publishing), [cache management](cli.md#cache),
+[publishing](cli.md#publishing) (including the `hosted:` source and
+[`token`](cli.md#token) command), [cache management](cli.md#cache),
 [`upgrade`](cli.md#upgrade), [`downgrade`](cli.md#downgrade),
-[`outdated`](cli.md#outdated), [`deps`](cli.md#deps), and
-[`unpack`](cli.md#unpack).
+[`outdated`](cli.md#outdated), [`deps`](cli.md#deps),
+[`unpack`](cli.md#unpack), plugin loaders (and the
+[`plugins`](mods-yaml.md#plugins) section they ship), and the `sponge`
+loader.

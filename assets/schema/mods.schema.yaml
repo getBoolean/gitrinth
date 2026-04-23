@@ -80,31 +80,6 @@ properties:
         format: uri
         description: License text URL.
 
-      donation_urls:
-        type: [array, "null"]
-        description: Donation platform links.
-        items:
-          type: object
-          additionalProperties: false
-          required:
-            - platform
-            - url
-          properties:
-            platform:
-              type: string
-              description: Modrinth donation-platform id from `GET /tag/donation_platform`.
-              enum:
-                - patreon
-                - bmac
-                - paypal
-                - github
-                - ko-fi
-                - other
-            url:
-              type: string
-              format: uri
-              description: Donation URL.
-
       categories:
         type: [array, "null"]
         description: Primary Modrinth modpack categories.
@@ -142,13 +117,6 @@ properties:
           - null
         default: required
         description: Server-side compatibility.
-
-      gallery:
-        type: [array, "null"]
-        description: Screenshot paths relative to mods.yaml. Populates the Modrinth gallery.
-        items:
-          type: string
-          minLength: 1
 
   publish_to:
     description: |
@@ -240,17 +208,6 @@ properties:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
-  servers:
-    description: |
-      Default servers in the client's multiplayer menu, keyed by Modrinth
-      server slug. A blank value looks the slug up on the default Modrinth
-      instance. Long-form entries may override the display `name`, pin an
-      explicit `address`, or redirect the lookup to a Modrinth-compatible
-      server via `hosted`.
-    oneOf:
-      - type: "null"
-      - $ref: "#/$defs/serverMap"
-
 $defs:
 
   modVersion:
@@ -267,7 +224,7 @@ $defs:
     description: |
       Mod dependency. Short form: a version constraint (from default
       Modrinth). Long form: object with at most one source (`hosted`,
-      `url`, `path`, `git`) and optional `version`.
+      `url`, `path`) and optional `version`.
     oneOf:
       - $ref: "#/$defs/modVersion"
       - $ref: "#/$defs/modSource"
@@ -275,9 +232,8 @@ $defs:
   modSource:
     type: object
     description: |
-      Long-form mod dependency. At most one of `hosted`, `url`, `path`,
-      `git`. `url`, `path`, and `git` make the modpack non-publishable
-      to Modrinth.
+      Long-form mod dependency. At most one of `hosted`, `url`, `path`.
+      `url` and `path` make the modpack non-publishable to Modrinth.
     additionalProperties: false
     properties:
       version:
@@ -301,40 +257,13 @@ $defs:
         type: string
         description: Local path relative to mods.yaml.
         minLength: 1
-      git:
-        description: |
-          Git source: `owner/repo` shorthand, a git URL, or an object
-          with `url` and optional `ref`/`path`. Resolved tree must
-          contain a mods.toml.
-        oneOf:
-          - type: string
-            minLength: 1
-          - type: object
-            additionalProperties: false
-            required: [ url ]
-            properties:
-              url:
-                type: string
-                minLength: 1
-              ref:
-                type: string
-                minLength: 1
-              path:
-                type: string
-                minLength: 1
     allOf:
       - not:
           required: [ hosted, url ]
       - not:
           required: [ hosted, path ]
       - not:
-          required: [ hosted, git ]
-      - not:
           required: [ url, path ]
-      - not:
-          required: [ url, git ]
-      - not:
-          required: [ path, git ]
 
   modMap:
     type: object
@@ -367,39 +296,13 @@ $defs:
         type: string
         description: Local path relative to mods.yaml.
         minLength: 1
-      git:
-        description: |
-          Git source: `owner/repo` shorthand, a git URL, or an object
-          with `url` and optional `ref`/`path`.
-        oneOf:
-          - type: string
-            minLength: 1
-          - type: object
-            additionalProperties: false
-            required: [ url ]
-            properties:
-              url:
-                type: string
-                minLength: 1
-              ref:
-                type: string
-                minLength: 1
-              path:
-                type: string
-                minLength: 1
     allOf:
       - not:
           required: [ hosted, url ]
       - not:
           required: [ hosted, path ]
       - not:
-          required: [ hosted, git ]
-      - not:
           required: [ url, path ]
-      - not:
-          required: [ url, git ]
-      - not:
-          required: [ path, git ]
 
   forcedEnvModMap:
     type: object
@@ -419,46 +322,3 @@ $defs:
         $ref: "#/$defs/forcedEnvSource"
       else:
         $ref: "#/$defs/modVersion"
-
-  serverMap:
-    type: object
-    description: Map of Modrinth server slug to server entry.
-    propertyNames:
-      pattern: ^[a-z0-9][a-z0-9_-]*$
-    additionalProperties:
-      $ref: "#/$defs/serverEntry"
-
-  serverEntry:
-    description: |
-      Server entry. Blank — the slug is looked up on the default Modrinth
-      instance and its `name` and `address` are used as-is. Long form —
-      a map overriding the display `name`, pinning an explicit `address`,
-      or redirecting the lookup to a Modrinth-compatible server via
-      `hosted`. `address` and `hosted` are mutually exclusive; `name` is
-      an independent override.
-    oneOf:
-      - type: "null"
-      - type: object
-        additionalProperties: false
-        properties:
-          name:
-            type: string
-            minLength: 1
-            description: |
-              Display name override shown in the multiplayer menu. Without
-              this, the name from Modrinth is used.
-          address:
-            type: string
-            minLength: 1
-            description: |
-              Server address, optional port (e.g. "play.example.com:25565").
-              When omitted, fetched from the Modrinth API using the key.
-          hosted:
-            type: string
-            format: uri
-            description: |
-              Base URL of a Modrinth-compatible server to look up the slug
-              on. The `hosted:` analogue on `mods`.
-        allOf:
-          - not:
-              required: [ address, hosted ]

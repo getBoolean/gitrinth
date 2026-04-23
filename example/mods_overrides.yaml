@@ -7,8 +7,3 @@ overrides:
   # Redirect to a local build.
   create:
     path: ./mods/create-dev.jar
-
-  # Use a fork from git.
-  iris:
-    git: my-org/iris-fork
-    version: ^1.8.12

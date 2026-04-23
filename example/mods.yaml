@@ -16,9 +16,6 @@ project:
   discord_url:
   license_id: MIT
   license_url:
-  donation_urls:
-    - platform: ko-fi
-      url: https://ko-fi.com/example
   categories:
     - multiplayer
     - technology
@@ -27,10 +24,6 @@ project:
     - magic
   client_side: required # Enum: required, optional, unsupported, unknown. Default: required.
   server_side: required # Enum: required, optional, unsupported, unknown. Default: required.
-  gallery:
-    # Paths relative to mods.yaml.
-    - ./screenshots/screenshot1.png
-    - ./screenshots/screenshot2.png
 
 publish_to: none # Default: modrinth.com. Set to a URL to publish to a different Modrinth-compatible server.
 
@@ -42,7 +35,7 @@ tooling:
 
 mods:
   # Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
-  # Caution: `url`, `path`, and `git` sources make the modpack unpublishable on modrinth.
+  # Caution: `url` and `path` sources make the modpack unpublishable on modrinth.
   create: ^6.0.10+mc1.21.1
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
@@ -71,14 +64,3 @@ overrides:
     # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.
     # url: https://example.com/path/to/jei.jar
     # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.
-    # git: getBoolean/jei # Optional. Specify a git repository to download a mod from. The repository should contain a mods.toml file in the root directory with the mod's metadata.
-
-servers:
-  # Shown in the client's multiplayer server list.
-  example_server:
-    name: Example Server
-    address: play.example.com
-  complex-cobblemon:
-  example_server_2:
-    name: Example Server 2
-    hosted: https://some-modrinth-server.com
