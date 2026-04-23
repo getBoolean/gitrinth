@@ -39,6 +39,21 @@ void main() {
         throwsA(isA<ValidationError>()),
       );
     });
+
+    test('caret on r-prefixed shader version (Complementary-style)', () {
+      final c = parseConstraint('^r5.7.1');
+      expect(c.allows(parseModrinthVersion('r5.7.1')), isTrue);
+      expect(c.allows(parseModrinthVersion('r5.8.0')), isTrue);
+      expect(c.allows(parseModrinthVersion('r6.0.0')), isFalse);
+      expect(c.allows(parseModrinthVersion('r5.7.0')), isFalse);
+    });
+
+    test('caret on four-segment numeric version', () {
+      final c = parseConstraint('^19.27.0.340');
+      expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
+      expect(c.allows(parseModrinthVersion('19.99.0.0')), isTrue);
+      expect(c.allows(parseModrinthVersion('20.0.0.0')), isFalse);
+    });
   });
 
   group('parseModrinthVersion', () {
@@ -61,6 +76,34 @@ void main() {
       expect(v.minor, 27);
       expect(v.patch, 0);
       expect(v.build, isNotEmpty);
+    });
+
+    test('strips leading `r` prefix (shader-pack versioning)', () {
+      final v = parseModrinthVersion('r5.7.1');
+      expect(v.major, 5);
+      expect(v.minor, 7);
+      expect(v.patch, 1);
+    });
+
+    test('strips leading `v` prefix', () {
+      final v = parseModrinthVersion('v1.2.3');
+      expect(v.major, 1);
+      expect(v.minor, 2);
+      expect(v.patch, 3);
+    });
+
+    test('strips multi-character alphabetic prefix', () {
+      final v = parseModrinthVersion('alpha1.2.3');
+      expect(v.major, 1);
+      expect(v.minor, 2);
+      expect(v.patch, 3);
+    });
+
+    test('strips prefix with separator', () {
+      final v = parseModrinthVersion('release-1.0.0');
+      expect(v.major, 1);
+      expect(v.minor, 0);
+      expect(v.patch, 0);
     });
 
     test('throws on truly unparseable strings', () {
@@ -93,6 +136,125 @@ void main() {
       // when it required a channel.
       expect(parseChannelToken('nightly'), isNull);
       expect(parseChannelToken('stable'), isNull);
+    });
+  });
+
+  // Covers every mod-version-string shape mentioned in docs/mods-yaml.md, in
+  // both exact and caret forms. The doc promises all of these "just work"
+  // because `gitrinth` "doesn't constrain the format" — these tests pin that
+  // promise so a future parser change can't silently break one of them.
+  group('version variants documented in docs/mods-yaml.md', () {
+    group('exact form (parseModrinthVersion)', () {
+      test('plain three-segment semver', () {
+        final v = parseModrinthVersion('6.0.10');
+        expect(v, Version(6, 0, 10));
+      });
+
+      test('semver with mc-suffixed build metadata', () {
+        final v = parseModrinthVersion('6.0.10+mc1.21.1');
+        expect(v.major, 6);
+        expect(v.minor, 0);
+        expect(v.patch, 10);
+        expect(v.build, isNotEmpty);
+      });
+
+      test('semver with loader-suffixed build metadata (hyphen inside)', () {
+        final v = parseModrinthVersion('1.8.12+1.21.1-neoforge');
+        expect(v.major, 1);
+        expect(v.minor, 8);
+        expect(v.patch, 12);
+        expect(v.build, isNotEmpty);
+      });
+
+      test('semver with loader-prefixed build metadata', () {
+        final v = parseModrinthVersion('21.1.1+neoforge-1.21.1');
+        expect(v.major, 21);
+        expect(v.minor, 1);
+        expect(v.patch, 1);
+        expect(v.build, isNotEmpty);
+      });
+
+      test('four-segment numeric version', () {
+        final v = parseModrinthVersion('19.27.0.340');
+        expect(v.major, 19);
+        expect(v.minor, 27);
+        expect(v.patch, 0);
+        expect(v.build, isNotEmpty);
+      });
+
+      test('r-prefixed shader version', () {
+        final v = parseModrinthVersion('r5.7.1');
+        expect(v.major, 5);
+        expect(v.minor, 7);
+        expect(v.patch, 1);
+      });
+
+      test('semver with hyphenated pre-release label', () {
+        // Used in example/mods.yaml for faithful-32x.
+        final v = parseModrinthVersion('1.21.1-december-2025');
+        expect(v.major, 1);
+        expect(v.minor, 21);
+        expect(v.patch, 1);
+        expect(v.preRelease, isNotEmpty);
+      });
+    });
+
+    group('caret form (parseConstraint)', () {
+      test('caret on plain semver', () {
+        final c = parseConstraint('^6.0.10');
+        expect(c.allows(parseModrinthVersion('6.0.10')), isTrue);
+        expect(c.allows(parseModrinthVersion('6.5.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('7.0.0')), isFalse);
+      });
+
+      test('caret on semver with mc-suffixed build metadata', () {
+        final c = parseConstraint('^6.0.10+mc1.21.1');
+        expect(c.allows(parseModrinthVersion('6.0.10+mc1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('6.5.0+mc1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('7.0.0+mc1.21.1')), isFalse);
+      });
+
+      test('caret on semver with loader-suffixed build metadata', () {
+        final c = parseConstraint('^1.8.12+1.21.1-neoforge');
+        expect(c.allows(parseModrinthVersion('1.8.12+1.21.1-neoforge')), isTrue);
+        expect(c.allows(parseModrinthVersion('1.9.0+1.21.1-neoforge')), isTrue);
+        expect(c.allows(parseModrinthVersion('2.0.0+1.21.1-neoforge')), isFalse);
+      });
+
+      test('caret on semver with loader-prefixed build metadata', () {
+        final c = parseConstraint('^21.1.1+neoforge-1.21.1');
+        expect(c.allows(parseModrinthVersion('21.1.1+neoforge-1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('21.5.0+neoforge-1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('22.0.0+neoforge-1.21.1')), isFalse);
+      });
+
+      test('caret on four-segment numeric version', () {
+        final c = parseConstraint('^19.27.0.340');
+        expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
+        expect(c.allows(parseModrinthVersion('19.99.0.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('20.0.0.0')), isFalse);
+      });
+
+      test('caret on r-prefixed shader version', () {
+        final c = parseConstraint('^r5.7.1');
+        expect(c.allows(parseModrinthVersion('r5.7.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('r5.8.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('r6.0.0')), isFalse);
+      });
+
+      test('caret on semver with hyphenated pre-release label', () {
+        final c = parseConstraint('^1.21.1-december-2025');
+        expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
+        expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
+      });
+    });
+
+    test('blank constraint admits every version', () {
+      final c = parseConstraint('');
+      expect(c, VersionConstraint.any);
+      expect(c.allows(parseModrinthVersion('6.0.10+mc1.21.1')), isTrue);
+      expect(c.allows(parseModrinthVersion('r5.7.1')), isTrue);
+      expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
     });
   });
 

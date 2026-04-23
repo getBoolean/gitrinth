@@ -8,7 +8,9 @@ import '../manifest/mods_yaml.dart';
 /// Forms:
 ///   - null/empty → `VersionConstraint.any` (latest compatible).
 ///   - `^x.y.z[+meta]` → caret range (pub_semver semantics — same major for
-///     `1.x.y`, same minor for `0.x.y`).
+///     `1.x.y`, same minor for `0.x.y`). The version part is normalized via
+///     [parseModrinthVersion] so unusual Modrinth forms (four-segment numeric,
+///     `r`-prefixed shaders) are accepted.
 ///   - `x.y.z` → exact match (`==`).
 VersionConstraint parseConstraint(String? raw) {
   if (raw == null) return VersionConstraint.any;
@@ -16,7 +18,8 @@ VersionConstraint parseConstraint(String? raw) {
   if (trimmed.isEmpty) return VersionConstraint.any;
   try {
     if (trimmed.startsWith('^')) {
-      return VersionConstraint.parse(trimmed);
+      final version = parseModrinthVersion(trimmed.substring(1));
+      return VersionConstraint.compatibleWith(version);
     }
     // Exact match — Version implements VersionConstraint, allowing only ==.
     return parseModrinthVersion(trimmed);
@@ -27,9 +30,10 @@ VersionConstraint parseConstraint(String? raw) {
 
 /// Parses a Modrinth `version_number` string into a [Version].
 ///
-/// Modrinth versions often carry build metadata (`6.0.10+mc1.21.1`) or
-/// four-segment numeric forms (`19.27.0.340`). This normalizes the latter
-/// to `19.27.0+340` so pub_semver accepts them.
+/// Modrinth versions often carry build metadata (`6.0.10+mc1.21.1`),
+/// four-segment numeric forms (`19.27.0.340`), or a leading non-digit prefix
+/// (`r5.7.1` for Complementary Shaders, `v1.2.3`, `release-1.0.0`, etc.).
+/// This normalizes those into shapes pub_semver accepts.
 Version parseModrinthVersion(String raw) {
   final trimmed = raw.trim();
   if (trimmed.isEmpty) {
@@ -40,6 +44,16 @@ Version parseModrinthVersion(String raw) {
     return Version.parse(trimmed);
   } on FormatException {
     // fall through to normalization
+  }
+  // Strip any leading non-digit prefix before the first digit (e.g. `r5.7.1`,
+  // `v1.2.3`, `release-1.0.0`). Recurse so four-segment normalization still runs.
+  final prefixed = RegExp(r'^[^\d]+(\d.*)$').firstMatch(trimmed);
+  if (prefixed != null) {
+    try {
+      return parseModrinthVersion(prefixed[1]!);
+    } on FormatException {
+      // fall through
+    }
   }
   // Normalize purely numeric four-segment versions (e.g. 19.27.0.340 → 19.27.0+340).
   final fourSegment = RegExp(r'^(\d+)\.(\d+)\.(\d+)\.(\d+)$');
