@@ -47,7 +47,7 @@ mods:
     environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
   netherportalfix:
     version: ^21.1.1+neoforge-1.21.1
-    channel: release
+    channel: release # Restrict to a specific release channel newer than the semver version.
     environment: server
 
 resource_packs:
