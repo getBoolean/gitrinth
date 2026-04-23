@@ -5,6 +5,32 @@ its full spec in [`cli.md`](cli.md). Flags and arguments listed here
 are in scope for the MVP; anything else from `cli.md` is deferred
 post-MVP.
 
+## Status
+
+Scaffolding:
+
+- [x] `CommandRunner` with all six commands registered.
+- [x] Global options (`-h`, `--help`, `--version`, `-C`, `-v`).
+- [x] Exit-code mapping (`0`/`1`/`2`/`64`) via `GitrinthException` hierarchy.
+
+Commands:
+
+- [x] `create` — fully implemented.
+- [ ] `get` — stub; exits `1`.
+- [ ] `add` — stub; exits `1`.
+- [ ] `remove` — stub; exits `1`.
+- [ ] `build` — stub; exits `1`.
+- [ ] `pack` — stub; exits `1`.
+
+Supporting work:
+
+- [ ] `mods.yaml` read/write (typed model; `yaml` + `yaml_edit` deps).
+- [ ] Modrinth API client (version lookup, project-validity check).
+- [ ] Resolver and `mods.lock` format.
+- [ ] Artifact cache (platform cache root, hash-verified download).
+- [ ] `.mrpack` archive builder.
+- [ ] Modrinth slug-validity check in `create` (currently deferred).
+
 ## Commands
 
 ### [`create`](cli.md#create)
