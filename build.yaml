@@ -1,0 +1,22 @@
+targets:
+  $default:
+    sources:
+      include:
+        - $package$
+        - lib/**
+        - bin/**
+        - test/**
+        - assets/**
+        - pubspec.*
+        - build.yaml
+      exclude:
+        - tool/**
+    builders:
+      asset_strings_builder:asset_strings:
+        enabled: true
+        options:
+          assets:
+            modsYamlTemplate: assets/template/mods.yaml
+            readmeTemplate: assets/template/README.md
+            gitignoreTemplate: assets/template/gitignore.tmpl
+            modrinthIgnoreTemplate: assets/template/modrinth_ignore.tmpl

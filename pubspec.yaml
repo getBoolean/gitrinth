@@ -9,10 +9,15 @@ executables:
 environment:
   sdk: ^3.11.0
 
+workspace:
+  - tool/asset_strings_builder
+
 dependencies:
   args: ^2.7.0
   path: ^1.9.0
 
 dev_dependencies:
+  asset_strings_builder: any
+  build_runner: ^2.4.0
   lints: ^6.0.0
   test: ^1.25.6

@@ -1,0 +1,8 @@
+builders:
+  asset_strings:
+    import: "package:asset_strings_builder/builder.dart"
+    builder_factories: ["assetStringsBuilder"]
+    build_extensions: {"$package$": ["lib/src/asset_strings.g.dart"]}
+    auto_apply: none
+    build_to: source
+    required_inputs: []

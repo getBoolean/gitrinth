@@ -1,0 +1,17 @@
+name: asset_strings_builder
+description: build_runner builder that materialises asset files as Dart String constants.
+version: 0.1.0
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  build: ^2.4.0
+
+dev_dependencies:
+  build_test: ^3.0.0
+  lints: ^6.0.0
+  logging: ^1.2.0
+  test: ^1.25.6
