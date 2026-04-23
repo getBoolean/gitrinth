@@ -1,24 +1,100 @@
 # `gitrinth` MVP
 
-Minimal feature set for a first usable release. Each item links to
-its full spec in [`cli.md`](cli.md). Anything not listed here is
-deferred post-MVP.
+Minimal feature set for a first usable release. Each command links to
+its full spec in [`cli.md`](cli.md). Flags and arguments listed here
+are in scope for the MVP; anything else from `cli.md` is deferred
+post-MVP.
 
 ## Commands
 
-- [`create`](cli.md#create) — scaffold a new modpack.
-- [`get`](cli.md#get) — resolve `mods.yaml`, write `mods.lock`, download artifacts.
-- [`add`](cli.md#add) — add an entry to a section.
-- [`remove`](cli.md#remove) — remove an entry.
-- [`build`](cli.md#build) — assemble client and server distributions.
-- [`pack`](cli.md#pack) — produce a `.mrpack` artifact.
+### [`create`](cli.md#create)
+
+Scaffold a new modpack.
+
+```text
+gitrinth create [--loader <loader>] [--mc-version <version>]
+                [--slug <slug>] [--name <name>] [--force]
+                <directory>
+```
+
+- `<directory>` — target directory (required).
+- `--loader <loader>` — prompts if omitted.
+- `--mc-version <version>` — prompts if omitted.
+- `--slug <slug>`
+- `--name <name>`
+- `--force`
+
+### [`get`](cli.md#get)
+
+Resolve `mods.yaml`, write `mods.lock`, download artifacts.
+
+```text
+gitrinth get [--dry-run] [--enforce-lockfile]
+```
+
+- `--dry-run`
+- `--enforce-lockfile`
+
+### [`add`](cli.md#add)
+
+Add an entry to a section.
+
+```text
+gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
+            [--url <url> | --path <path>] [--dry-run]
+```
+
+- `<slug>[@<constraint>]` — required.
+- `--env <client|server|both>`
+- `--url <url>`
+- `--path <path>`
+- `--dry-run`
+
+`--hosted` is deferred with the [`hosted:` source](#sources).
+
+### [`remove`](cli.md#remove)
+
+Remove an entry.
+
+```text
+gitrinth remove <slug> [--dry-run]
+```
+
+- `<slug>` — required.
+- `--dry-run`
+
+### [`build`](cli.md#build)
+
+Assemble client and/or server distributions into `build/`.
+
+```text
+gitrinth build [--env <client|server|both>] [--output <path>]
+              [--clean] [--skip-download]
+```
+
+- `--env <client|server|both>`
+- `--output <path>`, `-o`
+- `--clean`
+- `--skip-download`
+
+### [`pack`](cli.md#pack)
+
+Produce a `.mrpack` artifact.
+
+```text
+gitrinth pack [--output <path>]
+```
+
+- `--output <path>`, `-o`
 
 ## Global options
 
-- [`-h`, `--help`](cli.md#global-options)
-- [`--version`](cli.md#global-options)
-- [`-C`, `--directory`](cli.md#global-options)
-- [`-v`, `--verbose`](cli.md#global-options)
+- `-h`, `--help`
+- `--version`
+- `-C`, `--directory <path>`
+- `-v`, `--verbose` (including `-vv` for HTTP tracing)
+
+Deferred: `-q`/`--quiet`, `--offline`, `--no-color`, `--config`.
 
 ## Loaders
 
