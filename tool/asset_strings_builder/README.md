@@ -1,7 +1,9 @@
 # asset_strings_builder
 
 A `build_runner` builder that materialises on-disk asset files as Dart
-`const String` declarations in a single generated library.
+`String` declarations in a single generated library. Each asset is
+base64-encoded into the source and decoded once at first access via a
+top-level `final`, keeping the generated file binary-safe.
 
 ## Consumer setup
 
@@ -68,9 +70,11 @@ dart run build_runner build --delete-conflicting-outputs
   package. The path is hardcoded by the builder and is **not**
   consumer-configurable; re-export from wherever you want the constants
   surfaced (e.g. `export 'src/asset_strings.g.dart';`).
-- **Encoding:** each asset's contents is written as `jsonEncode(content)`,
-  producing a Dart string literal that is safe for any byte sequence
-  (triple quotes, backslashes, `$`, unicode, etc.).
+- **Encoding:** each asset is read as bytes, base64-encoded, and emitted as
+  `final String x = utf8.decode(base64.decode('...'));`. This is binary-safe
+  for any byte sequence (no escape-sequence quirks) but means the constants
+  are lazy `final` rather than `const` — they cannot be used in a `const`
+  context.
 - **Determinism:** entries are sorted by constant name.
 
 ## `build.yaml` options reference
