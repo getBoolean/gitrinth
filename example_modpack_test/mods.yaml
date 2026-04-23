@@ -1,0 +1,20 @@
+slug: example_modpack_test
+name: example_modpack_test
+version: 0.1.0
+description: A new Modrinth modpack.
+
+loader: neoforge
+mc-version: 1.21.1
+
+tooling:
+  gitrinth: ">=0.1.0 <1.0.0"
+
+mods:
+
+resource_packs:
+
+data_packs:
+
+shaders:
+
+plugins:

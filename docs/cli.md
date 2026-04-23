@@ -22,7 +22,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 |----------------------------|-----------------------------------------------------------------------------------------|
 | `-h`, `--help`             | Print usage. After a command name, prints that command's usage.                         |
 | `--version`                | Print the `gitrinth` version and exit.                                                  |
-| `-v`, `--verbose`          | Emit progress and resolution detail. Repeat (`-vv`) for HTTP-level tracing.             |
+| `-v`, `--verbose`          | Emit progress and resolution detail.                                                    |
 | `-q`, `--quiet`            | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
 | `-C`, `--directory <path>` | Run as if invoked from `<path>`.                                                        |
 | `--offline`                | Never hit the network. Fails if the cache is missing a required mod.                    |
@@ -75,7 +75,7 @@ with `+` for additions, `~` for updates, and `-` for removals. They
 finish with a summary line such as `Locked 15 entries to mods.lock.`
 or `Updated 2 entries in mods.lock.`. Read-only reports (`outdated`,
 `deps`) print a table or tree to stdout. `--verbose` (`-v`) adds
-resolver detail; `-vv` traces every HTTP request.
+resolver detail.
 
 ## Command details
 
@@ -281,14 +281,50 @@ or already taken.
 
 | Option         | Description                                                                    |
 |----------------|--------------------------------------------------------------------------------|
-| `--loader`     | Pre-fill [`loader`](mods-yaml.md#loader). Prompts if omitted.                  |
-| `--mc-version` | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Prompts if omitted.          |
+| `--loader`     | Pre-fill [`loader`](mods-yaml.md#loader). Defaults to `neoforge`.              |
+| `--mc-version` | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Defaults to `1.21.1`.        |
 | `--slug`       | Override the derived slug.                                                     |
 | `--name`       | Override the display [`name`](mods-yaml.md#name).                              |
 | `--force`      | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`. |
 
 Refuses to run when `<directory>` exists and is non-empty without
 `--force`.
+
+#### Example
+
+```console
+$ gitrinth create example_modpack
+Created example_modpack in example_modpack
+  + example_modpack/mods.yaml
+  + example_modpack/README.md
+  + example_modpack/.gitignore
+  + example_modpack/.modrinth_ignore
+```
+
+The resulting `example_modpack/mods.yaml`:
+
+```yaml
+slug: example_modpack
+name: example_modpack
+version: 0.1.0
+description: A new Modrinth modpack.
+
+loader: neoforge
+mc-version: 1.21.1
+
+tooling:
+  gitrinth: ">=0.1.0 <1.0.0"
+
+mods:
+
+resource_packs:
+
+data_packs:
+
+shaders:
+
+plugins:
+```
 
 ### `build`
 

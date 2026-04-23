@@ -1,17 +1,17 @@
 name: gitrinth
 description: A tool for managing modpacks on modrinth using git.
-version: 1.0.0
+version: 0.1.0
 # repository: https://github.com/my_org/my_repo
 
 executables:
-  gitrinth: main
+  gitrinth:
 
 environment:
   sdk: ^3.11.0
 
-# Add regular dependencies here.
 dependencies:
   args: ^2.7.0
+  path: ^1.9.0
 
 dev_dependencies:
   lints: ^6.0.0

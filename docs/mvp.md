@@ -18,8 +18,8 @@ gitrinth create [--loader <loader>] [--mc-version <version>]
 ```
 
 - `<directory>` — target directory (required).
-- `--loader <loader>` — prompts if omitted.
-- `--mc-version <version>` — prompts if omitted.
+- `--loader <loader>` — defaults to `neoforge`.
+- `--mc-version <version>` — defaults to `1.21.1`.
 - `--slug <slug>`
 - `--name <name>`
 - `--force`
@@ -92,7 +92,7 @@ gitrinth pack [--output <path>]
 - `-h`, `--help`
 - `--version`
 - `-C`, `--directory <path>`
-- `-v`, `--verbose` (including `-vv` for HTTP tracing)
+- `-v`, `--verbose`
 
 Deferred: `-q`/`--quiet`, `--offline`, `--no-color`, `--config`.
 
