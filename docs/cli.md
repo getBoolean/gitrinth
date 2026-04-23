@@ -5,12 +5,6 @@ It resolves entries against [Modrinth](https://modrinth.com) (or the
 sources declared in the file), locks resolved versions to `mods.lock`,
 assembles client and server distributions, and publishes the modpack.
 
-The CLI is modelled on Dart's [`pub`](https://dart.dev/tools/pub/cmd):
-the verbs, flag names, and surrounding ergonomics track `pub` wherever
-the underlying operation maps cleanly. Modpack-specific operations
-(build, pack, scaffold) are additions; everything else mirrors a `pub`
-subcommand.
-
 ## Synopsis
 
 ```text
@@ -37,36 +31,32 @@ Use [`--directory`](#global-options) to target a different modpack.
 
 ## Commands
 
-Grouped by purpose. The "`pub` analogue" column shows the
-corresponding Dart command; commands with no analogue are
-modpack-specific extensions.
-
 ### Dependencies
 
-| Command                   | `pub` analogue  | Purpose                                                       |
-|---------------------------|-----------------|---------------------------------------------------------------|
-| [`get`](#get)             | `pub get`       | Resolve entries, write `mods.lock`, download into the cache.  |
-| [`upgrade`](#upgrade)     | `pub upgrade`   | Re-resolve to the newest versions allowed by each constraint. |
-| [`downgrade`](#downgrade) | `pub downgrade` | Re-resolve to the oldest versions allowed by each constraint. |
-| [`outdated`](#outdated)   | `pub outdated`  | Report entries behind the newest compatible version.          |
-| [`add`](#add)             | `pub add`       | Add an entry to a section.                                    |
-| [`remove`](#remove)       | `pub remove`    | Remove an entry.                                              |
-| [`deps`](#deps)           | `pub deps`      | Print the resolved dependency tree.                           |
+| Command                   | Purpose                                                       |
+|---------------------------|---------------------------------------------------------------|
+| [`get`](#get)             | Resolve entries, write `mods.lock`, download into the cache.  |
+| [`upgrade`](#upgrade)     | Re-resolve to the newest versions allowed by each constraint. |
+| [`downgrade`](#downgrade) | Re-resolve to the oldest versions allowed by each constraint. |
+| [`outdated`](#outdated)   | Report entries behind the newest compatible version.          |
+| [`add`](#add)             | Add an entry to a section.                                    |
+| [`remove`](#remove)       | Remove an entry.                                              |
+| [`deps`](#deps)           | Print the resolved dependency tree.                           |
 
 ### Publishing
 
-| Command               | `pub` analogue | Purpose                                                   |
-|-----------------------|----------------|-----------------------------------------------------------|
-| [`publish`](#publish) | `pub publish`  | Upload the modpack to Modrinth.                           |
-| [`login`](#login)     | `pub login`    | Store a Modrinth token.                                   |
-| [`logout`](#logout)   | `pub logout`   | Clear the stored token.                                   |
-| [`token`](#token)     | `pub token`    | Manage tokens for additional Modrinth-compatible servers. |
+| Command               | Purpose                                                   |
+|-----------------------|-----------------------------------------------------------|
+| [`publish`](#publish) | Upload the modpack to Modrinth.                           |
+| [`login`](#login)     | Store a Modrinth token.                                   |
+| [`logout`](#logout)   | Clear the stored token.                                   |
+| [`token`](#token)     | Manage tokens for additional Modrinth-compatible servers. |
 
 ### Cache
 
-| Command           | `pub` analogue | Purpose                                    |
-|-------------------|----------------|--------------------------------------------|
-| [`cache`](#cache) | `pub cache`    | Inspect, clean, or repair the local cache. |
+| Command           | Purpose                                    |
+|-------------------|--------------------------------------------|
+| [`cache`](#cache) | Inspect, clean, or repair the local cache. |
 
 ### Modpack-specific
 
@@ -77,11 +67,20 @@ modpack-specific extensions.
 | [`pack`](#pack)     | Produce a Modrinth `.mrpack` artifact.                        |
 | [`unpack`](#unpack) | Scaffold a modpack directory from an existing `.mrpack`.      |
 
+## Console output
+
+Mutating commands emit a resolution header (e.g. `Resolving 12 mods, 2
+resource packs, 1 shader...`), followed by per-entry lines prefixed
+with `+` for additions, `~` for updates, and `-` for removals. They
+finish with a summary line such as `Locked 15 entries to mods.lock.`
+or `Updated 2 entries in mods.lock.`. Read-only reports (`outdated`,
+`deps`) print a table or tree to stdout. `--verbose` (`-v`) adds
+resolver detail; `-vv` traces every HTTP request.
+
 ## Command details
 
 ### `get`
 
-Analogue of [`pub get`](https://dart.dev/tools/pub/cmd/pub-get).
 Resolve every entry in `mods.yaml`, apply
 [`overrides`](mods-yaml.md#overrides), write `mods.lock`, and download
 artifacts into the cache. Does not upgrade entries already locked to a
@@ -91,26 +90,14 @@ satisfying version — use [`upgrade`](#upgrade) for that.
 gitrinth get [--dry-run] [--enforce-lockfile] [--offline]
 ```
 
-| Option               | Description                                                                                                    |
-|----------------------|----------------------------------------------------------------------------------------------------------------|
-| `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change. Matches `pub get --dry-run`.             |
-| `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries. Matches `pub get --enforce-lockfile`. |
-| `--offline`          | Shortcut for the global `--offline` flag.                                                                      |
-
-```console
-$ gitrinth get
-Resolving 12 mods, 2 resource packs, 1 shader...
-  + create 6.0.12+mc1.21.1
-  + jei 19.27.0.340
-  + iris 1.8.13+1.21.1-neoforge (client)
-  + ...
-Locked 15 entries to mods.lock.
-Downloaded 3 new artifacts (re-used 12 from cache).
-```
+| Option               | Description                                                             |
+|----------------------|-------------------------------------------------------------------------|
+| `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change.   |
+| `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries.|
+| `--offline`          | Shortcut for the global `--offline` flag.                               |
 
 ### `upgrade`
 
-Analogue of [`pub upgrade`](https://dart.dev/tools/pub/cmd/pub-upgrade).
 Re-resolve to the **newest** version allowed by each constraint,
 updating `mods.lock`. Leaves `mods.yaml` untouched unless
 `--major-versions` is passed. Pass slugs to upgrade only those entries.
@@ -119,22 +106,13 @@ updating `mods.lock`. Leaves `mods.yaml` untouched unless
 gitrinth upgrade [<slug>...] [--major-versions] [--dry-run]
 ```
 
-| Option             | Description                                                                                                                                   |
-|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
-| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`. Matches `pub upgrade --major-versions`. |
-| `--dry-run`        | Print changes without writing.                                                                                                                |
-
-```console
-$ gitrinth upgrade create jei
-  ~ create 6.0.10+mc1.21.1 -> 6.0.12+mc1.21.1
-  ~ jei    19.27.0.310    -> 19.27.0.340
-Updated 2 entries in mods.lock.
-```
+| Option             | Description                                                                                           |
+|--------------------|-------------------------------------------------------------------------------------------------------|
+| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`. |
+| `--dry-run`        | Print changes without writing.                                                                        |
 
 ### `downgrade`
 
-Analogue of
-[`pub downgrade`](https://dart.dev/tools/pub/cmd/pub-downgrade).
 Resolve to the **oldest** version compatible with each constraint.
 
 ```text
@@ -143,10 +121,8 @@ gitrinth downgrade [<slug>...] [--dry-run]
 
 ### `outdated`
 
-Analogue of
-[`pub outdated`](https://dart.dev/tools/pub/cmd/pub-outdated). Report
-entries whose `mods.lock` version is behind the newest allowed by the
-loader/Minecraft pair. Read-only.
+Report entries whose `mods.lock` version is behind the newest allowed
+by the loader/Minecraft pair. Read-only.
 
 ```text
 gitrinth outdated [--json]
@@ -156,18 +132,9 @@ gitrinth outdated [--json]
 |----------|--------------------------------------|
 | `--json` | Emit a machine-readable JSON report. |
 
-```console
-$ gitrinth outdated
-Slug     Current              Latest-matching     Latest-overall
-create   6.0.10+mc1.21.1      6.0.12+mc1.21.1     6.1.0+mc1.21.1
-jei      19.27.0.310          19.27.0.340         19.28.0.000
-2 entries have updates available.
-```
-
 ### `add`
 
-Analogue of [`pub add`](https://dart.dev/tools/pub/cmd/pub-add). Add an
-entry to [`mods`](mods-yaml.md#mods),
+Add an entry to [`mods`](mods-yaml.md#mods),
 [`resource_packs`](mods-yaml.md#resource_packs),
 [`data_packs`](mods-yaml.md#data_packs),
 [`shaders`](mods-yaml.md#shaders),
@@ -190,38 +157,18 @@ mods to [`mods`](mods-yaml.md#mods), resource packs to
 | Option      | Description                                                                                         |
 |-------------|-----------------------------------------------------------------------------------------------------|
 | `--env`     | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                           |
-| `--hosted`  | Use a [`hosted:` source](mods-yaml.md#long-form). The `pub add --hosted` analogue.                  |
+| `--hosted`  | Use a [`hosted:` source](mods-yaml.md#long-form).                                                   |
 | `--url`     | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
-| `--path`    | Use a [`path:` source](mods-yaml.md#long-form). The `pub add --path` analogue.                      |
-| `--git`     | Use a [`git:` source](mods-yaml.md#git-sources). The `pub add --git-url` analogue.                  |
-| `--ref`     | With `--git`, pin to a branch, tag, or commit. Matches `pub add --git-ref`.                         |
-| `--subpath` | With `--git`, enter a sub-path inside the repo. Matches `pub add --git-path`.                       |
+| `--path`    | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
+| `--git`     | Use a [`git:` source](mods-yaml.md#git-sources).                                                    |
+| `--ref`     | With `--git`, pin to a branch, tag, or commit.                                                      |
+| `--subpath` | With `--git`, enter a sub-path inside the repo.                                                     |
 | `--name`    | Server display name. Implies the [`servers`](mods-yaml.md#servers) section.                         |
 | `--address` | Server address. Implies the [`servers`](mods-yaml.md#servers) section.                              |
 | `--dry-run` | Print the edit without writing.                                                                     |
 
-**Servers.** A Modrinth slug whose project type is "server" is added
-to [`servers`](mods-yaml.md#servers) automatically. Passing `--name`
-or `--address` also targets that section and populates the long form;
-omit both to record a blank short-form entry that Modrinth resolves at
-build time.
-
-```console
-$ gitrinth add jei@^19.27.0
-Added jei ^19.27.0 to mods.
-$ gitrinth add iris@^1.8.12 --env client
-Added iris ^1.8.12 to mods (client only).
-$ gitrinth add forked_jei --git example/forked_jei --ref mc-1.21.1
-Added forked_jei to mods (git: example/forked_jei@mc-1.21.1).
-$ gitrinth add complex-cobblemon
-Added server complex-cobblemon (resolved from Modrinth at build time).
-$ gitrinth add example_server --name "Example" --address play.example.com
-Added server example_server "Example" (play.example.com).
-```
-
 ### `remove`
 
-Analogue of [`pub remove`](https://dart.dev/tools/pub/cmd/pub-remove).
 Remove an entry and re-resolve. Identifies the target by slug.
 
 ```text
@@ -233,7 +180,6 @@ The section is inferred from where `<slug>` currently lives in
 
 ### `deps`
 
-Analogue of [`pub deps`](https://dart.dev/tools/pub/cmd/pub-deps).
 Print the resolved dependency tree. Reads `mods.lock`; falls back to
 resolving in memory if missing or stale.
 
@@ -242,16 +188,15 @@ gitrinth deps [<slug>] [--env <client|server|both>]
              [--style <compact|tree|list>] [--json]
 ```
 
-| Option    | Description                                                                       |
-|-----------|-----------------------------------------------------------------------------------|
-| `<slug>`  | Limit output to a single entry and its transitive dependencies.                   |
-| `--env`   | Filter by [`environment`](mods-yaml.md#per-mod-environment).                      |
-| `--style` | Output style. Matches `pub deps --style`: `compact`, `tree` (default), or `list`. |
-| `--json`  | Emit a machine-readable report.                                                   |
+| Option    | Description                                                     |
+|-----------|-----------------------------------------------------------------|
+| `<slug>`  | Limit output to a single entry and its transitive dependencies. |
+| `--env`   | Filter by [`environment`](mods-yaml.md#per-mod-environment).    |
+| `--style` | Output style: `compact`, `tree` (default), or `list`.           |
+| `--json`  | Emit a machine-readable report.                                 |
 
 ### `publish`
 
-Analogue of [`pub publish`](https://dart.dev/tools/pub/cmd/pub-publish).
 Upload the modpack to Modrinth (or the server declared in
 [`publish_to`](mods-yaml.md#publish_to)).
 
@@ -263,8 +208,8 @@ gitrinth publish [--dry-run] [--force] [--draft]
 
 | Option           | Description                                                                                                            |
 |------------------|------------------------------------------------------------------------------------------------------------------------|
-| `--dry-run`      | Produce the artifact and validate the payload without uploading. Matches `pub publish --dry-run`.                      |
-| `--force`        | Skip the interactive confirmation prompt. Matches `pub publish --force`.                                               |
+| `--dry-run`      | Produce the artifact and validate the payload without uploading.                                                       |
+| `--force`        | Skip the interactive confirmation prompt.                                                                              |
 | `--draft`        | Upload as a draft.                                                                                                     |
 | `--version-type` | Modrinth version channel. Defaults to `release`; `beta` if [`version`](mods-yaml.md#version) has a pre-release suffix. |
 | `--changelog`    | Markdown changelog path. Defaults to the matching section of `CHANGELOG.md`.                                           |
@@ -273,7 +218,6 @@ Requires a token stored via [`login`](#login) or [`token`](#token).
 
 ### `login`
 
-Analogue of [`pub login`](https://dart.dev/tools/pub/cmd/pub-login).
 Store a Modrinth personal-access token for the default server
 (modrinth.com) in the user config. The token is never echoed and can
 be piped over stdin.
@@ -282,15 +226,8 @@ be piped over stdin.
 gitrinth login
 ```
 
-```console
-$ gitrinth login
-Paste a Modrinth personal-access token (input hidden):
-Saved token for https://modrinth.com.
-```
-
 ### `logout`
 
-Analogue of [`pub logout`](https://dart.dev/tools/pub/cmd/pub-logout).
 Clear the stored token for the default server.
 
 ```text
@@ -299,7 +236,6 @@ gitrinth logout
 
 ### `token`
 
-Analogue of [`pub token`](https://dart.dev/tools/pub/cmd/pub-token).
 Manage tokens for additional Modrinth-compatible servers — anything
 other than modrinth.com. Use [`login`](#login) / [`logout`](#logout)
 for the default server.
@@ -318,7 +254,6 @@ gitrinth token remove <server-url>
 
 ### `cache`
 
-Analogue of [`pub cache`](https://dart.dev/tools/pub/cmd/pub-cache).
 Inspect, clean, or repair the local cache — downloaded `.jar` files,
 cloned git repositories for `git:` sources, and Modrinth metadata
 snapshots.
@@ -333,7 +268,7 @@ gitrinth cache repair
 |------------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | `list`     | Print cache entries with sizes. `--path` prints only the cache root.                                                                       |
 | `clean`    | Remove cache entries. `--all` clears everything; `--older-than` removes entries untouched for longer than the duration (e.g. `30d`, `6h`). |
-| `repair`   | Re-verify every cached file against its Modrinth hash and re-download corrupt entries. Matches `pub cache repair`.                         |
+| `repair`   | Re-verify every cached file against its Modrinth hash and re-download corrupt entries.                                                     |
 
 ### `create`
 
@@ -363,13 +298,6 @@ or already taken.
 
 Refuses to run when `<directory>` exists and is non-empty without
 `--force`.
-
-```console
-$ gitrinth create --loader neoforge --mc-version 1.21.1 example_modpack
-Creating example_modpack/
-  example_modpack/mods.yaml
-Next: cd example_modpack && gitrinth get
-```
 
 ### `build`
 
@@ -423,7 +351,6 @@ Refuses to run if any [`mods`](mods-yaml.md#mods) or mod-targeting
 
 ### `unpack`
 
-Analogue of [`pub unpack`](https://dart.dev/tools/pub/cmd/pub-unpack).
 Unpack a modpack into a new project directory and reconstruct
 `mods.yaml` by resolving each file's Modrinth URL back to its slug and
 version. The source is either a Modrinth project slug — in which case
@@ -438,36 +365,21 @@ gitrinth unpack <slug>[:<version>] [--hosted <url>]
 gitrinth unpack <path>             [--output <directory>] [--force] [--no-resolve]
 ```
 
-| Option           | Description                                                                                                   |
-|------------------|---------------------------------------------------------------------------------------------------------------|
-| `<slug>`         | Modrinth project slug. Downloads the matching `.mrpack` before extracting.                                    |
-| `<version>`      | Version constraint on the slug form. Defaults to the newest release on the resolved server.                   |
+| Option           | Description                                                                                                                          |
+|------------------|--------------------------------------------------------------------------------------------------------------------------------------|
+| `<slug>`         | Modrinth project slug. Downloads the matching `.mrpack` before extracting.                                                           |
+| `<version>`      | Version constraint on the slug form. Defaults to the newest release on the resolved server.                                          |
 | `<path>`         | Path to a local `.mrpack` file. Skips the download step. Chosen when the positional resolves to a file on disk or ends in `.mrpack`. |
-| `--hosted <url>` | Fetch from a Modrinth-compatible server at `<url>`. Slug form only. Mirrors the `hosted` descriptor on `pub unpack`. |
-| `--output`, `-o` | Output directory. Defaults to the current directory. Matches `pub unpack --output`.                           |
-| `--force`, `-f`  | Overwrite existing files in the output directory. Matches `pub unpack --force`.                               |
-| `--no-resolve`   | Skip the implicit [`get`](#get) that normally runs after unpacking. Matches `pub unpack --no-resolve`.        |
-
-```console
-$ gitrinth unpack example_modpack:1.0.0 -o example_modpack
-Downloading example_modpack 1.0.0 from https://modrinth.com...
-Unpacking into example_modpack/
-  example_modpack/mods.yaml
-Resolving 15 entries...
-Locked 15 entries to mods.lock.
-
-$ gitrinth unpack ./example_modpack-1.0.0.mrpack -o example_modpack
-Unpacking example_modpack-1.0.0.mrpack into example_modpack/
-  example_modpack/mods.yaml
-Resolving 15 entries...
-Locked 15 entries to mods.lock.
-```
+| `--hosted <url>` | Fetch from a Modrinth-compatible server at `<url>`. Slug form only.                                                                  |
+| `--output`, `-o` | Output directory. Defaults to the current directory.                                                                                 |
+| `--force`, `-f`  | Overwrite existing files in the output directory.                                                                                    |
+| `--no-resolve`   | Skip the implicit [`get`](#get) that normally runs after unpacking.                                                                  |
 
 ## Working with overrides
 
-`mods.yaml` supports an [`overrides`](mods-yaml.md#overrides) section —
-the analogue of Dart's `dependency_overrides`. As in `pub`, overrides
-are edited directly in the manifest; there is no CLI wrapper.
+`mods.yaml` supports an [`overrides`](mods-yaml.md#overrides) section.
+Overrides are edited directly in the manifest; there is no CLI
+wrapper.
 
 Overrides may also live in a standalone
 [`mods_overrides.yaml`](mods-overrides-yaml.md) alongside
@@ -490,38 +402,29 @@ Overrides may also live in a standalone
 
 | Variable                     | Used by        | Purpose                                                          |
 |------------------------------|----------------|------------------------------------------------------------------|
-| `GITRINTH_CACHE`             | every command  | Override the cache root. Mirrors `PUB_CACHE`.                    |
+| `GITRINTH_CACHE`             | every command  | Override the cache root.                                         |
 | `GITRINTH_CONFIG`            | every command  | Override the user config file. Equivalent to `--config`.         |
 | `GITRINTH_TOKEN`             | `publish`      | Modrinth token. Overrides any token stored by [`login`](#login). |
-| `GITRINTH_MODRINTH_URL`      | every command  | Override the default Modrinth base URL. Mirrors `PUB_HOSTED_URL`.|
+| `GITRINTH_MODRINTH_URL`      | every command  | Override the default Modrinth base URL.                          |
 | `NO_COLOR`                   | every command  | Disables ANSI colour when set. Equivalent to `--no-color`.       |
 | `HTTPS_PROXY` / `HTTP_PROXY` | every command  | Standard proxy variables, honoured by every HTTP request.        |
 | `GIT_*`                      | `git:` sources | Passed through to the ambient `git` CLI.                         |
 
 ## Files
 
-| Path                                                         | Purpose                                                       |
-|--------------------------------------------------------------|---------------------------------------------------------------|
-| `./mods.yaml`                                                | Modpack manifest. See [`mods.yaml`](mods-yaml.md).            |
-| `./mods_overrides.yaml`                                      | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md). |
-| `./mods.lock`                                                | Resolved versions. Commit to git. Analogue of `pubspec.lock`. |
-| `./build/`                                                   | Default output directory for [`build`](#build).               |
-| `./<slug>-<version>.mrpack`                                  | Default output path for [`pack`](#pack).                      |
-| `$XDG_CACHE_HOME/gitrinth/` (Linux)                          | Cache root. Falls back to `~/.cache/gitrinth`.                |
-| `~/Library/Caches/gitrinth/` (macOS)                         | Cache root.                                                   |
-| `%LOCALAPPDATA%\gitrinth\Cache\` (Windows)                   | Cache root.                                                   |
-| `$XDG_CONFIG_HOME/gitrinth/config.yaml` (Linux)              | User config — stored tokens, default server URL.              |
-| `~/Library/Application Support/gitrinth/config.yaml` (macOS) | User config.                                                  |
-| `%APPDATA%\gitrinth\config.yaml` (Windows)                   | User config.                                                  |
+| Path                           | Purpose                                                                             |
+|--------------------------------|-------------------------------------------------------------------------------------|
+| `./mods.yaml`                  | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                  |
+| `./mods_overrides.yaml`        | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md). |
+| `./mods.lock`                  | Resolved versions. Commit to git.                                                   |
+| `./build/`                     | Default output directory for [`build`](#build).                                     |
+| `./<slug>-<version>.mrpack`    | Default output path for [`pack`](#pack).                                            |
+| Platform cache directory       | Cache root. Override via `GITRINTH_CACHE`.                                          |
+| Platform config directory      | User config — stored tokens, default server URL. Override via `GITRINTH_CONFIG`.    |
 
 ## Compatibility
 
-`gitrinth` follows semver for its CLI surface:
-
-- **Major** — may remove or rename commands and flags.
-- **Minor** — adds commands or flags; never removes.
-- **Patch** — bug fixes only.
-
+`gitrinth` follows semver for its CLI surface.
 [`tooling.gitrinth`](mods-yaml.md#gitrinth) pins the expected
 compatibility window.
 
@@ -534,6 +437,4 @@ compatibility window.
 - [`mods.schema.yaml`](../assets/schema/mods.schema.yaml) and
   [`mods-overrides.schema.yaml`](../assets/schema/mods-overrides.schema.yaml) —
   machine-readable schemas editors can wire up for in-file validation.
-- [Dart `pub` command reference](https://dart.dev/tools/pub/cmd) — the
-  upstream design `gitrinth` tracks.
 - [Modrinth API docs](https://docs.modrinth.com) — upstream service.
