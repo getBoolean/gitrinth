@@ -65,6 +65,7 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   }
   buf.writeln('    env: ${_envName(e.env)}');
   if (e.auto) buf.writeln('    auto: true');
+  if (e.optional) buf.writeln('    optional: true');
   if (e.gameVersions.isNotEmpty) {
     final quoted = e.gameVersions.map(_str).join(', ');
     buf.writeln('    game-versions: [$quoted]');

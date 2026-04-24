@@ -14,6 +14,7 @@ class ResolvedEntry with ResolvedEntryMappable {
   final bool auto;
   final modrinth.Version version;
   final VersionFile file;
+  final bool optional;
 
   const ResolvedEntry({
     required this.slug,
@@ -22,6 +23,7 @@ class ResolvedEntry with ResolvedEntryMappable {
     required this.auto,
     required this.version,
     required this.file,
+    this.optional = false,
   });
 }
 

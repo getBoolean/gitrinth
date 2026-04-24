@@ -77,6 +77,10 @@ class ModEntry with ModEntryMappable {
   /// influence pack-level decisions.
   final List<String> acceptsMc;
 
+  /// When true, the entry ships in the .mrpack as `env: optional` on
+  /// every side it's installed on, so launchers offer a toggle.
+  final bool optional;
+
   const ModEntry({
     required this.slug,
     this.constraintRaw,
@@ -84,6 +88,7 @@ class ModEntry with ModEntryMappable {
     this.env = Environment.both,
     this.source = const ModrinthEntrySource(),
     this.acceptsMc = const [],
+    this.optional = false,
   });
 }
 

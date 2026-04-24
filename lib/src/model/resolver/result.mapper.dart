@@ -47,6 +47,13 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     'file',
     _$file,
   );
+  static bool _$optional(ResolvedEntry v) => v.optional;
+  static const Field<ResolvedEntry, bool> _f$optional = Field(
+    'optional',
+    _$optional,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<ResolvedEntry> fields = const {
@@ -56,6 +63,7 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     #auto: _f$auto,
     #version: _f$version,
     #file: _f$file,
+    #optional: _f$optional,
   };
 
   static ResolvedEntry _instantiate(DecodingData data) {
@@ -66,6 +74,7 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
       auto: data.dec(_f$auto),
       version: data.dec(_f$version),
       file: data.dec(_f$file),
+      optional: data.dec(_f$optional),
     );
   }
 
@@ -140,6 +149,7 @@ abstract class ResolvedEntryCopyWith<$R, $In extends ResolvedEntry, $Out>
     bool? auto,
     modrinth.Version? version,
     VersionFile? file,
+    bool? optional,
   });
   ResolvedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -166,6 +176,7 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
     bool? auto,
     modrinth.Version? version,
     VersionFile? file,
+    bool? optional,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -174,6 +185,7 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
       if (auto != null) #auto: auto,
       if (version != null) #version: version,
       if (file != null) #file: file,
+      if (optional != null) #optional: optional,
     }),
   );
   @override
@@ -184,6 +196,7 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
     auto: data.get(#auto, or: $value.auto),
     version: data.get(#version, or: $value.version),
     file: data.get(#file, or: $value.file),
+    optional: data.get(#optional, or: $value.optional),
   );
 
   @override

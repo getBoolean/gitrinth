@@ -296,6 +296,13 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: const [],
   );
+  static bool _$optional(LockedEntry v) => v.optional;
+  static const Field<LockedEntry, bool> _f$optional = Field(
+    'optional',
+    _$optional,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<LockedEntry> fields = const {
@@ -309,6 +316,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     #env: _f$env,
     #auto: _f$auto,
     #gameVersions: _f$gameVersions,
+    #optional: _f$optional,
   };
 
   static LockedEntry _instantiate(DecodingData data) {
@@ -323,6 +331,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       env: data.dec(_f$env),
       auto: data.dec(_f$auto),
       gameVersions: data.dec(_f$gameVersions),
+      optional: data.dec(_f$optional),
     );
   }
 
@@ -399,6 +408,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     Environment? env,
     bool? auto,
     List<String>? gameVersions,
+    bool? optional,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -433,6 +443,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     Environment? env,
     bool? auto,
     List<String>? gameVersions,
+    bool? optional,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -445,6 +456,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
       if (env != null) #env: env,
       if (auto != null) #auto: auto,
       if (gameVersions != null) #gameVersions: gameVersions,
+      if (optional != null) #optional: optional,
     }),
   );
   @override
@@ -459,6 +471,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     env: data.get(#env, or: $value.env),
     auto: data.get(#auto, or: $value.auto),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
+    optional: data.get(#optional, or: $value.optional),
   );
 
   @override

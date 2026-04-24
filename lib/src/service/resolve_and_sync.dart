@@ -328,6 +328,7 @@ ModsLock _buildLock(
       env: r.env,
       auto: r.auto,
       gameVersions: List.unmodifiable(r.version.gameVersions),
+      optional: r.optional,
     );
   }
   for (final section in Section.values) {
@@ -340,6 +341,7 @@ ModsLock _buildLock(
           sourceKind: LockedSourceKind.url,
           file: LockedFile(name: _filenameFromUrl(src.url), url: src.url),
           env: entry.env,
+          optional: entry.optional,
         );
       } else if (src is PathEntrySource) {
         byKind[section]![slug] = LockedEntry(
@@ -347,6 +349,7 @@ ModsLock _buildLock(
           sourceKind: LockedSourceKind.path,
           path: src.path,
           env: entry.env,
+          optional: entry.optional,
         );
       }
     });

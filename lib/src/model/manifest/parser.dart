@@ -172,6 +172,7 @@ Map<String, LockedEntry> _parseLockSection(
     );
     final env = _parseEnv(m['env'] ?? 'both', '$sectionName/$slug', filePath);
     final auto = m['auto'] == true;
+    final optional = m['optional'] == true;
     LockedFile? file;
     final fileRaw = m['file'];
     if (fileRaw != null) {
@@ -204,6 +205,7 @@ Map<String, LockedEntry> _parseLockSection(
       env: env,
       auto: auto,
       gameVersions: gameVersions,
+      optional: optional,
     );
   });
   return result;
@@ -358,6 +360,18 @@ ModEntry _parseEntry(
     filePath,
   );
 
+  var optional = false;
+  if (m.containsKey('optional')) {
+    final v = m['optional'];
+    if (v is! bool) {
+      throw _err(
+        '$filePath: $sectionName/$slug optional must be true or false '
+        '(got ${v.runtimeType}).',
+      );
+    }
+    optional = v;
+  }
+
   return ModEntry(
     slug: slug,
     constraintRaw: constraintRaw,
@@ -365,6 +379,7 @@ ModEntry _parseEntry(
     env: env,
     source: source,
     acceptsMc: acceptsMc,
+    optional: optional,
   );
 }
 

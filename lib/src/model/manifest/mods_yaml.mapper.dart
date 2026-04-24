@@ -960,6 +960,13 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     opt: true,
     def: const [],
   );
+  static bool _$optional(ModEntry v) => v.optional;
+  static const Field<ModEntry, bool> _f$optional = Field(
+    'optional',
+    _$optional,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<ModEntry> fields = const {
@@ -969,6 +976,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     #env: _f$env,
     #source: _f$source,
     #acceptsMc: _f$acceptsMc,
+    #optional: _f$optional,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -979,6 +987,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       env: data.dec(_f$env),
       source: data.dec(_f$source),
       acceptsMc: data.dec(_f$acceptsMc),
+      optional: data.dec(_f$optional),
     );
   }
 
@@ -1048,6 +1057,7 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     Environment? env,
     EntrySource? source,
     List<String>? acceptsMc,
+    bool? optional,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1078,6 +1088,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
     Environment? env,
     EntrySource? source,
     List<String>? acceptsMc,
+    bool? optional,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1086,6 +1097,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
       if (env != null) #env: env,
       if (source != null) #source: source,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
+      if (optional != null) #optional: optional,
     }),
   );
   @override
@@ -1096,6 +1108,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
     env: data.get(#env, or: $value.env),
     source: data.get(#source, or: $value.source),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
+    optional: data.get(#optional, or: $value.optional),
   );
 
   @override

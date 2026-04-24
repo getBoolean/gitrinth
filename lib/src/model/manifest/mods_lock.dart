@@ -41,6 +41,10 @@ class LockedEntry with LockedEntryMappable {
   /// that became under-tagged after a pack `mc-version` bump.
   final List<String> gameVersions;
 
+  /// Mirror of `ModEntry.optional`; preserved through `gitrinth get` so
+  /// `pack` can emit `env: "optional"` in `modrinth.index.json`.
+  final bool optional;
+
   const LockedEntry({
     required this.slug,
     required this.sourceKind,
@@ -52,6 +56,7 @@ class LockedEntry with LockedEntryMappable {
     this.env = Environment.both,
     this.auto = false,
     this.gameVersions = const [],
+    this.optional = false,
   });
 }
 

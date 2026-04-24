@@ -53,7 +53,9 @@ mods:
   # Allow release and beta versions (not alpha).
   # `^3.0.1-b` would match any `3.0.1-b-<mc>` beta (e.g. 3.0.1-b-1.21.1)
   # plus later stable 3.x releases.
-  distanthorizons: beta
+  distanthorizons:
+    version: beta
+    optional: true # Ships as `env: optional` in the .mrpack so launchers offer a toggle.
   iris:
     version: ^1.8.12 # 1.8.12+1.21.1-neoforge
     environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
@@ -65,7 +67,7 @@ mods:
     environment: server
   appleskin:
     version: ^3.0.9 # 3.0.9+mc1.21
-    accepts-mc: 1.21.1 # Scalar shorthand for [1.21]
+    accepts-mc: 1.21.1 # Scalar shorthand for [1.21.1]
 
 resource_packs:
   faithful-32x: ^1.21.1 # 1.21.1-december-2025

@@ -48,6 +48,7 @@ LockedEntry _modrinth({
   String sha512 = 'deadbeef',
   int size = 1024,
   Environment env = Environment.both,
+  bool optional = false,
 }) {
   return LockedEntry(
     slug: slug,
@@ -63,6 +64,7 @@ LockedEntry _modrinth({
       size: size,
     ),
     env: env,
+    optional: optional,
   );
 }
 
@@ -124,6 +126,24 @@ void main() {
       expect(mrpackEnv(Environment.server), {
         'client': 'unsupported',
         'server': 'required',
+      });
+    });
+    test('optional=true makes both sides "optional" when env=both', () {
+      expect(mrpackEnv(Environment.both, optional: true), {
+        'client': 'optional',
+        'server': 'optional',
+      });
+    });
+    test('optional=true keeps unsupported sides unsupported (env=client)', () {
+      expect(mrpackEnv(Environment.client, optional: true), {
+        'client': 'optional',
+        'server': 'unsupported',
+      });
+    });
+    test('optional=true keeps unsupported sides unsupported (env=server)', () {
+      expect(mrpackEnv(Environment.server, optional: true), {
+        'client': 'unsupported',
+        'server': 'optional',
       });
     });
   });
@@ -520,6 +540,56 @@ void main() {
       expect(neoforge.dependencies, {
         'minecraft': '1.21.1',
         'neoforge': '21.1.50',
+      });
+    });
+
+    test('optional entry produces env: optional in files[]', () {
+      final lock = _lock(
+        mods: {
+          'distanthorizons': _modrinth(
+            slug: 'distanthorizons',
+            name: 'distanthorizons-2.3.0-b.jar',
+            projectId: 'uCdwusMi',
+            versionId: 'abc123',
+            optional: true,
+          ),
+        },
+      );
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
+      expect(idx.files.single.env, {
+        'client': 'optional',
+        'server': 'optional',
+      });
+    });
+
+    test('optional client-only entry stays optional in client target', () {
+      final lock = _lock(
+        mods: {
+          'distanthorizons': _modrinth(
+            slug: 'distanthorizons',
+            name: 'distanthorizons.jar',
+            projectId: 'uCdwusMi',
+            versionId: 'abc123',
+            env: Environment.client,
+            optional: true,
+          ),
+        },
+      );
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.client,
+        publishable: false,
+      );
+      expect(idx.files, hasLength(1));
+      expect(idx.files.single.env, {
+        'client': 'optional',
+        'server': 'unsupported',
       });
     });
   });

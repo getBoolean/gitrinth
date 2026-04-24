@@ -170,7 +170,7 @@ MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
   return MrpackFile(
     path: '$subdir/${file.name}',
     hashes: {'sha1': file.sha1!, 'sha512': file.sha512!},
-    env: mrpackEnv(entry.env),
+    env: mrpackEnv(entry.env, optional: entry.optional),
     downloads: [downloadUrl],
     fileSize: file.size!,
   );

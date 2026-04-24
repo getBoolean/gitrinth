@@ -86,6 +86,7 @@ class Resolver {
       }
       final section = entryBySection[slug] ?? Section.mods;
       final env = entryByEnv[slug] ?? Environment.both;
+      final optional = entryBySlug[slug]?.optional ?? false;
       entries.add(
         ResolvedEntry(
           slug: slug,
@@ -94,6 +95,7 @@ class Resolver {
           auto: result.auto[slug] ?? true,
           version: v,
           file: file,
+          optional: optional,
         ),
       );
     }

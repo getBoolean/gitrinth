@@ -321,6 +321,13 @@ $defs:
           - client
           - server
           - both
+      optional:
+        type: boolean
+        default: false
+        description: |
+          When true, this entry ships as `env: optional` per side in
+          the produced .mrpack so launchers (Modrinth app, Prism)
+          present a user-facing toggle.
       accepts-mc:
         $ref: "#/$defs/acceptsMc"
       hosted:
@@ -372,6 +379,13 @@ $defs:
           - release
           - beta
           - alpha
+      optional:
+        type: boolean
+        default: false
+        description: |
+          When true, this entry ships as `env: optional` per side in
+          the produced .mrpack so launchers (Modrinth app, Prism)
+          present a user-facing toggle.
       accepts-mc:
         $ref: "#/$defs/acceptsMc"
       hosted:

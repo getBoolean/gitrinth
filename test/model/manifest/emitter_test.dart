@@ -109,4 +109,40 @@ void main() {
     final out = emitModsLock(sample());
     expect(out, isNot(contains('game-versions')));
   });
+
+  test('emits optional: true and round-trips through parse', () {
+    const lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
+      mcVersion: '1.21.1',
+      mods: {
+        'distanthorizons': LockedEntry(
+          slug: 'distanthorizons',
+          sourceKind: LockedSourceKind.modrinth,
+          version: '2.3.0-b',
+          projectId: 'uCdwusMi',
+          versionId: 'abc123',
+          file: LockedFile(
+            name: 'distanthorizons-2.3.0-b.jar',
+            sha1: 'deadbeef',
+            sha512: 'cafebabe',
+            size: 12345,
+          ),
+          env: Environment.both,
+          optional: true,
+        ),
+      },
+    );
+    final once = emitModsLock(lock);
+    expect(once, contains('    optional: true'));
+    final reparsed = parseModsLock(once, filePath: 'mods.lock');
+    final twice = emitModsLock(reparsed);
+    expect(twice, once);
+    expect(reparsed.mods['distanthorizons']!.optional, isTrue);
+  });
+
+  test('does not emit optional line when false', () {
+    final out = emitModsLock(sample());
+    expect(out, isNot(contains('optional:')));
+  });
 }

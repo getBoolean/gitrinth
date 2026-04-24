@@ -479,6 +479,63 @@ shaders:
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.shaders['complementary-reimagined']!.acceptsMc, ['1.21']);
     });
+
+    test('parses optional: true on a long-form entry', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc-version: 1.21.1
+mods:
+  distanthorizons:
+    version: beta
+    optional: true
+  sodium: ^0.6.0
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['distanthorizons']!.optional, isTrue);
+      expect(m.mods['sodium']!.optional, isFalse);
+    });
+
+    test('optional defaults to false when absent', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc-version: 1.21.1
+mods:
+  jei:
+    version: 19.27.0.340
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['jei']!.optional, isFalse);
+    });
+
+    test('rejects non-boolean optional value', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc-version: 1.21.1
+mods:
+  jei:
+    version: 19.27.0.340
+    optional: "yes"
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
   });
 
   group('parseModsOverrides', () {
@@ -650,6 +707,33 @@ shaders: {}
       final f = l.mods['sodium']!.file!;
       expect(f.sha1, '0123456789abcdef');
       expect(f.sha512, 'deadbeef');
+    });
+
+    test('round-trips optional flag from mods.lock', () {
+      const lock = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: "fabric:0.17.3"
+mc-version: 1.21.1
+mods:
+  distanthorizons:
+    source: modrinth
+    version: "2.3.0-b"
+    project-id: uCdwusMi
+    version-id: abc123
+    file:
+      name: distanthorizons-2.3.0-b.jar
+      sha1: deadbeef
+      sha512: cafebabe
+      size: 12345
+    env: both
+    optional: true
+resource_packs: {}
+data_packs: {}
+shaders: {}
+''';
+      final l = parseModsLock(lock, filePath: 'mods.lock');
+      expect(l.mods['distanthorizons']!.optional, isTrue);
     });
   });
 }
