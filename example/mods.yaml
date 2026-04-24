@@ -44,32 +44,32 @@ tooling:
 mods:
   # Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
   # Caution: `url` and `path` sources make the modpack unpublishable on modrinth.
-  create: ^6.0.10+mc1.21.1
-  create-aeronautics: ^1.1.0+mc1.21.1
-  sable: ^1.1.1+mc1.21.1
+  create: ^6.0.10 # 6.0.10+mc1.21.1
+  create-aeronautics: ^1.1.0 # 1.1.0+mc1.21.1
+  sable: ^1.1.1 # 1.1.1+mc1.21.1
   jei: ^19.27.0.340
   sodium: beta
   ferrite-core: beta
   # Allow release and beta versions (not alpha).
   distanthorizons: beta
   iris:
-    version: ^1.8.12+1.21.1-neoforge
+    version: ^1.8.12 # 1.8.12+1.21.1-neoforge
     environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
   netherportalfix:
-    version: ^21.1.1+neoforge-1.21.1
+    version: ^21.1.1 # 21.1.1+neoforge-1.21.1
     channel: beta # Restrict to a specific release channel newer than the semver version.
     environment: server
-  appleskin: ^3.0.9+mc1.21
+  appleskin: ^3.0.9 # 3.0.9+mc1.21
 
 resource_packs:
-  faithful-32x: ^1.21.1-december-2025
+  faithful-32x: ^1.21.1 # 1.21.1-december-2025
 
 data_packs:
   terralith: ^2.5.8
   terralith-restoned: ^1.3.1
 
 shaders:
-  complementary-reimagined: ^r5.7.1
+  complementary-reimagined: ^5.7.1
 
 plugins:
 
