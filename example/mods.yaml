@@ -58,6 +58,7 @@ mods:
     version: ^21.1.1+neoforge-1.21.1
     channel: release # Restrict to a specific release channel newer than the semver version.
     environment: server
+  appleskin: ^3.0.9+mc1.21
 
 resource_packs:
   faithful-32x: ^1.21.1-december-2025

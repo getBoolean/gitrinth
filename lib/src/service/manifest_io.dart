@@ -48,4 +48,12 @@ class ManifestIo {
     if (lockFile.existsSync()) lockFile.deleteSync();
     tempFile.renameSync(lockFile.path);
   }
+
+  void writeModsYaml(String contents) {
+    final yamlFile = File(modsYamlPath);
+    final tempFile = File('$modsYamlPath.tmp');
+    tempFile.writeAsStringSync(contents);
+    if (yamlFile.existsSync()) yamlFile.deleteSync();
+    tempFile.renameSync(yamlFile.path);
+  }
 }

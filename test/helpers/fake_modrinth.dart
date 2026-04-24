@@ -121,7 +121,19 @@ class FakeModrinth {
             req.response.write(jsonEncode({'error': 'unknown slug $slug'}));
           } else {
             req.response.headers.contentType = ContentType.json;
-            req.response.write(jsonEncode(p));
+            // Auto-derive `loaders` from the first registered version when
+            // the test didn't set it explicitly. Mirrors Modrinth's real
+            // behavior (project responses include the union of loader tags
+            // across that project's versions) closely enough for routing
+            // tests.
+            final body = Map<String, dynamic>.from(p);
+            if (!body.containsKey('loaders')) {
+              final vs = versions[slug];
+              final first = (vs != null && vs.isNotEmpty) ? vs.first : null;
+              final derived = first?['loaders'];
+              body['loaders'] = derived is List ? List<dynamic>.from(derived) : const <dynamic>[];
+            }
+            req.response.write(jsonEncode(body));
           }
         }
       } else if (path.startsWith('/downloads/')) {

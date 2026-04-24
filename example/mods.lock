@@ -6,6 +6,17 @@ loader:
   shaders: iris
 mc-version: 1.21.1
 mods:
+  appleskin:
+    source: modrinth
+    version: 3.0.9+mc1.21
+    project-id: EsAfCjCV
+    version-id: uAKA6Laj
+    file:
+      name: appleskin-neoforge-mc1.21-3.0.9.jar
+      url: "https://cdn.modrinth.com/data/EsAfCjCV/versions/uAKA6Laj/appleskin-neoforge-mc1.21-3.0.9.jar"
+      sha512: f4ea46273e407334b63e262e2555c9a8204f7b5e60f23f272fbaa83ad9e88800e0ee186aca840710df2dbe0a18b37758695fef2ae1a902c10b3706e3de772937
+      size: 75804
+    env: both
   balm:
     source: modrinth
     version: 21.0.57+neoforge-1.21.1

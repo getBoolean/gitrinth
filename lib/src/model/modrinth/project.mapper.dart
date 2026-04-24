@@ -34,6 +34,13 @@ class ProjectMapper extends ClassMapperBase<Project> {
     _$projectType,
     key: r'project_type',
   );
+  static List<String> _$loaders(Project v) => v.loaders;
+  static const Field<Project, List<String>> _f$loaders = Field(
+    'loaders',
+    _$loaders,
+    opt: true,
+    def: const [],
+  );
 
   @override
   final MappableFields<Project> fields = const {
@@ -41,6 +48,7 @@ class ProjectMapper extends ClassMapperBase<Project> {
     #slug: _f$slug,
     #title: _f$title,
     #projectType: _f$projectType,
+    #loaders: _f$loaders,
   };
 
   static Project _instantiate(DecodingData data) {
@@ -49,6 +57,7 @@ class ProjectMapper extends ClassMapperBase<Project> {
       slug: data.dec(_f$slug),
       title: data.dec(_f$title),
       projectType: data.dec(_f$projectType),
+      loaders: data.dec(_f$loaders),
     );
   }
 
@@ -109,7 +118,14 @@ extension ProjectValueCopy<$R, $Out> on ObjectCopyWith<$R, Project, $Out> {
 
 abstract class ProjectCopyWith<$R, $In extends Project, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
-  $R call({String? id, String? slug, String? title, String? projectType});
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get loaders;
+  $R call({
+    String? id,
+    String? slug,
+    String? title,
+    String? projectType,
+    List<String>? loaders,
+  });
   ProjectCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -122,21 +138,35 @@ class _ProjectCopyWithImpl<$R, $Out>
   late final ClassMapperBase<Project> $mapper =
       ProjectMapper.ensureInitialized();
   @override
-  $R call({String? id, String? slug, String? title, String? projectType}) =>
-      $apply(
-        FieldCopyWithData({
-          if (id != null) #id: id,
-          if (slug != null) #slug: slug,
-          if (title != null) #title: title,
-          if (projectType != null) #projectType: projectType,
-        }),
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get loaders =>
+      ListCopyWith(
+        $value.loaders,
+        (v, t) => ObjectCopyWith(v, $identity, t),
+        (v) => call(loaders: v),
       );
+  @override
+  $R call({
+    String? id,
+    String? slug,
+    String? title,
+    String? projectType,
+    List<String>? loaders,
+  }) => $apply(
+    FieldCopyWithData({
+      if (id != null) #id: id,
+      if (slug != null) #slug: slug,
+      if (title != null) #title: title,
+      if (projectType != null) #projectType: projectType,
+      if (loaders != null) #loaders: loaders,
+    }),
+  );
   @override
   Project $make(CopyWithData data) => Project(
     id: data.get(#id, or: $value.id),
     slug: data.get(#slug, or: $value.slug),
     title: data.get(#title, or: $value.title),
     projectType: data.get(#projectType, or: $value.projectType),
+    loaders: data.get(#loaders, or: $value.loaders),
   );
 
   @override
