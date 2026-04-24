@@ -35,6 +35,7 @@ loader:
   # here.
   mods: neoforge # Enum: forge, fabric, neoforge (MVP). sponge/bukkit/folia/paper/spigot deferred.
   shaders: iris # Enum: iris, optifine, canvas, vanilla.
+
 mc-version: 1.21.1 # Exact version only — no ranges.
 
 tooling:
