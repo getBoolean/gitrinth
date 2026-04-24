@@ -47,7 +47,7 @@ mods:
   create: ^6.0.10 # 6.0.10+mc1.21.1
   create-aeronautics: ^1.1.0 # 1.1.0+mc1.21.1
   sable: ^1.1.1 # 1.1.1+mc1.21.1
-  jei: ^19.27.0+340
+  jei: ^19.27.0+340 # 19.27.0.340
   sodium: beta
   ferrite-core: beta
   # Allow release and beta versions (not alpha).
