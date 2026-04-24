@@ -1038,4 +1038,48 @@ mods:
     final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
     expect(lockText, contains('sha1: cafef00d'));
   });
+
+  test(
+    'entry accepts-mc widens game_versions query and lock records tagged mc',
+    () async {
+      modrinth.registerVersion(
+        slug: 'appleskin',
+        versionNumber: '3.0.9',
+        gameVersion: '1.21',
+      );
+
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: [1.21]
+''');
+
+      final out = await runCli(
+        ['-C', packDir.path, 'get'],
+        environment: {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        },
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final q = modrinth.lastVersionQuery['appleskin'];
+      expect(q, isNotNull);
+      expect(q!['game_versions'], '["1.21.1","1.21"]');
+
+      final lockText = File(
+        p.join(packDir.path, 'mods.lock'),
+      ).readAsStringSync();
+      expect(lockText, contains('appleskin:'));
+      expect(lockText, contains('game-versions: ["1.21"]'));
+    },
+  );
 }

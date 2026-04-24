@@ -72,12 +72,18 @@ class ModEntry with ModEntryMappable {
   final Environment env;
   final EntrySource source;
 
+  /// Additional Minecraft versions to union with the pack's `mc-version`
+  /// when querying Modrinth for this entry. Query-time only; does not
+  /// influence pack-level decisions.
+  final List<String> acceptsMc;
+
   const ModEntry({
     required this.slug,
     this.constraintRaw,
     this.channel,
     this.env = Environment.both,
     this.source = const ModrinthEntrySource(),
+    this.acceptsMc = const [],
   });
 }
 

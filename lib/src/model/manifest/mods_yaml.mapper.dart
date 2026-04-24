@@ -953,6 +953,13 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     opt: true,
     def: const ModrinthEntrySource(),
   );
+  static List<String> _$acceptsMc(ModEntry v) => v.acceptsMc;
+  static const Field<ModEntry, List<String>> _f$acceptsMc = Field(
+    'acceptsMc',
+    _$acceptsMc,
+    opt: true,
+    def: const [],
+  );
 
   @override
   final MappableFields<ModEntry> fields = const {
@@ -961,6 +968,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     #channel: _f$channel,
     #env: _f$env,
     #source: _f$source,
+    #acceptsMc: _f$acceptsMc,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -970,6 +978,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       channel: data.dec(_f$channel),
       env: data.dec(_f$env),
       source: data.dec(_f$source),
+      acceptsMc: data.dec(_f$acceptsMc),
     );
   }
 
@@ -1031,12 +1040,14 @@ extension ModEntryValueCopy<$R, $Out> on ObjectCopyWith<$R, ModEntry, $Out> {
 abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   EntrySourceCopyWith<$R, EntrySource, EntrySource> get source;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc;
   $R call({
     String? slug,
     String? constraintRaw,
     Channel? channel,
     Environment? env,
     EntrySource? source,
+    List<String>? acceptsMc,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1053,12 +1064,20 @@ class _ModEntryCopyWithImpl<$R, $Out>
   EntrySourceCopyWith<$R, EntrySource, EntrySource> get source =>
       $value.source.copyWith.$chain((v) => call(source: v));
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc =>
+      ListCopyWith(
+        $value.acceptsMc,
+        (v, t) => ObjectCopyWith(v, $identity, t),
+        (v) => call(acceptsMc: v),
+      );
+  @override
   $R call({
     String? slug,
     Object? constraintRaw = $none,
     Object? channel = $none,
     Environment? env,
     EntrySource? source,
+    List<String>? acceptsMc,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1066,6 +1085,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
       if (channel != $none) #channel: channel,
       if (env != null) #env: env,
       if (source != null) #source: source,
+      if (acceptsMc != null) #acceptsMc: acceptsMc,
     }),
   );
   @override
@@ -1075,6 +1095,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
     channel: data.get(#channel, or: $value.channel),
     env: data.get(#env, or: $value.env),
     source: data.get(#source, or: $value.source),
+    acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
   );
 
   @override

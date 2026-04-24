@@ -184,9 +184,11 @@ properties:
     type: string
     description: |
       Exact Minecraft version, e.g. "1.21.1". No ranges or wildcards.
-      Drives version resolution, Modrinth compatibility, and
-      server-binary selection alongside `loader`.
-    pattern: ^\d+\.\d+(?:\.\d+)?$
+      Snapshots (`24w10a`, `1.21-pre1`, `1.21-rc1`) and historical tags
+      (`b1.7.3`) are accepted — the server-binary auto-download path
+      may not cover them. Drives version resolution, Modrinth
+      compatibility, and server-binary selection alongside `loader`.
+    pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]*$
 
   tooling:
     type: [object, "null"]
@@ -262,6 +264,28 @@ $defs:
       - type: string
         minLength: 1
 
+  acceptsMc:
+    description: |
+      Additional Minecraft versions to include in the Modrinth
+      `game_versions` query for this entry. Additive to the pack's
+      `mc-version`, query-time only — never overrides it. Use when a
+      mod works on the pack's `mc-version` but the author tagged only
+      adjacent versions on Modrinth. Scalar or list; bare YAML scalars
+      like `1.21` are accepted (`number`) as well as quoted strings.
+      Snapshot-style tags (`24w10a`, `1.21-pre1`) are permitted.
+    oneOf:
+      - type: string
+        pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]*$
+      - type: number
+      - type: array
+        items:
+          oneOf:
+            - type: string
+              pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]*$
+            - type: number
+        uniqueItems: true
+        minItems: 1
+
   modDependency:
     description: |
       Mod dependency. Short form: a version constraint (from default
@@ -297,6 +321,8 @@ $defs:
           - client
           - server
           - both
+      accepts-mc:
+        $ref: "#/$defs/acceptsMc"
       hosted:
         type: string
         format: uri
@@ -346,6 +372,8 @@ $defs:
           - release
           - beta
           - alpha
+      accepts-mc:
+        $ref: "#/$defs/acceptsMc"
       hosted:
         type: string
         format: uri

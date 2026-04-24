@@ -189,6 +189,10 @@ Map<String, LockedEntry> _parseLockSection(
             : (fm['size'] as num?)?.toInt(),
       );
     }
+    final gameVersionsRaw = m['game-versions'];
+    final gameVersions = gameVersionsRaw is List
+        ? List<String>.unmodifiable(gameVersionsRaw.map((v) => v.toString()))
+        : const <String>[];
     result[slug] = LockedEntry(
       slug: slug,
       sourceKind: sourceKind,
@@ -199,6 +203,7 @@ Map<String, LockedEntry> _parseLockSection(
       path: m['path'] as String?,
       env: env,
       auto: auto,
+      gameVersions: gameVersions,
     );
   });
   return result;
@@ -347,13 +352,70 @@ ModEntry _parseEntry(
   }
   if (forcedEnv != null) env = forcedEnv;
 
+  final acceptsMc = _parseAcceptsMc(
+    m['accepts-mc'],
+    '$sectionName/$slug',
+    filePath,
+  );
+
   return ModEntry(
     slug: slug,
     constraintRaw: constraintRaw,
     channel: channel,
     env: env,
     source: source,
+    acceptsMc: acceptsMc,
   );
+}
+
+// Matches Modrinth game_version tags: releases (`1.21`, `1.21.1`),
+// pre/rc (`1.21-pre1`), snapshots (`24w10a`, `24w14potato`), historical
+// (`b1.7.3`, `a1.2.6`). Modrinth validates the actual tag server-side;
+// the pattern just rejects obviously malformed input.
+final _mcVersionPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._+-]*$');
+
+List<String> _parseAcceptsMc(dynamic raw, String where, String filePath) {
+  if (raw == null) return const [];
+  // Accept scalar shorthand (`accepts-mc: 1.21`) and normalize to a
+  // single-element list. Bool is rejected below; map/other are caught
+  // by the non-list/non-scalar branch.
+  final List<dynamic> items;
+  if (raw is String || raw is num) {
+    items = [raw];
+  } else if (raw is List) {
+    items = raw;
+  } else {
+    throw _err(
+      '$filePath: $where accepts-mc must be a Minecraft version '
+      'string or a list of them (e.g. `1.21` or `[1.21, 1.20.1]`).',
+    );
+  }
+  final seen = <String>{};
+  final out = <String>[];
+  for (final item in items) {
+    // Accept YAML scalars that stringify cleanly (`1.21` parses as
+    // double). Reject booleans, maps, lists, null.
+    final String asText;
+    if (item is String) {
+      asText = item;
+    } else if (item is num) {
+      asText = item.toString();
+    } else {
+      throw _err(
+        '$filePath: $where accepts-mc entries must be Minecraft version '
+        'strings; got ${item.runtimeType}.',
+      );
+    }
+    if (!_mcVersionPattern.hasMatch(asText)) {
+      throw _err(
+        '$filePath: $where accepts-mc entry "$asText" is not a valid '
+        'Minecraft version tag (expected forms like "1.21", "1.20.1", '
+        '"24w10a", or "1.21-pre1").',
+      );
+    }
+    if (seen.add(asText)) out.add(asText);
+  }
+  return out;
 }
 
 Channel? _parseChannelField(dynamic raw, String filePath, String where) {

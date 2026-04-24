@@ -592,6 +592,50 @@ section is a schema error. It is also ignored on [`mods`](#mods)
 entries when [`loader`](#loader) is `bukkit`, `folia`, `paper`, or
 `spigot` (always client-only — see [Plugin loaders](#plugin-loaders)).
 
+#### Per-entry MC version tolerance (`accepts-mc`)
+
+A long-form entry may include an `accepts-mc` field to **additively**
+widen the Minecraft versions the resolver queries for that one entry.
+The pack's [`mc-version`](#mc-version) remains the single source of
+truth: `accepts-mc` never overrides it, never influences the server
+binary or loader, and never applies to other entries.
+
+Use it when a mod works on the pack's `mc-version` but the author
+only tagged adjacent versions on Modrinth. For example, a pack on
+`1.21.1` with a mod that's still tagged `1.21`:
+
+```yaml
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9+mc1.21
+    accepts-mc: 1.21           # scalar shorthand for [1.21]
+  some-other-mod:
+    version: ^2.0.0
+    accepts-mc: [1.21, 1.20.1] # explicit list form
+```
+
+Snapshot-style tags are accepted too — Modrinth publishes a single
+`game_versions` list that mixes releases with weekly snapshots
+(`24w10a`), pre-releases (`1.21-pre1`), release candidates
+(`1.21-rc1`), and historical tags (`b1.7.3`). Any of these are valid
+values.
+
+At resolve time, the Modrinth `game_versions` filter for `appleskin`
+becomes `["1.21.1", "1.21"]` instead of `["1.21.1"]`; every other
+entry in the pack is unaffected. The resolved version's actual
+Modrinth `game_versions` tag is recorded in `mods.lock` under
+`game-versions:`, so a future `mc-version` bump can surface entries
+that were only admitted via `accepts-mc`.
+
+`accepts-mc` is only available on long-form entries and works in the
+same sections that support long form — [`mods`](#mods),
+[`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
+[`shaders`](#shaders), and [`plugins`](#plugins). When adding a new
+mod, [`add`](cli.md#add) takes a repeatable `--accepts-mc` flag that
+widens the Modrinth query and persists the list into the written
+entry in one step.
+
 #### Mod-version constraints
 
 A mod-version constraint describes which version of a mod is acceptable.

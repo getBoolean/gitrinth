@@ -47,6 +47,16 @@ class AddCommand extends GitrinthCommand {
         'dry-run',
         negatable: false,
         help: 'Print the edit without writing.',
+      )
+      ..addMultiOption(
+        'accepts-mc',
+        valueHelp: 'mc-version',
+        help:
+            'Additively widen the Minecraft version filter for this entry '
+            'when querying Modrinth, and persist the list under '
+            '`accepts-mc` in mods.yaml. Repeatable. Use when a mod works '
+            "on the pack's mc-version but the author tagged only adjacent "
+            'versions on Modrinth.',
       );
   }
 
@@ -69,8 +79,17 @@ class AddCommand extends GitrinthCommand {
     final pathOpt = argResults!['path'] as String?;
     final envOpt = argResults!['env'] as String?;
     final dryRun = argResults!['dry-run'] as bool;
+    final acceptsMc = _parseAcceptsMcFlag(
+      argResults!['accepts-mc'] as List<String>,
+    );
     if (urlOpt != null && pathOpt != null) {
       throw const UsageError('--url and --path are mutually exclusive.');
+    }
+    if (acceptsMc.isNotEmpty && (urlOpt != null || pathOpt != null)) {
+      throw const UsageError(
+        '--accepts-mc applies to Modrinth-sourced entries; cannot combine '
+        'with --url or --path.',
+      );
     }
 
     final (:slug, :constraintRaw) = _parsePositional(positional);
@@ -139,12 +158,16 @@ class AddCommand extends GitrinthCommand {
           section: section,
           loaderConfig: existingManifest.loader,
           mcVersion: existingManifest.mcVersion,
+          acceptsMc: acceptsMc,
         );
         if (latest == null) {
+          final widened = acceptsMc.isEmpty
+              ? ''
+              : ' (widened with accepts-mc=${acceptsMc.join(",")})';
           throw UserError(
             "No release version of '$slug' is compatible with "
             "loader=${_loaderNameForSection(existingManifest.loader, section) ?? '<none>'} "
-            "mc=${existingManifest.mcVersion}. "
+            "mc=${existingManifest.mcVersion}$widened. "
             'Pass `@<version>` explicitly to pin an alpha/beta.',
           );
         }
@@ -159,11 +182,15 @@ class AddCommand extends GitrinthCommand {
         effectiveConstraint = constraintRaw;
       }
 
-      if (envOpt != null && envOpt != 'both') {
-        longForm = <String, Object?>{
-          'version': effectiveConstraint,
-          'environment': envOpt,
-        };
+      final needsLongForm =
+          (envOpt != null && envOpt != 'both') || acceptsMc.isNotEmpty;
+      if (needsLongForm) {
+        final long = <String, Object?>{'version': effectiveConstraint};
+        if (envOpt != null && envOpt != 'both') long['environment'] = envOpt;
+        if (acceptsMc.isNotEmpty) {
+          long['accepts-mc'] = acceptsMc.length == 1 ? acceptsMc.first : acceptsMc;
+        }
+        longForm = long;
         writtenValue = null;
       } else {
         longForm = null;
@@ -244,14 +271,39 @@ class AddCommand extends GitrinthCommand {
     return (slug: prefix, constraintRaw: maybeConstraint);
   }
 
+  // Same permissive pattern the YAML parser uses for accepts-mc.
+  // Accepts releases, pre/rc, and snapshots; Modrinth validates the
+  // actual tag server-side.
+  static final _acceptsMcPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._+-]*$');
+
+  List<String> _parseAcceptsMcFlag(List<String> raw) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final entry in raw) {
+      final trimmed = entry.trim();
+      if (trimmed.isEmpty) continue;
+      if (!_acceptsMcPattern.hasMatch(trimmed)) {
+        throw UserError(
+          '--accepts-mc "$trimmed" is not a valid Minecraft version tag '
+          '(expected forms like "1.21", "1.20.1", "24w10a", or '
+          '"1.21-pre1").',
+        );
+      }
+      if (seen.add(trimmed)) out.add(trimmed);
+    }
+    return out;
+  }
+
   Future<String?> _pickLatestReleaseVersion({
     required ModrinthApi api,
     required String slug,
     required Section section,
     required LoaderConfig loaderConfig,
     required String mcVersion,
+    List<String> acceptsMc = const [],
   }) async {
     final loaderFilter = _filterLoadersForSection(loaderConfig, section);
+    final gameVersions = <String>{mcVersion, ...acceptsMc}.toList();
     final List<modrinth.Version> versions;
     try {
       versions = await api.listVersions(
@@ -259,7 +311,7 @@ class AddCommand extends GitrinthCommand {
         loadersJson: loaderFilter == null
             ? null
             : encodeFilterArray(loaderFilter),
-        gameVersionsJson: encodeFilterArray([mcVersion]),
+        gameVersionsJson: encodeFilterArray(gameVersions),
       );
     } on DioException catch (e) {
       final err = e.error;

@@ -107,6 +107,7 @@ Add an entry to [`mods`](mods-yaml.md#mods),
 ```text
 gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--url <url> | --path <path>]
+            [--accepts-mc <mc-version>]...
             [--dry-run]
 ```
 
@@ -115,12 +116,21 @@ mods to [`mods`](mods-yaml.md#mods), resource packs to
 [`resource_packs`](mods-yaml.md#resource_packs), and so on. `url:` and
 `path:` sources infer from the artifact's file type.
 
-| Option      | Description                                                                                         |
-|-------------|-----------------------------------------------------------------------------------------------------|
-| `--env`     | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                           |
-| `--url`     | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
-| `--path`    | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
-| `--dry-run` | Print the edit without writing.                                                                     |
+| Option         | Description                                                                                         |
+|----------------|-----------------------------------------------------------------------------------------------------|
+| `--env`        | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                           |
+| `--url`        | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
+| `--path`       | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
+| `--accepts-mc` | Additional MC versions to tolerate for this entry. Repeatable. See below.                           |
+| `--dry-run`    | Print the edit without writing.                                                                     |
+
+`--accepts-mc <mc-version>` widens the Modrinth `game_versions` query
+when picking a default constraint, and persists the list under
+[`accepts-mc`](mods-yaml.md#per-entry-mc-version-tolerance-accepts-mc)
+on the new entry (forces long form). Use when the mod works on the
+pack's [`mc-version`](mods-yaml.md#mc-version) but the author tagged
+only adjacent versions on Modrinth. Incompatible with `--url` /
+`--path`.
 
 ### `remove`
 

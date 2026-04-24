@@ -120,12 +120,17 @@ Future<ResolveSyncResult> resolveAndSync({
       try {
         final section = slugToSection[slug] ?? Section.mods;
         final loaderFilter = filterForSection(section);
+        final entry = merged.sectionEntries(section)[slug];
+        final gameVersions = <String>{
+          mc,
+          ...?entry?.acceptsMc,
+        }.toList();
         final list = await api.listVersions(
           slug,
           loadersJson: loaderFilter == null
               ? null
               : encodeFilterArray(loaderFilter),
-          gameVersionsJson: encodeFilterArray([mc]),
+          gameVersionsJson: encodeFilterArray(gameVersions),
         );
         versionsPerSlug[slug] = list;
         return list;
@@ -325,6 +330,7 @@ ModsLock _buildLock(
       ),
       env: r.env,
       auto: r.auto,
+      gameVersions: List.unmodifiable(r.version.gameVersions),
     );
   }
   for (final section in Section.values) {

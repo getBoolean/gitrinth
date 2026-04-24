@@ -9,7 +9,7 @@ detailed spec further down.
 
 Planned improvements:
 
-- [ ] [`accepts-mc` — per-entry MC version tolerance](#accepts-mc--per-entry-mc-version-tolerance)
+- [x] [`accepts-mc` — per-entry MC version tolerance](#accepts-mc--per-entry-mc-version-tolerance)
 - [ ] [`migrate` command](#migrate-command)
 - [ ] [Optional mods](#optional-mods)
 - [ ] [`pin` / `unpin` commands](#pin--unpin-commands)

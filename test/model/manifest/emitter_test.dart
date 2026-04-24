@@ -73,4 +73,40 @@ void main() {
         .trim();
     expect(createBlock, isNot(contains('auto:')));
   });
+
+  test('game-versions round-trips through emit -> parse -> emit', () {
+    const lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: LoaderConfig(mods: Loader.neoforge),
+      mcVersion: '1.21.1',
+      mods: {
+        'appleskin': LockedEntry(
+          slug: 'appleskin',
+          sourceKind: LockedSourceKind.modrinth,
+          version: '3.0.9+mc1.21',
+          projectId: 'P1',
+          versionId: 'V1',
+          file: LockedFile(
+            name: 'appleskin.jar',
+            url: 'https://cdn.modrinth.com/data/appleskin.jar',
+            sha512: 'ff00',
+            size: 1,
+          ),
+          gameVersions: ['1.21'],
+        ),
+      },
+    );
+    final once = emitModsLock(lock);
+    // `1.21` matches the numeric regex in `_needsQuotes`, so the
+    // emitter quotes it to preserve string-typed round-trip.
+    expect(once, contains('game-versions: ["1.21"]'));
+    final parsed = parseModsLock(once, filePath: 'mods.lock');
+    expect(parsed.mods['appleskin']!.gameVersions, ['1.21']);
+    expect(emitModsLock(parsed), once);
+  });
+
+  test('empty gameVersions omits the field', () {
+    final out = emitModsLock(sample());
+    expect(out, isNot(contains('game-versions')));
+  });
 }

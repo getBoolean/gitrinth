@@ -36,6 +36,11 @@ class LockedEntry with LockedEntryMappable {
   final Environment env;
   final bool auto;
 
+  /// Minecraft versions the resolved Modrinth version was tagged for.
+  /// Empty for non-Modrinth sources. Enables later detection of entries
+  /// that became under-tagged after a pack `mc-version` bump.
+  final List<String> gameVersions;
+
   const LockedEntry({
     required this.slug,
     required this.sourceKind,
@@ -46,6 +51,7 @@ class LockedEntry with LockedEntryMappable {
     this.path,
     this.env = Environment.both,
     this.auto = false,
+    this.gameVersions = const [],
   });
 }
 

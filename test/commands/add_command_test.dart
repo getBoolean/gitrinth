@@ -502,4 +502,183 @@ mc-version: 1.21.1
     expect(yaml, contains('version: ^1.8.12'));
     expect(yaml, contains('environment: client'));
   });
+
+  group('--accepts-mc', () {
+    test(
+      'widens Modrinth query, writes long-form entry with accepts-mc scalar',
+      () async {
+        modrinth.registerVersion(
+          slug: 'appleskin',
+          versionNumber: '3.0.9',
+          versionType: 'release',
+          gameVersion: '1.21',
+        );
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+''');
+
+        final out = await runCli(
+          ['-C', packDir.path, 'add', 'appleskin', '--accepts-mc', '1.21'],
+          environment: env(),
+        );
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+        final q = modrinth.lastVersionQuery['appleskin'];
+        expect(q!['game_versions'], '["1.21.1","1.21"]');
+
+        final yaml = readYaml();
+        expect(yaml, contains('appleskin:'));
+        expect(yaml, contains('version: ^3.0.9'));
+        // yaml_edit quotes numeric-looking string scalars to preserve
+        // string type on round-trip.
+        expect(yaml, contains(RegExp(r'''accepts-mc:\s*['"]?1\.21['"]?''')));
+      },
+    );
+
+    test('multiple values written as a list', () async {
+      modrinth.registerVersion(
+        slug: 'appleskin',
+        versionNumber: '3.0.9',
+        versionType: 'release',
+        gameVersion: '1.21',
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+''');
+
+      final out = await runCli(
+        [
+          '-C',
+          packDir.path,
+          'add',
+          'appleskin',
+          '--accepts-mc=1.21',
+          '--accepts-mc=1.20.1',
+        ],
+        environment: env(),
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final q = modrinth.lastVersionQuery['appleskin'];
+      expect(q!['game_versions'], '["1.21.1","1.21","1.20.1"]');
+
+      final yaml = readYaml();
+      // yaml_edit emits the list block-style.
+      expect(
+        yaml,
+        contains(
+          RegExp(
+            r'''accepts-mc:\s*\n\s+-\s*['"]?1\.21['"]?\s*\n\s+-\s*['"]?1\.20\.1['"]?''',
+          ),
+        ),
+      );
+    });
+
+    test('accepts snapshot/pre-release tags', () async {
+      modrinth.registerVersion(
+        slug: 'appleskin',
+        versionNumber: '3.0.9',
+        versionType: 'release',
+        gameVersion: '24w10a',
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+''');
+
+      final out = await runCli(
+        [
+          '-C',
+          packDir.path,
+          'add',
+          'appleskin',
+          '--accepts-mc',
+          '24w10a',
+          '--accepts-mc',
+          '1.21-pre1',
+        ],
+        environment: env(),
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final q = modrinth.lastVersionQuery['appleskin'];
+      expect(q!['game_versions'], '["1.21.1","24w10a","1.21-pre1"]');
+    });
+
+    test('malformed version rejected with helpful error', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+''');
+
+      final out = await runCli(
+        [
+          '-C',
+          packDir.path,
+          'add',
+          'appleskin',
+          '--accepts-mc',
+          '1.21 snapshot',
+        ],
+        environment: env(),
+      );
+      expect(out.exitCode, isNot(0));
+      expect(out.stderr, contains('1.21 snapshot'));
+    });
+
+    test('--accepts-mc is mutually exclusive with --url', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+''');
+
+      final out = await runCli(
+        [
+          '-C',
+          packDir.path,
+          'add',
+          'custom',
+          '--url',
+          'https://example.com/x.jar',
+          '--accepts-mc',
+          '1.21',
+        ],
+        environment: env(),
+      );
+      expect(out.exitCode, isNot(0));
+      expect(out.stderr, contains('--accepts-mc'));
+    });
+  });
 }

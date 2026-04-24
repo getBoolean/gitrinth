@@ -324,6 +324,159 @@ shaders:
         throwsA(isA<ValidationError>()),
       );
     });
+
+    test('accepts-mc parses into a deduped List<String>', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: [1.21, 1.20.1, 1.21]
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['appleskin']!.acceptsMc, ['1.21', '1.20.1']);
+    });
+
+    test('accepts-mc defaults to empty when omitted', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  jei:
+    version: ^1.8
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['jei']!.acceptsMc, isEmpty);
+    });
+
+    test('accepts-mc accepts scalar shorthand as a single-element list', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: 1.21
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['appleskin']!.acceptsMc, ['1.21']);
+    });
+
+    test('accepts-mc rejects a bool scalar', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: true
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('accepts-mc accepts snapshot/pre-release tags', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: [1.21, "24w10a", "1.21-pre1", "b1.7.3"]
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(
+        m.mods['appleskin']!.acceptsMc,
+        ['1.21', '24w10a', '1.21-pre1', 'b1.7.3'],
+      );
+    });
+
+    test('accepts-mc rejects strings with invalid characters', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: ["1.21 snapshot"]
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('accepts-mc rejects non-scalar list items', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: [1.21, true]
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('accepts-mc works on shaders (forcedEnvSource branch)', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  shaders: iris
+mc-version: 1.21.1
+shaders:
+  complementary-reimagined:
+    version: ^5.7.1
+    accepts-mc: [1.21]
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.shaders['complementary-reimagined']!.acceptsMc, ['1.21']);
+    });
   });
 
   group('parseModsOverrides', () {

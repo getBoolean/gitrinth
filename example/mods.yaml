@@ -55,11 +55,15 @@ mods:
   iris:
     version: ^1.8.12 # 1.8.12+1.21.1-neoforge
     environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
+    accepts-mc:
+      - 1.21.1
   netherportalfix:
     version: ^21.1.1 # 21.1.1+neoforge-1.21.1
     channel: beta # Restrict to a specific release channel newer than the semver version.
     environment: server
-  appleskin: ^3.0.9 # 3.0.9+mc1.21
+  appleskin:
+    version: ^3.0.9 # 3.0.9+mc1.21
+    accepts-mc: 1.21 # Scalar shorthand for [1.21]
 
 resource_packs:
   faithful-32x: ^1.21.1 # 1.21.1-december-2025
