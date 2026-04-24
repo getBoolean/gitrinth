@@ -42,7 +42,12 @@ class AddCommand extends GitrinthCommand {
         help:
             'Use a url: source. Marks the pack non-publishable when added to mods.',
       )
-      ..addOption('path', valueHelp: 'path', help: 'Use a path: source.')
+      ..addOption(
+        'path',
+        valueHelp: 'path',
+        help:
+            'Use a path: source. Marks the pack non-publishable when added to mods.',
+      )
       ..addFlag(
         'dry-run',
         negatable: false,
@@ -215,7 +220,9 @@ class AddCommand extends GitrinthCommand {
         final long = <String, Object?>{'version': effectiveConstraint};
         if (envOpt != null && envOpt != 'both') long['environment'] = envOpt;
         if (acceptsMc.isNotEmpty) {
-          long['accepts-mc'] = acceptsMc.length == 1 ? acceptsMc.first : acceptsMc;
+          long['accepts-mc'] = acceptsMc.length == 1
+              ? acceptsMc.first
+              : acceptsMc;
         }
         longForm = long;
         writtenValue = null;
