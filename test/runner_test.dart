@@ -13,7 +13,15 @@ void main() {
     test('--help lists every MVP command', () async {
       final out = await runCli(['--help']);
       expect(out.exitCode, 0);
-      for (final cmd in ['create', 'get', 'add', 'remove', 'build', 'pack']) {
+      for (final cmd in [
+        'create',
+        'get',
+        'add',
+        'remove',
+        'build',
+        'clean',
+        'pack',
+      ]) {
         expect(
           out.stdout,
           contains(cmd),
@@ -74,6 +82,12 @@ void main() {
         expect(out.stdout, contains('--output'));
         expect(out.stdout, contains('--clean'));
         expect(out.stdout, contains('--skip-download'));
+      });
+
+      test('clean', () async {
+        final out = await runCli(['clean', '--help']);
+        expect(out.exitCode, 0);
+        expect(out.stdout, contains('--output'));
       });
 
       test('pack', () async {

@@ -64,7 +64,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 |---------------------|---------------------------------------------------------------|
 | [`create`](#create) | Scaffold a new modpack directory.                             |
 | [`build`](#build)   | Assemble the client and/or server distribution into `build/`. |
-| [`clean`](#clean)   | Delete generated files: `build/`, `mods.lock`, `.mrpack`.     |
+| [`clean`](#clean)   | Delete generated files: `build/` and `mods.lock`.             |
 | [`pack`](#pack)     | Produce a Modrinth `.mrpack` artifact.                        |
 | [`unpack`](#unpack) | Scaffold a modpack directory from an existing `.mrpack`.      |
 
@@ -381,10 +381,11 @@ Always removes, when present:
 
 - `./mods.lock`
 - the build output directory (`./build` by default, or `--output`)
-- `./<slug>-<version>.mrpack` — the default [`pack`](#pack) artifact for the current `mods.yaml`
 
-Non-existent paths are a silent no-op. A `pack` artifact written to a
-custom `--output` path must be removed manually.
+The default [`pack`](#pack) artifact lives inside the build directory,
+so it is swept up by the build-directory deletion above. A `pack`
+artifact written to a custom `--output` path must be removed manually.
+Non-existent paths are a silent no-op.
 
 ### `pack`
 
@@ -395,9 +396,9 @@ artifact [`publish`](#publish) uploads.
 gitrinth pack [--output <path>]
 ```
 
-| Option           | Description                                                        |
-|------------------|--------------------------------------------------------------------|
-| `--output`, `-o` | Override the output path. Defaults to `./<slug>-<version>.mrpack`. |
+| Option           | Description                                                              |
+|------------------|--------------------------------------------------------------------------|
+| `--output`, `-o` | Override the output path. Defaults to `./build/<slug>-<version>.mrpack`. |
 
 Refuses to run if any [`mods`](mods-yaml.md#mods) or mod-targeting
 [`overrides`](mods-yaml.md#overrides) entry uses a `url` or `path`
@@ -465,15 +466,15 @@ Overrides may also live in a standalone
 
 ## Files
 
-| Path                        | Purpose                                                                                |
-|-----------------------------|----------------------------------------------------------------------------------------|
-| `./mods.yaml`               | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                     |
-| `./mods_overrides.yaml`     | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md).    |
-| `./mods.lock`               | Resolved versions. Commit to git.                                                      |
-| `./build/`                  | Default output directory for [`build`](#build).                                        |
-| `./<slug>-<version>.mrpack` | Default output path for [`pack`](#pack).                                               |
-| `~/.gitrinth_cache/`        | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`. |
-| Platform config directory   | User config — stored tokens, default server URL. Override via `GITRINTH_CONFIG`.       |
+| Path                              | Purpose                                                                                |
+|-----------------------------------|----------------------------------------------------------------------------------------|
+| `./mods.yaml`                     | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                     |
+| `./mods_overrides.yaml`           | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md).    |
+| `./mods.lock`                     | Resolved versions. Commit to git.                                                      |
+| `./build/`                        | Default output directory for [`build`](#build).                                        |
+| `./build/<slug>-<version>.mrpack` | Default output path for [`pack`](#pack).                                               |
+| `~/.gitrinth_cache/`              | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`. |
+| Platform config directory         | User config — stored tokens, default server URL. Override via `GITRINTH_CONFIG`.       |
 
 ## Compatibility
 

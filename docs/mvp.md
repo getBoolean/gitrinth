@@ -9,7 +9,7 @@ post-MVP.
 
 Scaffolding:
 
-- [ ] `CommandRunner` with all seven MVP commands registered (six landed; `clean` pending).
+- [x] `CommandRunner` with all seven MVP commands registered.
 - [x] Global options (`-h`, `--help`, `--version`, `-C`, `-v`).
 - [x] Exit-code mapping (`0`/`1`/`2`/`64`) via `GitrinthException` hierarchy.
 
@@ -20,7 +20,7 @@ Commands:
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
 - [x] `build` — implemented; server-binary auto-download deferred.
-- [ ] `clean` — pending; not yet scaffolded.
+- [x] `clean` — fully implemented.
 - [ ] `pack` — stub; exits `1`.
 
 Supporting work:
