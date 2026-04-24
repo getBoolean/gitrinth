@@ -37,7 +37,7 @@ Deferred work:
 - [ ] Hosted source support (deferred pending `hosted:` source spec and `token` command).
 - [ ] Plugin-loader support (deferred pending plugin-loader spec and `plugins` section spec).
 - [ ] Global options: `-q`/`--quiet`, `--offline`, `--no-color`, `--config` (deferred pending `--config` spec).
-- [ ] Commands deferred post-MVP: `upgrade`, `downgrade`, `outdated`, `deps`, `unpack`.
+- [ ] Commands deferred post-MVP: `upgrade`, `downgrade`, `outdated`, `deps`, `unpack`, `cache`.
 - [ ] Modrinth Pack support loose files override, such as configs
 - [ ] `build` auto-downloads the matching server binary for `loader.mods` + `mc-version` (users currently supply it manually).
 
