@@ -237,6 +237,17 @@ void main() {
         expect(v.patch, 1);
         expect(v.preRelease, isNotEmpty);
       });
+
+      test('Distant Horizons beta pre-release (3.0.1-b-1.21.1)', () {
+        // Beta releases for Distant Horizons use a `-b-<mc>` pre-release
+        // label.
+        final v = parseModrinthVersion('3.0.1-b-1.21.1');
+        expect(v.major, 3);
+        expect(v.minor, 0);
+        expect(v.patch, 1);
+        expect(v.preRelease, isNotEmpty);
+        expect(v.build, isEmpty);
+      });
     });
 
     group('caret form (parseConstraint)', () {
@@ -301,6 +312,13 @@ void main() {
         final c = parseConstraint('^1.21.1-december-2025');
         expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
         expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
+      });
+
+      test('caret on Distant Horizons beta pre-release (^3.0.1-b-1.21.1)', () {
+        final c = parseConstraint('^3.0.1-b-1.21.1');
+        expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.0.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('4.0.0')), isFalse);
       });
     });
 

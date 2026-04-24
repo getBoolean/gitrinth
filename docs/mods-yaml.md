@@ -649,8 +649,9 @@ Three forms are supported:
 
 The version string itself is whatever the mod author publishes — copy it
 exactly as it appears on Modrinth. `gitrinth` doesn't constrain the
-format, so entries like `6.0.10+mc1.21.1`, `1.8.12+1.21.1-neoforge`, and
-`r5.7.1` are all valid. A leading `^` turns any of them into a caret
+format, so entries like `6.0.10+mc1.21.1`, `1.8.12+1.21.1-neoforge`,
+`r5.7.1`, and `3.0.1-b-1.21.1` (a Distant Horizons beta pre-release)
+are all valid. A leading `^` turns any of them into a caret
 constraint.
 
 Blank short-form entries must still include the trailing colon:
@@ -664,6 +665,30 @@ Since the Minecraft version and loader already live in
 [`loader`](#loader) and [`mc-version`](#mc-version), a shorter
 constraint like `^6.0.10` is usually enough; `gitrinth` picks the
 matching build.
+
+##### Exact pins: semver vs. build-number
+
+Exact constraints come in two flavours, distinguished by whether any
+Modrinth build metadata (the part after `+`) is present and, if so,
+whether it's all-numeric:
+
+| Constraint        | Build metadata       | Flavour              | Matches                                                   |
+|-------------------|----------------------|----------------------|-----------------------------------------------------------|
+| `6.0.10`          | none                 | **semver pin**       | any candidate with major/minor/patch/pre-release `6.0.10` |
+| `6.0.10+mc1.21.1` | tag (non-numeric)    | **semver pin**       | same as above — the `+mc...` tag is informational         |
+| `19.27.0+340`     | `+340` (all-numeric) | **build-number pin** | only the specific build `19.27.0+340`                     |
+| `19.27.0.340`     | 4-segment → `+340`   | **build-number pin** | only `19.27.0.340` / `19.27.0+340`                        |
+
+A **semver pin** ignores build metadata on candidates. Use it when you
+want "the `6.0.10` release, whichever `+mc...` Modrinth happened to
+tag it with". A **build-number pin** is strict. Use it when the trailing
+number is a real build counter you want to freeze exactly (most
+commonly 4-segment versions like JEI's `19.27.0.340`).
+
+The [`pin` command](cli.md#pin) writes the flavour that matches the
+locked version: tag metadata (`+mc...`) is stripped because it's
+cosmetic; numeric build segments are preserved because they narrow
+the match.
 
 ### `mods`
 
