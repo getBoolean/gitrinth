@@ -13,7 +13,6 @@ Planned improvements:
 - [ ] [`migrate` command](#migrate-command)
 - [ ] [Optional mods](#optional-mods)
 - [ ] [`pin` / `unpin` commands](#pin--unpin-commands)
-- [ ] [Shell completion](#shell-completion)
 - [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
 - [ ] [CurseForge bridge](curseforge-bridge.md)
 
@@ -118,22 +117,6 @@ gitrinth unpin <slug> [--section <section>]
 
 Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
 new `lib/src/commands/pin.dart` and `unpin.dart`, [`cli.md`](cli.md).
-
-## Shell completion
-
-Generate completion scripts for bash, zsh, fish, and PowerShell. Dart's
-`package:args` `CommandRunner` exposes enough metadata to emit these
-without hand-rolling per-shell logic. Emits to stdout; no filesystem
-writes. Covers subcommand names, flag names, and known enum values
-(loaders, channels, environments).
-
-```text
-gitrinth completion <bash|zsh|fish|powershell>
-```
-
-Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
-new `lib/src/commands/completion.dart`, [`cli.md`](cli.md) (one short
-install section per shell).
 
 ## Add writes caret semver constraints by default
 

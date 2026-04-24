@@ -8,6 +8,7 @@ import '../app/container.dart';
 import '../commands/add_command.dart';
 import '../commands/build_command.dart';
 import '../commands/clean_command.dart';
+import '../commands/completion_command.dart';
 import '../commands/create_command.dart';
 import '../commands/get_command.dart';
 import '../commands/pack_command.dart';
@@ -49,6 +50,7 @@ class GitrinthRunner extends CommandRunner<int> {
     addCommand(BuildCommand());
     addCommand(CleanCommand());
     addCommand(PackCommand());
+    addCommand(CompletionCommand());
   }
 
   @override

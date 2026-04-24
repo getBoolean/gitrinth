@@ -54,6 +54,12 @@ Use [`--directory`](#global-options) to target a different modpack.
 | [`clean`](#clean)   | Delete generated files: `build/` and `mods.lock`.             |
 | [`pack`](#pack)     | Produce a Modrinth `.mrpack` artifact.                        |
 
+### Shell integration
+
+| Command                     | Purpose                                             |
+|-----------------------------|-----------------------------------------------------|
+| [`completion`](#completion) | Emit a shell-completion script for the given shell. |
+
 ## Console output
 
 Mutating commands emit a resolution header (e.g. `Resolving 12 mods, 2
@@ -344,6 +350,21 @@ gitrinth cache repair
 | `clean`    | Remove cache entries. `--all` clears everything; `--older-than` removes entries untouched for longer than the duration (e.g. `30d`, `6h`). |
 | `repair`   | Re-verify every cached file against its Modrinth hash and re-download corrupt entries.                                                     |
 
+### `completion`
+
+Emit a shell-completion script for the given shell to stdout. No
+filesystem writes — the user redirects or sources the output as they
+prefer. See [Shell completion](#shell-completion) for per-shell install
+snippets.
+
+```text
+gitrinth completion <bash|zsh|fish|powershell>
+```
+
+Covers subcommand names, flag names, and the enum values already
+constrained on the argparse side (`--env`, `--loader`). Re-run after
+upgrading `gitrinth` to refresh installed scripts.
+
 ## Working with overrides
 
 `mods.yaml` supports an [`overrides`](mods-yaml.md#overrides) section.
@@ -372,6 +393,54 @@ Overrides may also live in a standalone
 | `GITRINTH_CACHE`             | every command | Override the cache root.                                  |
 | `GITRINTH_MODRINTH_URL`      | every command | Override the default Modrinth base URL.                   |
 | `HTTPS_PROXY` / `HTTP_PROXY` | every command | Standard proxy variables, honoured by every HTTP request. |
+
+## Shell completion
+
+[`gitrinth completion`](#completion) prints a completion script to
+stdout. Redirect it into the location your shell expects, then start a
+new shell (or re-source your profile). Re-run after upgrading
+`gitrinth` to pick up any new commands or flags.
+
+**bash.** User-local install into your `bash-completion` data dir:
+
+```bash
+gitrinth completion bash > ~/.local/share/bash-completion/completions/gitrinth
+```
+
+Or, to load on demand from your `~/.bashrc`:
+
+```bash
+source <(gitrinth completion bash)
+```
+
+**zsh.** Drop the script somewhere on your `$fpath` (for example, the
+first directory in `$fpath`) and ensure `compinit` runs on startup:
+
+```zsh
+gitrinth completion zsh > "${fpath[1]}/_gitrinth"
+```
+
+**fish.** Fish auto-loads completions from its per-user completions
+directory:
+
+```fish
+gitrinth completion fish > ~/.config/fish/completions/gitrinth.fish
+```
+
+**PowerShell.** Append the completer to your profile so it's
+registered in every session:
+
+```powershell
+gitrinth completion powershell | Out-String | Invoke-Expression
+```
+
+To make it persistent, write the output to your `$PROFILE`:
+
+```powershell
+gitrinth completion powershell >> $PROFILE
+```
+
+`pwsh` is accepted as an alias for `powershell`.
 
 ## Files
 
