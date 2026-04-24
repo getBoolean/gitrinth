@@ -37,6 +37,7 @@ Deferred work:
 - [ ] Plugin-loader support (deferred pending plugin-loader spec and `plugins` section spec).
 - [ ] Global options: `-q`/`--quiet`, `--offline`, `--no-color`, `--config` (deferred pending `--config` spec).
 - [ ] Commands deferred post-MVP: `upgrade`, `downgrade`, `outdated`, `deps`, `unpack`.
+- [ ] Modrinth Pack support loose files override, such as configs
 
 ## Release channels
 
