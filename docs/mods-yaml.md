@@ -514,6 +514,7 @@ The value is a map with any combination of:
 
 - a `version` — a [mod-version constraint](#mod-version-constraints);
 - an `environment` — see [Per-mod environment](#per-mod-environment);
+- an `optional: true` — see [Optional mods](#optional-mods);
 - at most one **source** — where `gitrinth` should fetch the mod from.
 
 ```yaml
@@ -591,6 +592,42 @@ entry to long form and add the field.
 section is a schema error. It is also ignored on [`mods`](#mods)
 entries when [`loader`](#loader) is `bukkit`, `folia`, `paper`, or
 `spigot` (always client-only — see [Plugin loaders](#plugin-loaders)).
+
+#### Optional mods
+
+A long-form entry may set `optional: true` to mark the entry as
+user-toggleable. Optional entries ship in the produced `.mrpack` with
+`env: optional` per side instead of `env: required`, so launchers
+(Modrinth app, Prism) present a checkbox the user can flip when
+installing.
+
+```yaml
+mods:
+  create: ^6.0.10+mc1.21.1   # required (default)
+  distanthorizons:
+    version: beta
+    optional: true            # user-toggleable in the launcher
+  iris:
+    version: ^1.8.12
+    environment: client
+    optional: true            # client-only AND optional
+```
+
+Default-state semantics (whether the launcher pre-checks the box) are
+not specified by the Modrinth pack format; each launcher decides. To
+keep the field minimal until a consumer surfaces, no `default` /
+`description` sub-fields are written — `optional` is a flat boolean.
+
+**Side interaction.** `optional` and `environment` compose: an optional
+client-only mod becomes `{client: optional, server: unsupported}` in
+the mrpack — the unsupported side is preserved (a mod can't be optional
+on a side it doesn't run on).
+
+**Where allowed.** `optional` is a long-form-only field and works in
+the same sections as `environment`-aware entries: [`mods`](#mods),
+[`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
+[`shaders`](#shaders), and [`plugins`](#plugins). Omitting the field is
+equivalent to `optional: false`.
 
 #### Per-entry MC version tolerance (`accepts-mc`)
 

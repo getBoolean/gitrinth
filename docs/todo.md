@@ -11,7 +11,7 @@ Planned improvements:
 
 - [x] [`accepts-mc` — per-entry MC version tolerance](#accepts-mc--per-entry-mc-version-tolerance)
 - [ ] [`migrate` command](#migrate-command)
-- [ ] [Optional mods](#optional-mods)
+- [x] [Optional mods](#optional-mods)
 - [x] [`pin` / `unpin` commands](#pin--unpin-commands)
 - [x] [Shell completion](#shell-completion)
 - [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
@@ -81,25 +81,26 @@ new `lib/src/commands/migrate.dart`, [`cli.md`](cli.md).
 
 ## Optional mods
 
-Per-entry `optional` block that survives `.mrpack` export so the
-Modrinth app and Prism present a user-facing toggle. Complements the
-existing `environment` field — optional mods install off by default
-unless the user opts in. Preserves through the env-split path (an
-optional client mod stays optional in the client `.mrpack`).
+Shipped. See [Optional mods](mods-yaml.md#optional-mods) in the
+mods.yaml docs. Per-entry `optional: true` flag that survives `.mrpack`
+export so the Modrinth app and Prism present a user-facing toggle.
+Complements the existing `environment` field; preserves through the
+env-split path (an optional client mod stays optional in the client
+`.mrpack`).
 
 ```yaml
 mods:
   distanthorizons:
     version: beta
-    optional:
-      default: false
-      description: Adds far-render LoDs. Heavy on VRAM.
+    optional: true
 ```
 
-Touches: [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
-[`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart),
-archive builder, [`mods-yaml.md`](mods-yaml.md),
-[`example/mods.yaml`](../example/mods.yaml).
+Implemented as a flat boolean rather than the originally sketched
+`optional: { default, description }` block — the Modrinth pack format
+has no fields for default-state or description (packwiz drops both on
+mrpack export too), so storing them gitrinth-side without a consumer
+would have been inert metadata. We can introduce a structured block
+later if a consumer appears.
 
 ## `pin` / `unpin` commands
 
