@@ -110,20 +110,27 @@ both Modrinth's and CurseForge's file APIs; Modrinth's SHA512 is
 retained for single-platform tamper detection on download.) Matching
 hashes lock silently.
 
-On a mismatch, gitrinth scans older versions on both platforms within
-the entry's version constraint, looking for a hash-matching pair.
-This transparently recovers when one platform's CI ships a newer
-build than the other for a brief window. When a match is found,
-gitrinth locks that pair and prints which version was chosen (it
-will be at or below the newest constraint-satisfying version). The
-scan is bounded by the per-entry `hash-scan-depth:` field (default
-`10`; `0` disables the scan entirely).
+On a mismatch, gitrinth first scans older versions on both platforms
+within the entry's version constraint, looking for a hash-matching
+pair. This transparently recovers when one platform's CI ships a
+newer build than the other for a brief window. When a match is
+found, gitrinth locks that pair and prints which version was chosen
+(it will be at or below the newest constraint-satisfying version).
+The scan is bounded by the per-entry `hash-scan-depth:` field
+(default `10`; `0` disables the scan entirely).
 
-If the scan runs out of candidates without finding a match,
+If the scan runs out of candidates, gitrinth then searches the
+mismatching platform(s) for alternative slugs that hash-match the
+anchor — see [Search fallback](#search-fallback). This handles slug
+collisions where the declared slug names different mods on each
+platform.
+
+If neither scan nor search finds a hash-matching candidate,
 resolution **fails** with an error listing both current hashes,
-slugs, and project IDs, and three remediations: accept the
-divergence with `allow-hash-mismatch: true`, restrict to one platform
-via `sources: [...]`, or pin different versions per platform to align
+slugs, project IDs, and any near-match candidates from search, plus
+three remediations: accept the divergence with
+`allow-hash-mismatch: true`, restrict to one platform via
+`sources: [...]`, or pin different versions per platform to align
 builds.
 
 ```yaml
@@ -156,6 +163,137 @@ or more platform sources are declared; setting either alongside
 `sources: [modrinth]` or `sources: [curseforge]` is a schema error.
 `allow-hash-mismatch: true` short-circuits the scan — no point
 scanning when the user is explicitly accepting divergence.
+
+## Search fallback
+
+When a declared-or-defaulted platform returns no project for the
+declared slug, gitrinth runs a search on that platform before marking
+it `not_found`. This handles the common case where a mod exists on
+both platforms but the CurseForge project carries a different slug
+than the Modrinth one — e.g., Modrinth `fabric-api` vs CurseForge
+`fabric-api-0-102-0`.
+
+### When search runs
+
+Used by `add`, `get`, and `upgrade`. Search triggers on two paths:
+
+- **Slug-not-found path** — the platform's slug lookup returns no
+  project. Search looks for the mod under an alternative slug.
+- **Hash-mismatch path** — the declared slug exists on both
+  platforms but the [hash scan](#cross-platform-hash-verification)
+  exhausts without finding a matching pair. Search looks for
+  alternative slugs on the mismatching platform(s) that might be
+  the correct mod (useful when a short slug like `jei` happens to
+  name different mods across platforms).
+
+Both paths additionally require:
+
+- The other platform resolved the entry successfully (providing a
+  hash anchor to match against), AND
+- The entry isn't restricted to a single platform via
+  `sources: [...]` and doesn't set `no-cross-platform-search: true`,
+  AND
+- The global `--no-search` flag isn't set.
+
+### How results are ranked
+
+Search queries the platform with the missing slug as the query
+string, filtered by `loader` + `mc-version` + `accepts-mc`. Results
+are scored using the already-resolved platform's entry as the anchor:
+
+1. **SHA1 match** against the anchor's locked hash (using the same
+   `hash-scan-depth` window). A unique hash match auto-locks.
+2. **Project title** fuzzy match against the anchor's title.
+3. **Author** match against the anchor's author.
+4. **Category** compatibility.
+
+A hash match is definitive. Without a hash match, behavior depends
+on the triggering path:
+
+- **Slug-not-found path** — at least one of name or author must
+  align for auto-lock; otherwise fail with a candidate list.
+- **Hash-mismatch path** — auto-lock requires a hash match.
+  Name/author matches are listed as candidates in the error output
+  but never auto-applied, because a declared slug already matches
+  (just with divergent content) and silently switching to a
+  different slug based on fuzzy signals is too risky.
+
+### Outcomes
+
+**Hash match found** — locks the discovered slug and prints a
+notice:
+
+```text
+fabric-api: resolved on CurseForge via search as
+'fabric-api-0-102-0' (hash match with Modrinth). Consider adding
+`curseforge: fabric-api-0-102-0` to mods.yaml to skip search on
+future runs.
+```
+
+`mods.lock` records `discovered-via-search: true` on the affected
+source block so the user can audit which entries relied on search:
+
+```yaml
+mods:
+  fabric-api:
+    version: 0.102.0
+    modrinth: { project_id: ..., sha512: ... }
+    curseforge:
+      project_id: ...
+      file_id: ...
+      sha512: ...
+      discovered-via-search: true
+```
+
+**Candidates found, no hash match** — fails with the top candidates
+listed (project title, author, latest compatible version each). User
+resolves via explicit `curseforge:` override, `sources: [...]`
+restriction, or `allow-hash-mismatch: true`.
+
+**Search returns nothing** — falls through to the existing
+`not_found` behavior: the missing platform gets the marker, the
+entry succeeds as long as at least one platform resolved, and a
+warning is emitted.
+
+### Transitive deps
+
+Search runs for transitive deps on the same terms. Combined with
+[Cross-platform slug divergence](#cross-platform-slug-divergence)
+post-merge, this means diverged-slug transitives resolve
+automatically in two ways: search finds the diverged slug up-front
+when one platform's parent lists it, and the post-merge pass
+deduplicates when the two platforms' parents each resolve to their
+own-platform-slugged dep independently.
+
+### Per-entry and global opt-out
+
+```yaml
+mods:
+  some-proprietary-mod:
+    curseforge: 12345
+    version: ^1.0.0
+    no-cross-platform-search: true    # don't search Modrinth for a twin
+```
+
+`no-cross-platform-search: true` suppresses search even when
+cross-platform is in scope. Mostly redundant with `sources: [...]`
+(which already skips search for the excluded platform) — use it when
+you want the other platform checked for slug presence but never
+searched for adjacent candidates.
+
+Global `--no-search` on `get` / `add` / `upgrade` disables the
+fallback for the entire run, useful on locked-down networks or when
+debugging resolver behavior.
+
+### Performance
+
+Search adds at most one API call per platform per not-found slug.
+Results are cached in the gitrinth cache keyed by `(platform, query,
+loader, mc-version)` for the resolution session, so repeated
+`get`/`upgrade` runs don't re-query. To avoid search entirely at
+scale, migrate discovered slugs into explicit `modrinth:` /
+`curseforge:` overrides in `mods.yaml`; gitrinth's notice output
+includes the exact override to paste.
 
 ## Transitive dependencies and deduplication
 
