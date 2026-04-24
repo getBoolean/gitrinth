@@ -22,7 +22,8 @@ final dioProvider = Provider<Dio>((ref) {
 });
 
 final modrinthApiProvider = Provider<ModrinthApi>(
-  (ref) => ModrinthApi(ref.read(dioProvider), baseUrl: resolveModrinthBaseUrl()),
+  (ref) =>
+      ModrinthApi(ref.read(dioProvider), baseUrl: resolveModrinthBaseUrl()),
 );
 
 final cacheProvider = Provider<GitrinthCache>(
@@ -30,5 +31,6 @@ final cacheProvider = Provider<GitrinthCache>(
 );
 
 final downloaderProvider = Provider<Downloader>(
-  (ref) => Downloader(dio: ref.read(dioProvider), cache: ref.read(cacheProvider)),
+  (ref) =>
+      Downloader(dio: ref.read(dioProvider), cache: ref.read(cacheProvider)),
 );

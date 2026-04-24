@@ -24,9 +24,9 @@ class FakeModrinth {
     Map<String, Map<String, dynamic>>? projects,
     Map<String, List<Map<String, dynamic>>>? versions,
     Map<String, Uint8List>? artifacts,
-  })  : projects = projects ?? {},
-        versions = versions ?? {},
-        artifacts = artifacts ?? {};
+  }) : projects = projects ?? {},
+       versions = versions ?? {},
+       artifacts = artifacts ?? {};
 
   String get baseUrl => 'http://127.0.0.1:${_server.port}/v2';
   String get downloadBaseUrl => 'http://127.0.0.1:${_server.port}/downloads';
@@ -61,18 +61,25 @@ class FakeModrinth {
     String gameVersion = '1.21.1',
   }) {
     final pid = projectId.isEmpty ? '${slug}_ID' : projectId;
-    final versionId = '${slug}_${versionNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_')}';
+    final versionId =
+        '${slug}_${versionNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_')}';
     final filename = '$slug-$versionNumber.jar';
     final bytes = Uint8List.fromList(
-      List.generate(16, (i) => (versionNumber.codeUnitAt(i % versionNumber.length) + i) & 0xff),
+      List.generate(
+        16,
+        (i) => (versionNumber.codeUnitAt(i % versionNumber.length) + i) & 0xff,
+      ),
     );
     final sha = addArtifact(slug, filename, bytes);
-    projects.putIfAbsent(slug, () => <String, dynamic>{
-          'id': pid,
-          'slug': slug,
-          'title': slug,
-          'project_type': 'mod',
-        });
+    projects.putIfAbsent(
+      slug,
+      () => <String, dynamic>{
+        'id': pid,
+        'slug': slug,
+        'title': slug,
+        'project_type': 'mod',
+      },
+    );
     final entry = <String, dynamic>{
       'id': versionId,
       'project_id': pid,
@@ -84,7 +91,7 @@ class FakeModrinth {
           'hashes': {'sha512': sha},
           'size': bytes.length,
           'primary': true,
-        }
+        },
       ],
       'dependencies': <dynamic>[],
       'loaders': [loader],
@@ -131,7 +138,9 @@ class FakeModrinth {
               final vs = versions[slug];
               final first = (vs != null && vs.isNotEmpty) ? vs.first : null;
               final derived = first?['loaders'];
-              body['loaders'] = derived is List ? List<dynamic>.from(derived) : const <dynamic>[];
+              body['loaders'] = derived is List
+                  ? List<dynamic>.from(derived)
+                  : const <dynamic>[];
             }
             req.response.write(jsonEncode(body));
           }
@@ -142,8 +151,10 @@ class FakeModrinth {
         if (bytes == null) {
           req.response.statusCode = 404;
         } else {
-          req.response.headers.contentType =
-              ContentType('application', 'java-archive');
+          req.response.headers.contentType = ContentType(
+            'application',
+            'java-archive',
+          );
           req.response.add(bytes);
         }
       } else {

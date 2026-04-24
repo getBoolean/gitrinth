@@ -17,11 +17,7 @@ mods:
 resource_packs:
   faithful-32x: ^1.21
 ''';
-      final after = removeEntry(
-        before,
-        section: Section.mods,
-        slug: 'sodium',
-      );
+      final after = removeEntry(before, section: Section.mods, slug: 'sodium');
       expect(after, contains('# top comment'));
       expect(after, contains('# comment above jei'));
       expect(after, contains('# the JEI comment'));
@@ -39,11 +35,7 @@ mods:
     version: ^1.8.12
     environment: client
 ''';
-      final after = removeEntry(
-        before,
-        section: Section.mods,
-        slug: 'iris',
-      );
+      final after = removeEntry(before, section: Section.mods, slug: 'iris');
       expect(after, contains('jei: ^1.0.0'));
       expect(after, isNot(contains('iris')));
       expect(after, isNot(contains('environment: client')));
@@ -89,23 +81,25 @@ resource_packs:
       );
     });
 
-    test('preserves blank line inside a section when removing a middle entry',
-        () {
-      final before = '''
+    test(
+      'preserves blank line inside a section when removing a middle entry',
+      () {
+        final before = '''
 mods:
   jei: ^1.0.0
 
   appleskin: ^3.0.9
   sodium: release
 ''';
-      final after = removeEntry(
-        before,
-        section: Section.mods,
-        slug: 'appleskin',
-      );
-      expect(after, contains('^1.0.0\n\n  sodium: release'));
-      expect(after, isNot(contains('appleskin')));
-    });
+        final after = removeEntry(
+          before,
+          section: Section.mods,
+          slug: 'appleskin',
+        );
+        expect(after, contains('^1.0.0\n\n  sodium: release'));
+        expect(after, isNot(contains('appleskin')));
+      },
+    );
 
     test('throws UserError when slug is not present in the section', () {
       final before = '''
@@ -137,11 +131,7 @@ mods:
 
     test('throws UserError when mods.yaml root is not a mapping', () {
       expect(
-        () => removeEntry(
-          '- a\n- b\n',
-          section: Section.mods,
-          slug: 'sodium',
-        ),
+        () => removeEntry('- a\n- b\n', section: Section.mods, slug: 'sodium'),
         throwsA(isA<UserError>()),
       );
     });

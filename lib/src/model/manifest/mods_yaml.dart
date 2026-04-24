@@ -26,11 +26,7 @@ class LoaderConfig with LoaderConfigMappable {
   final ShaderLoader? shaders;
   final PluginLoader? plugins;
 
-  const LoaderConfig({
-    required this.mods,
-    this.shaders,
-    this.plugins,
-  });
+  const LoaderConfig({required this.mods, this.shaders, this.plugins});
 }
 
 @MappableClass(discriminatorKey: 'kind')

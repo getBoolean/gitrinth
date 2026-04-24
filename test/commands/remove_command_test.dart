@@ -30,9 +30,9 @@ void main() {
   }
 
   Map<String, String> env() => {
-        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-        'GITRINTH_CACHE': cacheDir.path,
-      };
+    'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+    'GITRINTH_CACHE': cacheDir.path,
+  };
 
   String readYaml() =>
       File(p.join(packDir.path, 'mods.yaml')).readAsStringSync();
@@ -61,10 +61,12 @@ mods:
   sodium: release
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'remove', 'sodium'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'remove',
+      'sodium',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, isNot(contains('sodium')));
@@ -96,10 +98,12 @@ resource_packs:
   faithful-32x: ^1.21.0
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'remove', 'faithful-32x'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'remove',
+      'faithful-32x',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, isNot(contains('faithful-32x')));
@@ -121,10 +125,12 @@ mods:
   jei: ^19.27.0.340
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'remove', 'nope'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'remove',
+      'nope',
+    ], environment: env());
     expect(out.exitCode, 1, reason: out.stderr);
     expect(out.stderr, contains("'nope'"));
     expect(out.stderr, contains('not in mods.yaml'));
@@ -141,10 +147,11 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'remove'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'remove',
+    ], environment: env());
     expect(out.exitCode, 64, reason: out.stderr);
   });
 
@@ -161,10 +168,12 @@ mods:
   sodium: release
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'remove', 'sodium@1.0.0'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'remove',
+      'sodium@1.0.0',
+    ], environment: env());
     expect(out.exitCode, 64, reason: out.stderr);
     expect(out.stderr, contains('@'));
   });
@@ -183,10 +192,13 @@ mods:
 ''';
     await writeManifest(before);
 
-    final out = await runCli(
-      ['-C', packDir.path, 'remove', 'sodium', '--dry-run'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'remove',
+      'sodium',
+      '--dry-run',
+    ], environment: env());
     expect(out.exitCode, 0, reason: out.stderr);
     expect(out.stdout, contains('Would remove'));
     expect(readYaml(), before);

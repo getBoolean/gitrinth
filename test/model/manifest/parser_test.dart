@@ -222,8 +222,10 @@ mc-version: 1.21.1
       );
     });
 
-    test('short-form channel token sets channel and leaves constraint null', () {
-      final yaml = '''
+    test(
+      'short-form channel token sets channel and leaves constraint null',
+      () {
+        final yaml = '''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -234,10 +236,11 @@ mc-version: 1.21.1
 mods:
   jei: beta
 ''';
-      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-      expect(m.mods['jei']!.channel, Channel.beta);
-      expect(m.mods['jei']!.constraintRaw, isNull);
-    });
+        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+        expect(m.mods['jei']!.channel, Channel.beta);
+        expect(m.mods['jei']!.constraintRaw, isNull);
+      },
+    );
 
     test('short-form version constraint leaves channel null', () {
       final yaml = '''

@@ -13,8 +13,13 @@ class _CaptureConsole extends Console {
   void info(String message) => lines.add(message);
 }
 
-LockedEntry _modrinth(String slug, String version,
-    {String projectId = 'P', String versionId = 'V', String? sha512}) {
+LockedEntry _modrinth(
+  String slug,
+  String version, {
+  String projectId = 'P',
+  String versionId = 'V',
+  String? sha512,
+}) {
   return LockedEntry(
     slug: slug,
     sourceKind: LockedSourceKind.modrinth,
@@ -31,16 +36,13 @@ LockedEntry _modrinth(String slug, String version,
 }
 
 LockedEntry _url(String slug, String url) => LockedEntry(
-      slug: slug,
-      sourceKind: LockedSourceKind.url,
-      file: LockedFile(name: 'x.jar', url: url),
-    );
+  slug: slug,
+  sourceKind: LockedSourceKind.url,
+  file: LockedFile(name: 'x.jar', url: url),
+);
 
-LockedEntry _path(String slug, String path) => LockedEntry(
-      slug: slug,
-      sourceKind: LockedSourceKind.path,
-      path: path,
-    );
+LockedEntry _path(String slug, String path) =>
+    LockedEntry(slug: slug, sourceKind: LockedSourceKind.path, path: path);
 
 ModsLock _lock({
   Map<String, LockedEntry> mods = const {},
@@ -60,21 +62,20 @@ ModsLock _lock({
 }
 
 modrinth.Version _mrVersion(String num) => modrinth.Version(
-      id: 'id-$num',
-      projectId: 'P',
-      versionNumber: num,
-      files: const [],
-      dependencies: const [],
-      loaders: const ['neoforge'],
-      gameVersions: const ['1.21.1'],
-    );
+  id: 'id-$num',
+  projectId: 'P',
+  versionNumber: num,
+  files: const [],
+  dependencies: const [],
+  loaders: const ['neoforge'],
+  gameVersions: const ['1.21.1'],
+);
 
 void main() {
   group('formatReportLine', () {
     test('added entry gets "+ " icon', () {
       final locked = _modrinth('jei', '1.0.0');
-      final diff =
-          LockDiff(DiffKind.added, Section.mods, 'jei', after: locked);
+      final diff = LockDiff(DiffKind.added, Section.mods, 'jei', after: locked);
       expect(
         formatReportLine(
           locked: locked,
@@ -89,8 +90,13 @@ void main() {
     test('upgraded entry gets "> " icon with (was X)', () {
       final before = _modrinth('jei', '1.0.0');
       final after = _modrinth('jei', '1.1.0');
-      final diff = LockDiff(DiffKind.updated, Section.mods, 'jei',
-          before: before, after: after);
+      final diff = LockDiff(
+        DiffKind.updated,
+        Section.mods,
+        'jei',
+        before: before,
+        after: after,
+      );
       expect(
         formatReportLine(
           locked: after,
@@ -105,8 +111,13 @@ void main() {
     test('downgraded entry gets "< " icon with (was X)', () {
       final before = _modrinth('jei', '1.1.0');
       final after = _modrinth('jei', '1.0.0');
-      final diff = LockDiff(DiffKind.updated, Section.mods, 'jei',
-          before: before, after: after);
+      final diff = LockDiff(
+        DiffKind.updated,
+        Section.mods,
+        'jei',
+        before: before,
+        after: after,
+      );
       expect(
         formatReportLine(
           locked: after,
@@ -121,8 +132,13 @@ void main() {
     test('source-kind swap gets "* " icon', () {
       final before = _modrinth('jei', '1.0.0');
       final after = _path('jei', './local/jei.jar');
-      final diff = LockDiff(DiffKind.updated, Section.mods, 'jei',
-          before: before, after: after);
+      final diff = LockDiff(
+        DiffKind.updated,
+        Section.mods,
+        'jei',
+        before: before,
+        after: after,
+      );
       expect(
         formatReportLine(
           locked: after,
@@ -175,8 +191,12 @@ void main() {
 
     test('url source renders "from url <url>"', () {
       final locked = _url('custom', 'https://example.com/x.jar');
-      final diff =
-          LockDiff(DiffKind.added, Section.mods, 'custom', after: locked);
+      final diff = LockDiff(
+        DiffKind.added,
+        Section.mods,
+        'custom',
+        after: locked,
+      );
       expect(
         formatReportLine(
           locked: locked,
@@ -190,8 +210,12 @@ void main() {
 
     test('path source renders "from path <path>"', () {
       final locked = _path('local', './mods/x.jar');
-      final diff =
-          LockDiff(DiffKind.added, Section.mods, 'local', after: locked);
+      final diff = LockDiff(
+        DiffKind.added,
+        Section.mods,
+        'local',
+        after: locked,
+      );
       expect(
         formatReportLine(
           locked: locked,
@@ -206,8 +230,13 @@ void main() {
     test('unparseable semver falls back to "* " icon', () {
       final before = _modrinth('weird', 'not-a-version');
       final after = _modrinth('weird', 'also-bad');
-      final diff = LockDiff(DiffKind.updated, Section.mods, 'weird',
-          before: before, after: after);
+      final diff = LockDiff(
+        DiffKind.updated,
+        Section.mods,
+        'weird',
+        before: before,
+        after: after,
+      );
       expect(
         formatReportLine(
           locked: after,
@@ -219,34 +248,42 @@ void main() {
       );
     });
 
-    test('all three parentheticals render in order: (was X) (overridden) (Y available)', () {
-      final before = _modrinth('jei', '1.0.0');
-      final after = _modrinth('jei', '1.1.0');
-      final diff = LockDiff(DiffKind.updated, Section.mods, 'jei',
-          before: before, after: after);
-      // An update that is ALSO overridden resolves to the "!" icon (overridden
-      // wins in the icon branch), but the `(was …)` hint is absent because
-      // wasVersion is only populated when the update branch runs. The
-      // parenthetical-order contract is about the append sequence in the
-      // buffer, so construct a scenario that triggers all three slots.
-      // The overridden branch short-circuits wasVersion, so the only way to
-      // exercise all three is: updated (for was), overridden via flag, plus
-      // outdated. But since overridden wins the icon, we still get (was)
-      // only via the explicit wasVersion path. Instead verify the sequence
-      // via an unchanged overridden-with-outdated entry combined with an
-      // updated one — i.e., just assert order is (was) → (overridden) →
-      // (available) when all three happen to be set.
-      final line = formatReportLine(
-        locked: after,
-        diff: diff,
-        newerAvailable: '1.2.0',
-        isOverridden: true,
-      );
-      // Overridden wins the icon; there is no wasVersion in that branch
-      // because the update branch is skipped. So expect ! icon + overridden +
-      // available, with NO (was …). This documents the actual precedence.
-      expect(line, '! jei 1.1.0 (overridden) (1.2.0 available)');
-    });
+    test(
+      'all three parentheticals render in order: (was X) (overridden) (Y available)',
+      () {
+        final before = _modrinth('jei', '1.0.0');
+        final after = _modrinth('jei', '1.1.0');
+        final diff = LockDiff(
+          DiffKind.updated,
+          Section.mods,
+          'jei',
+          before: before,
+          after: after,
+        );
+        // An update that is ALSO overridden resolves to the "!" icon (overridden
+        // wins in the icon branch), but the `(was …)` hint is absent because
+        // wasVersion is only populated when the update branch runs. The
+        // parenthetical-order contract is about the append sequence in the
+        // buffer, so construct a scenario that triggers all three slots.
+        // The overridden branch short-circuits wasVersion, so the only way to
+        // exercise all three is: updated (for was), overridden via flag, plus
+        // outdated. But since overridden wins the icon, we still get (was)
+        // only via the explicit wasVersion path. Instead verify the sequence
+        // via an unchanged overridden-with-outdated entry combined with an
+        // updated one — i.e., just assert order is (was) → (overridden) →
+        // (available) when all three happen to be set.
+        final line = formatReportLine(
+          locked: after,
+          diff: diff,
+          newerAvailable: '1.2.0',
+          isOverridden: true,
+        );
+        // Overridden wins the icon; there is no wasVersion in that branch
+        // because the update branch is skipped. So expect ! icon + overridden +
+        // available, with NO (was …). This documents the actual precedence.
+        expect(line, '! jei 1.1.0 (overridden) (1.2.0 available)');
+      },
+    );
   });
 
   group('diffLocks', () {
@@ -298,23 +335,24 @@ void main() {
       expect(diffLocks(oldLock, newLock), isEmpty);
     });
 
-    test('slugs sorted alphabetically within section; sections in declared order', () {
-      final newLock = _lock(
-        mods: {
-          'zeta': _modrinth('zeta', '1.0.0'),
-          'alpha': _modrinth('alpha', '1.0.0'),
-        },
-        shaders: {
-          'complementary': _modrinth('complementary', 'r5.7.1'),
-        },
-      );
-      final d = diffLocks(null, newLock);
-      expect(d.map((e) => '${e.section.name}/${e.slug}').toList(), [
-        'mods/alpha',
-        'mods/zeta',
-        'shaders/complementary',
-      ]);
-    });
+    test(
+      'slugs sorted alphabetically within section; sections in declared order',
+      () {
+        final newLock = _lock(
+          mods: {
+            'zeta': _modrinth('zeta', '1.0.0'),
+            'alpha': _modrinth('alpha', '1.0.0'),
+          },
+          shaders: {'complementary': _modrinth('complementary', 'r5.7.1')},
+        );
+        final d = diffLocks(null, newLock);
+        expect(d.map((e) => '${e.section.name}/${e.slug}').toList(), [
+          'mods/alpha',
+          'mods/zeta',
+          'shaders/complementary',
+        ]);
+      },
+    );
 
     test('null old lock treats every new entry as added', () {
       final newLock = _lock(mods: {'a': _modrinth('a', '1.0.0')});
@@ -326,34 +364,31 @@ void main() {
 
   group('newerAvailableThan', () {
     test('returns newer raw version when one exists', () {
-      final result = newerAvailableThan(
-        '1.0.0',
-        [_mrVersion('1.0.0'), _mrVersion('1.1.0')],
-      );
+      final result = newerAvailableThan('1.0.0', [
+        _mrVersion('1.0.0'),
+        _mrVersion('1.1.0'),
+      ]);
       expect(result, '1.1.0');
     });
 
     test('returns null when already-latest', () {
-      final result = newerAvailableThan(
-        '1.1.0',
-        [_mrVersion('1.0.0'), _mrVersion('1.1.0')],
-      );
+      final result = newerAvailableThan('1.1.0', [
+        _mrVersion('1.0.0'),
+        _mrVersion('1.1.0'),
+      ]);
       expect(result, isNull);
     });
 
     test('returns null when chosen is unparseable', () {
-      final result = newerAvailableThan(
-        'not-a-version',
-        [_mrVersion('1.0.0')],
-      );
+      final result = newerAvailableThan('not-a-version', [_mrVersion('1.0.0')]);
       expect(result, isNull);
     });
 
     test('unparseable candidates are skipped, valid ones still considered', () {
-      final result = newerAvailableThan(
-        '1.0.0',
-        [_mrVersion('garbage'), _mrVersion('1.1.0')],
-      );
+      final result = newerAvailableThan('1.0.0', [
+        _mrVersion('garbage'),
+        _mrVersion('1.1.0'),
+      ]);
       expect(result, '1.1.0');
     });
 
@@ -366,10 +401,10 @@ void main() {
     });
 
     test('four-segment numeric version (19.27.0.340) is handled', () {
-      final result = newerAvailableThan(
-        '19.27.0.340',
-        [_mrVersion('19.27.0.340'), _mrVersion('19.27.0.341')],
-      );
+      final result = newerAvailableThan('19.27.0.340', [
+        _mrVersion('19.27.0.340'),
+        _mrVersion('19.27.0.341'),
+      ]);
       expect(result, '19.27.0.341');
     });
   });
@@ -417,14 +452,18 @@ void main() {
       final console = _CaptureConsole();
       final reporter = SolveReporter(console);
 
-      final oldLock = _lock(mods: {
-        'old': _modrinth('old', '1.0.0'),
-        'keep': _modrinth('keep', '1.0.0'),
-      });
-      final newLock = _lock(mods: {
-        'keep': _modrinth('keep', '1.1.0'),
-        'new': _modrinth('new', '2.0.0'),
-      });
+      final oldLock = _lock(
+        mods: {
+          'old': _modrinth('old', '1.0.0'),
+          'keep': _modrinth('keep', '1.0.0'),
+        },
+      );
+      final newLock = _lock(
+        mods: {
+          'keep': _modrinth('keep', '1.1.0'),
+          'new': _modrinth('new', '2.0.0'),
+        },
+      );
       final diff = diffLocks(oldLock, newLock);
 
       reporter.printReport(

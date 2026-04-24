@@ -36,9 +36,6 @@ class Version with VersionMappable {
 
   VersionFile? get primaryFile {
     if (files.isEmpty) return null;
-    return files.firstWhere(
-      (f) => f.primary,
-      orElse: () => files.first,
-    );
+    return files.firstWhere((f) => f.primary, orElse: () => files.first);
   }
 }

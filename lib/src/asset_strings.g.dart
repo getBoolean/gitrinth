@@ -9,11 +9,23 @@
 
 import 'dart:convert';
 
-final String gitignoreTemplate = utf8.decode(base64.decode('IyBDcmVhdGVkIGJ5IGBnaXRyaW50aCBjcmVhdGVgCi5naXRyaW50aF90b29sLwpidWlsZC8KKi5tcnBhY2sK'));
-
-final String modrinthIgnoreTemplate = utf8.decode(base64.decode('IyAubW9kcmludGhfaWdub3JlJ2QgZmlsZXMgYXJlIGV4Y2x1ZGVkIGZyb20gcHVibGlzaGluZy4KIyBGb2xsb3dzIC5naXRpZ25vcmUgc3ludGF4LgouZ2l0cmludGhfdG9vbC8KYnVpbGQvCioubXJwYWNrCg=='));
-
-final String modsYamlTemplate = utf8.decode(base64.decode('c2x1Zzoge3tzbHVnfX0KbmFtZToge3tuYW1lfX0KdmVyc2lvbjoge3t2ZXJzaW9ufX0KZGVzY3JpcHRpb246IHt7ZGVzY3JpcHRpb259fQoKbG9hZGVyOgogIG1vZHM6IHt7bG9hZGVyfX0KbWMtdmVyc2lvbjoge3ttYy12ZXJzaW9ufX0KCnRvb2xpbmc6CiAgZ2l0cmludGg6ICI+PXt7Z2l0cmludGgtdmVyc2lvbn19IDx7e2dpdHJpbnRoLW5leHQtbWFqb3J9fSIKCm1vZHM6CgpyZXNvdXJjZV9wYWNrczoKCmRhdGFfcGFja3M6CgpzaGFkZXJzOgoKcGx1Z2luczoK'));
-
-final String readmeTemplate = utf8.decode(base64.decode('IyB7e25hbWV9fQoKe3tkZXNjcmlwdGlvbn19CgojIyBSZXF1aXJlbWVudHMKCi0gTWluZWNyYWZ0IHt7bWMtdmVyc2lvbn19Ci0ge3tsb2FkZXJ9fQo='));
-
+final String gitignoreTemplate = utf8.decode(
+  base64.decode(
+    'IyBDcmVhdGVkIGJ5IGBnaXRyaW50aCBjcmVhdGVgCi5naXRyaW50aF90b29sLwpidWlsZC8KKi5tcnBhY2sK',
+  ),
+);
+final String modrinthIgnoreTemplate = utf8.decode(
+  base64.decode(
+    'IyAubW9kcmludGhfaWdub3JlJ2QgZmlsZXMgYXJlIGV4Y2x1ZGVkIGZyb20gcHVibGlzaGluZy4KIyBGb2xsb3dzIC5naXRpZ25vcmUgc3ludGF4LgouZ2l0cmludGhfdG9vbC8KYnVpbGQvCioubXJwYWNrCg==',
+  ),
+);
+final String modsYamlTemplate = utf8.decode(
+  base64.decode(
+    'c2x1Zzoge3tzbHVnfX0KbmFtZToge3tuYW1lfX0KdmVyc2lvbjoge3t2ZXJzaW9ufX0KZGVzY3JpcHRpb246IHt7ZGVzY3JpcHRpb259fQoKbG9hZGVyOgogIG1vZHM6IHt7bG9hZGVyfX0KbWMtdmVyc2lvbjoge3ttYy12ZXJzaW9ufX0KCnRvb2xpbmc6CiAgZ2l0cmludGg6ICI+PXt7Z2l0cmludGgtdmVyc2lvbn19IDx7e2dpdHJpbnRoLW5leHQtbWFqb3J9fSIKCm1vZHM6CgpyZXNvdXJjZV9wYWNrczoKCmRhdGFfcGFja3M6CgpzaGFkZXJzOgoKcGx1Z2luczoK',
+  ),
+);
+final String readmeTemplate = utf8.decode(
+  base64.decode(
+    'IyB7e25hbWV9fQoKe3tkZXNjcmlwdGlvbn19CgojIyBSZXF1aXJlbWVudHMKCi0gTWluZWNyYWZ0IHt7bWMtdmVyc2lvbn19Ci0ge3tsb2FkZXJ9fQo=',
+  ),
+);

@@ -36,16 +36,8 @@ class CreateCommand extends GitrinthCommand {
         valueHelp: 'version',
         help: 'Pre-fill mc-version. Defaults to $defaultMcVersion.',
       )
-      ..addOption(
-        'slug',
-        valueHelp: 'slug',
-        help: 'Override the derived slug.',
-      )
-      ..addOption(
-        'name',
-        valueHelp: 'name',
-        help: 'Override the display name.',
-      )
+      ..addOption('slug', valueHelp: 'slug', help: 'Override the derived slug.')
+      ..addOption('name', valueHelp: 'name', help: 'Override the display name.')
       ..addFlag(
         'force',
         negatable: false,
@@ -95,9 +87,21 @@ class CreateCommand extends GitrinthCommand {
     };
 
     final written = <String>[
-      _writeFile(targetDir, 'mods.yaml', render(modsYamlTemplate, templateValues)),
-      _writeFile(targetDir, 'README.md', render(readmeTemplate, templateValues)),
-      _writeFile(targetDir, '.gitignore', render(gitignoreTemplate, templateValues)),
+      _writeFile(
+        targetDir,
+        'mods.yaml',
+        render(modsYamlTemplate, templateValues),
+      ),
+      _writeFile(
+        targetDir,
+        'README.md',
+        render(readmeTemplate, templateValues),
+      ),
+      _writeFile(
+        targetDir,
+        '.gitignore',
+        render(gitignoreTemplate, templateValues),
+      ),
       _writeFile(
         targetDir,
         '.modrinth_ignore',
@@ -114,8 +118,10 @@ class CreateCommand extends GitrinthCommand {
   }
 
   String _resolveSlug(String? override, String directoryArg) {
-    final candidate = override ??
-        p.basename(p.normalize(p.absolute(directoryArg)))
+    final candidate =
+        override ??
+        p
+            .basename(p.normalize(p.absolute(directoryArg)))
             .toLowerCase()
             .replaceAll('-', '_');
     if (!_slugPattern.hasMatch(candidate)) {

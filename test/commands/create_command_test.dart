@@ -17,31 +17,36 @@ void main() {
   });
 
   group('create', () {
-    test('scaffolds with defaults when --loader/--mc-version omitted', () async {
-      final target = p.join(tempRoot.path, 'example_modpack');
-      final out = await runCli(['create', target]);
+    test(
+      'scaffolds with defaults when --loader/--mc-version omitted',
+      () async {
+        final target = p.join(tempRoot.path, 'example_modpack');
+        final out = await runCli(['create', target]);
 
-      expect(out.exitCode, 0, reason: out.stderr);
+        expect(out.exitCode, 0, reason: out.stderr);
 
-      final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
-      expect(mods, contains('slug: example_modpack'));
-      expect(mods, contains('name: example_modpack'));
-      expect(mods, contains('loader:'));
-      expect(mods, contains('mods: neoforge'));
-      expect(mods, contains('mc-version: 1.21.1'));
-      expect(mods, contains('tooling:'));
+        final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+        expect(mods, contains('slug: example_modpack'));
+        expect(mods, contains('name: example_modpack'));
+        expect(mods, contains('loader:'));
+        expect(mods, contains('mods: neoforge'));
+        expect(mods, contains('mc-version: 1.21.1'));
+        expect(mods, contains('tooling:'));
 
-      expect(File(p.join(target, 'README.md')).existsSync(), isTrue);
-      expect(File(p.join(target, '.gitignore')).existsSync(), isTrue);
-      expect(File(p.join(target, '.modrinth_ignore')).existsSync(), isTrue);
-    });
+        expect(File(p.join(target, 'README.md')).existsSync(), isTrue);
+        expect(File(p.join(target, '.gitignore')).existsSync(), isTrue);
+        expect(File(p.join(target, '.modrinth_ignore')).existsSync(), isTrue);
+      },
+    );
 
     test('--loader and --mc-version override the defaults', () async {
       final target = p.join(tempRoot.path, 'custom_pack');
       final out = await runCli([
         'create',
-        '--loader', 'fabric',
-        '--mc-version', '1.20.1',
+        '--loader',
+        'fabric',
+        '--mc-version',
+        '1.20.1',
         target,
       ]);
       expect(out.exitCode, 0, reason: out.stderr);
@@ -51,37 +56,41 @@ void main() {
       expect(mods, contains('mc-version: 1.20.1'));
     });
 
-    test('derives slug from directory basename (hyphens -> underscores)', () async {
-      final target = p.join(tempRoot.path, 'my-cool-pack');
-      final out = await runCli(['create', target]);
-      expect(out.exitCode, 0, reason: out.stderr);
+    test(
+      'derives slug from directory basename (hyphens -> underscores)',
+      () async {
+        final target = p.join(tempRoot.path, 'my-cool-pack');
+        final out = await runCli(['create', target]);
+        expect(out.exitCode, 0, reason: out.stderr);
 
-      final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
-      expect(mods, contains('slug: my_cool_pack'));
-    });
+        final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+        expect(mods, contains('slug: my_cool_pack'));
+      },
+    );
 
-    test('--slug overrides derived slug; --name overrides display name', () async {
-      final target = p.join(tempRoot.path, 'dir_name');
-      final out = await runCli([
-        'create',
-        '--slug', 'override_slug',
-        '--name', 'Override',
-        target,
-      ]);
-      expect(out.exitCode, 0, reason: out.stderr);
+    test(
+      '--slug overrides derived slug; --name overrides display name',
+      () async {
+        final target = p.join(tempRoot.path, 'dir_name');
+        final out = await runCli([
+          'create',
+          '--slug',
+          'override_slug',
+          '--name',
+          'Override',
+          target,
+        ]);
+        expect(out.exitCode, 0, reason: out.stderr);
 
-      final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
-      expect(mods, contains('slug: override_slug'));
-      expect(mods, contains('name: Override'));
-    });
+        final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+        expect(mods, contains('slug: override_slug'));
+        expect(mods, contains('name: Override'));
+      },
+    );
 
     test('rejects invalid slug with ValidationError (exit 2)', () async {
       final target = p.join(tempRoot.path, 'Bad-Slug');
-      final out = await runCli([
-        'create',
-        '--slug', 'BAD_SLUG',
-        target,
-      ]);
+      final out = await runCli(['create', '--slug', 'BAD_SLUG', target]);
       expect(out.exitCode, 2);
       expect(out.stderr, contains('Invalid slug'));
     });
@@ -90,22 +99,22 @@ void main() {
       final target = p.join(tempRoot.path, 'pack_dir');
       final out = await runCli([
         'create',
-        '--mc-version', 'not-a-version',
+        '--mc-version',
+        'not-a-version',
         target,
       ]);
       expect(out.exitCode, 2);
       expect(out.stderr, contains('Invalid --mc-version'));
     });
 
-    test('rejects --loader value outside the MVP set (args usage error)', () async {
-      final target = p.join(tempRoot.path, 'pack_dir');
-      final out = await runCli([
-        'create',
-        '--loader', 'sponge',
-        target,
-      ]);
-      expect(out.exitCode, 64);
-    });
+    test(
+      'rejects --loader value outside the MVP set (args usage error)',
+      () async {
+        final target = p.join(tempRoot.path, 'pack_dir');
+        final out = await runCli(['create', '--loader', 'sponge', target]);
+        expect(out.exitCode, 64);
+      },
+    );
 
     test('missing <directory> exits 64', () async {
       final out = await runCli(['create']);

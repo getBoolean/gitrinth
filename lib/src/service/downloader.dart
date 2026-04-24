@@ -40,12 +40,17 @@ class Downloader {
     }
 
     Directory(p.dirname(destinationPath)).createSync(recursive: true);
-    final tmpName = 'dl_${DateTime.now().microsecondsSinceEpoch}_'
+    final tmpName =
+        'dl_${DateTime.now().microsecondsSinceEpoch}_'
         '${Random().nextInt(1 << 32)}.part';
     final tmpPath = p.join(cache.tmpRoot, tmpName);
     final tmpFile = File(tmpPath);
     try {
-      await dio.download(url, tmpPath, options: Options(responseType: ResponseType.bytes));
+      await dio.download(
+        url,
+        tmpPath,
+        options: Options(responseType: ResponseType.bytes),
+      );
       if (expectedSha512 != null) {
         await GitrinthCache.verifyFileSha512(tmpFile, expectedSha512);
       }

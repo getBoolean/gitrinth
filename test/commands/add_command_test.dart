@@ -31,9 +31,9 @@ void main() {
   }
 
   Map<String, String> env() => {
-        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-        'GITRINTH_CACHE': cacheDir.path,
-      };
+    'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+    'GITRINTH_CACHE': cacheDir.path,
+  };
 
   String readYaml() =>
       File(p.join(packDir.path, 'mods.yaml')).readAsStringSync();
@@ -57,10 +57,12 @@ mods:
 ''');
     modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'sodium@release'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'sodium@release',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     final yaml = readYaml();
@@ -95,10 +97,12 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'sodium'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'sodium',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(readYaml(), contains('sodium: ^0.6.2'));
   });
@@ -120,26 +124,29 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'jei@^19.27.0.340'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'jei@^19.27.0.340',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(readYaml(), contains('jei: ^19.27.0.340'));
   });
 
-  test('URL form resolves to the same slug + infers section from project_type',
-      () async {
-    modrinth.registerVersion(
-      slug: 'terralith',
-      versionNumber: '2.5.8',
-      versionType: 'release',
-      loader: 'datapack',
-    );
-    // Override project_type to 'mod' (Terralith-shape) but loaders=[datapack].
-    modrinth.projects['terralith']!['project_type'] = 'mod';
+  test(
+    'URL form resolves to the same slug + infers section from project_type',
+    () async {
+      modrinth.registerVersion(
+        slug: 'terralith',
+        versionNumber: '2.5.8',
+        versionType: 'release',
+        loader: 'datapack',
+      );
+      // Override project_type to 'mod' (Terralith-shape) but loaders=[datapack].
+      modrinth.projects['terralith']!['project_type'] = 'mod';
 
-    await writeManifest('''
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -149,33 +156,32 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      [
+      final out = await runCli([
         '-C',
         packDir.path,
         'add',
         'https://modrinth.com/datapack/terralith@^2.5.8',
-      ],
-      environment: env(),
-    );
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    final yaml = readYaml();
-    expect(yaml, contains('data_packs:'));
-    expect(yaml, contains('terralith: ^2.5.8'));
-    expect(yaml, isNot(contains('mods:\n  terralith')));
-  });
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readYaml();
+      expect(yaml, contains('data_packs:'));
+      expect(yaml, contains('terralith: ^2.5.8'));
+      expect(yaml, isNot(contains('mods:\n  terralith')));
+    },
+  );
 
-  test('resourcepack project lands under resource_packs, no loader filter',
-      () async {
-    modrinth.registerVersion(
-      slug: 'faithful-32x',
-      versionNumber: '1.21.0',
-      versionType: 'release',
-      loader: 'minecraft',
-    );
-    modrinth.projects['faithful-32x']!['project_type'] = 'resourcepack';
+  test(
+    'resourcepack project lands under resource_packs, no loader filter',
+    () async {
+      modrinth.registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.0',
+        versionType: 'release',
+        loader: 'minecraft',
+      );
+      modrinth.projects['faithful-32x']!['project_type'] = 'resourcepack';
 
-    await writeManifest('''
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -185,15 +191,18 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'faithful-32x'],
-      environment: env(),
-    );
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    final yaml = readYaml();
-    expect(yaml, contains('resource_packs:'));
-    expect(yaml, contains('faithful-32x: ^1.21.0'));
-  });
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'faithful-32x',
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readYaml();
+      expect(yaml, contains('resource_packs:'));
+      expect(yaml, contains('faithful-32x: ^1.21.0'));
+    },
+  );
 
   test('datapack-loader mod routes to data_packs (terralith case)', () async {
     modrinth.registerVersion(
@@ -215,19 +224,22 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'terralith'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'terralith',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('data_packs:'));
     expect(yaml, contains('terralith: ^2.5.8'));
   });
 
-  test('duplicate slug anywhere in mods.yaml exits 1 with a helpful message',
-      () async {
-    await writeManifest('''
+  test(
+    'duplicate slug anywhere in mods.yaml exits 1 with a helpful message',
+    () async {
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -239,14 +251,17 @@ mods:
   sodium: release
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'sodium@release'],
-      environment: env(),
-    );
-    expect(out.exitCode, 1, reason: out.stderr);
-    expect(out.stderr, contains("'sodium'"));
-    expect(out.stderr, contains('already in mods.yaml'));
-  });
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'sodium@release',
+      ], environment: env());
+      expect(out.exitCode, 1, reason: out.stderr);
+      expect(out.stderr, contains("'sodium'"));
+      expect(out.stderr, contains('already in mods.yaml'));
+    },
+  );
 
   test('--dry-run does not write mods.yaml or mods.lock', () async {
     modrinth.registerVersion(
@@ -266,18 +281,23 @@ mc-version: 1.21.1
 ''';
     await writeManifest(before);
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', '--dry-run', 'sodium@release'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      '--dry-run',
+      'sodium@release',
+    ], environment: env());
     expect(out.exitCode, 0, reason: out.stderr);
     // File must be unchanged.
     expect(readYaml(), before);
     expect(File(p.join(packDir.path, 'mods.lock')).existsSync(), isFalse);
   });
 
-  test('--url emits long-form with `url:` under mods (jar extension)', () async {
-    await writeManifest('''
+  test(
+    '--url emits long-form with `url:` under mods (jar extension)',
+    () async {
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -287,20 +307,25 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    // Serve a single jar so the download succeeds.
-    final bytes = Uint8List.fromList([1, 2, 3, 4]);
-    modrinth.addArtifact('custom', 'custom.jar', bytes);
-    final jarUrl = '${modrinth.downloadBaseUrl}/custom/custom.jar';
+      // Serve a single jar so the download succeeds.
+      final bytes = Uint8List.fromList([1, 2, 3, 4]);
+      modrinth.addArtifact('custom', 'custom.jar', bytes);
+      final jarUrl = '${modrinth.downloadBaseUrl}/custom/custom.jar';
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'custom', '--url', jarUrl],
-      environment: env(),
-    );
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    final yaml = readYaml();
-    expect(yaml, contains('custom:'));
-    expect(yaml, contains('url: $jarUrl'));
-  });
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'custom',
+        '--url',
+        jarUrl,
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readYaml();
+      expect(yaml, contains('custom:'));
+      expect(yaml, contains('url: $jarUrl'));
+    },
+  );
 
   test('--path emits long-form with `path:`, infers mods for .jar', () async {
     // Create a local .jar so the downloader's path existence check passes.
@@ -317,17 +342,14 @@ loader:
 mc-version: 1.21.1
 ''');
 
-    final out = await runCli(
-      [
-        '-C',
-        packDir.path,
-        'add',
-        'custom',
-        '--path',
-        p.relative(jar.path, from: packDir.path).replaceAll(r'\', '/'),
-      ],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'custom',
+      '--path',
+      p.relative(jar.path, from: packDir.path).replaceAll(r'\', '/'),
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('custom:'));
@@ -335,12 +357,13 @@ mc-version: 1.21.1
     expect(yaml, contains('custom.jar'));
   });
 
-  test('--path with ambiguous .zip filename fails with ValidationError',
-      () async {
-    final zip = File(p.join(packDir.path, 'packs', 'mystery.zip'))
-      ..createSync(recursive: true)
-      ..writeAsBytesSync([1, 2, 3]);
-    await writeManifest('''
+  test(
+    '--path with ambiguous .zip filename fails with ValidationError',
+    () async {
+      final zip = File(p.join(packDir.path, 'packs', 'mystery.zip'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1, 2, 3]);
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -349,29 +372,28 @@ loader:
   mods: neoforge
 mc-version: 1.21.1
 ''');
-    final out = await runCli(
-      [
+      final out = await runCli([
         '-C',
         packDir.path,
         'add',
         'mystery',
         '--path',
         p.relative(zip.path, from: packDir.path).replaceAll(r'\', '/'),
-      ],
-      environment: env(),
-    );
-    expect(out.exitCode, 2, reason: out.stderr);
-    expect(out.stderr, contains('cannot infer section'));
-  });
+      ], environment: env());
+      expect(out.exitCode, 2, reason: out.stderr);
+      expect(out.stderr, contains('cannot infer section'));
+    },
+  );
 
-  test('invalid version constraint fails with ValidationError (exit 2)',
-      () async {
-    modrinth.registerVersion(
-      slug: 'sodium',
-      versionNumber: '1.0.0',
-      versionType: 'release',
-    );
-    await writeManifest('''
+  test(
+    'invalid version constraint fails with ValidationError (exit 2)',
+    () async {
+      modrinth.registerVersion(
+        slug: 'sodium',
+        versionNumber: '1.0.0',
+        versionType: 'release',
+      );
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -380,17 +402,21 @@ loader:
   mods: neoforge
 mc-version: 1.21.1
 ''');
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'sodium@not-a-version'],
-      environment: env(),
-    );
-    expect(out.exitCode, 2, reason: out.stderr);
-    expect(out.stderr, contains('Invalid version constraint'));
-  });
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'sodium@not-a-version',
+      ], environment: env());
+      expect(out.exitCode, 2, reason: out.stderr);
+      expect(out.stderr, contains('Invalid version constraint'));
+    },
+  );
 
-  test('unknown slug yields the ModrinthErrorInterceptor not-found message',
-      () async {
-    await writeManifest('''
+  test(
+    'unknown slug yields the ModrinthErrorInterceptor not-found message',
+    () async {
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -399,14 +425,17 @@ loader:
   mods: neoforge
 mc-version: 1.21.1
 ''');
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'does-not-exist'],
-      environment: env(),
-    );
-    expect(out.exitCode, 1, reason: out.stderr);
-    expect(out.stderr, contains('not found'));
-    expect(out.stderr, contains('does-not-exist'));
-  });
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'does-not-exist',
+      ], environment: env());
+      expect(out.exitCode, 1, reason: out.stderr);
+      expect(out.stderr, contains('not found'));
+      expect(out.stderr, contains('does-not-exist'));
+    },
+  );
 
   test('preserves comments on surrounding lines', () async {
     modrinth.registerVersion(
@@ -430,10 +459,12 @@ mods:
     await writeManifest(before);
     modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'sodium@release'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'sodium@release',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('# top-of-file comment'));
@@ -457,10 +488,14 @@ loader:
   mods: neoforge
 mc-version: 1.21.1
 ''');
-    final out = await runCli(
-      ['-C', packDir.path, 'add', 'iris', '--env', 'client'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'iris',
+      '--env',
+      'client',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('iris:'));

@@ -47,7 +47,7 @@ class ModrinthErrorInterceptor extends Interceptor {
     final summary = bodyMessage != null
         ? '$bodyMessage (HTTP ${status ?? '?'})'
         : 'HTTP ${status ?? '?'} ${response?.statusMessage ?? err.message ?? ''}'
-            .trim();
+              .trim();
     _rejectWith(
       err,
       handler,
@@ -76,8 +76,10 @@ class ModrinthErrorInterceptor extends Interceptor {
 /// Returns the slug from `/v2/project/<slug>` or `/v2/project/<slug>/version`,
 /// or null if the path doesn't match that shape.
 String? _projectSlugFromPath(String path) {
-  final segments =
-      path.split('/').where((s) => s.isNotEmpty).toList(growable: false);
+  final segments = path
+      .split('/')
+      .where((s) => s.isNotEmpty)
+      .toList(growable: false);
   final i = segments.indexOf('project');
   if (i < 0 || i + 1 >= segments.length) return null;
   final tail = segments.sublist(i + 2);

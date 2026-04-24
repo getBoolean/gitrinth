@@ -63,8 +63,13 @@ class PubGrubSolver {
 
   Future<PubGrubResult> solve(List<RootConstraint> roots) async {
     final state = _SolverState(
-      lockSuggestions: {for (final s in lockSuggestions) s.slug: s.versionNumber},
-      userSlugs: roots.where((r) => r.isUserDeclared).map((r) => r.slug).toSet(),
+      lockSuggestions: {
+        for (final s in lockSuggestions) s.slug: s.versionNumber,
+      },
+      userSlugs: roots
+          .where((r) => r.isUserDeclared)
+          .map((r) => r.slug)
+          .toSet(),
     );
     for (final r in roots) {
       state.addConstraint(r.slug, r.constraint);
@@ -111,7 +116,10 @@ class PubGrubSolver {
 
     final allVersions = await _versionsFor(slug);
     if (allVersions.isEmpty) {
-      state.recordConflict(slug, 'no published versions match the loader/mc-version pair');
+      state.recordConflict(
+        slug,
+        'no published versions match the loader/mc-version pair',
+      );
       return false;
     }
 
@@ -127,8 +135,9 @@ class PubGrubSolver {
         }
       } on FormatException {
         // Skip versions we cannot parse — recorded for diagnosis on failure.
-        state.unparseableVersions.putIfAbsent(slug, () => <String>[])
-          .add(v.versionNumber);
+        state.unparseableVersions
+            .putIfAbsent(slug, () => <String>[])
+            .add(v.versionNumber);
       }
     }
     if (candidates.isEmpty) {
@@ -264,10 +273,10 @@ class _SolverState {
   static Channel _widerChannel(Channel a, Channel b) {
     // alpha > beta > release in permissiveness.
     int rank(Channel ch) => switch (ch) {
-          Channel.release => 0,
-          Channel.beta => 1,
-          Channel.alpha => 2,
-        };
+      Channel.release => 0,
+      Channel.beta => 1,
+      Channel.alpha => 2,
+    };
     return rank(a) >= rank(b) ? a : b;
   }
 
@@ -290,9 +299,7 @@ class _SolverState {
       unparseableVersions.forEach((slug, versions) {
         buf.writeln('  - $slug: ${versions.join(', ')}');
       });
-      buf.writeln(
-        'Pin an exact version in mods.yaml as a workaround.',
-      );
+      buf.writeln('Pin an exact version in mods.yaml as a workaround.');
     }
     return buf.toString();
   }

@@ -19,10 +19,7 @@ class Resolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
 
-  Resolver({
-    required this.listVersions,
-    required this.resolveSlugForProjectId,
-  });
+  Resolver({required this.listVersions, required this.resolveSlugForProjectId});
 
   Future<ResolutionResult> resolve(
     ModsYaml manifest, {

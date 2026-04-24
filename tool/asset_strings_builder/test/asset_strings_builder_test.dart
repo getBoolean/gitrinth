@@ -70,9 +70,9 @@ void main() {
         {'consumer|assets/tricky.bin': bytes},
         outputs: {
           'consumer|lib/src/asset_strings.g.dart': decodedMatches(
-            contains(
-              "final String trickyTemplate = "
-              "utf8.decode(base64.decode('$expectedB64'));",
+            allOf(
+              contains('final String trickyTemplate'),
+              contains("'$expectedB64'"),
             ),
           ),
         },
@@ -117,8 +117,7 @@ void main() {
       );
       expect(
         logs.where(
-          (r) =>
-              r.level == Level.WARNING && r.message.contains('no assets'),
+          (r) => r.level == Level.WARNING && r.message.contains('no assets'),
         ),
         isNotEmpty,
       );

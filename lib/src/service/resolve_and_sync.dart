@@ -100,8 +100,9 @@ Future<ResolveSyncResult> resolveAndSync({
         final loaderFilter = filterForSection(section);
         final list = await api.listVersions(
           slug,
-          loadersJson:
-              loaderFilter == null ? null : encodeFilterArray(loaderFilter),
+          loadersJson: loaderFilter == null
+              ? null
+              : encodeFilterArray(loaderFilter),
           gameVersionsJson: encodeFilterArray([mc]),
         );
         versionsPerSlug[slug] = list;
@@ -239,7 +240,7 @@ Future<ResolveSyncResult> resolveAndSync({
       fetchErrors.length == 1
           ? fetchErrors.first
           : 'failed to fetch ${fetchErrors.length} dependencies:\n'
-              '${fetchErrors.map((e) => '  - $e').join('\n')}',
+                '${fetchErrors.map((e) => '  - $e').join('\n')}',
     );
   }
 
@@ -260,9 +261,7 @@ Future<ResolveSyncResult> resolveAndSync({
 
 void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
   if (lock == null) {
-    throw const ValidationError(
-      'mods.lock is missing (--enforce-lockfile).',
-    );
+    throw const ValidationError('mods.lock is missing (--enforce-lockfile).');
   }
   final missing = <String>[];
   for (final section in Section.values) {

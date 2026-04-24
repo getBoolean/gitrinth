@@ -22,14 +22,20 @@ void main() {
 
     test('datapack -> data_packs', () {
       expect(
-        inferSectionFromProject(projectType: 'datapack', loaders: const ['datapack']),
+        inferSectionFromProject(
+          projectType: 'datapack',
+          loaders: const ['datapack'],
+        ),
         Section.dataPacks,
       );
     });
 
     test('mod with mod loaders -> mods', () {
       expect(
-        inferSectionFromProject(projectType: 'mod', loaders: const ['neoforge']),
+        inferSectionFromProject(
+          projectType: 'mod',
+          loaders: const ['neoforge'],
+        ),
         Section.mods,
       );
       expect(
@@ -38,12 +44,18 @@ void main() {
       );
     });
 
-    test('mod whose only loader is datapack -> data_packs (terralith case)', () {
-      expect(
-        inferSectionFromProject(projectType: 'mod', loaders: const ['datapack']),
-        Section.dataPacks,
-      );
-    });
+    test(
+      'mod whose only loader is datapack -> data_packs (terralith case)',
+      () {
+        expect(
+          inferSectionFromProject(
+            projectType: 'mod',
+            loaders: const ['datapack'],
+          ),
+          Section.dataPacks,
+        );
+      },
+    );
 
     test('mod with empty loaders falls back to mods', () {
       expect(
@@ -55,14 +67,17 @@ void main() {
     test('mod with mixed loaders (datapack + mod loader) -> mods', () {
       expect(
         inferSectionFromProject(
-            projectType: 'mod', loaders: const ['datapack', 'fabric']),
+          projectType: 'mod',
+          loaders: const ['datapack', 'fabric'],
+        ),
         Section.mods,
       );
     });
 
     test('modpack throws ValidationError', () {
       expect(
-        () => inferSectionFromProject(projectType: 'modpack', loaders: const []),
+        () =>
+            inferSectionFromProject(projectType: 'modpack', loaders: const []),
         throwsA(isA<ValidationError>()),
       );
     });
@@ -76,19 +91,24 @@ void main() {
 
     test('unknown project_type throws ValidationError', () {
       expect(
-        () => inferSectionFromProject(projectType: 'something', loaders: const []),
+        () => inferSectionFromProject(
+          projectType: 'something',
+          loaders: const [],
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
 
     test('project_type matching is case-insensitive', () {
       expect(
-        inferSectionFromProject(projectType: 'Mod', loaders: const ['neoforge']),
+        inferSectionFromProject(
+          projectType: 'Mod',
+          loaders: const ['neoforge'],
+        ),
         Section.mods,
       );
       expect(
-        inferSectionFromProject(
-            projectType: 'ResourcePack', loaders: const []),
+        inferSectionFromProject(projectType: 'ResourcePack', loaders: const []),
         Section.resourcePacks,
       );
     });

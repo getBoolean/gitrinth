@@ -26,10 +26,7 @@ void main() {
       versionId: 'V1',
       filename: 'a.jar',
     );
-    expect(
-      path,
-      p.join(tempRoot.path, 'modrinth', 'P1', 'V1', 'a.jar'),
-    );
+    expect(path, p.join(tempRoot.path, 'modrinth', 'P1', 'V1', 'a.jar'));
   });
 
   test('verifySha512 accepts a matching hash and rejects a wrong one', () {

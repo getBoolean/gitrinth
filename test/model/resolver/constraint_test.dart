@@ -124,12 +124,15 @@ void main() {
       expect(parseChannelToken('RELEASE'), Channel.release);
     });
 
-    test('returns null for non-channel tokens (falls through to constraint)', () {
-      expect(parseChannelToken('^1.0.0'), isNull);
-      expect(parseChannelToken('1.2.3'), isNull);
-      expect(parseChannelToken(''), isNull);
-      expect(parseChannelToken(null), isNull);
-    });
+    test(
+      'returns null for non-channel tokens (falls through to constraint)',
+      () {
+        expect(parseChannelToken('^1.0.0'), isNull);
+        expect(parseChannelToken('1.2.3'), isNull);
+        expect(parseChannelToken(''), isNull);
+        expect(parseChannelToken(null), isNull);
+      },
+    );
 
     test('rejects unknown channel-shaped tokens', () {
       // Unknown tokens return null; the caller (parser) raises ValidationError
@@ -216,16 +219,31 @@ void main() {
 
       test('caret on semver with loader-suffixed build metadata', () {
         final c = parseConstraint('^1.8.12+1.21.1-neoforge');
-        expect(c.allows(parseModrinthVersion('1.8.12+1.21.1-neoforge')), isTrue);
+        expect(
+          c.allows(parseModrinthVersion('1.8.12+1.21.1-neoforge')),
+          isTrue,
+        );
         expect(c.allows(parseModrinthVersion('1.9.0+1.21.1-neoforge')), isTrue);
-        expect(c.allows(parseModrinthVersion('2.0.0+1.21.1-neoforge')), isFalse);
+        expect(
+          c.allows(parseModrinthVersion('2.0.0+1.21.1-neoforge')),
+          isFalse,
+        );
       });
 
       test('caret on semver with loader-prefixed build metadata', () {
         final c = parseConstraint('^21.1.1+neoforge-1.21.1');
-        expect(c.allows(parseModrinthVersion('21.1.1+neoforge-1.21.1')), isTrue);
-        expect(c.allows(parseModrinthVersion('21.5.0+neoforge-1.21.1')), isTrue);
-        expect(c.allows(parseModrinthVersion('22.0.0+neoforge-1.21.1')), isFalse);
+        expect(
+          c.allows(parseModrinthVersion('21.1.1+neoforge-1.21.1')),
+          isTrue,
+        );
+        expect(
+          c.allows(parseModrinthVersion('21.5.0+neoforge-1.21.1')),
+          isTrue,
+        );
+        expect(
+          c.allows(parseModrinthVersion('22.0.0+neoforge-1.21.1')),
+          isFalse,
+        );
       });
 
       test('caret on four-segment numeric version', () {

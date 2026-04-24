@@ -20,11 +20,8 @@ class GitrinthRunner extends CommandRunner<int> {
   final ProviderContainer container;
 
   GitrinthRunner({ProviderContainer? container})
-      : container = container ?? buildContainer(),
-        super(
-          'gitrinth',
-          'Manage Modrinth modpacks declared in mods.yaml.',
-        ) {
+    : container = container ?? buildContainer(),
+      super('gitrinth', 'Manage Modrinth modpacks declared in mods.yaml.') {
     argParser
       ..addFlag(
         'version',

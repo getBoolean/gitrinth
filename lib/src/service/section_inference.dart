@@ -40,13 +40,9 @@ Section inferSectionFromProject({
       }
       return Section.mods;
     case 'modpack':
-      throw const ValidationError(
-        'cannot add a modpack to a modpack.',
-      );
+      throw const ValidationError('cannot add a modpack to a modpack.');
     case 'plugin':
-      throw const ValidationError(
-        'plugin support is deferred post-MVP.',
-      );
+      throw const ValidationError('plugin support is deferred post-MVP.');
     default:
       throw ValidationError(
         'unknown Modrinth project_type "$projectType"; cannot infer section.',

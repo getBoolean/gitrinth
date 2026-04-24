@@ -15,8 +15,7 @@ class LockDiff {
   final String slug;
   final LockedEntry? before;
   final LockedEntry? after;
-  const LockDiff(this.kind, this.section, this.slug,
-      {this.before, this.after});
+  const LockDiff(this.kind, this.section, this.slug, {this.before, this.after});
 }
 
 /// Computes per-entry differences between two lockfiles, sorted alphabetically
@@ -34,15 +33,36 @@ List<LockDiff> diffLocks(ModsLock? oldLock, ModsLock newLock) {
       final oldEntry = oldMap[slug];
       final newEntry = newMap[slug];
       if (oldEntry == null && newEntry != null) {
-        out.add(LockDiff(DiffKind.added, section, slug,
-            before: null, after: newEntry));
+        out.add(
+          LockDiff(
+            DiffKind.added,
+            section,
+            slug,
+            before: null,
+            after: newEntry,
+          ),
+        );
       } else if (oldEntry != null && newEntry == null) {
-        out.add(LockDiff(DiffKind.removed, section, slug,
-            before: oldEntry, after: null));
+        out.add(
+          LockDiff(
+            DiffKind.removed,
+            section,
+            slug,
+            before: oldEntry,
+            after: null,
+          ),
+        );
       } else if (oldEntry != null && newEntry != null) {
         if (!_equalLocked(oldEntry, newEntry)) {
-          out.add(LockDiff(DiffKind.updated, section, slug,
-              before: oldEntry, after: newEntry));
+          out.add(
+            LockDiff(
+              DiffKind.updated,
+              section,
+              slug,
+              before: oldEntry,
+              after: newEntry,
+            ),
+          );
         }
       }
     }
@@ -235,10 +255,7 @@ class SolveReporter {
       for (final slug in sectionMap.keys) {
         final locked = sectionMap[slug]!;
         final newerRaw = locked.sourceKind == LockedSourceKind.modrinth
-            ? newerAvailableThan(
-                locked.version ?? '',
-                versionsPerSlug[slug],
-              )
+            ? newerAvailableThan(locked.version ?? '', versionsPerSlug[slug])
             : null;
         final isOverridden = overriddenSlugs.contains(slug);
         final d = diffByKey['${section.name}/$slug'];
@@ -253,8 +270,7 @@ class SolveReporter {
     }
     // Appended-at-end section mirroring dart pub's "These packages are no
     // longer being depended on:" block.
-    final removedDiffs =
-        diff.where((d) => d.kind == DiffKind.removed).toList();
+    final removedDiffs = diff.where((d) => d.kind == DiffKind.removed).toList();
     if (removedDiffs.isNotEmpty) {
       reportLines.add('These packages are no longer being depended on:');
       for (final d in removedDiffs) {

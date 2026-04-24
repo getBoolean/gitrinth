@@ -12,7 +12,7 @@ class ManifestIo {
   final Directory directory;
 
   ManifestIo({Directory? directory})
-      : directory = directory ?? Directory.current;
+    : directory = directory ?? Directory.current;
 
   String get modsYamlPath => p.join(directory.path, 'mods.yaml');
   String get modsOverridesPath => p.join(directory.path, 'mods_overrides.yaml');
@@ -32,7 +32,10 @@ class ManifestIo {
   ModsOverrides readOverrides() {
     final file = File(modsOverridesPath);
     if (!file.existsSync()) return const ModsOverrides();
-    return parseModsOverrides(file.readAsStringSync(), filePath: modsOverridesPath);
+    return parseModsOverrides(
+      file.readAsStringSync(),
+      filePath: modsOverridesPath,
+    );
   }
 
   ModsLock? readModsLock() {

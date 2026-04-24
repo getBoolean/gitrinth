@@ -31,9 +31,7 @@ String removeEntry(
 
   final sectionNode = root.nodes[sectionKey];
   if (sectionNode == null || sectionNode.value == null) {
-    throw UserError(
-      "'$slug' not found under '$sectionKey' in mods.yaml.",
-    );
+    throw UserError("'$slug' not found under '$sectionKey' in mods.yaml.");
   }
   if (sectionNode is! YamlMap) {
     throw UserError(
@@ -50,9 +48,7 @@ String removeEntry(
     }
   }
   if (target == null) {
-    throw UserError(
-      "'$slug' not found under '$sectionKey' in mods.yaml.",
-    );
+    throw UserError("'$slug' not found under '$sectionKey' in mods.yaml.");
   }
 
   final keyNode = target.key as YamlNode;

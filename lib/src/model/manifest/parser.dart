@@ -91,7 +91,12 @@ ModsOverrides parseModsOverrides(String yamlText, {required String filePath}) {
   final overridesRaw = map['overrides'];
   if (overridesRaw == null) return const ModsOverrides();
   return ModsOverrides(
-    overrides: _parseSection(overridesRaw, 'overrides', filePath, allowEnv: true),
+    overrides: _parseSection(
+      overridesRaw,
+      'overrides',
+      filePath,
+      allowEnv: true,
+    ),
   );
 }
 
@@ -115,7 +120,11 @@ ModsLock parseModsLock(String yamlText, {required String filePath}) {
     'resource_packs',
     filePath,
   );
-  final dataPacks = _parseLockSection(map['data_packs'], 'data_packs', filePath);
+  final dataPacks = _parseLockSection(
+    map['data_packs'],
+    'data_packs',
+    filePath,
+  );
   final shaders = _parseLockSection(map['shaders'], 'shaders', filePath);
 
   if (shaders.isNotEmpty && loader.shaders == null) {
@@ -155,7 +164,12 @@ Map<String, LockedEntry> _parseLockSection(
       throw _err('$filePath: $sectionName/$slug must be a mapping.');
     }
     final m = _toPlainMap(value);
-    final sourceKind = _parseLockSourceKind(m['source'], sectionName, slug, filePath);
+    final sourceKind = _parseLockSourceKind(
+      m['source'],
+      sectionName,
+      slug,
+      filePath,
+    );
     final env = _parseEnv(m['env'] ?? 'both', '$sectionName/$slug', filePath);
     final auto = m['auto'] == true;
     LockedFile? file;
@@ -169,7 +183,9 @@ Map<String, LockedEntry> _parseLockSection(
         name: (fm['name'] as String?) ?? '',
         url: fm['url'] as String?,
         sha512: (fm['sha512'] as String?)?.toLowerCase(),
-        size: fm['size'] is int ? fm['size'] as int : (fm['size'] as num?)?.toInt(),
+        size: fm['size'] is int
+            ? fm['size'] as int
+            : (fm['size'] as num?)?.toInt(),
       );
     }
     result[slug] = LockedEntry(
@@ -247,7 +263,11 @@ ModEntry _parseEntry(
 }) {
   // Short forms: null (latest), a channel token, or a scalar version constraint.
   if (raw == null) {
-    return ModEntry(slug: slug, constraintRaw: null, env: forcedEnv ?? Environment.both);
+    return ModEntry(
+      slug: slug,
+      constraintRaw: null,
+      env: forcedEnv ?? Environment.both,
+    );
   }
   if (raw is String || raw is num || raw is bool) {
     final asText = raw.toString();
@@ -291,20 +311,27 @@ ModEntry _parseEntry(
   EntrySource source = const ModrinthEntrySource();
   if (url != null) {
     if (url is! String || url.isEmpty) {
-      throw _err('$filePath: $sectionName/$slug url must be a non-empty string.');
+      throw _err(
+        '$filePath: $sectionName/$slug url must be a non-empty string.',
+      );
     }
     source = UrlEntrySource(url: url);
   } else if (path != null) {
     if (path is! String || path.isEmpty) {
-      throw _err('$filePath: $sectionName/$slug path must be a non-empty string.');
+      throw _err(
+        '$filePath: $sectionName/$slug path must be a non-empty string.',
+      );
     }
     source = PathEntrySource(path: path);
   }
 
   final versionRaw = m['version'];
   final constraintRaw = versionRaw?.toString();
-  final channel =
-      _parseChannelField(m['channel'], filePath, '$sectionName/$slug');
+  final channel = _parseChannelField(
+    m['channel'],
+    filePath,
+    '$sectionName/$slug',
+  );
 
   Environment env = forcedEnv ?? Environment.both;
   final envRaw = m['environment'];
@@ -363,9 +390,7 @@ LoaderConfig _parseLoaderConfig(dynamic raw, String filePath) {
 
   final modsRaw = map['mods'];
   if (modsRaw == null) {
-    throw _err(
-      '$filePath: loader.mods is required (e.g. `mods: neoforge`).',
-    );
+    throw _err('$filePath: loader.mods is required (e.g. `mods: neoforge`).');
   }
   final mods = _parseModLoader(modsRaw, filePath);
 

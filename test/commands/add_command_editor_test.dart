@@ -6,8 +6,10 @@ import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 
 void main() {
   group('injectEntry', () {
-    test('appends shorthand entry to an existing mods section, preserves comments', () {
-      final before = '''
+    test(
+      'appends shorthand entry to an existing mods section, preserves comments',
+      () {
+        final before = '''
 # top comment
 slug: pack
 mods:
@@ -16,17 +18,18 @@ mods:
 resource_packs:
   faithful-32x: ^1.21
 ''';
-      final after = injectEntry(
-        before,
-        section: Section.mods,
-        slug: 'ferrite-core',
-        shorthandValue: 'release',
-      );
-      expect(after, contains('# top comment'));
-      expect(after, contains('# the JEI comment'));
-      expect(after, contains('ferrite-core: release'));
-      expect(after, contains('jei: ^19.27.0.340'));
-    });
+        final after = injectEntry(
+          before,
+          section: Section.mods,
+          slug: 'ferrite-core',
+          shorthandValue: 'release',
+        );
+        expect(after, contains('# top comment'));
+        expect(after, contains('# the JEI comment'));
+        expect(after, contains('ferrite-core: release'));
+        expect(after, contains('jei: ^19.27.0.340'));
+      },
+    );
 
     test('creates a missing section', () {
       final before = '''
@@ -70,10 +73,7 @@ mods:
         before,
         section: Section.mods,
         slug: 'iris',
-        longForm: const {
-          'version': '^1.8.12',
-          'environment': 'client',
-        },
+        longForm: const {'version': '^1.8.12', 'environment': 'client'},
       );
       expect(after, contains('iris:'));
       expect(after, contains('version: ^1.8.12'));

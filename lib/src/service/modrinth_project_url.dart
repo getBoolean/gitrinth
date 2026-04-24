@@ -27,7 +27,8 @@ ModrinthProjectRef? parseModrinthProjectUrl(String input) {
 
   // Cheap rejection for plain slugs. Anything without a slash or scheme
   // can't be a URL.
-  final looksUrlish = trimmed.contains('://') ||
+  final looksUrlish =
+      trimmed.contains('://') ||
       trimmed.startsWith('//') ||
       trimmed.startsWith('modrinth.com/') ||
       trimmed.startsWith('www.modrinth.com/');

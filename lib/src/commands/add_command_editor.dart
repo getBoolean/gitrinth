@@ -62,17 +62,19 @@ String injectEntry(
   final sectionNode = root.nodes[sectionKey];
   if (sectionNode == null) {
     // Section missing entirely — create it with this one entry.
-    editor.update([sectionKey], <String, Object?>{
-      slug: longForm ?? shorthandValue,
-    });
+    editor.update(
+      [sectionKey],
+      <String, Object?>{slug: longForm ?? shorthandValue},
+    );
     return editor.toString();
   }
 
   if (sectionNode.value == null) {
     // Section exists as a null scalar (`mods:` with no value). Replace.
-    editor.update([sectionKey], <String, Object?>{
-      slug: longForm ?? shorthandValue,
-    });
+    editor.update(
+      [sectionKey],
+      <String, Object?>{slug: longForm ?? shorthandValue},
+    );
     return editor.toString();
   }
 
@@ -83,9 +85,7 @@ String injectEntry(
   }
 
   if (sectionNode.containsKey(slug)) {
-    throw UserError(
-      "'$slug' already exists under '$sectionKey' in mods.yaml.",
-    );
+    throw UserError("'$slug' already exists under '$sectionKey' in mods.yaml.");
   }
 
   editor.update([sectionKey, slug], longForm ?? shorthandValue);

@@ -53,7 +53,8 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
     buf.writeln('    file:');
     buf.writeln('      name: ${_str(f.name)}');
     if (f.url != null) buf.writeln('      url: ${_str(f.url!)}');
-    if (f.sha512 != null) buf.writeln('      sha512: ${_str(f.sha512!.toLowerCase())}');
+    if (f.sha512 != null)
+      buf.writeln('      sha512: ${_str(f.sha512!.toLowerCase())}');
     if (f.size != null) buf.writeln('      size: ${f.size}');
   }
   buf.writeln('    env: ${_envName(e.env)}');
@@ -80,13 +81,16 @@ String _str(String value) {
 bool _needsQuotes(String value) {
   if (value.isEmpty) return true;
   // Reserved words and characters that change YAML parsing.
-  const reserved = {
-    'yes', 'no', 'true', 'false', 'on', 'off', 'null', '~',
-  };
+  const reserved = {'yes', 'no', 'true', 'false', 'on', 'off', 'null', '~'};
   if (reserved.contains(value.toLowerCase())) return true;
   if (RegExp(r'^[-+]?\d+(\.\d+)?$').hasMatch(value)) return true;
   // Conservative: any character that needs escaping.
-  if (RegExp(r'[:#\[\]{},&*!|>%@`"' "'" r']').hasMatch(value)) return true;
+  if (RegExp(
+    r'[:#\[\]{},&*!|>%@`"'
+    "'"
+    r']',
+  ).hasMatch(value))
+    return true;
   if (value.startsWith(' ') || value.endsWith(' ')) return true;
   if (value.contains('\n')) return true;
   return false;

@@ -26,8 +26,7 @@ class AddCommand extends GitrinthCommand {
   String get description => 'Add an entry to a section.';
 
   @override
-  String get invocation =>
-      'gitrinth add <slug>[@<constraint>] [arguments]';
+  String get invocation => 'gitrinth add <slug>[@<constraint>] [arguments]';
 
   AddCommand() {
     argParser
@@ -43,11 +42,7 @@ class AddCommand extends GitrinthCommand {
         help:
             'Use a url: source. Marks the pack non-publishable when added to mods.',
       )
-      ..addOption(
-        'path',
-        valueHelp: 'path',
-        help: 'Use a path: source.',
-      )
+      ..addOption('path', valueHelp: 'path', help: 'Use a path: source.')
       ..addFlag(
         'dry-run',
         negatable: false,
@@ -187,11 +182,13 @@ class AddCommand extends GitrinthCommand {
 
     if (dryRun) {
       console.info('Would add to ${sectionKeyFor(section)}:');
-      console.info(_describeEntry(
-        slug: slug,
-        shorthand: longForm == null ? writtenValue : null,
-        longForm: longForm,
-      ));
+      console.info(
+        _describeEntry(
+          slug: slug,
+          shorthand: longForm == null ? writtenValue : null,
+          longForm: longForm,
+        ),
+      );
       return exitOk;
     }
 
@@ -257,8 +254,9 @@ class AddCommand extends GitrinthCommand {
     try {
       versions = await api.listVersions(
         slug,
-        loadersJson:
-            loaderFilter == null ? null : encodeFilterArray(loaderFilter),
+        loadersJson: loaderFilter == null
+            ? null
+            : encodeFilterArray(loaderFilter),
         gameVersionsJson: encodeFilterArray([mcVersion]),
       );
     } on DioException catch (e) {
@@ -283,10 +281,7 @@ class AddCommand extends GitrinthCommand {
     return best;
   }
 
-  List<String>? _filterLoadersForSection(
-    LoaderConfig config,
-    Section section,
-  ) {
+  List<String>? _filterLoadersForSection(LoaderConfig config, Section section) {
     switch (section) {
       case Section.mods:
         return [config.mods.name];
@@ -328,4 +323,3 @@ class AddCommand extends GitrinthCommand {
     return buf.toString();
   }
 }
-

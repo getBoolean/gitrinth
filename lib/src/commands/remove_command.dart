@@ -71,11 +71,7 @@ class RemoveCommand extends GitrinthCommand {
     }
 
     final yamlText = File(io.modsYamlPath).readAsStringSync();
-    final updated = removeEntry(
-      yamlText,
-      section: foundSection,
-      slug: slug,
-    );
+    final updated = removeEntry(yamlText, section: foundSection, slug: slug);
 
     if (dryRun) {
       console.info('Would remove from ${sectionKeyFor(foundSection)}:');
