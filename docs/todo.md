@@ -164,77 +164,153 @@ publish to either (or both) as a target.
 
 ### Fetching mods from CurseForge
 
-Add CurseForge as a source adapter alongside default Modrinth,
-`hosted:`, `url:`, and `path:`. Long-form entries reference CF via a
-new `curseforge:` field (slug or project ID):
+Every entry resolves on **both Modrinth and CurseForge by default**.
+Most mods share a slug across platforms, so short-form stays terse
+and packs are cross-platform without ceremony:
 
 ```yaml
 mods:
-  create: ^6.0.10+mc1.21.1          # default Modrinth
+  # Default: both platforms; key is the slug on each (most common)
+  jei: ^19.27.0
+  create: ^6.0.10+mc1.21.1
+  sodium: ^0.5.13
+
+  # Slug differs on CurseForge — override CF side only
+  fabric-api:
+    curseforge: fabric-api-cf-slug        # CF-specific slug
+    version: ^0.102.0
+
+  # Restrict to Modrinth only (CF excluded explicitly)
+  distanthorizons:
+    sources: [modrinth]
+    version: ^2.3.0
+
+  # Restrict to CurseForge only (no Modrinth project exists)
   ae2:
+    sources: [curseforge]
     curseforge: applied-energistics-2
     version: ^19.0.15
-  jei:
-    curseforge: 238222              # numeric CF project ID also accepted
-    version: ^19.27.0
-```
 
-Short-form `cf:<slug>` sugar for quick entries and `add`:
+  # CF-only short form sugar
+  appleskin: cf:appleskin@^3.0.9
 
-```yaml
-mods:
-  ae2: cf:applied-energistics-2@^19.0.15
+  # Numeric CF project ID (valid in short and long form)
+  journeymap: cf:32274@^6.0.0
 ```
 
 ```text
-gitrinth add cf:applied-energistics-2@^19.0.15
+gitrinth add jei                          # resolves on both, if available
+gitrinth add cf:applied-energistics-2     # CF-only
 ```
 
-The resolver queries the [CurseForge API](https://docs.curseforge.com)
-for version lists, filters by `loader` + `mc-version` (plus per-entry
-[`accepts-mc`](#accepts-mc--per-entry-mc-version-tolerance)), and
-applies the same channel floor (`release`/`beta`/`alpha`) used for
-Modrinth entries. Downloads hit CF's CDN. The CF API requires an API
+The `mods:` map key is a local identifier and defaults to the slug
+on each platform in the resolution set. `modrinth:` and `curseforge:`
+peer fields override that platform's slug when it differs. `sources:
+[...]` explicitly restricts resolution to the listed platforms — use
+it when a mod only exists on one side, or when you want to pin an
+entry to one platform even though the other has it.
+
+If a declared-or-defaulted platform doesn't have the mod, that
+platform gets a `not_found` marker in `mods.lock` and a warning is
+emitted; the entry still succeeds as long as at least one platform
+resolves. [mods-yaml.md](mods-yaml.md) needs updating to reflect the
+relaxed key semantics.
+
+The resolver uses the same `loader` + `mc-version` filters (plus
+per-entry [`accepts-mc`](#accepts-mc--per-entry-mc-version-tolerance))
+and the same channel floor (`release`/`beta`/`alpha`) across
+platforms. Downloads hit each platform's CDN. The CF API requires a
 key, managed via [`token` add curseforge.com](#token-command).
+
+### Cross-platform hash verification
+
+When an entry resolves on both platforms, gitrinth fetches each
+platform's SHA512 and compares. Matching hashes lock silently;
+**mismatched hashes fail resolution** with an error listing both
+hashes, slugs, and project IDs, and three remediations: accept the
+divergence with `allow-hash-mismatch: true`, restrict to one platform
+via `sources: [...]`, or pin different versions per platform to align
+builds.
+
+```yaml
+mods:
+  # Same file on both — clean lock
+  jei: ^19.27.0
+
+  # Modrinth and CF ship different builds of the same release
+  # (different CI signing keys, etc.). User has verified these are
+  # the same mod and accepts the divergence.
+  create:
+    version: ^6.0.10+mc1.21.1
+    allow-hash-mismatch: true
+
+  # Slug collision — 'ae2' names different mods on each platform.
+  # Restrict rather than override; the mismatch is a real conflict.
+  ae2:
+    sources: [modrinth]
+    version: ^19.0.15
+```
+
+The check runs on `add`, `get`, and `upgrade`. `mods.lock` always
+stores per-platform hashes, and downstream downloads verify against
+each platform's own hash, so `allow-hash-mismatch` does not disable
+tamper detection — it only suppresses the cross-platform equality
+check at resolution time.
+
+`allow-hash-mismatch` only makes sense when two or more platform
+sources are declared; setting it alongside `sources: [modrinth]` or
+`sources: [curseforge]` is a schema error.
 
 ### Mixing CF and Modrinth in one pack
 
-Entries from either platform coexist under the same `mods:` /
-`resource_packs:` / `data_packs:` / `shaders:` maps. `mods.lock` tags
-each entry with its source (`modrinth` | `curseforge`) plus the
-platform-specific project/file identifiers needed at distribution
-time. [`deps`](#deps-command) surfaces the source in its output.
+Entries coexist under the same section maps (`mods:`,
+`resource_packs:`, `data_packs:`, `shaders:`). `mods.lock` records
+one block per resolved source with the platform-specific
+project/file identifiers plus hash; excluded or not-found platforms
+get a marker instead.
 
-Dependency resolution stays platform-scoped: a CF mod's declared deps
-resolve against CF; a Modrinth mod's deps resolve against Modrinth.
+```yaml
+# mods.lock (sketch)
+mods:
+  jei:
+    version: 19.27.0
+    modrinth: { project_id: ..., version_id: ..., sha512: ... }
+    curseforge: { project_id: 238222, file_id: ..., sha512: ... }
+  distanthorizons:
+    version: 2.3.0
+    modrinth: { project_id: ..., version_id: ..., sha512: ... }
+    # curseforge excluded via sources: [modrinth]
+  some-modrinth-only-mod:
+    version: 1.2.3
+    modrinth: { project_id: ..., version_id: ..., sha512: ... }
+    curseforge: { status: not_found }
+```
+
+[`deps`](#deps-command) surfaces per-platform source information in
+its output. Dependency resolution stays platform-scoped: a mod's CF
+deps resolve against CF; its Modrinth deps resolve against Modrinth.
 Cross-platform dependencies are not auto-resolved — users declare
 them explicitly in the entry they want.
 
 ### Publishing to CurseForge
 
 Extend [`publish_to`](mods-yaml.md#publish_to) to cover CurseForge
-alongside Modrinth, so a pack can target one or both platforms in a
-single [`publish`](#publish-command) run. Exact schema shape TBD —
-candidates: a second `publish_to_curseforge:` field, or promoting
-`publish_to` to an object keyed by platform.
+alongside Modrinth; a pack can target one or both in a single
+[`publish`](#publish-command) run. Exact schema shape TBD (candidates:
+a `publish_to_curseforge:` peer field, or promoting `publish_to` to
+an object keyed by platform).
 
 Add a CurseForge manifest emitter to the archive builder — CF packs
-ship as `manifest.json` + `overrides/` inside a `.zip`, distinct from
-Modrinth's `.mrpack`. [`pack`](cli.md#pack) grows a `--curseforge`
-flag to emit the CF artifact instead of (or alongside) the `.mrpack`
-output. [`publish`](#publish-command) becomes platform-aware and
-pushes to every configured target.
+ship as `manifest.json` + `overrides/` in a `.zip`.
+[`pack`](cli.md#pack) grows a `--curseforge` flag;
+[`publish`](#publish-command) becomes platform-aware.
 
-Platform caveats:
-
-- Modrinth-published packs may only contain Modrinth-hosted mods; CF
-  mods require explicit author permission and are bundled as loose
-  overrides.
-- CF-published packs may only contain CF-hosted mods; Modrinth mods
-  likewise bundled as overrides with permission.
-- `publish` warns when entries aren't eligible for a configured
-  target. `--publishable` on [`pack`](cli.md#pack) escalates to an
-  error, scoped to the target platform being built.
+Mods not available on the target platform get bundled as loose
+overrides (with author permission). `publish` warns; `--publishable`
+on [`pack`](cli.md#pack) escalates to an error, scoped to the target
+being built, and also surfaces entries with `allow-hash-mismatch:
+true` because the published artifact ships only one of the two
+divergent builds.
 
 ### Out of scope
 
