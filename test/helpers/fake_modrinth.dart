@@ -8,6 +8,7 @@ import 'package:crypto/crypto.dart';
 /// 127.0.0.1:0 (free port). Routes:
 ///   - GET /v2/project/{slug}             -> canned project json
 ///   - GET /v2/project/{slug}/version     -> list of canned versions
+///   - GET /v2/tag/game_version           -> canned MC version list
 ///   - GET /downloads/{slug}/{filename}   -> the artifact bytes
 class FakeModrinth {
   late final HttpServer _server;
@@ -15,10 +16,38 @@ class FakeModrinth {
   final Map<String, List<Map<String, dynamic>>> versions;
   final Map<String, Uint8List> artifacts;
 
+  /// Minecraft versions returned by `/v2/tag/game_version`. Default
+  /// includes the versions used in the test fixtures so existing tests
+  /// keep passing without configuring this explicitly.
+  List<Map<String, dynamic>> gameVersions = [
+    {
+      'version': '1.21.1',
+      'version_type': 'release',
+      'date': '2024-08-08T00:00:00Z',
+      'major': false,
+    },
+    {
+      'version': '1.21',
+      'version_type': 'release',
+      'date': '2024-06-13T00:00:00Z',
+      'major': true,
+    },
+    {
+      'version': '1.20.1',
+      'version_type': 'release',
+      'date': '2023-06-12T00:00:00Z',
+      'major': false,
+    },
+  ];
+
   /// Last query-parameter map seen on `GET /v2/project/<slug>/version`,
   /// keyed by slug. Tests can assert which `loaders`/`game_versions`
   /// filters the CLI sent (or didn't send) for a given request.
   final Map<String, Map<String, String>> lastVersionQuery = {};
+
+  /// Number of times each route has been requested. Tests can assert
+  /// that mc-version validation only fires when expected (one-shot rule).
+  final Map<String, int> requestCounts = {};
 
   FakeModrinth({
     Map<String, Map<String, dynamic>>? projects,
@@ -30,6 +59,21 @@ class FakeModrinth {
 
   String get baseUrl => 'http://127.0.0.1:${_server.port}/v2';
   String get downloadBaseUrl => 'http://127.0.0.1:${_server.port}/downloads';
+
+  /// URL for the fake fabric-meta loader-list response. Tests pass this
+  /// via the `GITRINTH_FABRIC_META_URL` env var to keep the resolver off
+  /// the real fabricmc.net.
+  String get fabricMetaUrl =>
+      'http://127.0.0.1:${_server.port}/fabric/v2/versions/loader';
+
+  /// Newest-first list returned by the fake fabric-meta endpoint. Each
+  /// entry needs at least `version` (String) and `stable` (bool); other
+  /// fields are ignored by the resolver.
+  List<Map<String, dynamic>> fabricLoaderVersions = [
+    {'version': '0.17.3', 'stable': true},
+    {'version': '0.17.2-beta.1', 'stable': false},
+    {'version': '0.17.1', 'stable': true},
+  ];
 
   Future<void> start() async {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -104,8 +148,15 @@ class FakeModrinth {
 
   void _handle(HttpRequest req) async {
     final path = req.uri.path;
+    requestCounts.update(path, (n) => n + 1, ifAbsent: () => 1);
     try {
-      if (path.startsWith('/v2/project/')) {
+      if (path == '/v2/tag/game_version') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(gameVersions));
+      } else if (path == '/fabric/v2/versions/loader') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(fabricLoaderVersions));
+      } else if (path.startsWith('/v2/project/')) {
         final tail = path.substring('/v2/project/'.length);
         if (tail.endsWith('/version')) {
           final slug = tail.substring(0, tail.length - '/version'.length);

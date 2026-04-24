@@ -346,4 +346,153 @@ overrides:
       expect(o.overrides['create']!.source, isA<PathEntrySource>());
     });
   });
+
+  group('loader.mods docker-style tag', () {
+    ModsYaml parse(String mods) => parseModsYaml('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: $mods
+mc-version: 1.21.1
+''', filePath: 'mods.yaml');
+
+    test('bare loader name defaults the version tag to "stable"', () {
+      final m = parse('fabric');
+      expect(m.loader.mods, Loader.fabric);
+      expect(m.loader.modsVersion, 'stable');
+    });
+
+    test('explicit :stable parses as stable', () {
+      final m = parse('fabric:stable');
+      expect(m.loader.mods, Loader.fabric);
+      expect(m.loader.modsVersion, 'stable');
+    });
+
+    test('explicit :latest parses as latest', () {
+      final m = parse('neoforge:latest');
+      expect(m.loader.mods, Loader.neoforge);
+      expect(m.loader.modsVersion, 'latest');
+    });
+
+    test('concrete version tag parses verbatim', () {
+      final m = parse('fabric:0.17.3');
+      expect(m.loader.mods, Loader.fabric);
+      expect(m.loader.modsVersion, '0.17.3');
+    });
+
+    test('quoted scalar with concrete tag round-trips through the YAML loader',
+        () {
+      final m = parse('"forge:52.0.45"');
+      expect(m.loader.mods, Loader.forge);
+      expect(m.loader.modsVersion, '52.0.45');
+    });
+
+    test('empty tag after colon is rejected', () {
+      // Quoted because bare `fabric:` would otherwise look like a YAML
+      // key with an empty value.
+      expect(
+        () => parse('"fabric:"'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('empty version tag'),
+          ),
+        ),
+      );
+    });
+
+    test('multiple colons are rejected', () {
+      expect(
+        () => parse('"fabric:1.2.3:extra"'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('more than one'),
+          ),
+        ),
+      );
+    });
+
+    test('unknown loader name is rejected', () {
+      expect(
+        () => parse('quilt:1.2.3'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('not supported in MVP'),
+          ),
+        ),
+      );
+    });
+  });
+
+  group('parseModsLock with loader version', () {
+    test('reads loader.mods with embedded concrete version', () {
+      const lock = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: "fabric:0.17.3"
+mc-version: 1.21.1
+mods: {}
+resource_packs: {}
+data_packs: {}
+shaders: {}
+''';
+      final l = parseModsLock(lock, filePath: 'mods.lock');
+      expect(l.loader.mods, Loader.fabric);
+      expect(l.loader.modsVersion, '0.17.3');
+    });
+
+    test('legacy lock without :tag defaults loaderVersion to "stable"', () {
+      // Locks written before this feature carry only the loader name.
+      // Default-tag handling lets them parse; the resolver will re-resolve
+      // them on the next `get` because "stable" isn't a concrete tag.
+      const lock = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods: {}
+resource_packs: {}
+data_packs: {}
+shaders: {}
+''';
+      final l = parseModsLock(lock, filePath: 'mods.lock');
+      expect(l.loader.mods, Loader.neoforge);
+      expect(l.loader.modsVersion, 'stable');
+    });
+
+    test('reads sha1 alongside sha512 on a locked file', () {
+      const lock = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: "fabric:0.17.3"
+mc-version: 1.21.1
+mods:
+  sodium:
+    source: modrinth
+    project-id: AANobbMI
+    version-id: abcdef
+    file:
+      name: sodium-0.6.0.jar
+      url: https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/sodium-0.6.0.jar
+      sha1: 0123456789abcdef
+      sha512: deadbeef
+      size: 1024
+    env: both
+resource_packs: {}
+data_packs: {}
+shaders: {}
+''';
+      final l = parseModsLock(lock, filePath: 'mods.lock');
+      final f = l.mods['sodium']!.file!;
+      expect(f.sha1, '0123456789abcdef');
+      expect(f.sha512, 'deadbeef');
+    });
+  });
 }

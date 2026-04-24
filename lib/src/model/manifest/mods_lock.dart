@@ -11,10 +11,17 @@ enum LockedSourceKind { modrinth, url, path }
 class LockedFile with LockedFileMappable {
   final String name;
   final String? url;
+  final String? sha1;
   final String? sha512;
   final int? size;
 
-  const LockedFile({required this.name, this.url, this.sha512, this.size});
+  const LockedFile({
+    required this.name,
+    this.url,
+    this.sha1,
+    this.sha512,
+    this.size,
+  });
 }
 
 @MappableClass()

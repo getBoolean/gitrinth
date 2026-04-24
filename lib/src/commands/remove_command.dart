@@ -84,6 +84,7 @@ class RemoveCommand extends GitrinthCommand {
     final api = read(modrinthApiProvider);
     final cache = read(cacheProvider);
     final downloader = read(downloaderProvider);
+    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
     final result = await resolveAndSync(
@@ -92,6 +93,7 @@ class RemoveCommand extends GitrinthCommand {
       api: api,
       cache: cache,
       downloader: downloader,
+      loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
     );
     if (result.exitCode != exitOk) return result.exitCode;

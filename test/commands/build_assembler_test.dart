@@ -192,17 +192,22 @@ void main() {
       );
     });
 
-    test('url entry missing sha512 throws ValidationError', () {
-      final broken = LockedEntry(
-        slug: 'broken',
-        sourceKind: LockedSourceKind.url,
-        file: const LockedFile(name: 'broken.jar'),
-      );
-      expect(
-        () => resolveSourcePath(cache, broken, projectDir: '.'),
-        throwsA(isA<ValidationError>()),
-      );
-    });
+    test(
+      'url entry missing sha512 falls back to the _unverified cache path',
+      () {
+        // Mirrors the downloader: when a url-source artifact has no
+        // sha512 yet, it lives at <cache>/url/_unverified/<slug>/<name>.
+        final entry = LockedEntry(
+          slug: 'unhashed',
+          sourceKind: LockedSourceKind.url,
+          file: const LockedFile(name: 'unhashed.jar'),
+        );
+        final path = resolveSourcePath(cache, entry, projectDir: '.');
+        expect(path, contains('_unverified'));
+        expect(path, contains('unhashed'));
+        expect(path, endsWith('unhashed.jar'));
+      },
+    );
   });
 
   group('destFilenameFor', () {

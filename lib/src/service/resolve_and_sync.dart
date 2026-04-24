@@ -17,6 +17,7 @@ import '../version.dart';
 import 'cache.dart';
 import 'console.dart';
 import 'downloader.dart';
+import 'loader_version_resolver.dart';
 import 'manifest_io.dart';
 import 'modrinth_api.dart';
 import 'solve_report.dart';
@@ -53,6 +54,7 @@ Future<ResolveSyncResult> resolveAndSync({
   required ModrinthApi api,
   required GitrinthCache cache,
   required Downloader downloader,
+  required LoaderVersionResolver loaderResolver,
   required bool verbose,
   bool dryRun = false,
   bool enforce = false,
@@ -71,6 +73,25 @@ Future<ResolveSyncResult> resolveAndSync({
   final loaderConfig = merged.loader;
   final mc = merged.mcVersion;
   final slugCache = <String, String?>{};
+
+  // One-shot mc-version validation: only call /tag/game_version when the
+  // mc-version differs from what mods.lock already records. The pairing
+  // was already validated when it was first locked, so a stable lock is
+  // proof enough.
+  if (existingLock?.mcVersion != mc) {
+    await _validateGameVersion(api: api, mcVersion: mc);
+  }
+
+  // Loader-tag resolution. Concrete tags pass through unchanged with no
+  // network call; `stable` / `latest` always re-resolve (those tags exist
+  // precisely to drift). For concrete tags that already match the lock,
+  // skip even the passthrough — the lock is the cache.
+  final resolvedLoaderVersion = await _resolveLoaderVersion(
+    loaderResolver: loaderResolver,
+    loaderConfig: loaderConfig,
+    mcVersion: mc,
+    existingLock: existingLock,
+  );
 
   final slugToSection = <String, Section>{};
   for (final section in Section.values) {
@@ -133,7 +154,7 @@ Future<ResolveSyncResult> resolveAndSync({
   );
   final resolution = await resolver.resolve(merged, existingLock: existingLock);
 
-  final newLock = _buildLock(merged, resolution);
+  final newLock = _buildLock(merged, resolution, resolvedLoaderVersion);
   final diff = diffLocks(existingLock, newLock);
 
   if (verbose) {
@@ -280,7 +301,11 @@ void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
   }
 }
 
-ModsLock _buildLock(ModsYaml manifest, ResolutionResult resolution) {
+ModsLock _buildLock(
+  ModsYaml manifest,
+  ResolutionResult resolution,
+  String resolvedLoaderVersion,
+) {
   final byKind = <Section, Map<String, LockedEntry>>{
     for (final s in Section.values) s: <String, LockedEntry>{},
   };
@@ -294,6 +319,7 @@ ModsLock _buildLock(ModsYaml manifest, ResolutionResult resolution) {
       file: LockedFile(
         name: r.file.filename,
         url: r.file.url,
+        sha1: r.file.hashes['sha1'],
         sha512: r.file.sha512,
         size: r.file.size,
       ),
@@ -322,14 +348,73 @@ ModsLock _buildLock(ModsYaml manifest, ResolutionResult resolution) {
       }
     });
   }
+  // Bake the resolved concrete loader version into the lock's LoaderConfig.
+  final lockedLoader = LoaderConfig(
+    mods: manifest.loader.mods,
+    modsVersion: resolvedLoaderVersion,
+    shaders: manifest.loader.shaders,
+    plugins: manifest.loader.plugins,
+  );
   return ModsLock(
     gitrinthVersion: packageVersion,
-    loader: manifest.loader,
+    loader: lockedLoader,
     mcVersion: manifest.mcVersion,
     mods: byKind[Section.mods]!,
     resourcePacks: byKind[Section.resourcePacks]!,
     dataPacks: byKind[Section.dataPacks]!,
     shaders: byKind[Section.shaders]!,
+  );
+}
+
+/// Hits `/v2/tag/game_version` and throws [ValidationError] if [mcVersion]
+/// is not in the list. Called only on first lock or when the user changed
+/// `mc-version` in `mods.yaml`.
+Future<void> _validateGameVersion({
+  required ModrinthApi api,
+  required String mcVersion,
+}) async {
+  final List<String> known;
+  try {
+    final list = await api.getGameVersions();
+    known = list.map((v) => v.version).toList();
+  } on Object catch (e) {
+    if (e is GitrinthException) rethrow;
+    throw UserError(
+      'failed to fetch Minecraft game versions from Modrinth: $e',
+    );
+  }
+  if (!known.contains(mcVersion)) {
+    throw ValidationError(
+      'mc-version "$mcVersion" is not a known Minecraft release on '
+      'Modrinth. Pick one from '
+      'https://api.modrinth.com/v2/tag/game_version (e.g. '
+      '${known.take(3).join(", ")}).',
+    );
+  }
+}
+
+/// Returns the concrete loader version to bake into the lock.
+///
+/// Skips re-resolution when the user typed a concrete tag (anything other
+/// than `stable`/`latest`) and the existing lock already records that
+/// same loader+version pair. `stable`/`latest` always re-resolve.
+Future<String> _resolveLoaderVersion({
+  required LoaderVersionResolver loaderResolver,
+  required LoaderConfig loaderConfig,
+  required String mcVersion,
+  required ModsLock? existingLock,
+}) async {
+  final tag = loaderConfig.modsVersion;
+  final lockedSameLoader = existingLock?.loader.mods == loaderConfig.mods;
+  final lockedVersion = existingLock?.loader.modsVersion;
+  final tagIsConcrete = tag != 'stable' && tag != 'latest';
+  if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
+    return tag;
+  }
+  return loaderResolver.resolve(
+    loader: loaderConfig.mods,
+    tag: tag,
+    mcVersion: mcVersion,
   );
 }
 

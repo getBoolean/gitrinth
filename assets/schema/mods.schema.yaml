@@ -145,12 +145,22 @@ properties:
     properties:
       mods:
         description: |
-          Mod loader the modpack targets. Drives version resolution,
-          Modrinth compatibility, and server-binary selection.
-        enum:
-          - forge
-          - fabric
-          - neoforge
+          Mod loader the modpack targets, optionally with a version tag
+          in docker-image style: `<loader>` or `<loader>:<tag>`.
+
+          - Loader: one of `forge`, `fabric`, `neoforge`.
+          - Tag (optional): `stable` (default — latest stable loader),
+            `latest` (newest of any stability), or a concrete version
+            string (e.g. `0.17.3`). Resolved against Modrinth at `get`
+            time and frozen into `mods.lock`.
+
+          Examples: `neoforge`, `fabric:stable`, `fabric:latest`,
+          `fabric:0.17.3`.
+
+          Drives version resolution, Modrinth compatibility, and
+          server-binary selection.
+        type: string
+        pattern: ^(forge|fabric|neoforge)(:[^:\s][^:]*)?$
       shaders:
         description: |
           Shader loader. Required when the `shaders` section has

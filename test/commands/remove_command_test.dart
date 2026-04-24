@@ -54,7 +54,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   jei: ^19.27.0.340
@@ -92,7 +92,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 resource_packs:
   faithful-32x: ^1.21.0
@@ -119,7 +119,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   jei: ^19.27.0.340
@@ -143,7 +143,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -162,7 +162,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   sodium: release
@@ -185,7 +185,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   sodium: release

@@ -389,20 +389,57 @@ Non-existent paths are a silent no-op.
 
 ### `pack`
 
-Modpack-specific. Produce a Modrinth `.mrpack` archive. This is the
+Modpack-specific. Produce Modrinth `.mrpack` archives. This is the
 artifact [`publish`](#publish) uploads.
 
 ```text
-gitrinth pack [--output <path>]
+gitrinth pack [--output <path>] [--combined] [--publishable]
 ```
 
-| Option           | Description                                                              |
-|------------------|--------------------------------------------------------------------------|
-| `--output`, `-o` | Override the output path. Defaults to `./build/<slug>-<version>.mrpack`. |
+| Option           | Description                                                                                                                                       |
+|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--output`, `-o` | Override the base output path. Defaults to `./build/<slug>-<version>.mrpack`. The server pack is derived by inserting `-server` before `.mrpack`. |
+| `--combined`     | Produce a single `.mrpack` that contains both client and server files instead of a client + server pair.                                          |
+| `--publishable`  | Refuse to pack if any [`mods`](mods-yaml.md#mods) entry uses a `url` or `path` source. Other sections are unaffected.                             |
 
-Refuses to run if any [`mods`](mods-yaml.md#mods) or mod-targeting
-[`overrides`](mods-yaml.md#overrides) entry uses a `url` or `path`
-source.
+By default `pack` produces two artifacts:
+
+- `./build/<slug>-<version>.mrpack` — the client pack (this is the one
+  you upload to Modrinth via [`publish`](#publish)).
+- `./build/<slug>-<version>-server.mrpack` — the server pack, with
+  client-only entries stripped out.
+
+The split uses each entry's
+[`environment`](mods-yaml.md#per-mod-environment): `both` entries are
+bundled in both packs, `client` entries only in the client pack, and
+`server` entries only in the server pack. Shaders are always
+client-only by section and land exclusively in the client pack.
+
+**Installing the server pack.** Drop the `-server.mrpack` onto your
+server host and install it with
+[mrpack-install](https://github.com/nothub/mrpack-install) — a
+standalone Go-based installer that fetches every file in the pack's
+Modrinth CDN `files[]` array, applies the `server-overrides/` tree, and
+drops in the matching server binary for your loader.
+
+Pass `--combined` when you want the older single-artifact behavior
+(useful for quick local round-trips or when a downstream tool expects
+one zip). With `--combined` only `./build/<slug>-<version>.mrpack` is
+written, containing every file partitioned by the per-file `env` map.
+
+`url:` / `path:` artifacts cannot be referenced in the spec's `files[]`
+list because every entry there needs a Modrinth CDN URL, so they are
+packed as loose files under `overrides/<subdir>/<filename>` (routed to
+`client-overrides/` / `server-overrides/` when their `environment`
+narrows the side). `--publishable` gates this for the
+[`mods`](mods-yaml.md#mods) section only, since per Modrinth's policy
+executable mod artifacts require explicit author permission to
+redistribute. Resource packs, data packs, and shaders remain free to
+bundle non-Modrinth artifacts even with `--publishable`.
+
+When `pack` bundles non-Modrinth mod artifacts (default mode) it prints
+a warning enumerating each offending slug and links to
+[Modrinth's permissions guidance](https://support.modrinth.com/en/articles/8797527-obtaining-modpack-permissions).
 
 ### `unpack`
 

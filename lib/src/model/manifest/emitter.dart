@@ -9,7 +9,9 @@ String emitModsLock(ModsLock lock) {
     ..writeln('# Commit this file to git.')
     ..writeln('gitrinth-version: ${_str(lock.gitrinthVersion)}')
     ..writeln('loader:')
-    ..writeln('  mods: ${lock.loader.mods.name}');
+    ..writeln(
+      '  mods: ${_str("${lock.loader.mods.name}:${lock.loader.modsVersion}")}',
+    );
   if (lock.loader.shaders != null) {
     buf.writeln('  shaders: ${lock.loader.shaders!.name}');
   }
@@ -53,8 +55,12 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
     buf.writeln('    file:');
     buf.writeln('      name: ${_str(f.name)}');
     if (f.url != null) buf.writeln('      url: ${_str(f.url!)}');
-    if (f.sha512 != null)
+    if (f.sha1 != null) {
+      buf.writeln('      sha1: ${_str(f.sha1!.toLowerCase())}');
+    }
+    if (f.sha512 != null) {
       buf.writeln('      sha512: ${_str(f.sha512!.toLowerCase())}');
+    }
     if (f.size != null) buf.writeln('      size: ${f.size}');
   }
   buf.writeln('    env: ${_envName(e.env)}');

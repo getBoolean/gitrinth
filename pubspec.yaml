@@ -13,6 +13,7 @@ workspace:
   - tool/asset_strings_builder
 
 dependencies:
+  archive: ^4.0.0
   args: ^2.7.0
   collection: ^1.18.0
   crypto: ^3.0.3

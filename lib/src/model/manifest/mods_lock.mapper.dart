@@ -80,6 +80,12 @@ class LockedFileMapper extends ClassMapperBase<LockedFile> {
     _$url,
     opt: true,
   );
+  static String? _$sha1(LockedFile v) => v.sha1;
+  static const Field<LockedFile, String> _f$sha1 = Field(
+    'sha1',
+    _$sha1,
+    opt: true,
+  );
   static String? _$sha512(LockedFile v) => v.sha512;
   static const Field<LockedFile, String> _f$sha512 = Field(
     'sha512',
@@ -97,6 +103,7 @@ class LockedFileMapper extends ClassMapperBase<LockedFile> {
   final MappableFields<LockedFile> fields = const {
     #name: _f$name,
     #url: _f$url,
+    #sha1: _f$sha1,
     #sha512: _f$sha512,
     #size: _f$size,
   };
@@ -105,6 +112,7 @@ class LockedFileMapper extends ClassMapperBase<LockedFile> {
     return LockedFile(
       name: data.dec(_f$name),
       url: data.dec(_f$url),
+      sha1: data.dec(_f$sha1),
       sha512: data.dec(_f$sha512),
       size: data.dec(_f$size),
     );
@@ -170,7 +178,7 @@ extension LockedFileValueCopy<$R, $Out>
 
 abstract class LockedFileCopyWith<$R, $In extends LockedFile, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
-  $R call({String? name, String? url, String? sha512, int? size});
+  $R call({String? name, String? url, String? sha1, String? sha512, int? size});
   LockedFileCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
 
@@ -186,12 +194,14 @@ class _LockedFileCopyWithImpl<$R, $Out>
   $R call({
     String? name,
     Object? url = $none,
+    Object? sha1 = $none,
     Object? sha512 = $none,
     Object? size = $none,
   }) => $apply(
     FieldCopyWithData({
       if (name != null) #name: name,
       if (url != $none) #url: url,
+      if (sha1 != $none) #sha1: sha1,
       if (sha512 != $none) #sha512: sha512,
       if (size != $none) #size: size,
     }),
@@ -200,6 +210,7 @@ class _LockedFileCopyWithImpl<$R, $Out>
   LockedFile $make(CopyWithData data) => LockedFile(
     name: data.get(#name, or: $value.name),
     url: data.get(#url, or: $value.url),
+    sha1: data.get(#sha1, or: $value.sha1),
     sha512: data.get(#sha512, or: $value.sha512),
     size: data.get(#size, or: $value.size),
   );

@@ -80,12 +80,14 @@ class BuildCommand extends GitrinthCommand {
     } else {
       final api = read(modrinthApiProvider);
       final downloader = read(downloaderProvider);
+      final loaderResolver = read(loaderVersionResolverProvider);
       final result = await resolveAndSync(
         io: io,
         console: console,
         api: api,
         cache: cache,
         downloader: downloader,
+        loaderResolver: loaderResolver,
         verbose: gitrinthRunner.verbose,
       );
       if (result.exitCode != exitOk) return result.exitCode;

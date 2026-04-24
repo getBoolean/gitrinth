@@ -182,6 +182,7 @@ Map<String, LockedEntry> _parseLockSection(
       file = LockedFile(
         name: (fm['name'] as String?) ?? '',
         url: fm['url'] as String?,
+        sha1: (fm['sha1'] as String?)?.toLowerCase(),
         sha512: (fm['sha512'] as String?)?.toLowerCase(),
         size: fm['size'] is int
             ? fm['size'] as int
@@ -392,7 +393,7 @@ LoaderConfig _parseLoaderConfig(dynamic raw, String filePath) {
   if (modsRaw == null) {
     throw _err('$filePath: loader.mods is required (e.g. `mods: neoforge`).');
   }
-  final mods = _parseModLoader(modsRaw, filePath);
+  final modsTag = _parseModLoader(modsRaw, filePath);
 
   ShaderLoader? shaders;
   if (map.containsKey('shaders')) {
@@ -406,24 +407,59 @@ LoaderConfig _parseLoaderConfig(dynamic raw, String filePath) {
     );
   }
 
-  return LoaderConfig(mods: mods, shaders: shaders);
+  return LoaderConfig(
+    mods: modsTag.loader,
+    modsVersion: modsTag.version,
+    shaders: shaders,
+  );
 }
 
-Loader _parseModLoader(dynamic raw, String filePath) {
-  final lower = raw.toString().toLowerCase();
-  switch (lower) {
+class _ModLoaderTag {
+  final Loader loader;
+  final String version;
+  const _ModLoaderTag(this.loader, this.version);
+}
+
+/// Parses a `loader.mods` value of the form `<name>` or `<name>:<tag>`.
+/// Bare `<name>` defaults the tag to `stable`. The tag is `stable`,
+/// `latest`, or a concrete version string (validated against Modrinth at
+/// resolve time, not here).
+_ModLoaderTag _parseModLoader(dynamic raw, String filePath) {
+  final asString = raw.toString();
+  final colon = asString.indexOf(':');
+  final namePart = (colon < 0 ? asString : asString.substring(0, colon))
+      .toLowerCase();
+  final tagPart = colon < 0 ? 'stable' : asString.substring(colon + 1);
+  if (tagPart.isEmpty) {
+    throw _err(
+      '$filePath: loader.mods "$asString" has an empty version tag '
+      '(use `<loader>` or `<loader>:<version|stable|latest>`).',
+    );
+  }
+  if (tagPart.contains(':')) {
+    throw _err(
+      '$filePath: loader.mods "$asString" has more than one `:` '
+      '(expected `<loader>` or `<loader>:<version|stable|latest>`).',
+    );
+  }
+  Loader loader;
+  switch (namePart) {
     case 'forge':
-      return Loader.forge;
+      loader = Loader.forge;
+      break;
     case 'fabric':
-      return Loader.fabric;
+      loader = Loader.fabric;
+      break;
     case 'neoforge':
-      return Loader.neoforge;
+      loader = Loader.neoforge;
+      break;
     default:
       throw _err(
-        '$filePath: loader.mods "$raw" is not supported in MVP '
+        '$filePath: loader.mods "$namePart" is not supported in MVP '
         '(allowed: forge, fabric, neoforge).',
       );
   }
+  return _ModLoaderTag(loader, tagPart);
 }
 
 ShaderLoader _parseShaderLoader(dynamic raw, String filePath) {

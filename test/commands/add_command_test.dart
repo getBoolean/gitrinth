@@ -50,7 +50,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   jei: ^1.0.0
@@ -93,7 +93,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -120,7 +120,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -152,7 +152,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -187,7 +187,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -220,7 +220,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -245,7 +245,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   sodium: release
@@ -276,7 +276,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''';
     await writeManifest(before);
@@ -303,7 +303,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -338,7 +338,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
 
@@ -369,7 +369,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
       final out = await runCli([
@@ -399,7 +399,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
       final out = await runCli([
@@ -422,7 +422,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
       final out = await runCli([
@@ -450,7 +450,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 mods:
   # comment above jei
@@ -485,7 +485,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader:
-  mods: neoforge
+  mods: "neoforge:21.1.50"
 mc-version: 1.21.1
 ''');
     final out = await runCli([

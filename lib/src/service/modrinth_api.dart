@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
+import '../model/modrinth/game_version.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart';
 
@@ -25,6 +26,13 @@ abstract class ModrinthApi {
     @Query('loaders') String? loadersJson,
     @Query('game_versions') String? gameVersionsJson,
   });
+
+  /// Lists every Minecraft version Modrinth knows about, newest first.
+  /// Used at resolve time to validate `mc-version` in `mods.yaml` against
+  /// upstream — once, when the mc-version differs from what `mods.lock`
+  /// already records.
+  @GET('/tag/game_version')
+  Future<List<GameVersion>> getGameVersions();
 }
 
 String encodeFilterArray(List<String> values) => jsonEncode(values);

@@ -21,7 +21,7 @@ Commands:
 - [x] `remove` — fully implemented.
 - [x] `build` — implemented; server-binary auto-download deferred.
 - [x] `clean` — fully implemented.
-- [ ] `pack` — stub; exits `1`.
+- [x] `pack` — implemented; emits a separate client + server `.mrpack` by default (use `--combined` for a single artifact); routes url/path artifacts into `overrides/` / `client-overrides/` / `server-overrides/` by env; `--publishable` refuses url/path mods (other sections still allowed). Recommended server installer: [mrpack-install](https://github.com/nothub/mrpack-install).
 
 Supporting work:
 
@@ -29,7 +29,7 @@ Supporting work:
 - [x] Modrinth API client (version lookup; project-validity check still deferred).
 - [x] Resolver and `mods.lock` format.
 - [x] Artifact cache (platform cache root, hash-verified download).
-- [ ] `.mrpack` archive builder.
+- [x] `.mrpack` archive builder.
 
 Deferred work:
 
@@ -40,6 +40,7 @@ Deferred work:
 - [ ] Commands deferred post-MVP: `upgrade`, `downgrade`, `outdated`, `deps`, `unpack`, `cache`.
 - [ ] Modrinth Pack support loose files override, such as configs
 - [ ] `build` auto-downloads the matching server binary for `loader.mods` + `mc-version` (users currently supply it manually).
+- [ ] Automatic `:stable` / `:latest` loader-version resolution for `forge` and `neoforge` (Fabric is implemented via `meta.fabricmc.net`; users must specify a concrete tag like `forge:52.0.45` or `neoforge:21.1.50` until the corresponding upstream APIs are wired up).
 
 ## Release channels
 
@@ -138,13 +139,26 @@ gitrinth clean [--output <path>]
 
 ### [`pack`](cli.md#pack)
 
-Produce a `.mrpack` artifact.
+Produce Modrinth `.mrpack` artifacts. By default emits a client pack at
+`./build/<slug>-<version>.mrpack` plus a server pack at
+`./build/<slug>-<version>-server.mrpack`, partitioned by each entry's
+[`environment`](#release-channels). Install the server pack with
+[mrpack-install](https://github.com/nothub/mrpack-install).
 
 ```text
-gitrinth pack [--output <path>]
+gitrinth pack [--output <path>] [--combined] [--publishable]
 ```
 
-- `--output <path>`, `-o`
+- `--output <path>`, `-o` — base path; the server pack is derived by
+  inserting `-server` before the `.mrpack` extension.
+- `--combined` — produce a single `.mrpack` containing both client and
+  server files (the older single-artifact behavior).
+- `--publishable` — refuse to pack if any **mod** uses a `url:` or
+  `path:` source. Resource packs, data packs, and shaders may still
+  bundle non-Modrinth artifacts (Modrinth's permission policy targets
+  executable code only). Without this flag, url/path artifacts are
+  packed as loose files under `overrides/<subdir>/<filename>` (routed
+  to `client-overrides/` / `server-overrides/` by env).
 
 ## Global options
 

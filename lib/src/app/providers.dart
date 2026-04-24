@@ -5,6 +5,7 @@ import '../service/cache.dart';
 import '../service/cache_root.dart';
 import '../service/console.dart';
 import '../service/downloader.dart';
+import '../service/loader_version_resolver.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_error_interceptor.dart';
 import '../service/modrinth_url.dart';
@@ -33,4 +34,8 @@ final cacheProvider = Provider<GitrinthCache>(
 final downloaderProvider = Provider<Downloader>(
   (ref) =>
       Downloader(dio: ref.read(dioProvider), cache: ref.read(cacheProvider)),
+);
+
+final loaderVersionResolverProvider = Provider<LoaderVersionResolver>(
+  (ref) => LoaderVersionResolver(dio: ref.read(dioProvider)),
 );

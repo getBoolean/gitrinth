@@ -33,7 +33,7 @@ loader:
   # support lands. resource_packs and data_packs each have a single
   # valid Modrinth loader (minecraft, datapack) and are never declared
   # here.
-  mods: neoforge # Enum: forge, fabric, neoforge (MVP). sponge/bukkit/folia/paper/spigot deferred.
+  mods: neoforge:21.1.228 # Enum: forge, fabric, neoforge (MVP). sponge/bukkit/folia/paper/spigot deferred.
   shaders: iris # Enum: iris, optifine, canvas, vanilla.
 
 mc-version: 1.21.1 # Exact version only — no ranges.

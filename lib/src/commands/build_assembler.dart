@@ -74,13 +74,15 @@ String resolveSourcePath(
           'lockfile entry "${entry.slug}" is missing url source fields.',
         );
       }
-      if (file.sha512 == null) {
-        throw ValidationError(
-          'lockfile entry "${entry.slug}" has a url source with no sha512; '
-          're-run `gitrinth get` to repopulate.',
-        );
+      // When sha512 is known, the artifact lives at its sha-addressed
+      // path; otherwise the downloader stashed it under `_unverified`
+      // keyed by slug (same fallback resolve_and_sync uses). Mirroring
+      // that here avoids forcing callers to re-run `get` just to
+      // populate a hash they may never need.
+      if (file.sha512 != null) {
+        return cache.urlPath(sha512: file.sha512!, filename: file.name);
       }
-      return cache.urlPath(sha512: file.sha512!, filename: file.name);
+      return p.join(cache.urlRoot, '_unverified', entry.slug, file.name);
     case LockedSourceKind.path:
       final raw = entry.path;
       if (raw == null) {

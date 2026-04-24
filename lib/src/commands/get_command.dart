@@ -41,6 +41,7 @@ class GetCommand extends GitrinthCommand {
     final api = read(modrinthApiProvider);
     final cache = read(cacheProvider);
     final downloader = read(downloaderProvider);
+    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
     final io = ManifestIo();
@@ -50,6 +51,7 @@ class GetCommand extends GitrinthCommand {
       api: api,
       cache: cache,
       downloader: downloader,
+      loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
       dryRun: dryRun,
       enforce: enforce,

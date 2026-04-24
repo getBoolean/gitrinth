@@ -23,10 +23,23 @@ enum Channel { release, beta, alpha }
 @MappableClass()
 class LoaderConfig with LoaderConfigMappable {
   final Loader mods;
+
+  /// Loader-version tag. In `mods.yaml` this is the user-supplied tag —
+  /// `"stable"`, `"latest"`, or a concrete version like `"0.17.3"` (default
+  /// `"stable"` when the user omits the `:tag` suffix). In `mods.lock` this
+  /// is the resolved concrete version. The resolver compares the two: a
+  /// concrete tag in the yaml that already matches the lock skips the
+  /// loader-version network call.
+  final String modsVersion;
   final ShaderLoader? shaders;
   final PluginLoader? plugins;
 
-  const LoaderConfig({required this.mods, this.shaders, this.plugins});
+  const LoaderConfig({
+    required this.mods,
+    this.modsVersion = 'stable',
+    this.shaders,
+    this.plugins,
+  });
 }
 
 @MappableClass(discriminatorKey: 'kind')
