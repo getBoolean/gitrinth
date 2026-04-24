@@ -17,14 +17,14 @@ Commands:
 
 - [x] `create` — fully implemented.
 - [x] `get` — fully implemented.
-- [ ] `add` — stub; exits `1`.
-- [ ] `remove` — stub; exits `1`.
+- [x] `add` — fully implemented.
+- [x] `remove` — fully implemented.
 - [ ] `build` — stub; exits `1`.
 - [ ] `pack` — stub; exits `1`.
 
 Supporting work:
 
-- [ ] `mods.yaml` read/write — read done; write (`add`/`remove`) still needs `yaml_edit`.
+- [x] `mods.yaml` read/write — done.
 - [x] Modrinth API client (version lookup; project-validity check still deferred).
 - [x] Resolver and `mods.lock` format.
 - [x] Artifact cache (platform cache root, hash-verified download).
