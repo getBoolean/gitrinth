@@ -8,6 +8,22 @@ This document specifies the CurseForge bridge feature. See
 [`todo.md`](todo.md) for the overall planned-improvements index; the
 bridge lives there as a single checklist entry that points here.
 
+## Status
+
+Six distinct top-level tasks. The source adapter is foundational;
+the rest depend on it but can be implemented in parallel.
+
+- [ ] [Fetching mods from CurseForge](#fetching-mods-from-curseforge) — CurseForge API client, `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction, default-both resolution, `cf:<slug>` short-form sugar.
+- [ ] [`add` command cross-platform behavior](#add-command-cross-platform-behavior) — entry-write matrix and `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags.
+- [ ] [Cross-platform hash verification](#cross-platform-hash-verification) — SHA1 comparison, older-version scan bounded by `hash-scan-depth`, `allow-hash-mismatch` per-entry override.
+- [ ] [Search fallback](#search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, `no-cross-platform-search` / `--no-search` opt-outs.
+- [ ] [Transitive dependencies and deduplication](#transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
+- [ ] [Publishing to CurseForge](#publishing-to-curseforge) — `publish_to` extension, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`.
+
+The [Mixing CF and Modrinth in one pack](#mixing-cf-and-modrinth-in-one-pack)
+section describes the resulting lockfile shape — it's not a task on
+its own, but a consolidated view of what the six above produce.
+
 ## Fetching mods from CurseForge
 
 Every entry resolves on **both Modrinth and CurseForge by default**.
