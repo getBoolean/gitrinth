@@ -222,6 +222,40 @@ and the same channel floor (`release`/`beta`/`alpha`) across
 platforms. Downloads hit each platform's CDN. The CF API requires a
 key, managed via [`token` add curseforge.com](#token-command).
 
+### `add` command cross-platform behavior
+
+`gitrinth add <slug>` resolves on both platforms by default and
+writes the minimal entry that captures what it found. The resolved
+form depends on which platforms have the mod and whether hashes
+align:
+
+| Situation                                      | Entry written                         | Notice                                                                                            |
+|------------------------------------------------|---------------------------------------|---------------------------------------------------------------------------------------------------|
+| Both resolve, hashes match                     | Short form (`slug: ^x.y.z`)           | silent                                                                                            |
+| Both resolve, scan finds an older matching pair| Short form (`slug: ^x.y.z`)           | prints chosen version and each platform's latest                                                  |
+| Both resolve, scan exhausts without a match    | *(nothing written)*                   | fails with remediations + `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags |
+| Only Modrinth has the mod                      | Long form with `sources: [modrinth]`  | prints one-sided resolution                                                                       |
+| Only CurseForge has the mod                    | Long form with `sources: [curseforge]`| prints one-sided resolution                                                                       |
+| Neither platform has the mod                   | *(nothing written)*                   | fails with not-found error                                                                        |
+
+Long-form restrictions (`sources: [modrinth]` or `sources:
+[curseforge]`) are only written when the resolver confirmed one
+platform is unavailable at add time. This saves future `get` calls
+from re-querying the missing platform and makes one-sided entries
+visible in the manifest.
+
+`add` CLI flags:
+
+| Flag                    | Effect                                                                                           |
+|-------------------------|--------------------------------------------------------------------------------------------------|
+| `--modrinth-only`       | Force `sources: [modrinth]` even when CF has the mod.                                            |
+| `--curseforge-only`     | Force `sources: [curseforge]` even when Modrinth has the mod.                                    |
+| `--allow-hash-mismatch` | Accept divergent hashes on both platforms; writes `allow-hash-mismatch: true` on the entry.      |
+
+`cf:<slug>` short-form sugar (`gitrinth add cf:applied-energistics-2`)
+implies `--curseforge-only` and writes a single-platform entry
+without querying Modrinth.
+
 ### Cross-platform hash verification
 
 When an entry resolves on both platforms, gitrinth fetches each
