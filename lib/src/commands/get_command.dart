@@ -12,10 +12,12 @@ import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/overrides_merger.dart';
 import '../model/modrinth/project.dart';
+import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/resolver.dart';
 import '../model/resolver/result.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth_api.dart';
+import '../service/solve_report.dart';
 import '../version.dart';
 
 class GetCommand extends GitrinthCommand {
@@ -54,6 +56,7 @@ class GetCommand extends GitrinthCommand {
     final api = read(modrinthApiProvider);
     final cache = read(cacheProvider);
     final downloader = read(downloaderProvider);
+    final reporter = SolveReporter(console);
 
     final io = ManifestIo();
     final manifest = io.readModsYaml();
@@ -88,17 +91,24 @@ class GetCommand extends GitrinthCommand {
       }
     }
 
+    // Captured list of loader+mc-compatible Modrinth versions per slug,
+    // populated as the resolver asks for them. Reused after resolution to
+    // report a "(X available)" hint when the chosen version isn't the newest.
+    final versionsPerSlug = <String, List<modrinth.Version>>{};
+
     final resolver = Resolver(
       listVersions: (slug) async {
         try {
           final section = slugToSection[slug] ?? Section.mods;
           final loaderFilter = filterForSection(section);
-          return await api.listVersions(
+          final list = await api.listVersions(
             slug,
             loadersJson:
                 loaderFilter == null ? null : encodeFilterArray(loaderFilter),
             gameVersionsJson: encodeFilterArray([mc]),
           );
+          versionsPerSlug[slug] = list;
+          return list;
         } on Object catch (e) {
           // ModrinthErrorInterceptor wraps HTTP failures in a DioException
           // whose .error is a GitrinthException with a user-friendly message
@@ -122,16 +132,17 @@ class GetCommand extends GitrinthCommand {
       },
     );
 
+    console.info('Resolving dependencies...');
     console.detail(
       'Resolving with loader.mods=${loaderConfig.mods.name} mc=$mc...',
     );
     final resolution = await resolver.resolve(merged, existingLock: existingLock);
 
     final newLock = _buildLock(merged, resolution);
-    final diff = _diffLocks(existingLock, newLock);
+    final diff = diffLocks(existingLock, newLock);
 
     if (gitrinthRunner.verbose) {
-      _printDiff(diff);
+      reporter.printSimpleDiff(diff, verbose: gitrinthRunner.verbose);
     }
 
     if (enforce && diff.isNotEmpty) {
@@ -142,7 +153,7 @@ class GetCommand extends GitrinthCommand {
     }
 
     if (dryRun) {
-      _printDiff(diff, force: true);
+      reporter.printSimpleDiff(diff, verbose: gitrinthRunner.verbose, force: true);
       if (diff.isNotEmpty) {
         return exitValidationError;
       }
@@ -152,72 +163,109 @@ class GetCommand extends GitrinthCommand {
     final newLockText = emitModsLock(newLock);
     io.writeModsLock(newLockText);
 
+    // `merged.overrides` is the union of in-file `overrides:` and the
+    // standalone mods_overrides.yaml file — i.e., every slug whose source or
+    // version pin was redirected away from its section declaration.
+    reporter.printReport(
+      newLock: newLock,
+      diff: diff,
+      versionsPerSlug: versionsPerSlug,
+      overriddenSlugs: merged.overrides.keys.toSet(),
+    );
+
+    // Second pass — actually fetch/validate artifacts. Errors are collected
+    // rather than thrown so a single run surfaces every problem; we throw
+    // the aggregated ValidationError after the loop finishes.
     int downloaded = 0;
     int hits = 0;
+    final fetchErrors = <String>[];
     for (final section in Section.values) {
       final sectionMap = newLock.sectionFor(section);
       for (final entry in sectionMap.entries) {
         final locked = entry.value;
-        switch (locked.sourceKind) {
-          case LockedSourceKind.modrinth:
-            final file = locked.file;
-            if (file == null || file.url == null) continue;
-            final dest = cache.modrinthPath(
-              projectId: locked.projectId!,
-              versionId: locked.versionId!,
-              filename: file.name,
-            );
-            final existed = File(dest).existsSync();
-            await downloader.downloadTo(
-              url: file.url!,
-              destinationPath: dest,
-              expectedSha512: file.sha512,
-            );
-            if (existed) {
-              hits++;
-              console.detail('cache hit:  ${locked.slug} -> $dest');
-            } else {
-              downloaded++;
-              console.detail('downloaded: ${locked.slug} -> $dest');
-            }
-            break;
-          case LockedSourceKind.url:
-            final file = locked.file;
-            if (file == null || file.url == null) continue;
-            // url-source caching is keyed by sha512; if we don't have one
-            // (first download) we use a slug-stable filename under the
-            // unverified prefix.
-            final dest = file.sha512 != null
-                ? cache.urlPath(sha512: file.sha512!, filename: file.name)
-                : p.join(cache.urlRoot, '_unverified', locked.slug, file.name);
-            final existed = File(dest).existsSync();
-            await downloader.downloadTo(
-              url: file.url!,
-              destinationPath: dest,
-              expectedSha512: file.sha512,
-            );
-            if (existed) {
-              hits++;
-            } else {
-              downloaded++;
-            }
-            break;
-          case LockedSourceKind.path:
-            // Nothing to fetch.
-            break;
+        try {
+          switch (locked.sourceKind) {
+            case LockedSourceKind.modrinth:
+              final file = locked.file;
+              if (file == null || file.url == null) continue;
+              final dest = cache.modrinthPath(
+                projectId: locked.projectId!,
+                versionId: locked.versionId!,
+                filename: file.name,
+              );
+              final existed = File(dest).existsSync();
+              await downloader.downloadTo(
+                url: file.url!,
+                destinationPath: dest,
+                expectedSha512: file.sha512,
+              );
+              if (existed) {
+                hits++;
+                console.detail('cache hit:  ${locked.slug} -> $dest');
+              } else {
+                downloaded++;
+                console.detail('downloaded: ${locked.slug} -> $dest');
+              }
+              break;
+            case LockedSourceKind.url:
+              final file = locked.file;
+              if (file == null || file.url == null) continue;
+              // url-source caching is keyed by sha512; if we don't have one
+              // (first download) we use a slug-stable filename under the
+              // unverified prefix.
+              final dest = file.sha512 != null
+                  ? cache.urlPath(sha512: file.sha512!, filename: file.name)
+                  : p.join(cache.urlRoot, '_unverified', locked.slug, file.name);
+              final existed = File(dest).existsSync();
+              await downloader.downloadTo(
+                url: file.url!,
+                destinationPath: dest,
+                expectedSha512: file.sha512,
+              );
+              if (existed) {
+                hits++;
+              } else {
+                downloaded++;
+              }
+              break;
+            case LockedSourceKind.path:
+              // Nothing to fetch, but the file must exist — otherwise the
+              // modpack would build/publish with a phantom mod. Paths are
+              // resolved relative to the pack directory (where mods.yaml
+              // lives) so the manifest stays portable.
+              final rawPath = locked.path!;
+              final resolved = p.isAbsolute(rawPath)
+                  ? rawPath
+                  : p.normalize(p.join(io.directory.path, rawPath));
+              if (FileSystemEntity.typeSync(resolved) ==
+                  FileSystemEntityType.notFound) {
+                throw ValidationError(
+                  'path source for "${locked.slug}" points to a missing file: '
+                  '$rawPath (looked in $resolved)',
+                );
+              }
+              break;
+          }
+        } on GitrinthException catch (e) {
+          fetchErrors.add(e.message);
         }
       }
     }
+    if (fetchErrors.isNotEmpty) {
+      throw ValidationError(
+        fetchErrors.length == 1
+            ? fetchErrors.first
+            : 'failed to fetch ${fetchErrors.length} dependencies:\n'
+                '${fetchErrors.map((e) => '  - $e').join('\n')}',
+      );
+    }
 
-    final summary = StringBuffer()
-      ..write('Locked ')
-      ..write(diff.where((d) => d.kind != _DiffKind.unchanged).length)
-      ..write(' change(s); ')
-      ..write(downloaded)
-      ..write(' downloaded, ')
-      ..write(hits)
-      ..write(' cache hit(s).');
-    console.info(summary.toString());
+    final changeCount = diff.where((d) => d.kind != DiffKind.unchanged).length;
+    final outdated = countOutdated(newLock, versionsPerSlug);
+    reporter.printSummary(changeCount: changeCount, outdated: outdated);
+    console.detail(
+      'Locked $changeCount change(s); $downloaded downloaded, $hits cache hit(s).',
+    );
 
     return exitOk;
   }
@@ -303,75 +351,4 @@ class GetCommand extends GitrinthCommand {
     if (uri.pathSegments.isEmpty) return 'artifact.jar';
     return uri.pathSegments.last;
   }
-
-  List<_LockDiff> _diffLocks(ModsLock? oldLock, ModsLock newLock) {
-    final out = <_LockDiff>[];
-    for (final section in Section.values) {
-      final newMap = newLock.sectionFor(section);
-      final oldMap = oldLock?.sectionFor(section) ?? const <String, LockedEntry>{};
-      final allSlugs = {...oldMap.keys, ...newMap.keys}.toList()..sort();
-      for (final slug in allSlugs) {
-        final oldEntry = oldMap[slug];
-        final newEntry = newMap[slug];
-        if (oldEntry == null && newEntry != null) {
-          out.add(_LockDiff(_DiffKind.added, section, slug,
-              before: null, after: newEntry));
-        } else if (oldEntry != null && newEntry == null) {
-          out.add(_LockDiff(_DiffKind.removed, section, slug,
-              before: oldEntry, after: null));
-        } else if (oldEntry != null && newEntry != null) {
-          if (!_equalLocked(oldEntry, newEntry)) {
-            out.add(_LockDiff(_DiffKind.updated, section, slug,
-                before: oldEntry, after: newEntry));
-          }
-        }
-      }
-    }
-    return out;
-  }
-
-  bool _equalLocked(LockedEntry a, LockedEntry b) {
-    return a.sourceKind == b.sourceKind &&
-        a.version == b.version &&
-        a.projectId == b.projectId &&
-        a.versionId == b.versionId &&
-        a.path == b.path &&
-        a.env == b.env &&
-        a.auto == b.auto &&
-        a.file?.name == b.file?.name &&
-        a.file?.url == b.file?.url &&
-        a.file?.sha512 == b.file?.sha512 &&
-        a.file?.size == b.file?.size;
-  }
-
-  void _printDiff(List<_LockDiff> diff, {bool force = false}) {
-    if (!force && !gitrinthRunner.verbose) return;
-    if (diff.isEmpty) {
-      console.info('mods.lock unchanged.');
-      return;
-    }
-    for (final d in diff) {
-      final symbol = switch (d.kind) {
-        _DiffKind.added => '+',
-        _DiffKind.removed => '-',
-        _DiffKind.updated => '~',
-        _DiffKind.unchanged => ' ',
-      };
-      final beforeV = d.before?.version ?? d.before?.path ?? '(none)';
-      final afterV = d.after?.version ?? d.after?.path ?? '(none)';
-      console.info('$symbol ${d.section.name}/${d.slug}: $beforeV -> $afterV');
-    }
-  }
-}
-
-enum _DiffKind { added, removed, updated, unchanged }
-
-class _LockDiff {
-  final _DiffKind kind;
-  final Section section;
-  final String slug;
-  final LockedEntry? before;
-  final LockedEntry? after;
-  const _LockDiff(this.kind, this.section, this.slug,
-      {this.before, this.after});
 }

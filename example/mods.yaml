@@ -47,6 +47,8 @@ mods:
   create-aeronautics: ^1.1.0+mc1.21.1
   sable: ^1.1.1+mc1.21.1
   jei: ^19.27.0.340
+  sodium: release
+  ferrite-core: release
   # Allow release and beta versions (not alpha).
   distanthorizons: beta
   iris:
@@ -69,8 +71,8 @@ shaders:
 plugins:
 
 overrides:
-  jei:
-    version: 19.27.0.340
-    # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.
-    # url: https://example.com/path/to/jei.jar
-    # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.
+  # jei:
+  #   version: 19.27.0.340
+  #   # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.
+  #   # url: https://example.com/path/to/jei.jar
+  #   # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.

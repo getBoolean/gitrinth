@@ -340,7 +340,11 @@ mods:
     expect(first.exitCode, 0, reason: first.stderr);
     final second = await runCli(['-C', packDir.path, 'get'], environment: env);
     expect(second.exitCode, 0, reason: second.stderr);
-    expect(second.stdout, contains('cache hit'));
+    // A clean rerun where nothing changed and nothing is outdated should
+    // skip the per-package listing entirely and end on `Got dependencies!`.
+    expect(second.stdout, contains('Got dependencies!'));
+    expect(second.stdout, isNot(contains('Downloading packages...')));
+    expect(second.stdout, isNot(contains('Changed')));
   });
 
   test('shader slug resolves with loader.shaders and iris-tagged version', () async {
@@ -518,5 +522,78 @@ data_packs:
     expect(dpQuery, isNotNull);
     expect(dpQuery!.containsKey('loaders'), isFalse,
         reason: 'data_packs requests must omit the loaders filter');
+  });
+
+  test('missing path sources: all errors reported together, no early exit',
+      () async {
+    // Two path sources to different missing files, plus a real modrinth mod.
+    // If the fetch loop throws on the first missing path, the second one
+    // won't be reported — the user has to run twice to discover every bad
+    // path. The contract is: finish the loop, collect every error, then
+    // surface them all in one exit.
+    final jarBytes = Uint8List.fromList([1, 2, 3, 4]);
+    final sha = modrinth.addArtifact('jei', 'jei-1.0.0.jar', jarBytes);
+    modrinth.projects['jei'] = {
+      'id': 'JEI_ID',
+      'slug': 'jei',
+      'title': 'JEI',
+      'project_type': 'mod',
+    };
+    modrinth.versions['jei'] = [
+      {
+        'id': 'JEI_V1',
+        'project_id': 'JEI_ID',
+        'version_number': '1.0.0',
+        'files': [
+          {
+            'url': '${modrinth.downloadBaseUrl}/jei/jei-1.0.0.jar',
+            'filename': 'jei-1.0.0.jar',
+            'hashes': {'sha512': sha},
+            'size': jarBytes.length,
+            'primary': true,
+          }
+        ],
+        'dependencies': [],
+        'loaders': ['neoforge'],
+        'game_versions': ['1.21.1'],
+      }
+    ];
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  jei: ^1.0.0
+  local-a:
+    path: ./mods/local-a.jar
+  local-b:
+    path: ./mods/local-b.jar
+''');
+
+    final out = await runCli(
+      ['-C', packDir.path, 'get'],
+      environment: {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      },
+    );
+    expect(out.exitCode, isNot(0), reason: out.stdout);
+    expect(out.stderr, contains('local-a'));
+    expect(out.stderr, contains('local-b'),
+        reason: 'second failing path must still surface; the loop should not '
+            'bail on the first error');
+    // The modrinth download still has to have happened — proving the error
+    // surfaced AFTER the loop completed rather than short-circuiting it.
+    expect(
+      File(p.join(cacheDir.path, 'modrinth', 'JEI_ID', 'JEI_V1', 'jei-1.0.0.jar'))
+          .existsSync(),
+      isTrue,
+      reason: 'jei should have downloaded before errors were reported',
+    );
   });
 }
