@@ -9,19 +9,21 @@ post-MVP.
 
 Scaffolding:
 
-- [x] `CommandRunner` with all seven MVP commands registered.
+- [ ] `CommandRunner` with all nine MVP commands registered (seven done; `upgrade` and `cache` pending).
 - [x] Global options (`-h`, `--help`, `--version`, `-C`, `-v`).
-- [x] Exit-code mapping (`0`/`1`/`2`/`64`) via `GitrinthException` hierarchy.
+- [ ] Exit-code mapping (`0`/`1`/`2`/`5`/`64`) via `GitrinthException` hierarchy. Code `5` lands with `cache`.
 
 Commands:
 
 - [x] `create` — fully implemented.
 - [x] `get` — fully implemented.
+- [ ] `upgrade` — planned.
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
 - [x] `build` — implemented; server-binary auto-download deferred.
 - [x] `clean` — fully implemented.
 - [x] `pack` — implemented; emits a separate client + server `.mrpack` by default (use `--combined` for a single artifact); routes url/path artifacts into `overrides/` / `client-overrides/` / `server-overrides/` by env; `--publishable` refuses url/path mods (other sections still allowed). Recommended server installer: [mrpack-install](https://github.com/nothub/mrpack-install).
+- [ ] `cache` — planned.
 
 Supporting work:
 
@@ -74,6 +76,20 @@ gitrinth get [--dry-run] [--enforce-lockfile]
 
 - `--dry-run`
 - `--enforce-lockfile`
+
+### [`upgrade`](cli.md#upgrade)
+
+Re-resolve to the newest version allowed by each constraint, updating
+`mods.lock`.
+
+```text
+gitrinth upgrade [<slug>...] [--major-versions] [--dry-run]
+```
+
+- `<slug>...` — upgrade only these entries (default: all).
+- `--major-versions` — ignore caret boundaries and pick the absolute
+  newest version; rewrites the constraint in `mods.yaml`.
+- `--dry-run`
 
 ### [`add`](cli.md#add)
 
@@ -149,6 +165,26 @@ gitrinth pack [--output <path>] [--combined] [--publishable]
   packed as loose files under `overrides/<subdir>/<filename>` (routed
   to `client-overrides/` / `server-overrides/` by env).
 
+### [`cache`](cli.md#cache)
+
+Inspect, clean, or repair the local cache.
+
+```text
+gitrinth cache list [--path]
+gitrinth cache clean [--all | --older-than <duration>]
+gitrinth cache repair
+```
+
+- `cache list` — print cache entries with sizes; `--path` prints only
+  the cache root.
+- `cache clean` — remove cache entries. `--all` clears everything;
+  `--older-than` removes entries untouched for longer than the
+  duration (e.g. `30d`, `6h`).
+- `cache repair` — re-verify every cached file against its Modrinth
+  hash and re-download corrupt entries.
+
+Adds exit code `5` (cache corruption `cache repair` could not fix).
+
 ## Global options
 
 - `-h`, `--help`
@@ -180,4 +216,4 @@ Only the default Modrinth instance, `url:`, and `path:`.
 
 ## Exit codes
 
-- [`0`, `1`, `2`, `64`](cli.md#exit-codes)
+- [`0`, `1`, `2`, `5`, `64`](cli.md#exit-codes)

@@ -32,11 +32,18 @@ Use [`--directory`](#global-options) to target a different modpack.
 
 ### Dependencies
 
-| Command             | Purpose                                                      |
-|---------------------|--------------------------------------------------------------|
-| [`get`](#get)       | Resolve entries, write `mods.lock`, download into the cache. |
-| [`add`](#add)       | Add an entry to a section.                                   |
-| [`remove`](#remove) | Remove an entry.                                             |
+| Command               | Purpose                                                      |
+|-----------------------|--------------------------------------------------------------|
+| [`get`](#get)         | Resolve entries, write `mods.lock`, download into the cache. |
+| [`upgrade`](#upgrade) | Re-resolve to the newest version allowed by each constraint. |
+| [`add`](#add)         | Add an entry to a section.                                   |
+| [`remove`](#remove)   | Remove an entry.                                             |
+
+### Cache
+
+| Command           | Purpose                                    |
+|-------------------|--------------------------------------------|
+| [`cache`](#cache) | Inspect, clean, or repair the local cache. |
 
 ### Modpack-specific
 
@@ -63,7 +70,7 @@ detail.
 Resolve every entry in `mods.yaml`, apply
 [`overrides`](mods-yaml.md#overrides), write `mods.lock`, and download
 artifacts into the cache. Does not upgrade entries already locked to a
-satisfying version.
+satisfying version — use [`upgrade`](#upgrade) for that.
 
 ```text
 gitrinth get [--dry-run] [--enforce-lockfile]
@@ -73,6 +80,21 @@ gitrinth get [--dry-run] [--enforce-lockfile]
 |----------------------|--------------------------------------------------------------------------|
 | `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change.    |
 | `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries. |
+
+### `upgrade`
+
+Re-resolve to the **newest** version allowed by each constraint,
+updating `mods.lock`. Leaves `mods.yaml` untouched unless
+`--major-versions` is passed. Pass slugs to upgrade only those entries.
+
+```text
+gitrinth upgrade [<slug>...] [--major-versions] [--dry-run]
+```
+
+| Option             | Description                                                                                           |
+|--------------------|-------------------------------------------------------------------------------------------------------|
+| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`. |
+| `--dry-run`        | Print changes without writing.                                                                        |
 
 ### `add`
 
@@ -212,7 +234,8 @@ Modpack-specific. Delete every file `gitrinth` generates from
 `mods.yaml`, so the next [`get`](#get) / [`build`](#build) /
 [`pack`](#pack) starts from a clean slate. Leaves `mods.yaml` and
 `mods_overrides.yaml` untouched (they are source-controlled inputs)
-and does not touch the shared artifact cache.
+and does not touch the shared artifact cache — use
+[`cache clean`](#cache) for that.
 
 ```text
 gitrinth clean [--output <path>]
@@ -284,6 +307,23 @@ When `pack` bundles non-Modrinth mod artifacts (default mode) it prints
 a warning enumerating each offending slug and links to
 [Modrinth's permissions guidance](https://support.modrinth.com/en/articles/8797527-obtaining-modpack-permissions).
 
+### `cache`
+
+Inspect, clean, or repair the local cache — downloaded `.jar` files
+and Modrinth metadata snapshots.
+
+```text
+gitrinth cache list [--path]
+gitrinth cache clean [--all | --older-than <duration>]
+gitrinth cache repair
+```
+
+| Subcommand | Description                                                                                                                                |
+|------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `list`     | Print cache entries with sizes. `--path` prints only the cache root.                                                                       |
+| `clean`    | Remove cache entries. `--all` clears everything; `--older-than` removes entries untouched for longer than the duration (e.g. `30d`, `6h`). |
+| `repair`   | Re-verify every cached file against its Modrinth hash and re-download corrupt entries.                                                     |
+
 ## Working with overrides
 
 `mods.yaml` supports an [`overrides`](mods-yaml.md#overrides) section.
@@ -302,6 +342,7 @@ Overrides may also live in a standalone
 | `0`  | Success.                                       |
 | `1`  | Recoverable user-facing error.                 |
 | `2`  | Validation or resolution failed.               |
+| `5`  | Cache corruption `cache repair` could not fix. |
 | `64` | Usage error — matches `sysexits.h` `EX_USAGE`. |
 
 ## Environment variables

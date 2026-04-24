@@ -26,14 +26,12 @@ Deferred MVP work:
 - [ ] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [ ] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [ ] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
-- [ ] [`upgrade` command](#upgrade-command)
 - [ ] [`downgrade` command](#downgrade-command)
 - [ ] [`outdated` command](#outdated-command)
 - [ ] [`deps` command](#deps-command)
 - [ ] [`publish` command](#publish-command)
 - [ ] [`login` / `logout` commands](#login--logout-commands)
 - [ ] [`token` command](#token-command)
-- [ ] [`cache` command](#cache-command)
 - [ ] [`unpack` command](#unpack-command)
 
 ## `accepts-mc` — per-entry MC version tolerance
@@ -160,22 +158,102 @@ Touches: [`lib/src/commands/add.dart`](../lib/src/commands/add.dart),
 
 ## CurseForge bridge
 
-Extend reach to CurseForge-only mods without taking on a second full
-source adapter. Two cheap wins, not a full `cf add` / `cf export` port.
+Support CurseForge as a first-class peer to Modrinth — pack authors
+can source mods from either platform, mix them in one pack, and
+publish to either (or both) as a target.
 
-- **`curseforge import <zip-or-path>`** reads a CurseForge pack manifest,
-  maps entries to Modrinth slugs where possible, and emits a `mods.yaml`
-  skeleton. Unmappable entries fall back to `url:` sources with a
-  warning that they make the pack non-publishable.
-- **Documented `url:` recipe** for CF-only mods in
-  [`mods-yaml.md`](mods-yaml.md): explicit steps for pulling a direct
-  CF CDN URL, with the non-publishable caveat called out.
+### Fetching mods from CurseForge
 
-Out of scope for now: `curseforge add`, `curseforge export`,
-`curseforge detect`, `curseforge open`, live CF API integration.
+Add CurseForge as a source adapter alongside default Modrinth,
+`hosted:`, `url:`, and `path:`. Long-form entries reference CF via a
+new `curseforge:` field (slug or project ID):
 
-Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
-new `lib/src/commands/curseforge.dart`, [`mods-yaml.md`](mods-yaml.md).
+```yaml
+mods:
+  create: ^6.0.10+mc1.21.1          # default Modrinth
+  ae2:
+    curseforge: applied-energistics-2
+    version: ^19.0.15
+  jei:
+    curseforge: 238222              # numeric CF project ID also accepted
+    version: ^19.27.0
+```
+
+Short-form `cf:<slug>` sugar for quick entries and `add`:
+
+```yaml
+mods:
+  ae2: cf:applied-energistics-2@^19.0.15
+```
+
+```text
+gitrinth add cf:applied-energistics-2@^19.0.15
+```
+
+The resolver queries the [CurseForge API](https://docs.curseforge.com)
+for version lists, filters by `loader` + `mc-version` (plus per-entry
+[`accepts-mc`](#accepts-mc--per-entry-mc-version-tolerance)), and
+applies the same channel floor (`release`/`beta`/`alpha`) used for
+Modrinth entries. Downloads hit CF's CDN. The CF API requires an API
+key, managed via [`token` add curseforge.com](#token-command).
+
+### Mixing CF and Modrinth in one pack
+
+Entries from either platform coexist under the same `mods:` /
+`resource_packs:` / `data_packs:` / `shaders:` maps. `mods.lock` tags
+each entry with its source (`modrinth` | `curseforge`) plus the
+platform-specific project/file identifiers needed at distribution
+time. [`deps`](#deps-command) surfaces the source in its output.
+
+Dependency resolution stays platform-scoped: a CF mod's declared deps
+resolve against CF; a Modrinth mod's deps resolve against Modrinth.
+Cross-platform dependencies are not auto-resolved — users declare
+them explicitly in the entry they want.
+
+### Publishing to CurseForge
+
+Extend [`publish_to`](mods-yaml.md#publish_to) to cover CurseForge
+alongside Modrinth, so a pack can target one or both platforms in a
+single [`publish`](#publish-command) run. Exact schema shape TBD —
+candidates: a second `publish_to_curseforge:` field, or promoting
+`publish_to` to an object keyed by platform.
+
+Add a CurseForge manifest emitter to the archive builder — CF packs
+ship as `manifest.json` + `overrides/` inside a `.zip`, distinct from
+Modrinth's `.mrpack`. [`pack`](cli.md#pack) grows a `--curseforge`
+flag to emit the CF artifact instead of (or alongside) the `.mrpack`
+output. [`publish`](#publish-command) becomes platform-aware and
+pushes to every configured target.
+
+Platform caveats:
+
+- Modrinth-published packs may only contain Modrinth-hosted mods; CF
+  mods require explicit author permission and are bundled as loose
+  overrides.
+- CF-published packs may only contain CF-hosted mods; Modrinth mods
+  likewise bundled as overrides with permission.
+- `publish` warns when entries aren't eligible for a configured
+  target. `--publishable` on [`pack`](cli.md#pack) escalates to an
+  error, scoped to the target platform being built.
+
+### Out of scope
+
+- Importing existing CF packs (`gitrinth curseforge import`). Deferred
+  until the Modrinth-side [`unpack`](#unpack-command) command lands —
+  the two should share an archive-reader and `mods.yaml` emitter, so
+  landing them together avoids rework.
+- CurseForge desktop launcher (Overwolf client) integration.
+- Automated CF-to-Modrinth (or vice versa) slug mapping during
+  import. Migrating a pack across platforms is a manual,
+  entry-by-entry operation.
+
+Touches: [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart),
+[`lib/src/service/resolver.dart`](../lib/src/service/resolver.dart),
+new `lib/src/service/curseforge_api.dart`, archive builder,
+[`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
+new `lib/src/commands/curseforge.dart`,
+[`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
+[`mods-yaml.md`](mods-yaml.md), [`cli.md`](cli.md).
 
 ## Modrinth slug-validity check in `create`
 
@@ -269,21 +347,6 @@ upstream APIs.
 Touches: [`lib/src/service/resolver.dart`](../lib/src/service/resolver.dart),
 new upstream-API clients.
 
-## `upgrade` command
-
-Re-resolve to the **newest** version allowed by each constraint,
-updating `mods.lock`. Leaves `mods.yaml` untouched unless
-`--major-versions` is passed. Pass slugs to upgrade only those entries.
-
-```text
-gitrinth upgrade [<slug>...] [--major-versions] [--dry-run]
-```
-
-| Option             | Description                                                                                           |
-|--------------------|-------------------------------------------------------------------------------------------------------|
-| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`. |
-| `--dry-run`        | Print changes without writing.                                                                        |
-
 ## `downgrade` command
 
 Resolve to the **oldest** version compatible with each constraint.
@@ -374,25 +437,6 @@ gitrinth token remove <server-url>
 | `add`      | Prompt for a token and associate it with `<server-url>`. Accepts stdin like `login`. |
 | `list`     | Print every server that currently has a stored token.                                |
 | `remove`   | Clear the token for `<server-url>`.                                                  |
-
-## `cache` command
-
-Inspect, clean, or repair the local cache — downloaded `.jar` files
-and Modrinth metadata snapshots.
-
-```text
-gitrinth cache list [--path]
-gitrinth cache clean [--all | --older-than <duration>]
-gitrinth cache repair
-```
-
-| Subcommand | Description                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `list`     | Print cache entries with sizes. `--path` prints only the cache root.                                                                       |
-| `clean`    | Remove cache entries. `--all` clears everything; `--older-than` removes entries untouched for longer than the duration (e.g. `30d`, `6h`). |
-| `repair`   | Re-verify every cached file against its Modrinth hash and re-download corrupt entries.                                                     |
-
-Adds exit code `5` (cache corruption `cache repair` could not fix).
 
 ## `unpack` command
 
