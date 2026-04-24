@@ -225,11 +225,25 @@ key, managed via [`token` add curseforge.com](#token-command).
 ### Cross-platform hash verification
 
 When an entry resolves on both platforms, gitrinth fetches each
-platform's SHA512 and compares. Matching hashes lock silently;
-**mismatched hashes fail resolution** with an error listing both
-hashes, slugs, and project IDs, and three remediations: accept the
-divergence with `allow-hash-mismatch: true`, restrict to one platform
-via `sources: [...]`, or pin different versions per platform to align
+platform's SHA1 and compares. (SHA1 is the algorithm returned by both
+Modrinth's and CurseForge's file APIs; Modrinth's SHA512 is retained
+for single-platform tamper detection on download.) Matching hashes
+lock silently.
+
+On a mismatch, gitrinth scans older versions on both platforms within
+the entry's version constraint, looking for a hash-matching pair.
+This transparently recovers when one platform's CI ships a newer
+build than the other for a brief window. When a match is found,
+gitrinth locks that pair and prints which version was chosen (it will
+be at or below the newest constraint-satisfying version). The scan
+is bounded by the per-entry `hash-scan-depth:` field (default `10`;
+`0` disables the scan entirely).
+
+If the scan runs out of candidates without finding a match,
+resolution **fails** with an error listing both current hashes,
+slugs, and project IDs, and three remediations: accept the divergence
+with `allow-hash-mismatch: true`, restrict to one platform via
+`sources: [...]`, or pin different versions per platform to align
 builds.
 
 ```yaml
@@ -257,9 +271,11 @@ each platform's own hash, so `allow-hash-mismatch` does not disable
 tamper detection — it only suppresses the cross-platform equality
 check at resolution time.
 
-`allow-hash-mismatch` only makes sense when two or more platform
-sources are declared; setting it alongside `sources: [modrinth]` or
-`sources: [curseforge]` is a schema error.
+`allow-hash-mismatch` and `hash-scan-depth` only make sense when two
+or more platform sources are declared; setting either alongside
+`sources: [modrinth]` or `sources: [curseforge]` is a schema error.
+`allow-hash-mismatch: true` short-circuits the scan — no point
+scanning when the user is explicitly accepting divergence.
 
 ### Mixing CF and Modrinth in one pack
 
