@@ -64,6 +64,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 |---------------------|---------------------------------------------------------------|
 | [`create`](#create) | Scaffold a new modpack directory.                             |
 | [`build`](#build)   | Assemble the client and/or server distribution into `build/`. |
+| [`clean`](#clean)   | Delete generated files: `build/`, `mods.lock`, `.mrpack`.     |
 | [`pack`](#pack)     | Produce a Modrinth `.mrpack` artifact.                        |
 | [`unpack`](#unpack) | Scaffold a modpack directory from an existing `.mrpack`.      |
 
@@ -358,6 +359,32 @@ server-only. Under plugin loaders (`bukkit`, `folia`, `paper`,
 [`resource_packs`](mods-yaml.md#resource_packs) and
 [`data_packs`](mods-yaml.md#data_packs) partition normally. See
 [Plugin loaders](mods-yaml.md#plugin-loaders).
+
+### `clean`
+
+Modpack-specific. Delete every file `gitrinth` generates from
+`mods.yaml`, so the next [`get`](#get) / [`build`](#build) /
+[`pack`](#pack) starts from a clean slate. Leaves `mods.yaml` and
+`mods_overrides.yaml` untouched (they are source-controlled inputs)
+and does not touch the shared artifact cache — use
+[`cache clean`](#cache) for that.
+
+```text
+gitrinth clean [--output <path>]
+```
+
+| Option           | Description                                                                            |
+|------------------|----------------------------------------------------------------------------------------|
+| `--output`, `-o` | Build directory to remove. Defaults to `./build`, matching [`build`](#build)'s output. |
+
+Always removes, when present:
+
+- `./mods.lock`
+- the build output directory (`./build` by default, or `--output`)
+- `./<slug>-<version>.mrpack` — the default [`pack`](#pack) artifact for the current `mods.yaml`
+
+Non-existent paths are a silent no-op. A `pack` artifact written to a
+custom `--output` path must be removed manually.
 
 ### `pack`
 

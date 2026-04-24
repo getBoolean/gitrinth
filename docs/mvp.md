@@ -9,7 +9,7 @@ post-MVP.
 
 Scaffolding:
 
-- [x] `CommandRunner` with all six commands registered.
+- [ ] `CommandRunner` with all seven MVP commands registered (six landed; `clean` pending).
 - [x] Global options (`-h`, `--help`, `--version`, `-C`, `-v`).
 - [x] Exit-code mapping (`0`/`1`/`2`/`64`) via `GitrinthException` hierarchy.
 
@@ -20,6 +20,7 @@ Commands:
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
 - [x] `build` — implemented; server-binary auto-download deferred.
+- [ ] `clean` — pending; not yet scaffolded.
 - [ ] `pack` — stub; exits `1`.
 
 Supporting work:
@@ -123,6 +124,17 @@ gitrinth build [--env <client|server|both>] [--output <path>]
 - `--output <path>`, `-o`
 - `--clean`
 - `--skip-download`
+
+### [`clean`](cli.md#clean)
+
+Delete every file `gitrinth` generates — `mods.lock`, the build
+output directory, and the default `.mrpack` artifact.
+
+```text
+gitrinth clean [--output <path>]
+```
+
+- `--output <path>`, `-o`
 
 ### [`pack`](cli.md#pack)
 
