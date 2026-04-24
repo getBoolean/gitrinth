@@ -288,8 +288,9 @@ class AddCommand extends GitrinthCommand {
       case Section.shaders:
         return config.shaders == null ? null : [config.shaders!.name];
       case Section.resourcePacks:
+        return const ['minecraft'];
       case Section.dataPacks:
-        return null;
+        return const ['datapack'];
     }
   }
 
