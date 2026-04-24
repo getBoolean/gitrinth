@@ -89,9 +89,29 @@ void main() {
       },
     );
 
-    test('unparseable raises ValidationError', () {
+    test(
+      'exact pin on an arbitrary string works (matches itself)',
+      () {
+        // Some Modrinth mods publish non-semver version strings. An
+        // exact pin has a well-defined meaning against them — match
+        // iff the raw string is the same. No ValidationError.
+        final c = parseConstraint('completely-arbitrary-name');
+        expect(
+          c.allows(parseModrinthVersionBestEffort('completely-arbitrary-name')),
+          isTrue,
+        );
+        expect(
+          c.allows(parseModrinthVersionBestEffort('different-name')),
+          isFalse,
+        );
+      },
+    );
+
+    test('caret on an unparseable base raises ValidationError', () {
+      // Carets derive their upper bound by bumping major — that's
+      // meaningless for arbitrary-string versions. Reject at parse time.
       expect(
-        () => parseConstraint('not-a-version'),
+        () => parseConstraint('^not-a-version'),
         throwsA(isA<ValidationError>()),
       );
     });
@@ -164,6 +184,45 @@ void main() {
 
     test('throws on truly unparseable strings', () {
       expect(() => parseModrinthVersion('abc'), throwsFormatException);
+    });
+  });
+
+  group('parseModrinthVersionBestEffort', () {
+    test('delegates to parseModrinthVersion on success', () {
+      final v = parseModrinthVersionBestEffort('6.0.10+mc1.21.1');
+      expect(v.major, 6);
+      expect(v.build, ['mc1', 21, 1]);
+    });
+
+    test(
+      'falls back to `0.0.0-<sanitised>` on failure; same raw → same Version',
+      () {
+        final a = parseModrinthVersionBestEffort('totally-weird@#\$string');
+        final b = parseModrinthVersionBestEffort('totally-weird@#\$string');
+        expect(a, b);
+        expect(a.major, 0);
+        expect(a.minor, 0);
+        expect(a.patch, 0);
+        expect(a.preRelease.isNotEmpty, isTrue);
+      },
+    );
+
+    test('distinct unparseable raws yield distinct Versions', () {
+      final a = parseModrinthVersionBestEffort('weird-one');
+      final b = parseModrinthVersionBestEffort('weird-two');
+      expect(a == b, isFalse);
+    });
+
+    test('throws only when sanitisation leaves nothing (pure-symbol input)',
+        () {
+      expect(
+        () => parseModrinthVersionBestEffort('!!!'),
+        throwsFormatException,
+      );
+      expect(
+        () => parseModrinthVersionBestEffort(''),
+        throwsFormatException,
+      );
     });
   });
 

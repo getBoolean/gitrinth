@@ -19,6 +19,10 @@ VersionConstraint parseConstraint(String? raw) {
   if (trimmed.isEmpty) return VersionConstraint.any;
   try {
     if (trimmed.startsWith('^')) {
+      // Carets require a semver-shaped base — the lower bound and
+      // upper bound are derived by bumping the version's major, which
+      // has no meaning for arbitrary-string versions. Use the strict
+      // parser; failure surfaces as ValidationError below.
       final version = parseModrinthVersion(trimmed.substring(1));
       // Keep the numeric build-number prefix (real version info) on the
       // caret's lower bound; strip trailing tag metadata (e.g.
@@ -40,7 +44,7 @@ VersionConstraint parseConstraint(String? raw) {
     // matches on MMP + preRelease + numeric-build-prefix. Tag metadata
     // is always informational regardless of whether the constraint or
     // candidate carries it.
-    final parsed = parseModrinthVersion(trimmed);
+    final parsed = parseModrinthVersionBestEffort(trimmed);
     return SemverOnlyExactConstraint(parsed);
   } on FormatException catch (e) {
     throw ValidationError('Invalid version constraint "$raw": ${e.message}');
@@ -130,6 +134,30 @@ Version parseModrinthVersion(String raw) {
     );
   }
   throw FormatException('cannot parse version "$raw"');
+}
+
+/// Lenient variant of [parseModrinthVersion] — never throws on a
+/// non-empty input (except pure-whitespace).
+///
+/// Tries [parseModrinthVersion] first; on failure, falls back to
+/// `0.0.0-<sanitised>` where the sanitised raw (non-alphanumeric runs
+/// collapsed to `-`) lands in the pre-release slot. Two parses of the
+/// same raw produce the same [Version], and different raws stay
+/// distinct under [SemverOnlyExactConstraint] matching (which compares
+/// pre-release for equality). Used by report/resolver code paths that
+/// need every Modrinth version to yield *some* Version rather than
+/// silently skipping.
+Version parseModrinthVersionBestEffort(String raw) {
+  try {
+    return parseModrinthVersion(raw);
+  } on FormatException {
+    final trimmed = raw.trim();
+    final sanitised = trimmed
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (sanitised.isEmpty) rethrow;
+    return Version.parse('0.0.0-$sanitised');
+  }
 }
 
 // `<major>.<minor>.<patch>-<alphanumeric-label>-<mc-version>` where the

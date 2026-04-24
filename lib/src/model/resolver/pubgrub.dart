@@ -129,7 +129,11 @@ class PubGrubSolver {
       final vt = v.versionType ?? 'release';
       if (!allowed.contains(vt)) continue;
       try {
-        final parsed = parseModrinthVersion(v.versionNumber);
+        // Best-effort: truly-weird Modrinth version strings fall back
+        // to `Version(0.0.0-<sanitised>)` so an exact-pin constraint on
+        // the same raw string can still match. Pure-symbol versions
+        // (empty after sanitisation) still throw and get skipped.
+        final parsed = parseModrinthVersionBestEffort(v.versionNumber);
         if (constraint.allows(parsed)) {
           candidates.add(_Candidate(parsed, v));
         }

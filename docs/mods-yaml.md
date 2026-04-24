@@ -696,6 +696,29 @@ locked version: tag metadata (`+mc...`) is stripped because it's
 cosmetic; numeric build segments are preserved because they narrow
 the match.
 
+##### Arbitrary-string version names
+
+Some mods publish versions that aren't semver-shaped at all — e.g.
+`release-snapshot-xyz` or `winter-2025-drop`. `gitrinth` accepts these
+as **exact pins only**: the constraint matches iff its raw string is
+identical to a candidate's `version_number`.
+
+```yaml
+mods:
+  weirdmod: release-snapshot-xyz
+```
+
+Carets (`^`) don't work on arbitrary strings — they derive an upper
+bound by bumping the major component, which has no meaning without a
+semver base. `^release-snapshot-xyz` is rejected at parse time with
+an `Invalid version constraint` error.
+
+When [`add`](cli.md#add) resolves a slug and Modrinth returns a
+non-semver version, it falls back to writing the raw version as an
+exact pin (no caret). Subsequent [`get`](cli.md#get) runs won't pick
+up newer versions automatically — edit the pin by hand when a new
+release comes out.
+
 ### `mods`
 
 **Optional.** Every mod in the pack. Keys are [Modrinth project

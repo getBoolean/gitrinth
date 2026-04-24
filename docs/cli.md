@@ -157,6 +157,13 @@ Modrinth file matters, or `--pin` to freeze the entry to the bare
 is supplied; incompatible with `--url` / `--path`. `--exact` and
 `--pin` are mutually exclusive.
 
+When Modrinth returns a non-semver version (e.g.
+`release-snapshot-xyz`), `add` can't produce a caret — carets require
+a semver-shaped base. In that case it falls back to writing the raw
+version as an exact pin. See
+[arbitrary-string version names](mods-yaml.md#arbitrary-string-version-names)
+for what that implies for subsequent `get` runs.
+
 `--type` overrides section inference. For Modrinth sources it prints a
 warning when it contradicts the project's inferred type, then proceeds
 — user's explicit choice wins. For `--url` / `--path` sources it is the

@@ -248,9 +248,11 @@ class AddCommand extends GitrinthCommand {
         } else if (pinFlag) {
           effectiveConstraint = bareVersionForPin(latest);
         } else {
-          final parsed = parseModrinthVersion(latest);
-          effectiveConstraint =
-              '^${parsed.major}.${parsed.minor}.${parsed.patch}';
+          // Default: caret on major.minor.patch. If Modrinth's version
+          // isn't semver-shaped (some mods use arbitrary strings),
+          // carets are meaningless — fall back to pinning the raw
+          // version verbatim.
+          effectiveConstraint = _caretOrPinFallback(latest);
         }
       } else {
         // Validate the user-supplied constraint so a bad `@xyz` fails fast
@@ -405,13 +407,18 @@ class AddCommand extends GitrinthCommand {
     for (final v in versions) {
       if ((v.versionType ?? 'release') != 'release') continue;
       try {
-        final parsed = parseModrinthVersion(v.versionNumber);
+        // Best-effort parse: non-semver versions (arbitrary strings)
+        // fall back to `Version(0.0.0-<sanitised>)` so we still pick
+        // one and write it back — the caller will then pin it
+        // verbatim rather than trying to caret-wrap a non-semver.
+        final parsed = parseModrinthVersionBestEffort(v.versionNumber);
         if (bestParsed == null || parsed > bestParsed) {
           bestParsed = parsed;
           best = v.versionNumber;
         }
       } on FormatException {
-        // skip — same policy as the resolver.
+        // skip — only reached for pure-symbol inputs the fallback
+        // can't sanitise into a legal pre-release identifier.
       }
     }
     return best;
@@ -427,6 +434,20 @@ class AddCommand extends GitrinthCommand {
         return const ['minecraft'];
       case Section.dataPacks:
         return const ['datapack'];
+    }
+  }
+
+  /// Produces the default-written constraint for `add` (no flags). Uses
+  /// a caret on `major.minor.patch` when [latest] parses as semver, and
+  /// falls back to pinning the raw version verbatim when it doesn't —
+  /// some Modrinth mods use arbitrary strings as version names, and
+  /// carets have no meaning for those.
+  String _caretOrPinFallback(String latest) {
+    try {
+      final parsed = parseModrinthVersion(latest);
+      return '^${parsed.major}.${parsed.minor}.${parsed.patch}';
+    } on FormatException {
+      return latest;
     }
   }
 

@@ -466,8 +466,14 @@ mc-version: 1.21.1
   );
 
   test(
-    'invalid version constraint fails with ValidationError (exit 2)',
+    'caret constraint on an unparseable base fails with ValidationError '
+    '(exit 2)',
     () async {
+      // Exact pins accept arbitrary strings (some Modrinth versions
+      // aren't semver-shaped) so a `sodium@not-a-version` pin is a valid
+      // — if ultimately unmatchable — constraint. Carets, on the other
+      // hand, require a semver-shaped base, so `^not-a-version` is a
+      // true syntax error.
       modrinth.registerVersion(
         slug: 'sodium',
         versionNumber: '1.0.0',
@@ -486,7 +492,7 @@ mc-version: 1.21.1
         '-C',
         packDir.path,
         'add',
-        'sodium@not-a-version',
+        'sodium@^not-a-version',
       ], environment: env());
       expect(out.exitCode, 2, reason: out.stderr);
       expect(out.stderr, contains('Invalid version constraint'));
@@ -552,6 +558,40 @@ mods:
     expect(yaml, contains('# inline comment on jei'));
     expect(yaml, contains('sodium: release'));
   });
+
+  test(
+    'add pins the raw version when Modrinth returns a non-semver string',
+    () async {
+      // Some Modrinth mods publish versions like "release-2025-winter"
+      // that don't parse as semver. `add` (no flags) would normally
+      // write `^major.minor.patch`, but carets require a semver-shaped
+      // base. Fall back to pinning the raw string verbatim.
+      modrinth.registerVersion(
+        slug: 'weirdmod',
+        versionNumber: 'release-snapshot-xyz',
+        versionType: 'release',
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'weirdmod',
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readYaml();
+      expect(yaml, contains('weirdmod: release-snapshot-xyz'));
+      expect(yaml, isNot(contains('^release-snapshot-xyz')));
+    },
+  );
 
   test('--env=client forces long form with environment key', () async {
     modrinth.registerVersion(
