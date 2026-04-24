@@ -90,11 +90,11 @@ satisfying version — use [`upgrade`](#upgrade) for that.
 gitrinth get [--dry-run] [--enforce-lockfile] [--offline]
 ```
 
-| Option               | Description                                                             |
-|----------------------|-------------------------------------------------------------------------|
-| `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change.   |
-| `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries.|
-| `--offline`          | Shortcut for the global `--offline` flag.                               |
+| Option               | Description                                                              |
+|----------------------|--------------------------------------------------------------------------|
+| `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change.    |
+| `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries. |
+| `--offline`          | Shortcut for the global `--offline` flag.                                |
 
 ### `upgrade`
 
@@ -427,26 +427,26 @@ Overrides may also live in a standalone
 
 ## Environment variables
 
-| Variable                     | Used by        | Purpose                                                          |
-|------------------------------|----------------|------------------------------------------------------------------|
-| `GITRINTH_CACHE`             | every command  | Override the cache root.                                         |
-| `GITRINTH_CONFIG`            | every command  | Override the user config file. Equivalent to `--config`.         |
-| `GITRINTH_TOKEN`             | `publish`      | Modrinth token. Overrides any token stored by [`login`](#login). |
-| `GITRINTH_MODRINTH_URL`      | every command  | Override the default Modrinth base URL.                          |
-| `NO_COLOR`                   | every command  | Disables ANSI colour when set. Equivalent to `--no-color`.       |
-| `HTTPS_PROXY` / `HTTP_PROXY` | every command  | Standard proxy variables, honoured by every HTTP request.        |
+| Variable                     | Used by       | Purpose                                                          |
+|------------------------------|---------------|------------------------------------------------------------------|
+| `GITRINTH_CACHE`             | every command | Override the cache root.                                         |
+| `GITRINTH_CONFIG`            | every command | Override the user config file. Equivalent to `--config`.         |
+| `GITRINTH_TOKEN`             | `publish`     | Modrinth token. Overrides any token stored by [`login`](#login). |
+| `GITRINTH_MODRINTH_URL`      | every command | Override the default Modrinth base URL.                          |
+| `NO_COLOR`                   | every command | Disables ANSI colour when set. Equivalent to `--no-color`.       |
+| `HTTPS_PROXY` / `HTTP_PROXY` | every command | Standard proxy variables, honoured by every HTTP request.        |
 
 ## Files
 
-| Path                           | Purpose                                                                             |
-|--------------------------------|-------------------------------------------------------------------------------------|
-| `./mods.yaml`                  | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                  |
-| `./mods_overrides.yaml`        | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md). |
-| `./mods.lock`                  | Resolved versions. Commit to git.                                                   |
-| `./build/`                     | Default output directory for [`build`](#build).                                     |
-| `./<slug>-<version>.mrpack`    | Default output path for [`pack`](#pack).                                            |
-| `~/.gitrinth_cache/`           | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`. |
-| Platform config directory      | User config — stored tokens, default server URL. Override via `GITRINTH_CONFIG`.    |
+| Path                        | Purpose                                                                                |
+|-----------------------------|----------------------------------------------------------------------------------------|
+| `./mods.yaml`               | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                     |
+| `./mods_overrides.yaml`     | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md).    |
+| `./mods.lock`               | Resolved versions. Commit to git.                                                      |
+| `./build/`                  | Default output directory for [`build`](#build).                                        |
+| `./<slug>-<version>.mrpack` | Default output path for [`pack`](#pack).                                               |
+| `~/.gitrinth_cache/`        | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`. |
+| Platform config directory   | User config — stored tokens, default server URL. Override via `GITRINTH_CONFIG`.       |
 
 ## Compatibility
 
