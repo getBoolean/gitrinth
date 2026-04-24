@@ -198,6 +198,58 @@ When one path requires `flywheel` from CF and another requires
 3. If only one platform has it, lock the synthetic as single-source
    with a `not_found` marker on the missing platform.
 
+### Cross-platform slug divergence
+
+When a top-level entry uses different `modrinth:` and `curseforge:`
+slugs, the slug-table index already covers both sides (one key per
+platform pointing at the same entry). Transitive deps requiring
+either slug match that top-level entry automatically.
+
+The gap is when a mod appears only transitively *and* its slugs
+diverge across platforms — e.g., Modrinth `create` declares a dep on
+`flywheel` while CF `create` declares a dep on `flywheel-forge`
+(hypothetical). Slug-based lookup misses the identity, so the
+resolver initially produces two synthetics:
+
+- Modrinth synthetic `flywheel`
+- CF synthetic `flywheel-forge`
+
+A post-resolution merge pass compares hashes (with the same
+`hash-scan-depth` window used by top-level verification) between
+every Modrinth-only synthetic and every CF-only synthetic. When
+hashes match, the two merge into one dual-source synthetic:
+
+- **Canonical key**: the Modrinth slug (Modrinth is the primary
+  platform, so its slug wins).
+- **CF-side slug** is recorded as a `curseforge:` override field on
+  the merged synthetic.
+- Both platforms' `required-by:` lists are unioned.
+
+If no hash match is found in the scan window, the two synthetics
+stay separate and an info-level message points the user at an
+explicit remediation:
+
+```text
+info: transitive dependency 'flywheel' (Modrinth) and
+'flywheel-forge' (CurseForge) may refer to the same logical mod but
+no hash-matching version was found within hash-scan-depth.
+
+If they are the same mod, add a top-level entry to declare the
+cross-platform identity:
+
+  mods:
+    flywheel:
+      modrinth: flywheel
+      curseforge: flywheel-forge
+      version: ^1.0.0
+
+Otherwise they remain two separate entries.
+```
+
+This keeps the "one logical mod, one entry" invariant intact while
+only merging on concrete hash evidence — no fuzzy name/author
+heuristics that could silently bundle wrong mods.
+
 ### Lockfile representation
 
 Synthetic entries live in `mods.lock`, not `mods.yaml`. Each carries
