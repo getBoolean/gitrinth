@@ -99,8 +99,9 @@ bool _needsQuotes(String value) {
     r'[:#\[\]{},&*!|>%@`"'
     "'"
     r']',
-  ).hasMatch(value))
+  ).hasMatch(value)) {
     return true;
+  }
   if (value.startsWith(' ') || value.endsWith(' ')) return true;
   if (value.contains('\n')) return true;
   return false;

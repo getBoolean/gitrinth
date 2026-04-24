@@ -108,7 +108,7 @@ Add an entry to [`mods`](mods-yaml.md#mods),
 gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--url <url> | --path <path>]
             [--accepts-mc <mc-version>]...
-            [--dry-run]
+            [--exact] [--dry-run]
 ```
 
 The target section is inferred from the slug's Modrinth project type —
@@ -122,6 +122,7 @@ mods to [`mods`](mods-yaml.md#mods), resource packs to
 | `--url`        | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
 | `--path`       | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
 | `--accepts-mc` | Additional MC versions to tolerate for this entry. Repeatable. See below.                           |
+| `--exact`      | Keep the resolved version's build metadata inside the caret. See below.                             |
 | `--dry-run`    | Print the edit without writing.                                                                     |
 
 `--accepts-mc <mc-version>` widens the Modrinth `game_versions` query
@@ -131,6 +132,15 @@ on the new entry (forces long form). Use when the mod works on the
 pack's [`mc-version`](mods-yaml.md#mc-version) but the author tagged
 only adjacent versions on Modrinth. Incompatible with `--url` /
 `--path`.
+
+By default `add` writes a caret constraint on the resolved version's
+`major.minor.patch` (`^6.0.10`), dropping any Modrinth build metadata
+(`+mc1.21.1`). Both forms accept the same versions — `pub_semver`
+ignores build metadata — but the stripped default keeps `mods.yaml`
+readable. Pass `--exact` to preserve the full resolved version inside
+the caret (`^6.0.10+mc1.21.1`) when traceability to the original
+Modrinth file matters. Only applies when no `@<constraint>` is
+supplied; incompatible with `--url` / `--path`.
 
 ### `remove`
 

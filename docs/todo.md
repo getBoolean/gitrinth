@@ -14,7 +14,7 @@ Planned improvements:
 - [ ] [Optional mods](#optional-mods)
 - [ ] [`pin` / `unpin` commands](#pin--unpin-commands)
 - [ ] [Shell completion](#shell-completion)
-- [ ] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
+- [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
 - [ ] [CurseForge bridge](curseforge-bridge.md)
 
 Deferred MVP work:
@@ -138,7 +138,7 @@ install section per shell).
 ## Add writes caret semver constraints by default
 
 When [`add`](cli.md#add) resolves a slug and writes the entry back to
-`mods.yaml`, emit a caret-prefixed constraint (e.g. `^6.0.10+mc1.21.1`)
+`mods.yaml`, emit a caret-prefixed constraint (e.g. `^6.0.10`)
 instead of the exact resolved version (`6.0.10+mc1.21.1`). Matches the
 convention already used in [`example/mods.yaml`](../example/mods.yaml)
 and lets subsequent [`get`](cli.md#get) runs pick up newer compatible
@@ -150,8 +150,8 @@ path translates resolved CF file versions into caret constraints, and
 routing that through the same constraint-writing path keeps one
 canonical shape for written entries.
 
-Add `--exact` as an opt-out for users who want the old behavior (pin
-to the exact resolved version).
+`--exact` is available for users who want to retain the resolved
+version's build metadata inside the caret (`^6.0.10+mc1.21.1`).
 
 Touches: [`lib/src/commands/add.dart`](../lib/src/commands/add.dart),
 [`cli.md`](cli.md) (document `--exact`).
@@ -279,12 +279,12 @@ gitrinth deps [<slug>] [--env <client|server|both>]
              [--style <compact|tree|list>] [--json]
 ```
 
-| Option    | Description                                                            |
-|-----------|------------------------------------------------------------------------|
-| `<slug>`  | Limit output to a single entry and its transitive dependencies.        |
-| `--env`   | Filter by [`environment`](mods-yaml.md#per-mod-environment).           |
-| `--style` | Output style: `compact`, `tree` (default), or `list`.                  |
-| `--json`  | Emit a machine-readable report.                                        |
+| Option    | Description                                                     |
+|-----------|-----------------------------------------------------------------|
+| `<slug>`  | Limit output to a single entry and its transitive dependencies. |
+| `--env`   | Filter by [`environment`](mods-yaml.md#per-mod-environment).    |
+| `--style` | Output style: `compact`, `tree` (default), or `list`.           |
+| `--json`  | Emit a machine-readable report.                                 |
 
 ## `publish` command
 

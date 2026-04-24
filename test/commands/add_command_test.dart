@@ -107,6 +107,86 @@ mc-version: 1.21.1
     expect(readYaml(), contains('sodium: ^0.6.2'));
   });
 
+  test('slug (no constraint) strips build metadata from the caret', () async {
+    modrinth.registerVersion(
+      slug: 'create',
+      versionNumber: '6.0.10+mc1.21.1',
+      versionType: 'release',
+    );
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'create',
+    ], environment: env());
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    expect(readYaml(), contains('create: ^6.0.10'));
+    expect(readYaml(), isNot(contains('^6.0.10+')));
+  });
+
+  test('slug --exact retains build metadata inside the caret', () async {
+    modrinth.registerVersion(
+      slug: 'create',
+      versionNumber: '6.0.10+mc1.21.1',
+      versionType: 'release',
+    );
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'create',
+      '--exact',
+    ], environment: env());
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    expect(readYaml(), contains('create: ^6.0.10+mc1.21.1'));
+  });
+
+  test('--exact with explicit @constraint is a UsageError', () async {
+    modrinth.registerVersion(slug: 'create', versionNumber: '6.0.10');
+
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'add',
+      'create@^6.0.10',
+      '--exact',
+    ], environment: env());
+    expect(out.exitCode, 64);
+    expect(out.stderr, contains('--exact has no effect'));
+  });
+
   test('slug@^x.y.z writes the explicit caret constraint', () async {
     modrinth.registerVersion(
       slug: 'jei',

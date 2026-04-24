@@ -57,6 +57,13 @@ class AddCommand extends GitrinthCommand {
             '`accepts-mc` in mods.yaml. Repeatable. Use when a mod works '
             "on the pack's mc-version but the author tagged only adjacent "
             'versions on Modrinth.',
+      )
+      ..addFlag(
+        'exact',
+        negatable: false,
+        help:
+            "Preserve the resolved version's build metadata inside the caret "
+            'constraint (e.g. ^6.0.10+mc1.21.1 instead of ^6.0.10).',
       );
   }
 
@@ -79,6 +86,7 @@ class AddCommand extends GitrinthCommand {
     final pathOpt = argResults!['path'] as String?;
     final envOpt = argResults!['env'] as String?;
     final dryRun = argResults!['dry-run'] as bool;
+    final exactFlag = argResults!['exact'] as bool;
     final acceptsMc = _parseAcceptsMcFlag(
       argResults!['accepts-mc'] as List<String>,
     );
@@ -91,8 +99,20 @@ class AddCommand extends GitrinthCommand {
         'with --url or --path.',
       );
     }
+    if (exactFlag && (urlOpt != null || pathOpt != null)) {
+      throw const UsageError(
+        '--exact applies to Modrinth-sourced entries; cannot combine '
+        'with --url or --path.',
+      );
+    }
 
     final (:slug, :constraintRaw) = _parsePositional(positional);
+    if (exactFlag && constraintRaw != null) {
+      throw const UsageError(
+        '--exact has no effect when a version constraint is supplied '
+        'explicitly.',
+      );
+    }
 
     final io = ManifestIo();
     final existingManifest = io.readModsYaml();
@@ -148,8 +168,9 @@ class AddCommand extends GitrinthCommand {
         loaders: project.loaders,
       );
 
-      // Resolve a default constraint (caret-pin the newest release) when
-      // the user didn't pass one.
+      // Resolve a default constraint (caret-pin the newest release's
+      // major.minor.patch, dropping build metadata) when the user didn't
+      // pass one. `--exact` keeps the full resolved version inside the caret.
       final String effectiveConstraint;
       if (constraintRaw == null) {
         final latest = await _pickLatestReleaseVersion(
@@ -171,7 +192,13 @@ class AddCommand extends GitrinthCommand {
             'Pass `@<version>` explicitly to pin an alpha/beta.',
           );
         }
-        effectiveConstraint = '^$latest';
+        if (exactFlag) {
+          effectiveConstraint = '^$latest';
+        } else {
+          final parsed = parseModrinthVersion(latest);
+          effectiveConstraint =
+              '^${parsed.major}.${parsed.minor}.${parsed.patch}';
+        }
       } else {
         // Validate the user-supplied constraint so a bad `@xyz` fails fast
         // with a single-line error before we touch mods.yaml.
