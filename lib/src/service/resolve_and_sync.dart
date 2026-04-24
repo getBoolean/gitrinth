@@ -86,8 +86,9 @@ Future<ResolveSyncResult> resolveAndSync({
       case Section.shaders:
         return [loaderConfig.shaders!.name];
       case Section.resourcePacks:
+        return const ['minecraft'];
       case Section.dataPacks:
-        return null;
+        return const ['datapack'];
     }
   }
 

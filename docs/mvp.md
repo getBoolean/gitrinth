@@ -19,7 +19,7 @@ Commands:
 - [x] `get` — fully implemented.
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
-- [ ] `build` — stub; exits `1`.
+- [x] `build` — implemented; server-binary auto-download deferred.
 - [ ] `pack` — stub; exits `1`.
 
 Supporting work:
@@ -38,6 +38,7 @@ Deferred work:
 - [ ] Global options: `-q`/`--quiet`, `--offline`, `--no-color`, `--config` (deferred pending `--config` spec).
 - [ ] Commands deferred post-MVP: `upgrade`, `downgrade`, `outdated`, `deps`, `unpack`.
 - [ ] Modrinth Pack support loose files override, such as configs
+- [ ] `build` auto-downloads the matching server binary for `loader.mods` + `mc-version` (users currently supply it manually).
 
 ## Release channels
 

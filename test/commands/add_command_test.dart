@@ -171,7 +171,7 @@ mc-version: 1.21.1
   );
 
   test(
-    'resourcepack project lands under resource_packs, no loader filter',
+    'resourcepack project lands under resource_packs with minecraft loader filter',
     () async {
       modrinth.registerVersion(
         slug: 'faithful-32x',

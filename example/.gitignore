@@ -1,2 +1,4 @@
 # Created by `gitrinth get`
 .gitrinth_tool/
+build/
+*.mrpack

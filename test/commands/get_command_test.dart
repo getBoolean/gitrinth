@@ -450,7 +450,7 @@ shaders:
     },
   );
 
-  test('resource-pack slug resolves without a loaders filter', () async {
+  test('resource-pack slug resolves with loaders=["minecraft"]', () async {
     final zipBytes = Uint8List.fromList(List.generate(16, (i) => i + 2));
     final sha = modrinth.addArtifact(
       'faithful-32x',
@@ -505,13 +505,15 @@ resource_packs:
     final rpQuery = modrinth.lastVersionQuery['faithful-32x'];
     expect(rpQuery, isNotNull);
     expect(
-      rpQuery!.containsKey('loaders'),
-      isFalse,
-      reason: 'resource_packs requests must omit the loaders filter',
+      rpQuery!['loaders'],
+      '["minecraft"]',
+      reason:
+          'resource_packs requests must filter loaders to "minecraft" so '
+          'mod+resource-pack projects do not resolve to a mod jar.',
     );
   });
 
-  test('data-pack slug resolves without a loaders filter', () async {
+  test('data-pack slug resolves with loaders=["datapack"]', () async {
     final zipBytes = Uint8List.fromList(List.generate(16, (i) => i + 3));
     final sha = modrinth.addArtifact(
       'terralith',
@@ -565,9 +567,11 @@ data_packs:
     final dpQuery = modrinth.lastVersionQuery['terralith'];
     expect(dpQuery, isNotNull);
     expect(
-      dpQuery!.containsKey('loaders'),
-      isFalse,
-      reason: 'data_packs requests must omit the loaders filter',
+      dpQuery!['loaders'],
+      '["datapack"]',
+      reason:
+          'data_packs requests must filter loaders to "datapack" so '
+          'mod+datapack projects do not resolve to a mod jar.',
     );
   });
 
