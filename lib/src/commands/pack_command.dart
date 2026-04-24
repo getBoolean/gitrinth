@@ -66,9 +66,7 @@ class PackCommand extends GitrinthCommand {
   @override
   Future<int> run() async {
     if (argResults!.rest.isNotEmpty) {
-      throw UsageError(
-        'Unexpected arguments: ${argResults!.rest.join(' ')}',
-      );
+      throw UsageError('Unexpected arguments: ${argResults!.rest.join(' ')}');
     }
 
     final outputOpt = argResults!['output'] as String?;
@@ -94,10 +92,9 @@ class PackCommand extends GitrinthCommand {
       verbose: gitrinthRunner.verbose,
     );
     if (result.exitCode != exitOk) return result.exitCode;
-    SolveReporter(console).printSummary(
-      changeCount: result.changeCount,
-      outdated: result.outdated,
-    );
+    SolveReporter(
+      console,
+    ).printSummary(changeCount: result.changeCount, outdated: result.outdated);
 
     final yaml = io.readModsYaml();
     final lock = result.newLock ?? io.readModsLock();
@@ -213,8 +210,9 @@ class PackCommand extends GitrinthCommand {
 
     _writeArchive(outputFile, index: index, overrides: overrides.entries);
 
-    final modCount =
-        index.files.where((f) => f.path.startsWith('mods/')).length;
+    final modCount = index.files
+        .where((f) => f.path.startsWith('mods/'))
+        .length;
     final overrideCount = overrides.entries.length;
     final label = switch (target) {
       PackTarget.client => 'client',
@@ -261,17 +259,14 @@ class PackCommand extends GitrinthCommand {
     // Mod overrides may live under any of the three loose-files roots
     // (overrides/, client-overrides/, server-overrides/) depending on
     // env, so filter by section rather than by zipPath prefix.
-    final modOverrides = overrides
-        .where((o) => o.section == Section.mods)
-        .toList()
-      ..sort((a, b) => a.slug.compareTo(b.slug));
+    final modOverrides =
+        overrides.where((o) => o.section == Section.mods).toList()
+          ..sort((a, b) => a.slug.compareTo(b.slug));
     final buf = StringBuffer()
       ..writeln(
         'Note: this pack bundles non-Modrinth mod artifacts. You may need',
       )
-      ..writeln(
-        'permission from each mod author to distribute them:',
-      );
+      ..writeln('permission from each mod author to distribute them:');
     for (final o in modOverrides) {
       buf.writeln('  - ${o.slug} (${o.sourceKind})');
     }

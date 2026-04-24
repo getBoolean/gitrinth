@@ -662,10 +662,11 @@ mods:
   );
 
   group('one-shot mc-version validation', () {
-    test('first lock validates mc-version against /v2/tag/game_version',
-        () async {
-      modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
-      await writeManifest('''
+    test(
+      'first lock validates mc-version against /v2/tag/game_version',
+      () async {
+        modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
+        await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -677,16 +678,17 @@ mods:
   jei: ^1.0.0
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'get'],
-        environment: {
-          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-          'GITRINTH_CACHE': cacheDir.path,
-        },
-      );
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
-    });
+        final out = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: {
+            'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+            'GITRINTH_CACHE': cacheDir.path,
+          },
+        );
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
+      },
+    );
 
     test(
       'unknown mc-version fails with exit 2 and a helpful message',
@@ -735,17 +737,19 @@ mods:
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
         };
-        final first = await runCli(
-          ['-C', packDir.path, 'get'],
-          environment: env,
-        );
+        final first = await runCli([
+          '-C',
+          packDir.path,
+          'get',
+        ], environment: env);
         expect(first.exitCode, 0, reason: first.stderr);
         expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
 
-        final second = await runCli(
-          ['-C', packDir.path, 'get'],
-          environment: env,
-        );
+        final second = await runCli([
+          '-C',
+          packDir.path,
+          'get',
+        ], environment: env);
         expect(second.exitCode, 0, reason: second.stderr);
         // Second run must NOT have called the game-version endpoint —
         // mc-version was already validated when it was first locked.
@@ -753,11 +757,9 @@ mods:
       },
     );
 
-    test(
-      'changing mc-version in mods.yaml triggers re-validation',
-      () async {
-        modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
-        await writeManifest('''
+    test('changing mc-version in mods.yaml triggers re-validation', () async {
+      modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -769,20 +771,20 @@ mods:
   jei: ^1.0.0
 ''');
 
-        final env = {
-          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-          'GITRINTH_CACHE': cacheDir.path,
-        };
-        await runCli(['-C', packDir.path, 'get'], environment: env);
-        expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
+      final env = {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      };
+      await runCli(['-C', packDir.path, 'get'], environment: env);
+      expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
 
-        // User edits mc-version. Resolver must re-validate.
-        modrinth.registerVersion(
-          slug: 'jei',
-          versionNumber: '2.0.0',
-          gameVersion: '1.20.1',
-        );
-        await writeManifest('''
+      // User edits mc-version. Resolver must re-validate.
+      modrinth.registerVersion(
+        slug: 'jei',
+        versionNumber: '2.0.0',
+        gameVersion: '1.20.1',
+      );
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -793,10 +795,9 @@ mc-version: 1.20.1
 mods:
   jei: ^2.0.0
 ''');
-        await runCli(['-C', packDir.path, 'get'], environment: env);
-        expect(modrinth.requestCounts['/v2/tag/game_version'], 2);
-      },
-    );
+      await runCli(['-C', packDir.path, 'get'], environment: env);
+      expect(modrinth.requestCounts['/v2/tag/game_version'], 2);
+    });
   });
 
   group('loader-version resolution', () {
@@ -946,15 +947,13 @@ mods:
       },
     );
 
-    test(
-      'fabric:stable always re-resolves on each get',
-      () async {
-        modrinth.registerVersion(
-          slug: 'sodium',
-          versionNumber: '0.6.0',
-          loader: 'fabric',
-        );
-        await writeManifest('''
+    test('fabric:stable always re-resolves on each get', () async {
+      modrinth.registerVersion(
+        slug: 'sodium',
+        versionNumber: '0.6.0',
+        loader: 'fabric',
+      );
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -966,23 +965,20 @@ mods:
   sodium: ^0.6.0
 ''');
 
-        final env = {
-          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-          'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
-          'GITRINTH_CACHE': cacheDir.path,
-        };
-        await runCli(['-C', packDir.path, 'get'], environment: env);
-        await runCli(['-C', packDir.path, 'get'], environment: env);
-        // `:stable` is by design a drift target — both runs hit the meta
-        // endpoint.
-        expect(modrinth.requestCounts['/fabric/v2/versions/loader'], 2);
-      },
-    );
+      final env = {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      };
+      await runCli(['-C', packDir.path, 'get'], environment: env);
+      await runCli(['-C', packDir.path, 'get'], environment: env);
+      // `:stable` is by design a drift target — both runs hit the meta
+      // endpoint.
+      expect(modrinth.requestCounts['/fabric/v2/versions/loader'], 2);
+    });
 
-    test(
-      'neoforge:stable yields a clear "deferred" error',
-      () async {
-        await writeManifest('''
+    test('neoforge:stable yields a clear "deferred" error', () async {
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -993,18 +989,17 @@ mc-version: 1.21.1
 mods: {}
 ''');
 
-        final out = await runCli(
-          ['-C', packDir.path, 'get'],
-          environment: {
-            'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-            'GITRINTH_CACHE': cacheDir.path,
-          },
-        );
-        expect(out.exitCode, isNot(0), reason: out.stdout);
-        expect(out.stderr, contains('not yet implemented'));
-        expect(out.stderr, contains('neoforge:'));
-      },
-    );
+      final out = await runCli(
+        ['-C', packDir.path, 'get'],
+        environment: {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        },
+      );
+      expect(out.exitCode, isNot(0), reason: out.stdout);
+      expect(out.stderr, contains('not yet implemented'));
+      expect(out.stderr, contains('neoforge:'));
+    });
   });
 
   test('lock includes sha1 alongside sha512 from Modrinth', () async {

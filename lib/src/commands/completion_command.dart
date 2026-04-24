@@ -16,8 +16,7 @@ class CompletionCommand extends GitrinthCommand {
       'Emit a shell-completion script for the given shell.';
 
   @override
-  String get invocation =>
-      'gitrinth completion <bash|zsh|fish|powershell>';
+  String get invocation => 'gitrinth completion <bash|zsh|fish|powershell>';
 
   @override
   Future<int> run() async {
@@ -451,9 +450,10 @@ String _emitPowerShell(_CompletionModel m) {
 
   sb.writeln(r'  $commandFlags = @{');
   for (final c in m.commands) {
-    final names = [..._flagSpellings(c.options), '--help']
-        .map((s) => "'$s'")
-        .join(',');
+    final names = [
+      ..._flagSpellings(c.options),
+      '--help',
+    ].map((s) => "'$s'").join(',');
     sb.writeln("    '${c.name}' = @($names)");
   }
   sb.writeln('  }');
@@ -473,7 +473,8 @@ String _emitPowerShell(_CompletionModel m) {
   sb.writeln('  )');
   sb.writeln('');
 
-  sb.writeln(r'''  $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
+  sb.writeln(
+    r'''  $tokens = @($commandAst.CommandElements | ForEach-Object { $_.Extent.Text })
   $cmd = $null
   for ($i = 1; $i -lt $tokens.Count; $i++) {
     $t = $tokens[$i]
@@ -518,7 +519,8 @@ String _emitPowerShell(_CompletionModel m) {
       [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
     }
   }
-}''');
+}''',
+  );
   sb.writeln('');
   return sb.toString();
 }

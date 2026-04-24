@@ -49,13 +49,7 @@ void main() {
     // A ./build also exists and must be left alone.
     writeFile(p.join('build', 'stale.txt'), 'should survive');
 
-    final out = await runCli([
-      '-C',
-      packDir.path,
-      'clean',
-      '--output',
-      'dist',
-    ]);
+    final out = await runCli(['-C', packDir.path, 'clean', '--output', 'dist']);
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(Directory(p.join(packDir.path, 'dist')).existsSync(), isFalse);
     expect(

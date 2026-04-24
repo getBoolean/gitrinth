@@ -30,9 +30,7 @@ class CleanCommand extends GitrinthCommand {
   @override
   Future<int> run() async {
     if (argResults!.rest.isNotEmpty) {
-      throw UsageError(
-        'Unexpected arguments: ${argResults!.rest.join(' ')}',
-      );
+      throw UsageError('Unexpected arguments: ${argResults!.rest.join(' ')}');
     }
 
     final outputOpt = argResults!['output'] as String?;
@@ -46,9 +44,7 @@ class CleanCommand extends GitrinthCommand {
       removed.add(io.modsLockPath);
     }
 
-    final buildDir = Directory(
-      p.normalize(p.absolute(outputOpt ?? 'build')),
-    );
+    final buildDir = Directory(p.normalize(p.absolute(outputOpt ?? 'build')));
     if (buildDir.existsSync()) {
       buildDir.deleteSync(recursive: true);
       removed.add(buildDir.path);

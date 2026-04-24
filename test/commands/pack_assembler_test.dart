@@ -148,7 +148,12 @@ void main() {
           ),
         },
       );
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false);
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
       expect(idx.game, 'minecraft');
       expect(idx.formatVersion, 1);
       expect(idx.versionId, '0.1.0');
@@ -159,19 +164,20 @@ void main() {
         'fabric-loader': '0.17.3',
       });
       expect(idx.files, hasLength(2));
-      final sodium = idx.files.firstWhere((f) => f.path.endsWith('sodium-0.6.0.jar'));
+      final sodium = idx.files.firstWhere(
+        (f) => f.path.endsWith('sodium-0.6.0.jar'),
+      );
       expect(sodium.path, 'mods/sodium-0.6.0.jar');
-      expect(sodium.hashes, {
-        'sha1': '0123456789abcdef',
-        'sha512': 'deadbeef',
-      });
+      expect(sodium.hashes, {'sha1': '0123456789abcdef', 'sha512': 'deadbeef'});
       expect(sodium.env, {'client': 'required', 'server': 'required'});
       expect(sodium.fileSize, 1024);
       expect(
         sodium.downloads.single,
         'https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/sodium-0.6.0.jar',
       );
-      final shader = idx.files.firstWhere((f) => f.path.startsWith('shaderpacks/'));
+      final shader = idx.files.firstWhere(
+        (f) => f.path.startsWith('shaderpacks/'),
+      );
       expect(shader.path, 'shaderpacks/complementary-r5.7.1.zip');
     });
 
@@ -183,11 +189,17 @@ void main() {
             name: 'sodium-0.6.0.jar',
             projectId: 'AANobbMI',
             versionId: 'abcdef',
-            url: 'https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/EXACT.jar',
+            url:
+                'https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/EXACT.jar',
           ),
         },
       );
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false);
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
       expect(
         idx.files.single.downloads.single,
         'https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/EXACT.jar',
@@ -205,7 +217,12 @@ void main() {
           ),
         },
       );
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false);
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
       // `+` must percent-encode to `%2B` in the path segment.
       expect(
         idx.files.single.downloads.single,
@@ -221,7 +238,12 @@ void main() {
           'remote-mod': _url(slug: 'remote-mod'),
         },
       );
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false);
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
       expect(idx.files, hasLength(1));
       expect(idx.files.single.path, contains('mod-1.0.0.jar'));
     });
@@ -229,72 +251,135 @@ void main() {
     test('per-entry env maps into per-file env in the index', () {
       final lock = _lock(
         mods: {
-          'client-only': _modrinth(slug: 'client-only', env: Environment.client),
-          'server-only': _modrinth(slug: 'server-only', env: Environment.server),
+          'client-only': _modrinth(
+            slug: 'client-only',
+            env: Environment.client,
+          ),
+          'server-only': _modrinth(
+            slug: 'server-only',
+            env: Environment.server,
+          ),
         },
       );
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false);
-      final c = idx.files.firstWhere((f) => f.path.contains('mod-1.0.0.jar') && f.env['client'] == 'required' && f.env['server'] == 'unsupported');
-      final s = idx.files.firstWhere((f) => f.path.contains('mod-1.0.0.jar') && f.env['client'] == 'unsupported' && f.env['server'] == 'required');
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
+      final c = idx.files.firstWhere(
+        (f) =>
+            f.path.contains('mod-1.0.0.jar') &&
+            f.env['client'] == 'required' &&
+            f.env['server'] == 'unsupported',
+      );
+      final s = idx.files.firstWhere(
+        (f) =>
+            f.path.contains('mod-1.0.0.jar') &&
+            f.env['client'] == 'unsupported' &&
+            f.env['server'] == 'required',
+      );
       expect(c, isNotNull);
       expect(s, isNotNull);
     });
 
-    test('--publishable rejects url-source MOD with each offending slug listed',
-        () {
-      final lock = _lock(
-        mods: {
-          'sodium': _modrinth(slug: 'sodium'),
-          'remote-mod': _url(slug: 'remote-mod'),
-          'local-mod': _path(slug: 'local-mod'),
-        },
-      );
-      expect(
-        () => buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: true),
-        throwsA(
-          isA<ValidationError>()
-              .having((e) => e.message, 'message', contains('--publishable refused'))
-              .having((e) => e.message, 'message', contains('local-mod (path)'))
-              .having((e) => e.message, 'message', contains('remote-mod (url)'))
-              .having((e) => e.message, 'message', isNot(contains('sodium (modrinth)'))),
-        ),
-      );
-    });
+    test(
+      '--publishable rejects url-source MOD with each offending slug listed',
+      () {
+        final lock = _lock(
+          mods: {
+            'sodium': _modrinth(slug: 'sodium'),
+            'remote-mod': _url(slug: 'remote-mod'),
+            'local-mod': _path(slug: 'local-mod'),
+          },
+        );
+        expect(
+          () => buildIndex(
+            yaml: _yaml(),
+            lock: lock,
+            target: PackTarget.combined,
+            publishable: true,
+          ),
+          throwsA(
+            isA<ValidationError>()
+                .having(
+                  (e) => e.message,
+                  'message',
+                  contains('--publishable refused'),
+                )
+                .having(
+                  (e) => e.message,
+                  'message',
+                  contains('local-mod (path)'),
+                )
+                .having(
+                  (e) => e.message,
+                  'message',
+                  contains('remote-mod (url)'),
+                )
+                .having(
+                  (e) => e.message,
+                  'message',
+                  isNot(contains('sodium (modrinth)')),
+                ),
+          ),
+        );
+      },
+    );
 
-    test('--publishable allows url-source RESOURCE PACK (different policy)',
-        () {
-      final lock = _lock(
-        mods: {'sodium': _modrinth(slug: 'sodium')},
-        resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
-      );
-      // Should NOT throw — only mods are gated by --publishable.
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: true);
-      expect(idx.files, hasLength(1)); // RP went to overrides, not files[].
-    });
+    test(
+      '--publishable allows url-source RESOURCE PACK (different policy)',
+      () {
+        final lock = _lock(
+          mods: {'sodium': _modrinth(slug: 'sodium')},
+          resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
+        );
+        // Should NOT throw — only mods are gated by --publishable.
+        final idx = buildIndex(
+          yaml: _yaml(),
+          lock: lock,
+          target: PackTarget.combined,
+          publishable: true,
+        );
+        expect(idx.files, hasLength(1)); // RP went to overrides, not files[].
+      },
+    );
 
     test('--publishable allows url-source DATA PACK and SHADER too', () {
       final lock = _lock(
         dataPacks: {'custom-dp': _url(slug: 'custom-dp')},
         shaders: {'custom-shader': _path(slug: 'custom-shader')},
       );
-      final idx = buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: true);
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: true,
+      );
       expect(idx.files, isEmpty);
     });
 
-    test('legacy "stable" / "latest" loader version in the lock is rejected',
-        () {
-      final lock = _lock(loaderVersion: 'stable');
-      expect(
-        () => buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false),
-        throwsA(
-          isA<ValidationError>().having(
-            (e) => e.message,
-            'message',
-            contains('no concrete loader version'),
+    test(
+      'legacy "stable" / "latest" loader version in the lock is rejected',
+      () {
+        final lock = _lock(loaderVersion: 'stable');
+        expect(
+          () => buildIndex(
+            yaml: _yaml(),
+            lock: lock,
+            target: PackTarget.combined,
+            publishable: false,
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<ValidationError>().having(
+              (e) => e.message,
+              'message',
+              contains('no concrete loader version'),
+            ),
+          ),
+        );
+      },
+    );
 
     test('missing sha1 on a modrinth entry is rejected with a re-run hint', () {
       final entryWithoutSha1 = LockedEntry(
@@ -310,7 +395,12 @@ void main() {
       );
       final lock = _lock(mods: {'sodium': entryWithoutSha1});
       expect(
-        () => buildIndex(yaml: _yaml(), lock: lock, target: PackTarget.combined, publishable: false),
+        () => buildIndex(
+          yaml: _yaml(),
+          lock: lock,
+          target: PackTarget.combined,
+          publishable: false,
+        ),
         throwsA(
           isA<ValidationError>()
               .having((e) => e.message, 'message', contains('missing sha1'))
@@ -380,35 +470,37 @@ void main() {
       expect(names, {'shared.jar', 'server.jar'});
     });
 
-    test('combined target keeps every entry (regression of pre-split behavior)',
-        () {
-      final lock = _lock(
-        mods: {
-          'shared': _modrinth(slug: 'shared', name: 'shared.jar'),
-          'server-only': _modrinth(
-            slug: 'server-only',
-            name: 'server.jar',
-            env: Environment.server,
-          ),
-          'client-only': _modrinth(
-            slug: 'client-only',
-            name: 'client.jar',
-            env: Environment.client,
-          ),
-        },
-      );
-      final idx = buildIndex(
-        yaml: _yaml(),
-        lock: lock,
-        target: PackTarget.combined,
-        publishable: false,
-      );
-      expect(idx.files.map((f) => p.basename(f.path)).toSet(), {
-        'shared.jar',
-        'server.jar',
-        'client.jar',
-      });
-    });
+    test(
+      'combined target keeps every entry (regression of pre-split behavior)',
+      () {
+        final lock = _lock(
+          mods: {
+            'shared': _modrinth(slug: 'shared', name: 'shared.jar'),
+            'server-only': _modrinth(
+              slug: 'server-only',
+              name: 'server.jar',
+              env: Environment.server,
+            ),
+            'client-only': _modrinth(
+              slug: 'client-only',
+              name: 'client.jar',
+              env: Environment.client,
+            ),
+          },
+        );
+        final idx = buildIndex(
+          yaml: _yaml(),
+          lock: lock,
+          target: PackTarget.combined,
+          publishable: false,
+        );
+        expect(idx.files.map((f) => p.basename(f.path)).toSet(), {
+          'shared.jar',
+          'server.jar',
+          'client.jar',
+        });
+      },
+    );
 
     test('loader-key map is respected per-loader', () {
       final forge = buildIndex(
@@ -417,10 +509,7 @@ void main() {
         target: PackTarget.combined,
         publishable: false,
       );
-      expect(forge.dependencies, {
-        'minecraft': '1.21.1',
-        'forge': '52.0.45',
-      });
+      expect(forge.dependencies, {'minecraft': '1.21.1', 'forge': '52.0.45'});
 
       final neoforge = buildIndex(
         yaml: _yaml(),
@@ -469,26 +558,26 @@ void main() {
       expect(rpPlan.sourceKind, 'url');
     });
 
-    test('hasModOverrides is false when only non-mod sections have overrides',
-        () {
-      final lock = _lock(
-        resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
-      );
-      final cache = GitrinthCache(root: '/tmp/fakeroot');
-      final plan = collectOverrides(
-        lock: lock,
-        cache: cache,
-        projectDir: '/proj',
-        target: PackTarget.combined,
-      );
-      expect(plan.entries, hasLength(1));
-      expect(plan.hasModOverrides, isFalse);
-    });
+    test(
+      'hasModOverrides is false when only non-mod sections have overrides',
+      () {
+        final lock = _lock(
+          resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
+        );
+        final cache = GitrinthCache(root: '/tmp/fakeroot');
+        final plan = collectOverrides(
+          lock: lock,
+          cache: cache,
+          projectDir: '/proj',
+          target: PackTarget.combined,
+        );
+        expect(plan.entries, hasLength(1));
+        expect(plan.hasModOverrides, isFalse);
+      },
+    );
 
     test('returns empty plan when every entry is a modrinth source', () {
-      final lock = _lock(
-        mods: {'sodium': _modrinth(slug: 'sodium')},
-      );
+      final lock = _lock(mods: {'sodium': _modrinth(slug: 'sodium')});
       final cache = GitrinthCache(root: '/tmp/fakeroot');
       final plan = collectOverrides(
         lock: lock,
@@ -500,59 +589,47 @@ void main() {
       expect(plan.hasModOverrides, isFalse);
     });
 
-    test(
-      'routes server-only url mods to server-overrides/mods/',
-      () {
-        final lock = _lock(
-          mods: {
-            'server-mod': _url(
-              slug: 'server-mod',
-              filename: 'server.jar',
-              env: Environment.server,
-            ),
-          },
-        );
-        final cache = GitrinthCache(root: '/tmp/fakeroot');
-        final plan = collectOverrides(
-          lock: lock,
-          cache: cache,
-          projectDir: '/proj',
-          target: PackTarget.combined,
-        );
-        expect(
-          plan.entries.single.zipPath,
-          'server-overrides/mods/server.jar',
-        );
-        // Still counts as a mod override for the permissions warning.
-        expect(plan.hasModOverrides, isTrue);
-      },
-    );
+    test('routes server-only url mods to server-overrides/mods/', () {
+      final lock = _lock(
+        mods: {
+          'server-mod': _url(
+            slug: 'server-mod',
+            filename: 'server.jar',
+            env: Environment.server,
+          ),
+        },
+      );
+      final cache = GitrinthCache(root: '/tmp/fakeroot');
+      final plan = collectOverrides(
+        lock: lock,
+        cache: cache,
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(plan.entries.single.zipPath, 'server-overrides/mods/server.jar');
+      // Still counts as a mod override for the permissions warning.
+      expect(plan.hasModOverrides, isTrue);
+    });
 
-    test(
-      'routes client-only path mods to client-overrides/mods/',
-      () {
-        final lock = _lock(
-          mods: {
-            'client-mod': _path(
-              slug: 'client-mod',
-              path: '/abs/client.jar',
-              env: Environment.client,
-            ),
-          },
-        );
-        final cache = GitrinthCache(root: '/tmp/fakeroot');
-        final plan = collectOverrides(
-          lock: lock,
-          cache: cache,
-          projectDir: '/proj',
-          target: PackTarget.combined,
-        );
-        expect(
-          plan.entries.single.zipPath,
-          'client-overrides/mods/client.jar',
-        );
-      },
-    );
+    test('routes client-only path mods to client-overrides/mods/', () {
+      final lock = _lock(
+        mods: {
+          'client-mod': _path(
+            slug: 'client-mod',
+            path: '/abs/client.jar',
+            env: Environment.client,
+          ),
+        },
+      );
+      final cache = GitrinthCache(root: '/tmp/fakeroot');
+      final plan = collectOverrides(
+        lock: lock,
+        cache: cache,
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(plan.entries.single.zipPath, 'client-overrides/mods/client.jar');
+    });
 
     test(
       'shaders (forced client at the section level) land in client-overrides/shaderpacks/',
@@ -628,36 +705,33 @@ void main() {
       expect(plan.entries.map((e) => e.slug), ['both-mod']);
     });
 
-    test(
-      'mixed envs in one section spread across all three roots',
-      () {
-        final lock = _lock(
-          mods: {
-            'both-mod': _path(slug: 'both-mod', path: '/a/both.jar'),
-            'client-mod': _path(
-              slug: 'client-mod',
-              path: '/a/client.jar',
-              env: Environment.client,
-            ),
-            'server-mod': _path(
-              slug: 'server-mod',
-              path: '/a/server.jar',
-              env: Environment.server,
-            ),
-          },
-        );
-        final cache = GitrinthCache(root: '/tmp/fakeroot');
-        final plan = collectOverrides(
-          lock: lock,
-          cache: cache,
-          projectDir: '/proj',
-          target: PackTarget.combined,
-        );
-        final byZip = {for (final e in plan.entries) e.slug: e.zipPath};
-        expect(byZip['both-mod'], 'overrides/mods/both.jar');
-        expect(byZip['client-mod'], 'client-overrides/mods/client.jar');
-        expect(byZip['server-mod'], 'server-overrides/mods/server.jar');
-      },
-    );
+    test('mixed envs in one section spread across all three roots', () {
+      final lock = _lock(
+        mods: {
+          'both-mod': _path(slug: 'both-mod', path: '/a/both.jar'),
+          'client-mod': _path(
+            slug: 'client-mod',
+            path: '/a/client.jar',
+            env: Environment.client,
+          ),
+          'server-mod': _path(
+            slug: 'server-mod',
+            path: '/a/server.jar',
+            env: Environment.server,
+          ),
+        },
+      );
+      final cache = GitrinthCache(root: '/tmp/fakeroot');
+      final plan = collectOverrides(
+        lock: lock,
+        cache: cache,
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      final byZip = {for (final e in plan.entries) e.slug: e.zipPath};
+      expect(byZip['both-mod'], 'overrides/mods/both.jar');
+      expect(byZip['client-mod'], 'client-overrides/mods/client.jar');
+      expect(byZip['server-mod'], 'server-overrides/mods/server.jar');
+    });
   });
 }

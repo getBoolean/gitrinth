@@ -54,9 +54,7 @@ class BuildCommand extends GitrinthCommand {
   @override
   Future<int> run() async {
     if (argResults!.rest.isNotEmpty) {
-      throw UsageError(
-        'Unexpected arguments: ${argResults!.rest.join(' ')}',
-      );
+      throw UsageError('Unexpected arguments: ${argResults!.rest.join(' ')}');
     }
 
     final envFlag = argResults!['env'] as String?;
@@ -103,9 +101,7 @@ class BuildCommand extends GitrinthCommand {
       }
     }
 
-    final outputDir = Directory(
-      p.normalize(p.absolute(outputOpt ?? 'build')),
-    );
+    final outputDir = Directory(p.normalize(p.absolute(outputOpt ?? 'build')));
     if (clean && outputDir.existsSync()) {
       outputDir.deleteSync(recursive: true);
     }

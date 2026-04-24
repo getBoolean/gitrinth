@@ -604,10 +604,14 @@ mc-version: 1.21.1
 mods:
 ''');
 
-        final out = await runCli(
-          ['-C', packDir.path, 'add', 'appleskin', '--accepts-mc', '1.21'],
-          environment: env(),
-        );
+        final out = await runCli([
+          '-C',
+          packDir.path,
+          'add',
+          'appleskin',
+          '--accepts-mc',
+          '1.21',
+        ], environment: env());
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
         final q = modrinth.lastVersionQuery['appleskin'];
@@ -640,17 +644,14 @@ mc-version: 1.21.1
 mods:
 ''');
 
-      final out = await runCli(
-        [
-          '-C',
-          packDir.path,
-          'add',
-          'appleskin',
-          '--accepts-mc=1.21',
-          '--accepts-mc=1.20.1',
-        ],
-        environment: env(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'appleskin',
+        '--accepts-mc=1.21',
+        '--accepts-mc=1.20.1',
+      ], environment: env());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
       final q = modrinth.lastVersionQuery['appleskin'];
@@ -686,19 +687,16 @@ mc-version: 1.21.1
 mods:
 ''');
 
-      final out = await runCli(
-        [
-          '-C',
-          packDir.path,
-          'add',
-          'appleskin',
-          '--accepts-mc',
-          '24w10a',
-          '--accepts-mc',
-          '1.21-pre1',
-        ],
-        environment: env(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'appleskin',
+        '--accepts-mc',
+        '24w10a',
+        '--accepts-mc',
+        '1.21-pre1',
+      ], environment: env());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
       final q = modrinth.lastVersionQuery['appleskin'];
@@ -717,17 +715,14 @@ mc-version: 1.21.1
 mods:
 ''');
 
-      final out = await runCli(
-        [
-          '-C',
-          packDir.path,
-          'add',
-          'appleskin',
-          '--accepts-mc',
-          '1.21 snapshot',
-        ],
-        environment: env(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'appleskin',
+        '--accepts-mc',
+        '1.21 snapshot',
+      ], environment: env());
       expect(out.exitCode, isNot(0));
       expect(out.stderr, contains('1.21 snapshot'));
     });
@@ -744,21 +739,230 @@ mc-version: 1.21.1
 mods:
 ''');
 
-      final out = await runCli(
-        [
-          '-C',
-          packDir.path,
-          'add',
-          'custom',
-          '--url',
-          'https://example.com/x.jar',
-          '--accepts-mc',
-          '1.21',
-        ],
-        environment: env(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'custom',
+        '--url',
+        'https://example.com/x.jar',
+        '--accepts-mc',
+        '1.21',
+      ], environment: env());
       expect(out.exitCode, isNot(0));
       expect(out.stderr, contains('--accepts-mc'));
     });
+  });
+
+  group('--pin', () {
+    test('writes the resolved version as bare semver (no caret)', () async {
+      modrinth.registerVersion(
+        slug: 'sodium',
+        versionNumber: '0.6.2',
+        versionType: 'release',
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'sodium',
+        '--pin',
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      expect(readYaml(), contains('sodium: 0.6.2'));
+      expect(readYaml(), isNot(contains('^0.6.2')));
+    });
+
+    test('strips build metadata from the resolved version', () async {
+      modrinth.registerVersion(
+        slug: 'create',
+        versionNumber: '6.0.10+mc1.21.1',
+        versionType: 'release',
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'create',
+        '--pin',
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      expect(readYaml(), contains('create: 6.0.10'));
+      expect(readYaml(), isNot(contains('mc1.21.1')));
+    });
+
+    test('--pin and --exact are mutually exclusive', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'sodium',
+        '--pin',
+        '--exact',
+      ], environment: env());
+      expect(out.exitCode, 64);
+      expect(out.stderr, contains('--pin and --exact'));
+    });
+
+    test('--pin is rejected with --url', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'custom',
+        '--url',
+        'https://example.com/x.jar',
+        '--pin',
+      ], environment: env());
+      expect(out.exitCode, 64);
+      expect(out.stderr, contains('--pin'));
+    });
+
+    test('--pin with an explicit @constraint is a UsageError', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'sodium@^0.6.0',
+        '--pin',
+      ], environment: env());
+      expect(out.exitCode, 64);
+      expect(out.stderr, contains('--pin has no effect'));
+    });
+  });
+
+  group('--type', () {
+    test('--type resourcepack routes a --url .zip to resource_packs', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+
+      final bytes = Uint8List.fromList([1, 2, 3, 4]);
+      modrinth.addArtifact('faithful', 'faithful.zip', bytes);
+      final zipUrl = '${modrinth.downloadBaseUrl}/faithful/faithful.zip';
+
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'faithful',
+        '--url',
+        zipUrl,
+        '--type',
+        'resourcepack',
+      ], environment: env());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readYaml();
+      expect(yaml, contains('resource_packs:'));
+      expect(yaml, contains('faithful:'));
+      expect(yaml, contains('url: $zipUrl'));
+    });
+
+    test('--url .zip without --type still errors, mentions --type', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'faithful',
+        '--url',
+        'https://example.com/faithful.zip',
+      ], environment: env());
+      expect(out.exitCode, isNot(0));
+      expect(out.stderr, contains('--type'));
+    });
+
+    test(
+      '--type matching the inferred section leaves the entry where inference '
+      'would put it anyway',
+      () async {
+        modrinth.registerVersion(
+          slug: 'sodium',
+          versionNumber: '0.6.2',
+          versionType: 'release',
+        );
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+''');
+        final out = await runCli([
+          '-C',
+          packDir.path,
+          'add',
+          'sodium',
+          '--type',
+          'mod',
+        ], environment: env());
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        expect(out.stderr, isNot(contains('overrides the inferred section')));
+        final yaml = readYaml();
+        expect(yaml, contains('mods:'));
+        expect(yaml, contains('sodium:'));
+      },
+    );
   });
 }

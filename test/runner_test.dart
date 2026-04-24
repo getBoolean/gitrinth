@@ -35,17 +35,14 @@ void main() {
       expect(out.exitCode, 64);
     });
 
-    test(
-      'pack outside a project exits 1 with a friendly UserError',
-      () async {
-        // Run from the package root, which has no mods.yaml. The runner
-        // should surface a UserError pointing at `gitrinth create`.
-        final out = await runCli(['pack']);
-        expect(out.exitCode, 1);
-        expect(out.stderr, contains('mods.yaml not found'));
-        expect(out.stderr, contains('gitrinth create'));
-      },
-    );
+    test('pack outside a project exits 1 with a friendly UserError', () async {
+      // Run from the package root, which has no mods.yaml. The runner
+      // should surface a UserError pointing at `gitrinth create`.
+      final out = await runCli(['pack']);
+      expect(out.exitCode, 1);
+      expect(out.stderr, contains('mods.yaml not found'));
+      expect(out.stderr, contains('gitrinth create'));
+    });
 
     test('unknown --flag exits 64', () async {
       final out = await runCli(['--nope']);

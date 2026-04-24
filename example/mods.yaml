@@ -47,7 +47,7 @@ mods:
   create: ^6.0.10 # 6.0.10+mc1.21.1
   create-aeronautics: ^1.1.0 # 1.1.0+mc1.21.1
   sable: ^1.1.1 # 1.1.1+mc1.21.1
-  jei: ^19.27.0.340
+  jei: ^19.27.0+340
   sodium: beta
   ferrite-core: beta
   # Allow release and beta versions (not alpha).
@@ -63,7 +63,7 @@ mods:
     environment: server
   appleskin:
     version: ^3.0.9 # 3.0.9+mc1.21
-    accepts-mc: 1.21 # Scalar shorthand for [1.21]
+    accepts-mc: 1.21.1 # Scalar shorthand for [1.21]
 
 resource_packs:
   faithful-32x: ^1.21.1 # 1.21.1-december-2025

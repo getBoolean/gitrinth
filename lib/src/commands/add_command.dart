@@ -69,6 +69,22 @@ class AddCommand extends GitrinthCommand {
         help:
             "Preserve the resolved version's build metadata inside the caret "
             'constraint (e.g. ^6.0.10+mc1.21.1 instead of ^6.0.10).',
+      )
+      ..addFlag(
+        'pin',
+        negatable: false,
+        help:
+            'Write the resolved version as a bare semver (no caret), '
+            'freezing the entry in place. Equivalent to `add` followed by '
+            '`pin`.',
+      )
+      ..addOption(
+        'type',
+        allowed: typeFlagValues,
+        help:
+            'Override the inferred section. Required for --url/--path '
+            'entries whose filename does not uniquely identify a type '
+            '(e.g. .zip files).',
       );
   }
 
@@ -92,6 +108,8 @@ class AddCommand extends GitrinthCommand {
     final envOpt = argResults!['env'] as String?;
     final dryRun = argResults!['dry-run'] as bool;
     final exactFlag = argResults!['exact'] as bool;
+    final pinFlag = argResults!['pin'] as bool;
+    final typeOverride = sectionFromTypeFlag(argResults!['type'] as String?);
     final acceptsMc = _parseAcceptsMcFlag(
       argResults!['accepts-mc'] as List<String>,
     );
@@ -110,11 +128,26 @@ class AddCommand extends GitrinthCommand {
         'with --url or --path.',
       );
     }
+    if (pinFlag && exactFlag) {
+      throw const UsageError('--pin and --exact are mutually exclusive.');
+    }
+    if (pinFlag && (urlOpt != null || pathOpt != null)) {
+      throw const UsageError(
+        '--pin applies to Modrinth-sourced entries; cannot combine with '
+        '--url or --path.',
+      );
+    }
 
     final (:slug, :constraintRaw) = _parsePositional(positional);
     if (exactFlag && constraintRaw != null) {
       throw const UsageError(
         '--exact has no effect when a version constraint is supplied '
+        'explicitly.',
+      );
+    }
+    if (pinFlag && constraintRaw != null) {
+      throw const UsageError(
+        '--pin has no effect when a version constraint is supplied '
         'explicitly.',
       );
     }
@@ -141,15 +174,19 @@ class AddCommand extends GitrinthCommand {
     if (urlOpt != null || pathOpt != null) {
       // Local / url: source — no Modrinth round-trip.
       final filename = urlOpt ?? pathOpt!;
-      final inferred = inferSectionFromFilename(filename);
-      if (inferred == null) {
-        throw ValidationError(
-          'cannot infer section for $filename; sections for --url/--path '
-          'entries are inferred from the filename. Rename the file to use '
-          'a .jar extension for mods, or add the entry manually to mods.yaml.',
-        );
+      if (typeOverride != null) {
+        section = typeOverride;
+      } else {
+        final inferred = inferSectionFromFilename(filename);
+        if (inferred == null) {
+          throw ValidationError(
+            'cannot infer section for $filename; pass '
+            '--type <mod|resourcepack|datapack|shader> to choose one '
+            '(or rename the file to use a .jar extension for mods).',
+          );
+        }
+        section = inferred;
       }
-      section = inferred;
 
       final long = <String, Object?>{};
       if (urlOpt != null) long['url'] = urlOpt;
@@ -168,10 +205,19 @@ class AddCommand extends GitrinthCommand {
         if (err is GitrinthException) throw err;
         rethrow;
       }
-      section = inferSectionFromProject(
+      final inferredSection = inferSectionFromProject(
         projectType: project.projectType,
         loaders: project.loaders,
       );
+      if (typeOverride != null && typeOverride != inferredSection) {
+        console.warn(
+          "--type ${sectionKeyFor(typeOverride)} overrides the inferred "
+          "section '${sectionKeyFor(inferredSection)}' for '$slug'.",
+        );
+        section = typeOverride;
+      } else {
+        section = inferredSection;
+      }
 
       // Resolve a default constraint (caret-pin the newest release's
       // major.minor.patch, dropping build metadata) when the user didn't
@@ -199,6 +245,8 @@ class AddCommand extends GitrinthCommand {
         }
         if (exactFlag) {
           effectiveConstraint = '^$latest';
+        } else if (pinFlag) {
+          effectiveConstraint = bareVersionForPin(latest);
         } else {
           final parsed = parseModrinthVersion(latest);
           effectiveConstraint =

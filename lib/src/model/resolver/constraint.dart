@@ -2,6 +2,7 @@ import 'package:pub_semver/pub_semver.dart';
 
 import '../../cli/exceptions.dart';
 import '../manifest/mods_yaml.dart';
+import 'exact_constraint.dart';
 
 /// Parses a `mods.yaml` version constraint into a [VersionConstraint].
 ///
@@ -21,12 +22,28 @@ VersionConstraint parseConstraint(String? raw) {
       final version = parseModrinthVersion(trimmed.substring(1));
       return VersionConstraint.compatibleWith(version);
     }
-    // Exact match — Version implements VersionConstraint, allowing only ==.
-    return parseModrinthVersion(trimmed);
+    // Exact match: pick semver-only vs strict-build based on whether the
+    // parsed build metadata is all-numeric (real build numbers) or
+    // contains tag-style segments (e.g. `+mc1.21.1`). See
+    // `SemverOnlyExactConstraint` for the semantic difference.
+    final parsed = parseModrinthVersion(trimmed);
+    return isBuildNumberOnly(parsed.build)
+        ? parsed
+        : SemverOnlyExactConstraint(parsed);
   } on FormatException catch (e) {
     throw ValidationError('Invalid version constraint "$raw": ${e.message}');
   }
 }
+
+/// Returns true iff [build] is non-empty and every segment is purely
+/// numeric (a true build number like `+340`). Tag metadata like
+/// `+mc1.21.1` contains non-numeric segments and returns false.
+///
+/// Shared between [parseConstraint] and [bareVersionForPin] so the
+/// "what counts as a build number" decision stays in one place.
+bool isBuildNumberOnly(Iterable<Object> build) =>
+    build.isNotEmpty &&
+    build.every((s) => RegExp(r'^\d+$').hasMatch(s.toString()));
 
 /// Parses a Modrinth `version_number` string into a [Version].
 ///
@@ -62,6 +79,22 @@ Version parseModrinthVersion(String raw) {
     return Version.parse('${m[1]}.${m[2]}.${m[3]}+${m[4]}');
   }
   throw FormatException('cannot parse version "$raw"');
+}
+
+/// Returns the "pinnable bare form" of [raw] — `major.minor.patch`, plus the
+/// build metadata iff it is purely numeric (which is how [parseModrinthVersion]
+/// encodes 4-segment numeric versions like `19.27.0.340` → `19.27.0+340`).
+///
+/// Used by `pin` / `unpin` / `add --pin`: we strip tag-style metadata
+/// (`+mc1.21.1`) because it's loader-compatibility noise, but we keep the
+/// build-number segment that actually carries version info. Throws
+/// [FormatException] when [raw] doesn't parse.
+String bareVersionForPin(String raw) {
+  final parsed = parseModrinthVersion(raw);
+  final mmp = '${parsed.major}.${parsed.minor}.${parsed.patch}';
+  return isBuildNumberOnly(parsed.build)
+      ? '$mmp+${parsed.build.join('.')}'
+      : mmp;
 }
 
 /// Parses a release-channel token (`release`, `beta`, `alpha`) into a [Channel].

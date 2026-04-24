@@ -38,6 +38,8 @@ Use [`--directory`](#global-options) to target a different modpack.
 | [`upgrade`](#upgrade) | Re-resolve to the newest version allowed by each constraint. |
 | [`add`](#add)         | Add an entry to a section.                                   |
 | [`remove`](#remove)   | Remove an entry.                                             |
+| [`pin`](#pin)         | Freeze an entry to its currently-locked version.             |
+| [`unpin`](#unpin)     | Restore a caret on a pinned entry.                           |
 
 ### Cache
 
@@ -113,22 +115,27 @@ Add an entry to [`mods`](mods-yaml.md#mods),
 ```text
 gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--url <url> | --path <path>]
+            [--type <mod|resourcepack|datapack|shader>]
             [--accepts-mc <mc-version>]...
-            [--exact] [--dry-run]
+            [--exact | --pin] [--dry-run]
 ```
 
 The target section is inferred from the slug's Modrinth project type —
 mods to [`mods`](mods-yaml.md#mods), resource packs to
 [`resource_packs`](mods-yaml.md#resource_packs), and so on. `url:` and
-`path:` sources infer from the artifact's file type.
+`path:` sources infer from the artifact's file type. Pass `--type` to
+override the inference; it is required for `--url` / `--path` entries
+whose filename doesn't uniquely identify a type (non-`.jar` files).
 
 | Option         | Description                                                                                         |
 |----------------|-----------------------------------------------------------------------------------------------------|
 | `--env`        | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                           |
 | `--url`        | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
 | `--path`       | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
+| `--type`       | Override the inferred section. Accepts `mod`, `resourcepack`, `datapack`, `shader`. See below.      |
 | `--accepts-mc` | Additional MC versions to tolerate for this entry. Repeatable. See below.                           |
 | `--exact`      | Keep the resolved version's build metadata inside the caret. See below.                             |
+| `--pin`        | Write the resolved version as a bare semver (no caret). Equivalent to `add` then [`pin`](#pin).     |
 | `--dry-run`    | Print the edit without writing.                                                                     |
 
 `--accepts-mc <mc-version>` widens the Modrinth `game_versions` query
@@ -145,8 +152,16 @@ By default `add` writes a caret constraint on the resolved version's
 ignores build metadata — but the stripped default keeps `mods.yaml`
 readable. Pass `--exact` to preserve the full resolved version inside
 the caret (`^6.0.10+mc1.21.1`) when traceability to the original
-Modrinth file matters. Only applies when no `@<constraint>` is
-supplied; incompatible with `--url` / `--path`.
+Modrinth file matters, or `--pin` to freeze the entry to the bare
+`major.minor.patch` (no caret). Only applies when no `@<constraint>`
+is supplied; incompatible with `--url` / `--path`. `--exact` and
+`--pin` are mutually exclusive.
+
+`--type` overrides section inference. For Modrinth sources it prints a
+warning when it contradicts the project's inferred type, then proceeds
+— user's explicit choice wins. For `--url` / `--path` sources it is the
+only way to file a non-`.jar` artifact (e.g. `foo.zip` could be a
+resource pack, data pack, or shader); `add` refuses to guess.
 
 ### `remove`
 
@@ -158,6 +173,49 @@ gitrinth remove <slug> [--dry-run]
 
 The section is inferred from where `<slug>` currently lives in
 `mods.yaml`.
+
+### `pin`
+
+Rewrite an entry's version constraint to the currently-locked version's
+bare `major.minor.patch`, stripping any caret and any tag-style build
+metadata (e.g. `+mc1.21.1`). Four-segment Modrinth versions like
+`19.27.0.340` are kept intact as `19.27.0+340` — the fourth number
+carries real version info, so pin preserves it as numeric build
+metadata. Ergonomic sugar over manual `mods.yaml` edits. Requires an
+existing `mods.lock` — run [`get`](#get) first.
+
+```text
+gitrinth pin <slug> [--type <mod|resourcepack|datapack|shader>]
+                    [--dry-run]
+```
+
+| Option      | Description                                                                  |
+|-------------|------------------------------------------------------------------------------|
+| `--type`    | Disambiguate `<slug>` when it lives in multiple sections of `mods.yaml`.     |
+| `--dry-run` | Print the edit without writing.                                              |
+
+Only applies to Modrinth-sourced entries — `url:` / `path:` entries
+have no semver to pin. Does not re-resolve: the bare version still
+satisfies the existing lock.
+
+### `unpin`
+
+Inverse of [`pin`](#pin). Prepends `^` to a bare-semver constraint so
+subsequent [`get`](#get) runs pick up newer compatible versions. Reads
+only `mods.yaml`; does not touch the lock.
+
+```text
+gitrinth unpin <slug> [--type <mod|resourcepack|datapack|shader>]
+                      [--dry-run]
+```
+
+| Option      | Description                                                                  |
+|-------------|------------------------------------------------------------------------------|
+| `--type`    | Disambiguate `<slug>` when it lives in multiple sections of `mods.yaml`.     |
+| `--dry-run` | Print the edit without writing.                                              |
+
+Errors if the constraint already has a caret, is a channel token
+(`release`, `beta`, `alpha`), or isn't semver-shaped.
 
 ### `create`
 

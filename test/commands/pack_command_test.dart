@@ -48,10 +48,10 @@ void main() {
   }
 
   Map<String, String> defaultEnv() => {
-        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-        'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
-        'GITRINTH_CACHE': cacheDir.path,
-      };
+    'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+    'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
+    'GITRINTH_CACHE': cacheDir.path,
+  };
 
   test(
     'default: writes both client and server .mrpack with valid indexes; mentions mrpack-install',
@@ -78,10 +78,11 @@ mods:
   sodium: ^0.6.0
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'pack'],
-        environment: defaultEnv(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+      ], environment: defaultEnv());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
       final clientPack = File(
@@ -106,8 +107,8 @@ mods:
           'minecraft': '1.21.1',
           'fabric-loader': '0.17.3',
         });
-        final fileEntries =
-            (index['files'] as List).cast<Map<String, dynamic>>();
+        final fileEntries = (index['files'] as List)
+            .cast<Map<String, dynamic>>();
         expect(fileEntries, hasLength(1));
         final sodium = fileEntries.single;
         expect(sodium['path'], 'mods/sodium-0.6.0.jar');
@@ -121,10 +122,7 @@ mods:
       }
 
       // Server install hint surfaces so admins know how to consume the pack.
-      expect(
-        out.stdout,
-        contains('https://github.com/nothub/mrpack-install'),
-      );
+      expect(out.stdout, contains('https://github.com/nothub/mrpack-install'));
       expect(out.stdout, isNot(contains('permission from each mod author')));
     },
   );
@@ -153,10 +151,12 @@ mods:
   sodium: ^0.6.0
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'pack', '--combined'],
-        environment: defaultEnv(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+        '--combined',
+      ], environment: defaultEnv());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
       final clientPack = File(
@@ -202,16 +202,21 @@ mods:
 ''');
 
     final customPath = p.join(packDir.path, 'dist', 'custom-name.mrpack');
-    final out = await runCli(
-      ['-C', packDir.path, 'pack', '--output', customPath],
-      environment: defaultEnv(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'pack',
+      '--output',
+      customPath,
+    ], environment: defaultEnv());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     // Client pack lands at the override path; server twin sits next to it
     // with `-server` inserted before the extension.
     expect(File(customPath).existsSync(), isTrue);
     expect(
-      File(p.join(packDir.path, 'dist', 'custom-name-server.mrpack')).existsSync(),
+      File(
+        p.join(packDir.path, 'dist', 'custom-name-server.mrpack'),
+      ).existsSync(),
       isTrue,
     );
     expect(
@@ -221,13 +226,14 @@ mods:
     );
   });
 
-  test('--publishable refuses url-source mods with offending slugs listed',
-      () async {
-    final localJar = File(p.join(packDir.path, 'mods', 'local.jar'))
-      ..parent.createSync(recursive: true)
-      ..writeAsBytesSync(Uint8List.fromList(List.generate(8, (i) => i)));
+  test(
+    '--publishable refuses url-source mods with offending slugs listed',
+    () async {
+      final localJar = File(p.join(packDir.path, 'mods', 'local.jar'))
+        ..parent.createSync(recursive: true)
+        ..writeAsBytesSync(Uint8List.fromList(List.generate(8, (i) => i)));
 
-    await writeManifest('''
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -240,36 +246,37 @@ mods:
     path: ${p.relative(localJar.path, from: packDir.path).replaceAll(r'\', '/')}
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'pack', '--publishable'],
-      environment: defaultEnv(),
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+        '--publishable',
+      ], environment: defaultEnv());
+      expect(out.exitCode, isNot(0), reason: out.stdout);
+      expect(out.stderr, contains('--publishable refused'));
+      expect(out.stderr, contains('local-mod (path)'));
+    },
+  );
+
+  test('--publishable allows a url-source resource pack (not a mod)', () async {
+    modrinth.registerVersion(
+      slug: 'sodium',
+      versionNumber: '0.6.0',
+      loader: 'fabric',
     );
-    expect(out.exitCode, isNot(0), reason: out.stdout);
-    expect(out.stderr, contains('--publishable refused'));
-    expect(out.stderr, contains('local-mod (path)'));
-  });
+    final files = (modrinth.versions['sodium']!.first['files'] as List)
+        .cast<Map<String, dynamic>>();
+    (files.first['hashes'] as Map<String, dynamic>)['sha1'] = 'abc';
 
-  test(
-    '--publishable allows a url-source resource pack (not a mod)',
-    () async {
-      modrinth.registerVersion(
-        slug: 'sodium',
-        versionNumber: '0.6.0',
-        loader: 'fabric',
-      );
-      final files = (modrinth.versions['sodium']!.first['files'] as List)
-          .cast<Map<String, dynamic>>();
-      (files.first['hashes'] as Map<String, dynamic>)['sha1'] = 'abc';
+    // A custom resource pack hosted somewhere outside Modrinth — bytes
+    // served by the fake's /downloads route.
+    modrinth.addArtifact(
+      'rp',
+      'custom-pack.zip',
+      Uint8List.fromList(List.generate(16, (i) => i)),
+    );
 
-      // A custom resource pack hosted somewhere outside Modrinth — bytes
-      // served by the fake's /downloads route.
-      modrinth.addArtifact(
-        'rp',
-        'custom-pack.zip',
-        Uint8List.fromList(List.generate(16, (i) => i)),
-      );
-
-      await writeManifest('''
+    await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -284,29 +291,25 @@ resource_packs:
     url: ${modrinth.downloadBaseUrl}/rp/custom-pack.zip
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'pack', '--publishable'],
-        environment: defaultEnv(),
-      );
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'pack',
+      '--publishable',
+    ], environment: defaultEnv());
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
-      final mrpack = File(
-        p.join(packDir.path, 'build', 'pack-0.1.0.mrpack'),
-      );
-      expect(mrpack.existsSync(), isTrue);
+    final mrpack = File(p.join(packDir.path, 'build', 'pack-0.1.0.mrpack'));
+    expect(mrpack.existsSync(), isTrue);
 
-      // RP went to overrides/, not files[].
-      final paths = _zipPaths(mrpack);
-      expect(
-        paths,
-        contains('overrides/resourcepacks/custom-pack.zip'),
-      );
-      final fileEntries = (_readIndex(mrpack)['files'] as List)
-          .cast<Map<String, dynamic>>();
-      expect(fileEntries, hasLength(1));
-      expect(fileEntries.single['path'], 'mods/sodium-0.6.0.jar');
-    },
-  );
+    // RP went to overrides/, not files[].
+    final paths = _zipPaths(mrpack);
+    expect(paths, contains('overrides/resourcepacks/custom-pack.zip'));
+    final fileEntries = (_readIndex(mrpack)['files'] as List)
+        .cast<Map<String, dynamic>>();
+    expect(fileEntries, hasLength(1));
+    expect(fileEntries.single['path'], 'mods/sodium-0.6.0.jar');
+  });
 
   test(
     'non-publishable run with url-source mods: bundles them and prints sorted permissions warning',
@@ -337,15 +340,14 @@ mods:
     url: ${modrinth.downloadBaseUrl}/remote-a/remote-a.jar
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'pack'],
-        environment: defaultEnv(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+      ], environment: defaultEnv());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
-      final mrpack = File(
-        p.join(packDir.path, 'build', 'pack-0.1.0.mrpack'),
-      );
+      final mrpack = File(p.join(packDir.path, 'build', 'pack-0.1.0.mrpack'));
       final paths = _zipPaths(mrpack);
       expect(paths, contains('overrides/mods/remote-a.jar'));
       expect(paths, contains('overrides/mods/remote-b.jar'));
@@ -359,8 +361,11 @@ mods:
       final alphaIdx = out.stdout.indexOf('- alpha-mod (url)');
       final zetaIdx = out.stdout.indexOf('- zeta-mod (url)');
       expect(alphaIdx, greaterThan(0));
-      expect(zetaIdx, greaterThan(alphaIdx),
-          reason: 'slugs must be listed alphabetically');
+      expect(
+        zetaIdx,
+        greaterThan(alphaIdx),
+        reason: 'slugs must be listed alphabetically',
+      );
     },
   );
 
@@ -406,10 +411,11 @@ shaders:
     url: ${modrinth.downloadBaseUrl}/shr/cool-shader.zip
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'pack'],
-        environment: defaultEnv(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+      ], environment: defaultEnv());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
       final clientPaths = _zipPaths(
@@ -426,7 +432,9 @@ shaders:
       // server-only mod is dropped from the client pack and lands in
       // server-overrides/ inside the server pack.
       expect(
-        clientPaths.any((p) => p.endsWith('srv-mod.jar') && p != 'overrides/mods/srv-mod.jar'),
+        clientPaths.any(
+          (p) => p.endsWith('srv-mod.jar') && p != 'overrides/mods/srv-mod.jar',
+        ),
         isFalse,
       );
       expect(serverPaths, contains('server-overrides/mods/srv-mod.jar'));
@@ -440,10 +448,7 @@ shaders:
         clientPaths,
         contains('client-overrides/shaderpacks/cool-shader.zip'),
       );
-      expect(
-        serverPaths.any((p) => p.contains('cool-shader.zip')),
-        isFalse,
-      );
+      expect(serverPaths.any((p) => p.contains('cool-shader.zip')), isFalse);
 
       // Permissions warning still lists every mod-section override across
       // both packs (since the user is publishing both artifacts).
@@ -487,10 +492,11 @@ resource_packs:
     url: ${modrinth.downloadBaseUrl}/rp/custom-pack.zip
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'pack'],
-        environment: defaultEnv(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+      ], environment: defaultEnv());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
       expect(
         out.stdout,

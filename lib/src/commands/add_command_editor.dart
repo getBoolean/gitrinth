@@ -20,6 +20,30 @@ String sectionKeyFor(Section section) {
   }
 }
 
+/// Allowed values for the `--type` flag on `add`, `pin`, and `unpin`.
+/// Mirrors Modrinth's `project_type` naming (singular, lowercase).
+const typeFlagValues = ['mod', 'resourcepack', 'datapack', 'shader'];
+
+/// Maps a `--type` flag value to its [Section]. Returns `null` when [raw] is
+/// null (flag not passed). Unknown values should already have been rejected
+/// by `argParser.addOption(allowed: ...)`, so this throws [ArgumentError]
+/// instead of a user-facing error.
+Section? sectionFromTypeFlag(String? raw) {
+  if (raw == null) return null;
+  switch (raw) {
+    case 'mod':
+      return Section.mods;
+    case 'resourcepack':
+      return Section.resourcePacks;
+    case 'datapack':
+      return Section.dataPacks;
+    case 'shader':
+      return Section.shaders;
+    default:
+      throw ArgumentError.value(raw, 'raw', 'unknown --type value');
+  }
+}
+
 /// Inserts (or creates) a single entry under [section] inside [yamlText],
 /// preserving comments and formatting via `yaml_edit`.
 ///

@@ -33,6 +33,43 @@ void main() {
       expect(c.allows(Version.parse('1.2.4')), isFalse);
     });
 
+    test('semver pin (no build metadata) matches a +mc-tagged candidate', () {
+      // `6.0.10` with no build metadata is a semver-only exact constraint
+      // — tag metadata on the candidate is ignored.
+      final c = parseConstraint('6.0.10');
+      expect(c.allows(Version.parse('6.0.10+mc1.21.1')), isTrue);
+      expect(c.allows(Version.parse('6.0.10+340')), isTrue);
+      expect(c.allows(Version.parse('6.0.11')), isFalse);
+    });
+
+    test(
+      'semver pin with tag metadata (+mc...) still matches bare candidate',
+      () {
+        // `+mc1.21.1` contains non-numeric segments → treated as tag
+        // metadata → constraint is semver-only exact.
+        final c = parseConstraint('6.0.10+mc1.21.1');
+        expect(c.allows(Version.parse('6.0.10')), isTrue);
+        expect(c.allows(Version.parse('6.0.10+mc1.21.1')), isTrue);
+        expect(c.allows(Version.parse('6.0.10+mc1.21.2')), isTrue);
+        expect(c.allows(Version.parse('6.0.11')), isFalse);
+      },
+    );
+
+    test('build-number pin (+340) rejects candidates with different build', () {
+      // All-numeric build segments indicate a real build number → strict
+      // exact match (behaviour of pub_semver's Version equality).
+      final c = parseConstraint('19.27.0+340');
+      expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
+      expect(c.allows(Version.parse('19.27.0+341')), isFalse);
+      expect(c.allows(Version.parse('19.27.0')), isFalse);
+    });
+
+    test('4-segment input is classified as a build-number pin', () {
+      final c = parseConstraint('19.27.0.340');
+      expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
+      expect(c.allows(Version.parse('19.27.0')), isFalse);
+    });
+
     test('unparseable raises ValidationError', () {
       expect(
         () => parseConstraint('not-a-version'),

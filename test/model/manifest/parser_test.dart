@@ -413,10 +413,12 @@ mods:
     accepts-mc: [1.21, "24w10a", "1.21-pre1", "b1.7.3"]
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-      expect(
-        m.mods['appleskin']!.acceptsMc,
-        ['1.21', '24w10a', '1.21-pre1', 'b1.7.3'],
-      );
+      expect(m.mods['appleskin']!.acceptsMc, [
+        '1.21',
+        '24w10a',
+        '1.21-pre1',
+        'b1.7.3',
+      ]);
     });
 
     test('accepts-mc rejects strings with invalid characters', () {
@@ -535,12 +537,14 @@ mc-version: 1.21.1
       expect(m.loader.modsVersion, '0.17.3');
     });
 
-    test('quoted scalar with concrete tag round-trips through the YAML loader',
-        () {
-      final m = parse('"forge:52.0.45"');
-      expect(m.loader.mods, Loader.forge);
-      expect(m.loader.modsVersion, '52.0.45');
-    });
+    test(
+      'quoted scalar with concrete tag round-trips through the YAML loader',
+      () {
+        final m = parse('"forge:52.0.45"');
+        expect(m.loader.mods, Loader.forge);
+        expect(m.loader.modsVersion, '52.0.45');
+      },
+    );
 
     test('empty tag after colon is rejected', () {
       // Quoted because bare `fabric:` would otherwise look like a YAML

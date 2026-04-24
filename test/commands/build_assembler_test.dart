@@ -16,8 +16,7 @@ LockedEntry _modrinth(String slug, {Environment env = Environment.both}) =>
       file: LockedFile(
         name: '$slug.jar',
         url: 'https://example.invalid/$slug.jar',
-        sha512:
-            'a' * 128, // 64-byte hex, matches expected sha512 length
+        sha512: 'a' * 128, // 64-byte hex, matches expected sha512 length
         size: 0,
       ),
       env: env,
@@ -137,11 +136,14 @@ void main() {
         _modrinth('jei'),
         projectDir: p.join('some', 'proj'),
       );
-      expect(path, cache.modrinthPath(
-        projectId: 'PRJ',
-        versionId: 'VER',
-        filename: 'jei.jar',
-      ));
+      expect(
+        path,
+        cache.modrinthPath(
+          projectId: 'PRJ',
+          versionId: 'VER',
+          filename: 'jei.jar',
+        ),
+      );
     });
 
     test('url source resolves via cache.urlPath keyed by sha512', () {
@@ -164,10 +166,7 @@ void main() {
         _path('local', p.join('mods', 'local.jar')),
         projectDir: projectDir,
       );
-      expect(
-        path,
-        p.normalize(p.join(projectDir, 'mods', 'local.jar')),
-      );
+      expect(path, p.normalize(p.join(projectDir, 'mods', 'local.jar')));
     });
 
     test('absolute path source is returned as-is', () {

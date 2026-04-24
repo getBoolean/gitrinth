@@ -12,7 +12,9 @@ import '../commands/completion_command.dart';
 import '../commands/create_command.dart';
 import '../commands/get_command.dart';
 import '../commands/pack_command.dart';
+import '../commands/pin_command.dart';
 import '../commands/remove_command.dart';
+import '../commands/unpin_command.dart';
 import '../version.dart';
 import 'exceptions.dart';
 import 'exit_codes.dart';
@@ -47,6 +49,8 @@ class GitrinthRunner extends CommandRunner<int> {
     addCommand(GetCommand());
     addCommand(AddCommand());
     addCommand(RemoveCommand());
+    addCommand(PinCommand());
+    addCommand(UnpinCommand());
     addCommand(BuildCommand());
     addCommand(CleanCommand());
     addCommand(PackCommand());

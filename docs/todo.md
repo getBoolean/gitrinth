@@ -12,7 +12,7 @@ Planned improvements:
 - [x] [`accepts-mc` — per-entry MC version tolerance](#accepts-mc--per-entry-mc-version-tolerance)
 - [ ] [`migrate` command](#migrate-command)
 - [ ] [Optional mods](#optional-mods)
-- [ ] [`pin` / `unpin` commands](#pin--unpin-commands)
+- [x] [`pin` / `unpin` commands](#pin--unpin-commands)
 - [x] [Shell completion](#shell-completion)
 - [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
 - [ ] [CurseForge bridge](curseforge-bridge.md)
@@ -103,21 +103,15 @@ archive builder, [`mods-yaml.md`](mods-yaml.md),
 
 ## `pin` / `unpin` commands
 
-Ergonomic sugar over manual `mods.yaml` edits. `pin` rewrites an entry's
-`version:` to the currently-locked version (freezing it); `unpin`
-restores the previous constraint (or clears it). `--section`
-disambiguates when the slug exists in multiple sections. YAML formatting
-and comments are preserved via `package:yaml_edit`. The pre-pin
-constraint is stored (in `mods.lock` or a sidecar) so `unpin` is
-lossless.
-
-```text
-gitrinth pin <slug> [--section <section>]
-gitrinth unpin <slug> [--section <section>]
-```
-
-Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
-new `lib/src/commands/pin.dart` and `unpin.dart`, [`cli.md`](cli.md).
+Shipped. See [`pin`](cli.md#pin) and [`unpin`](cli.md#unpin) in the CLI
+docs. Implemented as a syntactic toggle over the caret on the locked
+bare `major.minor.patch`: `pin` strips the caret, `unpin` re-adds it.
+No pre-pin constraint is stored — `unpin` is not lossless against
+arbitrary prior constraints (e.g. `release` or `^1.0.0` becomes
+`^<locked-bare>`). YAML formatting and comments are preserved via
+`package:yaml_edit`. `--type` disambiguates when a slug exists in
+multiple sections. A [`--pin` flag on `add`](cli.md#add) writes the
+bare semver directly.
 
 ## Shell completion
 

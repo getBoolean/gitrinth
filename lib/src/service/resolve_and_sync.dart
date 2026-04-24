@@ -121,10 +121,7 @@ Future<ResolveSyncResult> resolveAndSync({
         final section = slugToSection[slug] ?? Section.mods;
         final loaderFilter = filterForSection(section);
         final entry = merged.sectionEntries(section)[slug];
-        final gameVersions = <String>{
-          mc,
-          ...?entry?.acceptsMc,
-        }.toList();
+        final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
         final list = await api.listVersions(
           slug,
           loadersJson: loaderFilter == null
