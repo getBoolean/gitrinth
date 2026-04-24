@@ -31,16 +31,7 @@ Supporting work:
 - [x] Artifact cache (platform cache root, hash-verified download).
 - [x] `.mrpack` archive builder.
 
-Deferred work:
-
-- [ ] Modrinth slug-validity check in `create` (currently deferred).
-- [ ] Hosted source support (deferred pending `hosted:` source spec and `token` command).
-- [ ] Plugin-loader support (deferred pending plugin-loader spec and `plugins` section spec).
-- [ ] Global options: `-q`/`--quiet`, `--offline`, `--no-color`, `--config` (deferred pending `--config` spec).
-- [ ] Commands deferred post-MVP: `upgrade`, `downgrade`, `outdated`, `deps`, `unpack`, `cache`.
-- [ ] Modrinth Pack support loose files override, such as configs
-- [ ] `build` auto-downloads the matching server binary for `loader.mods` + `mc-version` (users currently supply it manually).
-- [ ] Automatic `:stable` / `:latest` loader-version resolution for `forge` and `neoforge` (Fabric is implemented via `meta.fabricmc.net`; users must specify a concrete tag like `forge:52.0.45` or `neoforge:21.1.50` until the corresponding upstream APIs are wired up).
+Post-MVP work is tracked in [`todo.md`](todo.md).
 
 ## Release channels
 
@@ -98,8 +89,6 @@ gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
 - `--url <url>`
 - `--path <path>`
 - `--dry-run`
-
-`--hosted` is deferred with the [`hosted:` source](#sources).
 
 ### [`remove`](cli.md#remove)
 
@@ -167,27 +156,20 @@ gitrinth pack [--output <path>] [--combined] [--publishable]
 - `-C`, `--directory <path>`
 - `-v`, `--verbose`
 
-Deferred: `-q`/`--quiet`, `--offline`, `--no-color`, `--config`.
-
 ## Loaders
 
 `loader` is an object keyed by section. In the MVP:
 
 - `loader.mods` (required) — one of `forge`, `fabric`, `neoforge`.
-  Plugin loaders (`bukkit`, `folia`, `paper`, `spigot`) and `sponge`
-  are deferred.
 - `loader.shaders` (required when `shaders:` has entries) — one of
   `iris`, `optifine`, `canvas`, `vanilla`.
-- `loader.plugins` — deferred with plugin support.
 
 `resource_packs` and `data_packs` each have a single valid Modrinth
 loader (`minecraft`, `datapack`) and are never declared under `loader`.
 
 ## Sources
 
-Only the default Modrinth instance, `url:`, and `path:`. The
-[`hosted:`](cli.md#token) source for alternate Modrinth-compatible
-servers is deferred.
+Only the default Modrinth instance, `url:`, and `path:`.
 
 ## Files
 
@@ -199,14 +181,3 @@ servers is deferred.
 ## Exit codes
 
 - [`0`, `1`, `2`, `64`](cli.md#exit-codes)
-
-## Deferred
-
-See [`cli.md`](cli.md) for the full surface. Deferred groups:
-[publishing](cli.md#publishing) (including the `hosted:` source and
-[`token`](cli.md#token) command), [cache management](cli.md#cache),
-[`upgrade`](cli.md#upgrade), [`downgrade`](cli.md#downgrade),
-[`outdated`](cli.md#outdated), [`deps`](cli.md#deps),
-[`unpack`](cli.md#unpack), plugin loaders (and the
-[`plugins`](mods-yaml.md#plugins) section they ship), and the `sponge`
-loader.
