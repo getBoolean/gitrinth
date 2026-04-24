@@ -14,9 +14,44 @@ void main() {
       expect(c.allows(Version.parse('6.0.10+mc1.21.1')), isTrue);
     });
 
-    test('matches a candidate with numeric build metadata', () {
+    test('does NOT match a candidate with a distinct build number', () {
+      // Constraint has empty numeric-build-prefix; candidate has [340].
+      // Different build numbers are distinct identities.
       final c = SemverOnlyExactConstraint(Version.parse('6.0.10'));
-      expect(c.allows(Version.parse('6.0.10+340')), isTrue);
+      expect(c.allows(Version.parse('6.0.10+340')), isFalse);
+    });
+
+    test(
+      'build-number pin matches the same numeric prefix even with a tag tail',
+      () {
+        // `19.27.0+340` (numeric prefix [340]) matches any candidate
+        // whose numeric prefix is also [340] — including `19.27.0+340`,
+        // `19.27.0+340.b.1.21.1`, etc. Tag metadata after the numeric
+        // prefix is informational.
+        final c = SemverOnlyExactConstraint(Version.parse('19.27.0+340'));
+        expect(c.allows(Version.parse('19.27.0+340')), isTrue);
+        expect(c.allows(Version.parse('19.27.0+340.b.1.21.1')), isTrue);
+        expect(c.allows(Version.parse('19.27.0+341')), isFalse);
+        expect(c.allows(Version.parse('19.27.0')), isFalse);
+      },
+    );
+
+    test('pinned on four-segment numeric version', () {
+      final c = SemverOnlyExactConstraint(Version.parse('19.27.0+340'));
+      expect(c.allows(Version.parse('19.27.0+340')), isTrue);
+      expect(c.allows(Version.parse('19.99.0+0')), isFalse);
+      expect(c.allows(Version.parse('19.27.0+340.b.1.21.1')), isTrue);
+      expect(c.allows(Version.parse('20.0.0+0')), isFalse);
+    });
+
+    test('pinned on four-segment numeric version with build metadata', () {
+      final c = SemverOnlyExactConstraint(
+        Version.parse('19.27.0+340.b.1.21.1'),
+      );
+      expect(c.allows(Version.parse('19.27.0+340')), isTrue);
+      expect(c.allows(Version.parse('19.99.0+0')), isFalse);
+      expect(c.allows(Version.parse('19.27.0+340.b.1.21.1')), isTrue);
+      expect(c.allows(Version.parse('20.0.0+0')), isFalse);
     });
 
     test('rejects a candidate with different major/minor/patch', () {
@@ -47,12 +82,12 @@ void main() {
 
   group('SemverOnlyExactConstraint.intersect', () {
     test(
-      'with Version whose build differs: intersection is the strict Version',
+      'with a Version carrying a distinct build number: intersection is empty',
       () {
+        // `6.0.10` (prefix []) doesn't admit `6.0.10+340` (prefix [340]).
         final c = SemverOnlyExactConstraint(Version.parse('6.0.10'));
         final v = Version.parse('6.0.10+340');
-        final result = c.intersect(v);
-        expect(result, equals(v));
+        expect(c.intersect(v).isEmpty, isTrue);
       },
     );
 

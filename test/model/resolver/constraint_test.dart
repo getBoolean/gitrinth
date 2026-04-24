@@ -33,12 +33,15 @@ void main() {
       expect(c.allows(Version.parse('1.2.4')), isFalse);
     });
 
-    test('semver pin (no build metadata) matches a +mc-tagged candidate', () {
-      // `6.0.10` with no build metadata is a semver-only exact constraint
-      // — tag metadata on the candidate is ignored.
+    test('semver pin (no build metadata) matches tag-only candidates', () {
+      // `6.0.10` has empty numeric-build-prefix. It matches candidates
+      // whose numeric prefix is also empty — bare `6.0.10` and
+      // tag-only variants like `6.0.10+mc1.21.1`. A candidate carrying
+      // a real build number (e.g. `+340`) has a distinct numeric
+      // prefix and does NOT match.
       final c = parseConstraint('6.0.10');
       expect(c.allows(Version.parse('6.0.10+mc1.21.1')), isTrue);
-      expect(c.allows(Version.parse('6.0.10+340')), isTrue);
+      expect(c.allows(Version.parse('6.0.10+340')), isFalse);
       expect(c.allows(Version.parse('6.0.11')), isFalse);
     });
 
@@ -69,6 +72,22 @@ void main() {
       expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
       expect(c.allows(Version.parse('19.27.0')), isFalse);
     });
+
+    test(
+      'semver pin `3.0.1-b` matches any `3.0.1-b-<mc>` Modrinth variant',
+      () {
+        // Key user-visible behaviour: pinning to the pre-release label (no
+        // MC tail) should match every `-b-<mc>` file Modrinth ships in
+        // that beta family. Tag metadata on the candidate is informational.
+        final c = parseConstraint('3.0.1-b');
+        expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.2')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.0.1-b-1.20.4')), isTrue);
+        // But different pre-release labels (or no pre-release) stay out.
+        expect(c.allows(parseModrinthVersion('3.0.1')), isFalse);
+        expect(c.allows(parseModrinthVersion('3.0.1-a-1.21.1')), isFalse);
+      },
+    );
 
     test('unparseable raises ValidationError', () {
       expect(
@@ -239,13 +258,25 @@ void main() {
       });
 
       test('Distant Horizons beta pre-release (3.0.1-b-1.21.1)', () {
-        // Beta releases for Distant Horizons use a `-b-<mc>` pre-release
-        // label.
+        // Beta releases for Distant Horizons use a `-b-<mc>` convention.
+        // The parser splits out the MC-version tail into build metadata
+        // so the pre-release is just `[b]` — not `[b-1, 21, 1]` — which
+        // lets semver pins of the form `3.0.1-b` match any `3.0.1-b-<mc>`
+        // variant the author ships.
         final v = parseModrinthVersion('3.0.1-b-1.21.1');
         expect(v.major, 3);
         expect(v.minor, 0);
         expect(v.patch, 1);
-        expect(v.preRelease, isNotEmpty);
+        expect(v.preRelease, ['b']);
+        expect(v.build, ['mc', 1, 21, 1]);
+      });
+
+      test('Modrinth `-<label>-<mc>` tail ignored when label-tail is single '
+          'numeric (not an MC version)', () {
+        // `1.21.1-december-2025` looks superficially similar but `2025` is
+        // a single number, not an MC version. Parser must NOT split it.
+        final v = parseModrinthVersion('1.21.1-december-2025');
+        expect(v.preRelease, ['december-2025']);
         expect(v.build, isEmpty);
       });
     });
@@ -298,6 +329,7 @@ void main() {
         final c = parseConstraint('^19.27.0.340');
         expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
         expect(c.allows(parseModrinthVersion('19.99.0.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('19.27.0.340-b-1.21.1')), isTrue);
         expect(c.allows(parseModrinthVersion('20.0.0.0')), isFalse);
       });
 
@@ -315,10 +347,32 @@ void main() {
       });
 
       test('caret on Distant Horizons beta pre-release (^3.0.1-b-1.21.1)', () {
+        // The `+mc.1.21.1` tail is tag metadata, so `parseConstraint`
+        // strips it from the caret bound: `^3.0.1-b-1.21.1` resolves to
+        // `compatibleWith(3.0.1-b)`, matching the whole beta family
+        // (with or without MC tag) plus any later stable 3.x release.
         final c = parseConstraint('^3.0.1-b-1.21.1');
         expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.0.1-b')), isTrue);
         expect(c.allows(parseModrinthVersion('3.0.1')), isTrue);
         expect(c.allows(parseModrinthVersion('4.0.0')), isFalse);
+      });
+
+      test('caret on truncated pre-release (^3.0.1-b) matches richer betas '
+          'like 3.0.1-b-1.21.1', () {
+        // Under our parser both `3.0.1-b` and `3.0.1-b-1.21.1` have
+        // preRelease `[b]`; the latter just adds build metadata. That
+        // makes `^3.0.1-b` a useful shorthand: its lower bound is the
+        // bare pre-release and the caret range reaches up to the next
+        // major, so every `3.0.1-b-<mc>` variant and every later stable
+        // 3.x release falls inside.
+        final c = parseConstraint('^3.0.1-b');
+        expect(c.allows(parseModrinthVersion('3.0.1-b')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.2')), isTrue);
+        expect(c.allows(parseModrinthVersion('3.5.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('4.0.0')), isFalse);
+        expect(c.allows(parseModrinthVersion('3.0.0')), isFalse);
       });
     });
 

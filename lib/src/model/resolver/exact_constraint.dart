@@ -1,32 +1,62 @@
 import 'package:pub_semver/pub_semver.dart';
 
-/// A single-point [VersionConstraint] that treats build metadata as
-/// *informational*, not distinguishing.
+/// Exact-pin [VersionConstraint] with Modrinth-aware metadata handling.
 ///
-/// Whereas `Version` used as a `VersionConstraint` checks strict `==`
-/// (which includes build metadata), this class uses
-/// [Version.compareTo] — pub_semver's precedence comparison, which
-/// ignores build metadata. The result is that a constraint built from
-/// `6.0.10` matches both `6.0.10` and `6.0.10+mc1.21.1`.
+/// Treats a parsed [Version]'s identity as the tuple
+/// `(major, minor, patch, preRelease, numericBuildPrefix)`, where
+/// `numericBuildPrefix` is the leading run of purely-numeric segments in
+/// the build metadata. Tag metadata (non-numeric build segments like
+/// `mc`, `neoforge`) is always informational and is ignored when
+/// matching.
 ///
-/// Used by [parseConstraint] when the input has no build metadata or
-/// only Modrinth-style tag metadata (non-numeric build segments like
-/// `+mc1.21.1`). Constraints whose build metadata is all-numeric
-/// (build numbers, e.g. `+340` from 4-segment versions) stay as the
-/// pub_semver [Version] class so they preserve strict-match semantics.
+/// Examples:
+///   - constraint `6.0.10` → prefix `[]`. Matches `6.0.10`,
+///     `6.0.10+mc1.21.1`. Does NOT match `6.0.10+340` (candidate has
+///     a distinct build number).
+///   - constraint `19.27.0.340` → prefix `[340]`. Matches
+///     `19.27.0+340`, `19.27.0+340.b.1.21.1`. Does NOT match
+///     `19.27.0+341` (different build number).
+///   - constraint `3.0.1-b` → preRelease `[b]`, prefix `[]`. Matches
+///     any `3.0.1-b+<anything>` including `3.0.1-b+mc.1.21.1`.
+///
+/// This is a single-point constraint — [isAny] and [isEmpty] are always
+/// false, and union/difference with arbitrary ranges aren't meaningful;
+/// `union` throws `UnsupportedError` if invoked against an unrelated
+/// range since the resolver doesn't exercise that path today.
 class SemverOnlyExactConstraint implements VersionConstraint {
   final Version base;
+  final List<int> buildNumber;
 
-  const SemverOnlyExactConstraint(this.base);
+  SemverOnlyExactConstraint(this.base)
+    : buildNumber = _numericPrefix(base.build);
+
+  static List<int> _numericPrefix(List<Object> build) {
+    final out = <int>[];
+    for (final seg in build) {
+      final parsed = int.tryParse(seg.toString());
+      if (parsed == null) break;
+      out.add(parsed);
+    }
+    return out;
+  }
 
   @override
   bool allows(Version other) =>
       base.major == other.major &&
       base.minor == other.minor &&
       base.patch == other.patch &&
-      _preReleaseEqual(base.preRelease, other.preRelease);
+      _listEq(base.preRelease, other.preRelease) &&
+      _intListEq(buildNumber, _numericPrefix(other.build));
 
-  static bool _preReleaseEqual(List<Object> a, List<Object> b) {
+  static bool _listEq(List<Object> a, List<Object> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  static bool _intListEq(List<int> a, List<int> b) {
     if (a.length != b.length) return false;
     for (var i = 0; i < a.length; i++) {
       if (a[i] != b[i]) return false;
@@ -45,8 +75,7 @@ class SemverOnlyExactConstraint implements VersionConstraint {
     if (other.isEmpty) return true;
     if (other is Version) return allows(other);
     if (other is SemverOnlyExactConstraint) return allows(other.base);
-    // A single-point constraint can only contain another single-point
-    // constraint — ranges are strictly larger.
+    // A single-point constraint can't contain a range.
     return false;
   }
 
@@ -62,15 +91,11 @@ class SemverOnlyExactConstraint implements VersionConstraint {
   VersionConstraint intersect(VersionConstraint other) {
     if (other.isEmpty) return VersionConstraint.empty;
     if (other is Version) {
-      // Strict-match constraint over a specific build. If its point
-      // shares our base's precedence (metadata ignored), the strict
-      // constraint is the narrower result.
       return allows(other) ? other : VersionConstraint.empty;
     }
     if (other is SemverOnlyExactConstraint) {
       return allows(other.base) ? this : VersionConstraint.empty;
     }
-    // Ranges and unions: our semver-point is either inside or outside.
     return other.allows(base) ? this : VersionConstraint.empty;
   }
 
@@ -79,10 +104,6 @@ class SemverOnlyExactConstraint implements VersionConstraint {
     if (other.isEmpty) return this;
     if (allowsAll(other)) return this;
     if (other.allowsAll(this)) return other;
-    // No clean representation for `{this} ∪ other` without a concrete
-    // disjoint union type in pub_semver's surface. The resolver does
-    // not call `union` today; throwing surfaces a regression loudly
-    // if that ever changes.
     throw UnsupportedError(
       'union() is not implemented for SemverOnlyExactConstraint '
       'against $other.',
@@ -105,6 +126,7 @@ class SemverOnlyExactConstraint implements VersionConstraint {
     base.minor,
     base.patch,
     base.preRelease.join('.'),
+    buildNumber.join('.'),
   );
 
   @override

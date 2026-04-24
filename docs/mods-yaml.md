@@ -654,6 +654,12 @@ format, so entries like `6.0.10+mc1.21.1`, `1.8.12+1.21.1-neoforge`,
 are all valid. A leading `^` turns any of them into a caret
 constraint.
 
+Caret ranges also accept a **truncated pre-release label** — `^3.0.1-b`
+matches `3.0.1-b`, every richer pre-release like `3.0.1-b-1.21.1`, and
+any later stable `3.x` release. Useful when an author publishes a
+family of betas tagged `-b-<mc>` and you want to track all of them
+without pinning to a specific Minecraft suffix.
+
 Blank short-form entries must still include the trailing colon:
 
 ```yaml

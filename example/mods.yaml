@@ -51,6 +51,8 @@ mods:
   sodium: beta
   ferrite-core: beta
   # Allow release and beta versions (not alpha).
+  # `^3.0.1-b` would match any `3.0.1-b-<mc>` beta (e.g. 3.0.1-b-1.21.1)
+  # plus later stable 3.x releases.
   distanthorizons: beta
   iris:
     version: ^1.8.12 # 1.8.12+1.21.1-neoforge

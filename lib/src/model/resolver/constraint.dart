@@ -20,30 +20,49 @@ VersionConstraint parseConstraint(String? raw) {
   try {
     if (trimmed.startsWith('^')) {
       final version = parseModrinthVersion(trimmed.substring(1));
-      return VersionConstraint.compatibleWith(version);
+      // Keep the numeric build-number prefix (real version info) on the
+      // caret's lower bound; strip trailing tag metadata (e.g.
+      // `+mc1.21.1`) so candidates with different or missing tags aren't
+      // excluded.
+      final numericPrefix = _numericBuildPrefix(version.build);
+      final bound = Version(
+        version.major,
+        version.minor,
+        version.patch,
+        pre: version.preRelease.isEmpty
+            ? null
+            : version.preRelease.join('.'),
+        build: numericPrefix.isEmpty ? null : numericPrefix.join('.'),
+      );
+      return VersionConstraint.compatibleWith(bound);
     }
-    // Exact match: pick semver-only vs strict-build based on whether the
-    // parsed build metadata is all-numeric (real build numbers) or
-    // contains tag-style segments (e.g. `+mc1.21.1`). See
-    // `SemverOnlyExactConstraint` for the semantic difference.
+    // Exact match: unified under SemverOnlyExactConstraint, which
+    // matches on MMP + preRelease + numeric-build-prefix. Tag metadata
+    // is always informational regardless of whether the constraint or
+    // candidate carries it.
     final parsed = parseModrinthVersion(trimmed);
-    return isBuildNumberOnly(parsed.build)
-        ? parsed
-        : SemverOnlyExactConstraint(parsed);
+    return SemverOnlyExactConstraint(parsed);
   } on FormatException catch (e) {
     throw ValidationError('Invalid version constraint "$raw": ${e.message}');
   }
 }
 
-/// Returns true iff [build] is non-empty and every segment is purely
-/// numeric (a true build number like `+340`). Tag metadata like
-/// `+mc1.21.1` contains non-numeric segments and returns false.
+/// Returns the leading run of purely-numeric segments in [build] —
+/// the "build number" prefix. Stops at the first non-numeric segment
+/// (tag metadata like `mc`). Empty list when [build] is empty or starts
+/// with a tag segment.
 ///
-/// Shared between [parseConstraint] and [bareVersionForPin] so the
-/// "what counts as a build number" decision stays in one place.
-bool isBuildNumberOnly(Iterable<Object> build) =>
-    build.isNotEmpty &&
-    build.every((s) => RegExp(r'^\d+$').hasMatch(s.toString()));
+/// Shared between [parseConstraint], [bareVersionForPin], and
+/// `SemverOnlyExactConstraint` so the classifier stays in one place.
+List<String> _numericBuildPrefix(List<Object> build) {
+  final out = <String>[];
+  for (final seg in build) {
+    final s = seg.toString();
+    if (!RegExp(r'^\d+$').hasMatch(s)) break;
+    out.add(s);
+  }
+  return out;
+}
 
 /// Parses a Modrinth `version_number` string into a [Version].
 ///
@@ -55,6 +74,21 @@ Version parseModrinthVersion(String raw) {
   final trimmed = raw.trim();
   if (trimmed.isEmpty) {
     throw const FormatException('empty version string');
+  }
+  // Modrinth convention: `<mmp>-<label>-<mc-version>` (e.g.
+  // `3.0.1-b-1.21.1` for Distant Horizons betas). The trailing
+  // `-<mc-version>` is MC-compatibility tag metadata, not part of the
+  // pre-release label. Split it out before pub_semver parses it so the
+  // pre-release stays `[<label>]` and the MC tag lands in build
+  // metadata. Only triggers when the suffix looks like an actual MC
+  // version (at least two dotted numeric segments) so single-number
+  // pre-release tails like `1.21.1-december-2025` are unaffected.
+  final modrinthTag = _modrinthTagPattern.firstMatch(trimmed);
+  if (modrinthTag != null) {
+    final mmp = modrinthTag[1]!;
+    final label = modrinthTag[2]!;
+    final mc = modrinthTag[3]!;
+    return Version.parse('$mmp-$label+mc.$mc');
   }
   // First attempt: pub_semver as-is.
   try {
@@ -78,8 +112,34 @@ Version parseModrinthVersion(String raw) {
   if (m != null) {
     return Version.parse('${m[1]}.${m[2]}.${m[3]}+${m[4]}');
   }
+  // Four-segment with a Modrinth tag tail (e.g. `19.27.0.340-b-1.21.1`
+  // or `19.27.0.340+mc1.21.1`). The 4th segment is already a build
+  // number, so fold everything — 4th + tail — into build metadata.
+  // No pre-release: 4-segment versions don't use the `-<label>` slot
+  // as a semver pre-release, it's Modrinth tag metadata.
+  final fourSegmentWithTail = RegExp(
+    r'^(\d+)\.(\d+)\.(\d+)\.(\d+)[-+]([A-Za-z0-9][A-Za-z0-9.-]*)$',
+  );
+  final mt = fourSegmentWithTail.firstMatch(trimmed);
+  if (mt != null) {
+    // Convert hyphens in the tail to dots so every token is a valid build
+    // identifier (semver build metadata is `[A-Za-z0-9-]`, dot-separated).
+    final tail = mt[5]!.replaceAll('-', '.');
+    return Version.parse(
+      '${mt[1]}.${mt[2]}.${mt[3]}+${mt[4]}.$tail',
+    );
+  }
   throw FormatException('cannot parse version "$raw"');
 }
+
+// `<major>.<minor>.<patch>-<alphanumeric-label>-<mc-version>` where the
+// MC version is at least two dotted numeric segments (`1.21`, `1.21.1`).
+// The two-segment floor distinguishes Modrinth's `-b-<mc>` tagging from
+// plain pre-release labels with a trailing numeric token (e.g.
+// `1.21.1-december-2025`, where `2025` is a single number).
+final _modrinthTagPattern = RegExp(
+  r'^(\d+\.\d+\.\d+)-([A-Za-z][A-Za-z0-9]*)-(\d+\.\d+(?:\.\d+)?)$',
+);
 
 /// Returns the "pinnable bare form" of [raw] — `major.minor.patch`, plus the
 /// build metadata iff it is purely numeric (which is how [parseModrinthVersion]
@@ -91,10 +151,12 @@ Version parseModrinthVersion(String raw) {
 /// [FormatException] when [raw] doesn't parse.
 String bareVersionForPin(String raw) {
   final parsed = parseModrinthVersion(raw);
-  final mmp = '${parsed.major}.${parsed.minor}.${parsed.patch}';
-  return isBuildNumberOnly(parsed.build)
-      ? '$mmp+${parsed.build.join('.')}'
-      : mmp;
+  var base = '${parsed.major}.${parsed.minor}.${parsed.patch}';
+  if (parsed.preRelease.isNotEmpty) {
+    base += '-${parsed.preRelease.join('.')}';
+  }
+  final numericPrefix = _numericBuildPrefix(parsed.build);
+  return numericPrefix.isEmpty ? base : '$base+${numericPrefix.join('.')}';
 }
 
 /// Parses a release-channel token (`release`, `beta`, `alpha`) into a [Channel].
