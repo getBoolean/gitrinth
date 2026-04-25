@@ -323,7 +323,7 @@ Touches:
 
 Shipped. See [Java runtime selection](cli.md#java-runtime-selection) in
 the CLI docs. `gitrinth launch server`, `launch client`, and
-`build server` resolve a JDK that satisfies the modpack's
+`build --env server` resolve a JDK that satisfies the modpack's
 `mc-version` (1.20.5+ → 21, 1.21.x → 21, 26.1+ → 25, etc.) using a
 five-step chain: `--java <path>` → `JAVA_HOME` → cached gitrinth
 Temurin → `PATH java` → auto-download from Adoptium. `--java` and

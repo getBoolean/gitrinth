@@ -16,7 +16,11 @@ typedef JavaProber = Future<int?> Function(String javaPath);
 /// requirement. Resolution chain (first match wins):
 ///
 /// 1. `--java <path>` (file or JDK home) — hard-fails on version mismatch.
-/// 2. `JAVA_HOME` — same.
+///    This is the only source that hard-fails: it's an unambiguous
+///    per-invocation directive, so silently overriding it would surprise.
+/// 2. `JAVA_HOME` — soft-fails on version mismatch. Logs a warning and
+///    falls through; a stale system-wide JAVA_HOME shouldn't block a
+///    correctly-flagged invocation.
 /// 3. Cached gitrinth-managed Temurin (no probe needed; we installed it).
 /// 4. `PATH java` — soft-fails; falls through if the version is wrong.
 /// 5. Auto-fetch via [JavaRuntimeFetcher] (skipped when offline or
@@ -86,23 +90,18 @@ class JavaRuntimeResolver {
       final binary = _binaryUnderJdkHome(javaHome);
       if (binary.existsSync()) {
         final major = await probeMajorVersion(binary.path);
-        if (major == null) {
-          throw UserError(
-            'JAVA_HOME="$javaHome" points at a binary whose version could '
-            'not be detected. Pass --java <path> to override, or unset '
-            'JAVA_HOME.',
-          );
-        }
-        if (major < required) {
-          throw UserError(
-            'JAVA_HOME="$javaHome" is JDK $major; this modpack '
-            '(MC $mcVersion) needs JDK >= $required. Unset JAVA_HOME or '
-            'pass --java <path> to override.',
-          );
-        }
-        return binary;
+        if (major != null && major >= required) return binary;
+        final detail = major == null
+            ? 'version unknown'
+            : 'JDK $major < required JDK $required';
+        _console.warn(
+          'JAVA_HOME="$javaHome" skipped ($detail for MC $mcVersion); '
+          'falling through to managed Java / PATH.',
+        );
+        tried.add('JAVA_HOME="$javaHome" ($detail)');
+      } else {
+        tried.add('JAVA_HOME="$javaHome" (no bin/java found)');
       }
-      tried.add('JAVA_HOME="$javaHome" (no bin/java found)');
     }
 
     // 3. Cached gitrinth-managed Temurin

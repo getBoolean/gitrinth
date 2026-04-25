@@ -319,17 +319,87 @@ class JavaRuntimeFetcher {
 
   void _extractArchive(File archive, Directory outputDir) {
     final lower = archive.path.toLowerCase();
-    final Archive arch;
-    final bytes = archive.readAsBytesSync();
     if (lower.endsWith('.zip')) {
-      arch = ZipDecoder().decodeBytes(bytes);
+      final input = InputFileStream(archive.path);
+      try {
+        final arch = ZipDecoder().decodeStream(input);
+        _writeEntriesToDisk(arch, outputDir);
+      } finally {
+        input.closeSync();
+      }
     } else if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz')) {
-      final tarBytes = GZipDecoder().decodeBytes(bytes);
-      arch = TarDecoder().decodeBytes(tarBytes);
+      // Decompress .gz to a temp .tar so the tar decoder can stream the
+      // result; avoids holding the full uncompressed tar in memory.
+      final tarTmp = File(
+        p.join(
+          _cache.tmpRoot,
+          'tmp-tar-${DateTime.now().microsecondsSinceEpoch}.tar',
+        ),
+      );
+      final gzIn = InputFileStream(archive.path);
+      final tarOut = OutputFileStream(tarTmp.path);
+      try {
+        GZipDecoder().decodeStream(gzIn, tarOut);
+      } finally {
+        tarOut.closeSync();
+        gzIn.closeSync();
+      }
+      try {
+        final tarIn = InputFileStream(tarTmp.path);
+        try {
+          final arch = TarDecoder().decodeStream(tarIn);
+          _writeEntriesToDisk(arch, outputDir);
+        } finally {
+          tarIn.closeSync();
+        }
+      } finally {
+        try {
+          tarTmp.deleteSync();
+        } catch (_) {}
+      }
     } else {
       throw UserError('unrecognized JDK archive format: ${archive.path}');
     }
-    extractArchiveToDisk(arch, outputDir.path);
+  }
+
+  /// Manually iterates [arch] and writes entries to [outputDir]. Unlike
+  /// `package:archive`'s `extractArchiveToDisk`, write failures are
+  /// surfaced rather than silently swallowed — the partial-extraction
+  /// bug those swallowed errors mask is precisely what was producing
+  /// "extracted Temurin archive but could not find bin/java inside".
+  void _writeEntriesToDisk(Archive arch, Directory outputDir) {
+    final outRoot = p.normalize(p.absolute(outputDir.path));
+    for (final entry in arch) {
+      final dest = p.normalize(p.join(outRoot, entry.name));
+      // Path traversal guard: archive entries naming `../foo` or
+      // absolute paths must not escape outputDir.
+      if (dest != outRoot && !p.isWithin(outRoot, dest)) continue;
+
+      if (entry.isSymbolicLink) {
+        Directory(p.dirname(dest)).createSync(recursive: true);
+        final link = Link(dest);
+        if (link.existsSync()) link.deleteSync();
+        link.createSync(p.normalize(entry.symbolicLink ?? ''));
+        continue;
+      }
+      if (entry.isDirectory) {
+        Directory(dest).createSync(recursive: true);
+        continue;
+      }
+      Directory(p.dirname(dest)).createSync(recursive: true);
+      final out = OutputFileStream(dest);
+      try {
+        entry.writeContent(out);
+      } catch (e) {
+        try {
+          out.closeSync();
+        } catch (_) {}
+        throw UserError(
+          'failed extracting ${entry.name} from JDK archive: $e',
+        );
+      }
+      out.closeSync();
+    }
   }
 
   void _chmodPosixBinaries(Directory dir) {

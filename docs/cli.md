@@ -666,7 +666,11 @@ wins:
 1. `--java <path>` — accepts a `java`/`java.exe` binary OR a JDK home
    directory. **Hard-fails** if the major version doesn't match — the
    resolver never silently overrides an explicit user choice.
-2. `JAVA_HOME` — same probe as above, same hard-fail behavior.
+2. `JAVA_HOME` — same probe. **Soft-fails** on version mismatch:
+   logs a warning and falls through, so a stale system-wide JAVA_HOME
+   doesn't block a correctly-flagged invocation. Under
+   `--no-managed-java` (no auto-download escape hatch), the mismatch
+   surfaces in the final remediation error.
 3. **gitrinth-managed Temurin JDK** under
    `~/.gitrinth_cache/runtimes/temurin/<feature>/<os>-<arch>/`.
    Skips ahead of `PATH` because it's known-good and free (no

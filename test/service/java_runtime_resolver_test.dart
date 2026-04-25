@@ -177,25 +177,71 @@ void main() {
     );
 
     test(
-      'JAVA_HOME pointing at JDK 17 with MC 1.21 -> hard-fail UserError',
+      'JAVA_HOME mismatch with managed allowed: soft-falls through to '
+      'auto-fetch (so a stale system JAVA_HOME does not block the user)',
       () async {
-        final jdkHome = Directory(p.join(tempRoot.path, 'jh17'))..createSync();
+        final jdkHome = Directory(p.join(tempRoot.path, 'jh17a'))
+          ..createSync();
+        Directory(p.join(jdkHome.path, 'bin')).createSync();
+        final binary = File(p.join(jdkHome.path, 'bin', 'java.exe'))
+          ..writeAsStringSync('STUB');
+
+        final zipBytes = buildFakeJdkZip(
+          top: 'jdk-21-fake',
+          binaryName: 'java.exe',
+        );
+        fake.adoptiumBinaryBytes['21-windows-x64.zip'] = zipBytes;
+        fake.adoptiumMetadata['21-windows-x64'] = [
+          {
+            'release_name': 'jdk-21.0.5+11',
+            'version_data': {'semver': '21.0.5+11'},
+            'binaries': [
+              {
+                'package': {
+                  'link': '${fake.adoptiumBinaryUrlPrefix}21-windows-x64.zip',
+                  'checksum': sha256.convert(zipBytes).toString(),
+                },
+              },
+            ],
+          },
+        ];
+
+        final resolver = JavaRuntimeResolver(
+          fetcher: fetcher,
+          environment: {'JAVA_HOME': jdkHome.path},
+          probe: stubProber({binary.path: 17}),
+        );
+        final result = await resolver.resolve(mcVersion: '1.21.1');
+        expect(result.path, contains('runtimes'));
+        expect(result.path, contains(p.join('temurin', '21')));
+      },
+    );
+
+    test(
+      'JAVA_HOME mismatch + --no-managed-java + nothing else satisfies -> '
+      'UserError mentions JAVA_HOME and the version mismatch',
+      () async {
+        final jdkHome = Directory(p.join(tempRoot.path, 'jh17b'))
+          ..createSync();
         Directory(p.join(jdkHome.path, 'bin')).createSync();
         final binary = File(p.join(jdkHome.path, 'bin', 'java.exe'))
           ..writeAsStringSync('STUB');
         final resolver = JavaRuntimeResolver(
           fetcher: fetcher,
-          environment: {'JAVA_HOME': jdkHome.path},
+          environment: {'JAVA_HOME': jdkHome.path, 'PATH': ''},
           probe: stubProber({binary.path: 17}),
-
         );
         await expectLater(
-          resolver.resolve(mcVersion: '1.21.1'),
+          resolver.resolve(mcVersion: '1.21.1', allowManaged: false),
           throwsA(
             isA<UserError>().having(
               (e) => e.message,
               'message',
-              allOf(contains('JAVA_HOME'), contains('JDK 17')),
+              allOf(
+                contains('--no-managed-java'),
+                contains('JAVA_HOME'),
+                contains('JDK 17'),
+              ),
             ),
           ),
         );
