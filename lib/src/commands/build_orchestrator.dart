@@ -149,6 +149,7 @@ Future<int> runBuild({
       offline: options.offline,
       javaPath: options.javaPath,
       allowManagedJava: options.allowManagedJava,
+      verbose: options.verbose,
       console: console,
     );
   }
@@ -166,6 +167,7 @@ Future<void> _installServerBinary({
   required bool offline,
   required String? javaPath,
   required bool allowManagedJava,
+  required bool verbose,
   required Console console,
 }) async {
   final loader = lock.loader.mods;
@@ -202,6 +204,7 @@ Future<void> _installServerBinary({
     offline: offline,
     javaPath: javaPath,
     allowManagedJava: allowManagedJava,
+    verbose: verbose,
   );
   console.info(
     'Installed ${loader.name} $loaderVersion server binary into '

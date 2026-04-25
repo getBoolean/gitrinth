@@ -91,6 +91,7 @@ final serverInstallerProvider = Provider<ServerInstaller>(
   (ref) => ServerInstaller(
     environment: ref.read(environmentProvider),
     resolver: ref.read(javaRuntimeResolverProvider),
+    console: ref.read(consoleProvider),
   ),
 );
 
@@ -103,5 +104,6 @@ final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(
   (ref) => LoaderClientInstaller(
     environment: ref.read(environmentProvider),
     resolver: ref.read(javaRuntimeResolverProvider),
+    console: ref.read(consoleProvider),
   ),
 );

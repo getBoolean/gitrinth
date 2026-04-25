@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import 'console.dart';
 import 'java_runtime_resolver.dart';
 
 /// Spawns a process and returns its exit code. Implementations should inherit
@@ -28,17 +29,20 @@ typedef ProcessRunner = Future<int> Function(
 /// Idempotent via a sentinel marker file so re-runs of `gitrinth build` are
 /// fast.
 class ServerInstaller {
-  final ProcessRunner _runProcess;
+  final ProcessRunner? _runProcess;
   final Map<String, String> _environment;
   final JavaRuntimeResolver? _resolver;
+  final Console _console;
 
   ServerInstaller({
     ProcessRunner? runProcess,
     Map<String, String>? environment,
     JavaRuntimeResolver? resolver,
-  }) : _runProcess = runProcess ?? _defaultRunProcess,
+    Console? console,
+  }) : _runProcess = runProcess,
        _environment = environment ?? Platform.environment,
-       _resolver = resolver;
+       _resolver = resolver,
+       _console = console ?? const Console();
 
   Future<void> installServer({
     required Loader loader,
@@ -49,6 +53,7 @@ class ServerInstaller {
     required bool offline,
     String? javaPath,
     bool allowManagedJava = true,
+    bool verbose = false,
   }) async {
     outputDir.createSync(recursive: true);
 
@@ -80,17 +85,32 @@ class ServerInstaller {
           allowManagedJava: allowManagedJava,
           offline: offline,
         );
-        final exitCode = await _runProcess(
-          java.path,
-          [
-            '-jar',
-            installerOrServerJar.path,
-            '--installServer',
-            outputDir.path,
-          ],
-          workingDirectory: outputDir,
-          environment: _spawnEnvironment(java.path),
+        _console.info(
+          'Installing ${loader.name} $loaderVersion server (this may take '
+          'a minute; pass --verbose to see installer output).',
         );
+        final args = <String>[
+          '-jar',
+          installerOrServerJar.path,
+          '--installServer',
+          outputDir.path,
+        ];
+        final environment = _spawnEnvironment(java.path);
+        final injected = _runProcess;
+        final exitCode = injected != null
+            ? await injected(
+                java.path,
+                args,
+                workingDirectory: outputDir,
+                environment: environment,
+              )
+            : await spawnInstaller(
+                executable: java.path,
+                arguments: args,
+                workingDirectory: outputDir,
+                environment: environment,
+                verbose: verbose,
+              );
         if (exitCode != 0) {
           throw UserError(
             '${loader.name} installer exited with code $exitCode '
@@ -143,20 +163,54 @@ class ServerInstaller {
   }
 }
 
-Future<int> _defaultRunProcess(
-  String executable,
-  List<String> arguments, {
+/// Spawns a loader installer with verbosity-aware stdio handling. When
+/// [verbose] is true the child inherits the parent's stdio so the user
+/// sees the installer's chatter live (useful for debugging). When false,
+/// stdout/stderr are buffered and only flushed to stderr if the child
+/// exits non-zero — keeping the normal-success path quiet.
+Future<int> spawnInstaller({
+  required String executable,
+  required List<String> arguments,
   Directory? workingDirectory,
-  bool runInShell = false,
   Map<String, String>? environment,
+  bool runInShell = false,
+  required bool verbose,
 }) async {
+  if (verbose) {
+    final process = await Process.start(
+      executable,
+      arguments,
+      workingDirectory: workingDirectory?.path,
+      mode: ProcessStartMode.inheritStdio,
+      runInShell: runInShell,
+      environment: environment,
+    );
+    return process.exitCode;
+  }
   final process = await Process.start(
     executable,
     arguments,
     workingDirectory: workingDirectory?.path,
-    mode: ProcessStartMode.inheritStdio,
     runInShell: runInShell,
     environment: environment,
   );
-  return process.exitCode;
+  final outBuf = StringBuffer();
+  final errBuf = StringBuffer();
+  final outDone = process.stdout
+      .transform(systemEncoding.decoder)
+      .listen(outBuf.write)
+      .asFuture<void>();
+  final errDone = process.stderr
+      .transform(systemEncoding.decoder)
+      .listen(errBuf.write)
+      .asFuture<void>();
+  final code = await process.exitCode;
+  await Future.wait([outDone, errDone]);
+  if (code != 0) {
+    final out = outBuf.toString().trimRight();
+    final err = errBuf.toString().trimRight();
+    if (out.isNotEmpty) stderr.writeln(out);
+    if (err.isNotEmpty) stderr.writeln(err);
+  }
+  return code;
 }

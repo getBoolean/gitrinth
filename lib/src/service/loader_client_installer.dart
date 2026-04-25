@@ -5,25 +5,29 @@ import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import 'console.dart';
 import 'java_runtime_resolver.dart';
-import 'server_installer.dart' show ProcessRunner;
+import 'server_installer.dart' show ProcessRunner, spawnInstaller;
 
 /// Runs the loader's installer in client mode against the user's `.minecraft`
 /// directory, registering a profile entry and downloading the loader's
 /// libraries. Returns the `lastVersionId` string suitable for plumbing into
 /// `launcher_profiles.json`.
 class LoaderClientInstaller {
-  final ProcessRunner _runProcess;
+  final ProcessRunner? _runProcess;
   final Map<String, String> _environment;
   final JavaRuntimeResolver? _resolver;
+  final Console _console;
 
   LoaderClientInstaller({
     ProcessRunner? runProcess,
     Map<String, String>? environment,
     JavaRuntimeResolver? resolver,
-  }) : _runProcess = runProcess ?? _defaultRunProcess,
+    Console? console,
+  }) : _runProcess = runProcess,
        _environment = environment ?? Platform.environment,
-       _resolver = resolver;
+       _resolver = resolver,
+       _console = console ?? const Console();
 
   Future<String> installClient({
     required Loader loader,
@@ -34,6 +38,7 @@ class LoaderClientInstaller {
     required bool offline,
     String? javaPath,
     bool allowManagedJava = true,
+    bool verbose = false,
   }) async {
     final versionId = expectedClientVersionId(
       loader: loader,
@@ -80,6 +85,11 @@ class LoaderClientInstaller {
       allowManagedJava: allowManagedJava,
       offline: offline,
     );
+    _console.info(
+      'Installing ${loader.name} $loaderVersion client into '
+      '${dotMinecraftDir.path} (this may take a minute; pass --verbose to '
+      'see installer output).',
+    );
     final args = _installArgs(
       loader: loader,
       mcVersion: mcVersion,
@@ -88,11 +98,16 @@ class LoaderClientInstaller {
       dotMinecraftDir: dotMinecraftDir,
     );
 
-    final exitCode = await _runProcess(
-      java.path,
-      args,
-      environment: _spawnEnvironment(java.path),
-    );
+    final environment = _spawnEnvironment(java.path);
+    final injected = _runProcess;
+    final exitCode = injected != null
+        ? await injected(java.path, args, environment: environment)
+        : await spawnInstaller(
+            executable: java.path,
+            arguments: args,
+            environment: environment,
+            verbose: verbose,
+          );
     if (exitCode != 0) {
       throw UserError(
         '${loader.name} client installer exited with code $exitCode '
@@ -189,20 +204,3 @@ class LoaderClientInstaller {
   }
 }
 
-Future<int> _defaultRunProcess(
-  String executable,
-  List<String> arguments, {
-  Directory? workingDirectory,
-  bool runInShell = false,
-  Map<String, String>? environment,
-}) async {
-  final process = await Process.start(
-    executable,
-    arguments,
-    workingDirectory: workingDirectory?.path,
-    mode: ProcessStartMode.inheritStdio,
-    runInShell: runInShell,
-    environment: environment,
-  );
-  return process.exitCode;
-}

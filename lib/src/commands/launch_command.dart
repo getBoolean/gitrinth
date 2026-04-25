@@ -598,6 +598,7 @@ Future<int> runLaunchClient({
     offline: options.offline,
     javaPath: options.javaPath,
     allowManagedJava: options.allowManagedJava,
+    verbose: options.verbose,
   );
 
   // The loader installer auto-injects a profile with a generic name

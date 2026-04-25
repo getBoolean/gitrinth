@@ -85,6 +85,7 @@ class JavaRuntimeResolver {
     }
 
     // 2. JAVA_HOME
+    String? deferredJavaHomeWarning;
     final javaHome = _environment['JAVA_HOME'];
     if (javaHome != null && javaHome.isNotEmpty) {
       final binary = _binaryUnderJdkHome(javaHome);
@@ -94,10 +95,12 @@ class JavaRuntimeResolver {
         final detail = major == null
             ? 'version unknown'
             : 'JDK $major < required JDK $required';
-        _console.warn(
-          'JAVA_HOME="$javaHome" skipped ($detail for MC $mcVersion); '
-          'falling through to managed Java / PATH.',
-        );
+        // Only surface the warning if we end up resolving via PATH java —
+        // the managed-Java path is the expected fallback when JAVA_HOME
+        // doesn't satisfy the modpack and shouldn't generate noise.
+        deferredJavaHomeWarning =
+            'JAVA_HOME="$javaHome" skipped ($detail for MC $mcVersion); '
+            'using PATH `java` instead.';
         tried.add('JAVA_HOME="$javaHome" ($detail)');
       } else {
         tried.add('JAVA_HOME="$javaHome" (no bin/java found)');
@@ -112,7 +115,12 @@ class JavaRuntimeResolver {
     final pathJava = _findOnPath();
     if (pathJava != null) {
       final major = await probeMajorVersion(pathJava.path);
-      if (major != null && major >= required) return pathJava;
+      if (major != null && major >= required) {
+        if (deferredJavaHomeWarning != null) {
+          _console.warn(deferredJavaHomeWarning);
+        }
+        return pathJava;
+      }
       tried.add(
         'PATH `java` at ${pathJava.path} (JDK ${major ?? "unknown"})',
       );

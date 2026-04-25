@@ -73,6 +73,7 @@ class _FakeClientInstaller implements LoaderClientInstaller {
     required bool offline,
     String? javaPath,
     bool allowManagedJava = true,
+    bool verbose = false,
   }) async {
     called = true;
     lastDotMinecraftDir = dotMinecraftDir;
