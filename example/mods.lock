@@ -189,7 +189,7 @@ resource_packs:
       sha1: 226a833c17ef551c2a747a23b65fd81e7c77c8fb
       sha512: 0c0a6b2bb2ae551f307dbaafa70ee5eee54278d80166d04946e00836ce84fb52878885e35a48e44bad33c20881dbfb0cbaf5433ee8b8a71a90746e71aae1d686
       size: 10895511
-    client: optional
+    client: required
     server: unsupported
     game-versions: ["1.21", 1.21.1]
 data_packs:

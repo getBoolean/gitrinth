@@ -33,7 +33,6 @@ Deferred MVP work:
 - [ ] [`login` / `logout` commands](#login--logout-commands)
 - [ ] [`token` command](#token-command)
 - [ ] [`unpack` command](#unpack-command)
-- [ ] [Self-launch JVM (skip the official launcher)](#self-launch-jvm-skip-the-official-launcher)
 - [ ] Respect rate limits (300 per ip per minute), read rate limit headers, and implement queue/retry logic in the Modrinth API client.
 
 ## `accepts-mc` — per-entry MC version tolerance
@@ -402,42 +401,3 @@ gitrinth unpack <path>             [--output <directory>] [--force] [--no-resolv
 | `--output`, `-o` | Output directory. Defaults to the current directory.                                                                                 |
 | `--force`, `-f`  | Overwrite existing files in the output directory.                                                                                    |
 | `--no-resolve`   | Skip the implicit [`get`](cli.md#get) that normally runs after unpacking.                                                            |
-
-## Self-launch JVM (skip the official launcher)
-
-`launch client` currently shells out to `MinecraftLauncher.exe --workDir
-<build/client>`, which only works on the **legacy unified Minecraft
-Launcher**. Users with only the Microsoft Store / Xbox-app variant get a
-locator error; their `--workDir` is silently ignored even when the binary
-runs.
-
-Replace the `Process.start(launcherExe, ['--workDir', ...])` call with an
-in-process JVM spawn modeled on
-[`craft_launcher_core`'s `VanillaLauncher.launch()`](https://pub.dev/packages/craft_launcher_core)
-(can't add as a dep — it requires the Flutter SDK):
-
-1. Read `<workDir>/versions/<id>/<id>.json` (the loader's installer wrote
-   it during the `--installClient` step), follow `inheritsFrom`
-   recursively, merge libraries + arguments.
-2. Build the classpath from the merged libraries (already cached at
-   `<workDir>/libraries/`).
-3. Extract native libraries (entries with `:natives-<os>` classifiers)
-   to `<workDir>/.gitrinth-natives/`.
-4. Substitute `${game_directory}`, `${library_directory}`,
-   `${classpath}`, `${classpath_separator}`, `${natives_directory}`,
-   `${assets_root}`, `${assets_index_name}`, `${version_name}`,
-   `${version_type}`, and the auth dummies (`${auth_player_name}` =
-   `Player`, all-zero UUID/access-token/xuid, `${user_type}` = `msa`).
-   Evaluate per-arg `rules` (OS-gated arguments).
-5. Spawn `java <jvm-args> <main-class> <game-args>` with
-   `workingDirectory: <workDir>`.
-
-Touches: new `lib/src/service/minecraft_version_manifest.dart`,
-`lib/src/service/minecraft_jvm_args.dart`,
-`lib/src/service/minecraft_natives.dart`,
-`lib/src/service/minecraft_launcher.dart`;
-[`lib/src/commands/launch_command.dart`](../lib/src/commands/launch_command.dart)
-swaps the launcher-exe spawn for a `MinecraftLauncher.launch()` call.
-
-Out of scope until this lands: Microsoft auth (offline-mode dummies are
-fine for testing modpack boot but won't connect to authed servers).
