@@ -30,11 +30,11 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`loader`](#loader)                 | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                 |
 | [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                               |
 | [`tooling`](#tooling)               | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                      |
-| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [`environment`](#per-mod-environment) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
+| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
 | [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
 | [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
-| [`shaders`](#shaders)               | no       | Shader packs to ship with the pack. Same syntax as `mods`. Always client-only — `environment` is rejected.                                                                     |
-| [`plugins`](#plugins)               | no       | Server plugins to ship with the pack. Same syntax as `mods`. Always server-only — `environment` is rejected.                                                                   |
+| [`shaders`](#shaders)               | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                    |
+| [`plugins`](#plugins)               | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                    |
 | [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                   |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
@@ -81,10 +81,12 @@ mods:
   jei: ^19.27.0.340
   iris:
     version: ^1.8.12+1.21.1-neoforge
-    environment: client
+    client: required
+    server: unsupported
   netherportalfix:
     version: ^21.1.1+neoforge-1.21.1
-    environment: server
+    client: unsupported
+    server: required
 
 resource_packs:
   faithful-32x: ^1.21.1
@@ -405,7 +407,7 @@ do not run Forge/Fabric-style client mods. Under one of these loaders:
 
 - Every entry under [`mods`](#mods) is bundled into the **client-side
   modpack only**, regardless of any per-mod
-  [`environment`](#per-mod-environment) value. (Mods do not load on a
+  [per-side install state](#sides-client--server) value. (Mods do not load on a
   plugin server, so shipping them to the server side would be dead
   weight.)
 - [`plugins`](#plugins) ship to the server distribution — always, the
@@ -414,12 +416,12 @@ do not run Forge/Fabric-style client mods. Under one of these loaders:
   behave the same way they do under `forge`/`fabric`/`neoforge` — data
   packs are world-level content that plugin servers load natively, and
   resource packs can still be served to clients. Their per-mod
-  [`environment`](#per-mod-environment) is honoured.
+  [per-side install state](#sides-client--server) is honoured.
 - [`shaders`](#shaders) remain client-only, the same as under every
   other loader.
 
 `forge`, `fabric`, `neoforge`, and `sponge` apply no such override:
-every entry honours its declared [`environment`](#per-mod-environment).
+every entry honours its declared [per-side install state](#sides-client--server).
 
 ### `mc-version`
 
@@ -484,9 +486,7 @@ tooling:
 and [`overrides`](#overrides) all map a Modrinth project slug to a **mod
 dependency**. Every entry takes one of two forms — a short form (just a
 version constraint) or a long form (a map with a source, a version, and/or
-a per-mod [`environment`](#per-mod-environment)). The `environment`
-field is not permitted on entries under [`shaders`](#shaders) or
-[`plugins`](#plugins), whose sides are fixed by the section itself.
+a per-mod [per-side install state](#sides-client--server)).
 
 **Keys are Modrinth project slugs.** Every key under `mods`,
 `resource_packs`, `data_packs`, `shaders`, `plugins`, and `overrides` is
@@ -513,8 +513,7 @@ mods:
 The value is a map with any combination of:
 
 - a `version` — a [mod-version constraint](#mod-version-constraints);
-- an `environment` — see [Per-mod environment](#per-mod-environment);
-- an `optional: true` — see [Optional mods](#optional-mods);
+- a `client:` and/or `server:` install state — see [Sides](#sides-client--server);
 - at most one **source** — where `gitrinth` should fetch the mod from.
 
 ```yaml
@@ -532,15 +531,16 @@ mods:
   local_mod:
     path: ./mods/local_mod.jar
 
-  # Long form with only a per-mod environment.
+  # Long form with only per-side install state.
   iris:
-    environment: client
+    client: required
+    server: unsupported
 ```
 
 Each entry must specify **at most one** of `hosted`, `url`, or `path`.
 Omitting all three is equivalent to `hosted:` on the default Modrinth
 instance — useful when you only want to express a version constraint
-or an `environment` in the long form.
+or per-side install state in the long form.
 
 | Source   | Publishable? | Notes                                                |
 |----------|--------------|------------------------------------------------------|
@@ -558,76 +558,88 @@ for [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
 publishability — the Publishable? column above applies only when the
 entry is a mod.
 
-#### Per-mod environment
+#### Sides (`client` / `server`)
 
-A long-form mod entry may include an `environment` field that restricts
-which side of the pack the mod is shipped with.
+Each long-form entry may declare its install state on each side of the
+pack independently. The two fields share the same vocabulary, and the
+values pass through verbatim into the produced `.mrpack`'s per-file
+`env` block.
 
-| Value    | Meaning                                                                                                                          |
-|----------|----------------------------------------------------------------------------------------------------------------------------------|
-| `client` | Include the mod only in the client distribution.                                                                                 |
-| `server` | Include the mod only in the server distribution.                                                                                 |
-| `both`   | Include the mod on both sides. This is the default when `environment` is omitted, and is the only option for short-form entries. |
+| Value         | Meaning                                                                                                          |
+|---------------|------------------------------------------------------------------------------------------------------------------|
+| `required`    | Install the entry on this side. The launcher cannot disable it.                                                  |
+| `optional`    | Install the entry on this side, but expose a launcher-side toggle so the user can disable it.                    |
+| `unsupported` | Do not install the entry on this side at all. The build pipeline skips it and `.mrpack` records `unsupported`.   |
+
+If both sides are `unsupported`, the entry would not install anywhere
+and the parser rejects it.
+
+**Per-section defaults** (used when an entry omits `client:` / `server:`,
+including every short-form entry):
+
+| Section          | `client` default | `server` default |
+|------------------|------------------|------------------|
+| `mods`           | `required`       | `required`       |
+| `shaders`        | `required`       | `unsupported`    |
+| `data_packs`     | `required`       | `required`       |
+| `resource_packs` | `optional`       | `unsupported`    |
+
+`shaders` enforces `server: unsupported` (any other value is a schema
+error) and rejects `client: unsupported` (the entry would not install
+anywhere). `resource_packs` default to optional on the client because
+they are typically toggleable cosmetic content; data packs default to
+required because they usually drive worldgen or game rules that the
+pack relies on.
 
 ```yaml
 mods:
-  create: ^6.0.10+mc1.21.1   # short form → ships to both sides
+  create: ^6.0.10+mc1.21.1   # short form → both sides required (default)
   iris:
     version: ^1.8.12+1.21.1-neoforge
-    environment: client
+    client: required
+    server: unsupported
   spark:
     version: ^1.10.0
-    environment: server
-  jei:
-    environment: client      # no version → latest compatible, client only
-```
-
-Because `environment` is a per-mod property, a mod cannot be simultaneously
-client-only and server-only. To restrict the side, switch the short-form
-entry to long form and add the field.
-
-**Overridden by section.** `environment` is **rejected** on
-[`shaders`](#shaders) (always client-only) and [`plugins`](#plugins)
-(always server-only) — declaring the field on an entry in either
-section is a schema error. It is also ignored on [`mods`](#mods)
-entries when [`loader`](#loader) is `bukkit`, `folia`, `paper`, or
-`spigot` (always client-only — see [Plugin loaders](#plugin-loaders)).
-
-#### Optional mods
-
-A long-form entry may set `optional: true` to mark the entry as
-user-toggleable. Optional entries ship in the produced `.mrpack` with
-`env: optional` per side instead of `env: required`, so launchers
-(Modrinth app, Prism) present a checkbox the user can flip when
-installing.
-
-```yaml
-mods:
-  create: ^6.0.10+mc1.21.1   # required (default)
+    client: unsupported
+    server: required
   distanthorizons:
     version: beta
-    optional: true            # user-toggleable in the launcher
-  iris:
-    version: ^1.8.12
-    environment: client
-    optional: true            # client-only AND optional
+    client: optional         # launcher checkbox on the client
+    server: optional         # and on the server (dedicated server admin
+                             # can toggle it too)
 ```
 
-Default-state semantics (whether the launcher pre-checks the box) are
-not specified by the Modrinth pack format; each launcher decides. To
-keep the field minimal until a consumer surfaces, no `default` /
-`description` sub-fields are written — `optional` is a flat boolean.
+**Build path consequences.** When `gitrinth build` produces the loose
+output under `build/<env>/`, data packs and resource packs route into
+the `global_packs/` tree the [`globalpacks`](https://modrinth.com/mod/globalpacks)
+mod loads from:
 
-**Side interaction.** `optional` and `environment` compose: an optional
-client-only mod becomes `{client: optional, server: unsupported}` in
-the mrpack — the unsupported side is preserved (a mod can't be optional
-on a side it doesn't run on).
+| Section          | `<side>: required`                       | `<side>: optional`                       |
+|------------------|------------------------------------------|------------------------------------------|
+| `data_packs`     | `build/<env>/global_packs/required_data/`     | `build/<env>/global_packs/optional_data/`     |
+| `resource_packs` | `build/<env>/global_packs/required_resources/` | `build/<env>/global_packs/optional_resources/` |
 
-**Where allowed.** `optional` is a long-form-only field and works in
-the same sections as `environment`-aware entries: [`mods`](#mods),
-[`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
-[`shaders`](#shaders), and [`plugins`](#plugins). Omitting the field is
-equivalent to `optional: false`.
+`mods/` and `shaderpacks/` keep their conventional subdirs. The
+`.mrpack` archive is unaffected — `files[]` and `overrides/` continue
+to use `mods/`, `datapacks/`, `resourcepacks/`, and `shaderpacks/` so
+launchers without `globalpacks` install the artifacts to the
+canonical locations.
+
+**Migration.** The previous `environment:` enum (`client | server | both`)
+and `optional: true` flag were removed. Translate as follows:
+
+| Was                                          | Becomes                                          |
+|----------------------------------------------|--------------------------------------------------|
+| (omitted)                                    | (omit `client:` / `server:`; defaults apply)     |
+| `environment: client`                        | `client: required`, `server: unsupported`        |
+| `environment: server`                        | `client: unsupported`, `server: required`        |
+| `optional: true`                             | `client: optional`, `server: optional`           |
+| `environment: client` + `optional: true`     | `client: optional`, `server: unsupported`        |
+| `environment: server` + `optional: true`     | `client: unsupported`, `server: optional`        |
+
+The parser raises a clear migration error if a manifest still uses the
+old fields, so a stale `mods.yaml` will fail loud rather than silently
+ship under the wrong defaults.
 
 #### Per-entry MC version tolerance (`accepts-mc`)
 
@@ -761,7 +773,7 @@ release comes out.
 **Optional.** Every mod in the pack. Keys are [Modrinth project
 slugs](#mod-dependencies); values use the [mod
 dependency](#mod-dependencies) syntax — short form (version only) or
-long form (source, version, and/or [`environment`](#per-mod-environment)).
+long form (source, version, and/or [per-side install state](#sides-client--server)).
 
 The field may be blank (`mods:` with no value, or omitted entirely) while
 the modpack is still being assembled — `gitrinth` will resolve and
@@ -775,7 +787,8 @@ mods:
   jei: ^19.27.0.340
   iris:
     version: ^1.8.12+1.21.1-neoforge
-    environment: client
+    client: required
+    server: unsupported
   journeymap:
     hosted: https://modrinth.example.com
     version: ^5.10.0
@@ -790,10 +803,10 @@ values use the same [mod dependency](#mod-dependencies) syntax as
 
 ```yaml
 resource_packs:
-  faithful-32x: ^1.21.1
-  xalis-enchanted-books:
-    version: ^1.3.0
-    environment: client
+  faithful-32x: ^1.21.1                # default: client optional
+  branding-pack:
+    version: ^1.0.0
+    client: required                    # mandatory on the client
 ```
 
 ### `data_packs`
@@ -814,10 +827,10 @@ data_packs:
 **Optional.** Shader packs to ship with the modpack. Keys are [Modrinth
 project slugs](#mod-dependencies) (from `modrinth.com/shader/<slug>`);
 values use the same [mod dependency](#mod-dependencies) syntax as
-[`mods`](#mods), except that the per-entry
-[`environment`](#per-mod-environment) field is not permitted —
-shaders are always client-only. `gitrinth` rejects a `mods.yaml` that
-declares `environment` on a shader entry.
+[`mods`](#mods). Shader entries always have `server: unsupported` (any
+other value is a schema error) and cannot set `client: unsupported` —
+the per-section default is `client: required, server: unsupported`,
+and `client: optional` is the only meaningful override.
 
 ```yaml
 shaders:
@@ -830,11 +843,8 @@ shaders:
 **Optional.** Server plugins to ship with the modpack. Keys are [Modrinth
 project slugs](#mod-dependencies) (from `modrinth.com/plugin/<slug>`);
 values use the same [mod dependency](#mod-dependencies) syntax as
-[`mods`](#mods), except that the per-entry
-[`environment`](#per-mod-environment) field is not permitted — plugins
-are always server-only, the analogue of [`shaders`](#shaders) being
-always client-only. `gitrinth` rejects a `mods.yaml` that declares
-`environment` on a plugin entry.
+[`mods`](#mods). Plugin entries default to `client: unsupported,
+server: required` — the inverse of shaders.
 
 ```yaml
 plugins:
@@ -852,7 +862,7 @@ dependency](#mod-dependencies) syntax and take precedence over any
 matching entry in those fields.
 
 Use `overrides` to pin a version, flip the
-[`environment`](#per-mod-environment), or redirect an entry to a
+[per-side install state](#sides-client--server), or redirect an entry to a
 different source without editing the main list — for example when testing
 a local build or a fork.
 
@@ -896,9 +906,10 @@ When `gitrinth` installs or updates a modpack it:
 5. Picks the highest remaining version, preferring versions that are
    compatible with every *other* entry's declared dependencies.
 6. Partitions the resolved entries into client and server distributions
-   using each entry's [`environment`](#per-mod-environment) (default
-   `both`; shaders are always client-only; plugins are always
-   server-only; when [`loader`](#loader) is `bukkit`, `folia`, `paper`,
+   using each entry's [per-side install state](#sides-client--server)
+   (per-section defaults apply when fields are omitted; shaders default
+   to `server: unsupported`, resource packs default to `server:
+   unsupported`; when [`loader`](#loader) is `bukkit`, `folia`, `paper`,
    or `spigot`, [`mods`](#mods) entries are additionally forced to
    client-only — see [Plugin loaders](#plugin-loaders)).
 7. Writes the chosen versions to `mods.lock` so subsequent runs are

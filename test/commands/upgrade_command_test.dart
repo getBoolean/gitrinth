@@ -409,7 +409,7 @@ mods:
     expect(lock, isNot(contains('1.7.0-beta')));
   });
 
-  test('optional flag preserved through upgrade', () async {
+  test('per-side state preserved through upgrade', () async {
     modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
     await writeManifest('''
 slug: pack
@@ -422,7 +422,8 @@ mc-version: 1.21.1
 mods:
   a:
     version: ^1.0.0
-    optional: true
+    client: optional
+    server: optional
 ''');
     expect((await runGet()).exitCode, 0);
 
@@ -432,7 +433,8 @@ mods:
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final lock = readLock();
     expect(lock, contains('version: 1.5.0'));
-    expect(lock, contains('optional: true'));
+    expect(lock, contains('client: optional'));
+    expect(lock, contains('server: optional'));
   });
 
   test(

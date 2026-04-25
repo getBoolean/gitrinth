@@ -11,7 +11,8 @@ part 'result.mapper.dart';
 class ResolvedEntry with ResolvedEntryMappable {
   final String slug;
   final Section section;
-  final Environment env;
+  final SideEnv client;
+  final SideEnv server;
 
   /// `transitive` when the entry was pulled in by another mod's required
   /// deps, `direct` when it appears in `mods.yaml`. Mirrors dart pub's
@@ -21,16 +22,15 @@ class ResolvedEntry with ResolvedEntryMappable {
 
   final modrinth.Version version;
   final VersionFile file;
-  final bool optional;
 
   const ResolvedEntry({
     required this.slug,
     required this.section,
-    required this.env,
+    required this.client,
+    required this.server,
     required this.dependency,
     required this.version,
     required this.file,
-    this.optional = false,
   });
 }
 

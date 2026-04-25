@@ -32,7 +32,7 @@ mods:
       expect(m.mods['create']!.source, isA<ModrinthEntrySource>());
     });
 
-    test('parses long-form mod entries with environment + sources', () {
+    test('parses long-form mod entries with per-side state + sources', () {
       final yaml = '''
 slug: pack
 name: Pack
@@ -44,14 +44,16 @@ mc-version: 1.20.1
 mods:
   iris:
     version: ^1.8.12
-    environment: client
+    client: required
+    server: unsupported
   custom_mod:
     url: https://example.com/x.jar
   local_mod:
     path: ./mods/local.jar
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-      expect(m.mods['iris']!.env, Environment.client);
+      expect(m.mods['iris']!.client, SideEnv.required);
+      expect(m.mods['iris']!.server, SideEnv.unsupported);
       expect(m.mods['iris']!.constraintRaw, '^1.8.12');
       final custom = m.mods['custom_mod']!.source;
       expect(custom, isA<UrlEntrySource>());
@@ -304,7 +306,7 @@ mods:
       );
     });
 
-    test('shaders entries cannot declare environment', () {
+    test('shaders cannot declare server: required', () {
       final yaml = '''
 slug: pack
 name: Pack
@@ -317,13 +319,185 @@ mc-version: 1.21.1
 shaders:
   my-shader:
     version: ^1.0.0
-    environment: server
+    server: required
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
         throwsA(isA<ValidationError>()),
       );
     });
+
+    test('shaders cannot declare client: unsupported', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  shaders: iris
+mc-version: 1.21.1
+shaders:
+  my-shader:
+    version: ^1.0.0
+    client: unsupported
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('legacy environment: field is rejected with a migration error', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  iris:
+    version: ^1.0
+    environment: client
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('removed `environment:`'),
+          ),
+        ),
+      );
+    });
+
+    test('legacy optional: field is rejected with a migration error', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  jei:
+    version: ^1.0
+    optional: true
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('removed `optional:`'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects entry with both sides unsupported', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  ghost:
+    version: ^1.0
+    client: unsupported
+    server: unsupported
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('per-section defaults: mods default to required/required', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+mods:
+  jei:
+    version: ^1.0
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['jei']!.client, SideEnv.required);
+      expect(m.mods['jei']!.server, SideEnv.required);
+    });
+
+    test(
+      'per-section defaults: resource_packs default to client optional, '
+      'server unsupported',
+      () {
+        final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+resource_packs:
+  faithful: ^1.0
+''';
+        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+        expect(m.resourcePacks['faithful']!.client, SideEnv.optional);
+        expect(m.resourcePacks['faithful']!.server, SideEnv.unsupported);
+      },
+    );
+
+    test('per-section defaults: data_packs default to required/required', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+data_packs:
+  terralith: ^1.0
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.dataPacks['terralith']!.client, SideEnv.required);
+      expect(m.dataPacks['terralith']!.server, SideEnv.required);
+    });
+
+    test(
+      'per-section defaults: shaders default to client required, '
+      'server unsupported',
+      () {
+        final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  shaders: iris
+mc-version: 1.21.1
+shaders:
+  comp: r5.7.1
+''';
+        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+        expect(m.shaders['comp']!.client, SideEnv.required);
+        expect(m.shaders['comp']!.server, SideEnv.unsupported);
+      },
+    );
 
     test('accepts-mc parses into a deduped List<String>', () {
       final yaml = '''
@@ -480,7 +654,7 @@ shaders:
       expect(m.shaders['complementary-reimagined']!.acceptsMc, ['1.21']);
     });
 
-    test('parses optional: true on a long-form entry', () {
+    test('parses per-side optional state on a long-form entry', () {
       final yaml = '''
 slug: pack
 name: Pack
@@ -492,16 +666,17 @@ mc-version: 1.21.1
 mods:
   distanthorizons:
     version: beta
-    optional: true
+    client: optional
+    server: optional
   sodium: ^0.6.0
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-      expect(m.mods['distanthorizons']!.optional, isTrue);
-      expect(m.mods['sodium']!.optional, isFalse);
+      expect(m.mods['distanthorizons']!.client, SideEnv.optional);
+      expect(m.mods['distanthorizons']!.server, SideEnv.optional);
+      expect(m.mods['sodium']!.client, SideEnv.required);
+      expect(m.mods['sodium']!.server, SideEnv.required);
       // Long-form `version: beta` mirrors the short form: it sets the
-      // channel and leaves the constraint blank. The resolver would
-      // otherwise treat it as an exact pin on a sentinel `0.0.0-beta`
-      // and fail to match any real Modrinth version.
+      // channel and leaves the constraint blank.
       expect(m.mods['distanthorizons']!.constraintRaw, isNull);
       expect(m.mods['distanthorizons']!.channel, Channel.beta);
     });
@@ -520,7 +695,8 @@ mc-version: 1.21.1
 mods:
   one:
     version: release
-    environment: client
+    client: required
+    server: unsupported
   two:
     version: BETA
   three:
@@ -557,7 +733,7 @@ mods:
       },
     );
 
-    test('optional defaults to false when absent', () {
+    test('rejects non-string client/server side value', () {
       final yaml = '''
 slug: pack
 name: Pack
@@ -569,24 +745,7 @@ mc-version: 1.21.1
 mods:
   jei:
     version: 19.27.0.340
-''';
-      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-      expect(m.mods['jei']!.optional, isFalse);
-    });
-
-    test('rejects non-boolean optional value', () {
-      final yaml = '''
-slug: pack
-name: Pack
-version: 0.1.0
-description: x
-loader:
-  mods: fabric
-mc-version: 1.21.1
-mods:
-  jei:
-    version: 19.27.0.340
-    optional: "yes"
+    client: "yes"
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -766,7 +925,7 @@ shaders: {}
       expect(f.sha512, 'deadbeef');
     });
 
-    test('round-trips optional flag from mods.lock', () {
+    test('round-trips per-side state from mods.lock', () {
       const lock = '''
 gitrinth-version: 0.1.0
 loader:
@@ -783,14 +942,15 @@ mods:
       sha1: deadbeef
       sha512: cafebabe
       size: 12345
-    env: both
-    optional: true
+    client: optional
+    server: optional
 resource_packs: {}
 data_packs: {}
 shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
-      expect(l.mods['distanthorizons']!.optional, isTrue);
+      expect(l.mods['distanthorizons']!.client, SideEnv.optional);
+      expect(l.mods['distanthorizons']!.server, SideEnv.optional);
     });
   });
 }

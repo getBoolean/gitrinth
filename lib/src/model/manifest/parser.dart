@@ -31,31 +31,33 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
   final loader = _parseLoaderConfig(map['loader'], filePath);
   final mcVersion = _requireString(map, 'mc-version', filePath);
 
-  final mods = _parseSection(map['mods'], 'mods', filePath, allowEnv: true);
+  final mods = _parseSection(map['mods'], 'mods', filePath, Section.mods);
   final resourcePacks = _parseSection(
     map['resource_packs'],
     'resource_packs',
     filePath,
-    allowEnv: true,
+    Section.resourcePacks,
   );
   final dataPacks = _parseSection(
     map['data_packs'],
     'data_packs',
     filePath,
-    allowEnv: true,
+    Section.dataPacks,
   );
   final shaders = _parseSection(
     map['shaders'],
     'shaders',
     filePath,
-    allowEnv: false,
-    forcedEnv: Environment.client,
+    Section.shaders,
   );
+  // Overrides patch entries in any section; default per-side state to
+  // mods-style required/required since that's the most permissive
+  // baseline. Per-side fields on the override still win when present.
   final overrides = _parseSection(
     map['overrides'],
     'overrides',
     filePath,
-    allowEnv: true,
+    Section.mods,
   );
 
   if (shaders.isNotEmpty && loader.shaders == null) {
@@ -95,7 +97,7 @@ ModsOverrides parseModsOverrides(String yamlText, {required String filePath}) {
       overridesRaw,
       'overrides',
       filePath,
-      allowEnv: true,
+      Section.mods,
     ),
   );
 }
@@ -170,9 +172,19 @@ Map<String, LockedEntry> _parseLockSection(
       slug,
       filePath,
     );
-    final env = _parseEnv(m['env'] ?? 'both', '$sectionName/$slug', filePath);
+    final client = _parseSideEnv(
+      m['client'] ?? 'required',
+      '$sectionName/$slug',
+      'client',
+      filePath,
+    );
+    final server = _parseSideEnv(
+      m['server'] ?? 'required',
+      '$sectionName/$slug',
+      'server',
+      filePath,
+    );
     final dependency = _parseLockDependencyKind(m['dependency'], m['auto']);
-    final optional = m['optional'] == true;
     LockedFile? file;
     final fileRaw = m['file'];
     if (fileRaw != null) {
@@ -206,11 +218,11 @@ Map<String, LockedEntry> _parseLockSection(
       versionId: m['version-id'] as String?,
       file: file,
       path: m['path'] as String?,
-      env: env,
+      client: client,
+      server: server,
       dependency: dependency,
       gameVersions: gameVersions,
       acceptsMc: acceptsMc,
-      optional: optional,
     );
   });
   return result;
@@ -257,10 +269,9 @@ LockedDependencyKind _parseLockDependencyKind(
 Map<String, ModEntry> _parseSection(
   dynamic raw,
   String sectionName,
-  String filePath, {
-  required bool allowEnv,
-  Environment? forcedEnv,
-}) {
+  String filePath,
+  Section section,
+) {
   if (raw == null) return const {};
   if (raw is! Map) {
     throw _err('$filePath: $sectionName must be a mapping.');
@@ -271,14 +282,7 @@ Map<String, ModEntry> _parseSection(
     if (slug == null || slug.isEmpty) {
       throw _err('$filePath: $sectionName has an empty key.');
     }
-    result[slug] = _parseEntry(
-      slug,
-      value,
-      sectionName,
-      filePath,
-      allowEnv: allowEnv,
-      forcedEnv: forcedEnv,
-    );
+    result[slug] = _parseEntry(slug, value, sectionName, filePath, section);
   });
   return result;
 }
@@ -287,16 +291,17 @@ ModEntry _parseEntry(
   String slug,
   dynamic raw,
   String sectionName,
-  String filePath, {
-  required bool allowEnv,
-  Environment? forcedEnv,
-}) {
+  String filePath,
+  Section section,
+) {
+  final defaults = defaultSidesFor(section);
   // Short forms: null (latest), a channel token, or a scalar version constraint.
   if (raw == null) {
     return ModEntry(
       slug: slug,
       constraintRaw: null,
-      env: forcedEnv ?? Environment.both,
+      client: defaults.client,
+      server: defaults.server,
     );
   }
   if (raw is String || raw is num || raw is bool) {
@@ -307,13 +312,15 @@ ModEntry _parseEntry(
         slug: slug,
         constraintRaw: null,
         channel: channelFromShorthand,
-        env: forcedEnv ?? Environment.both,
+        client: defaults.client,
+        server: defaults.server,
       );
     }
     return ModEntry(
       slug: slug,
       constraintRaw: asText,
-      env: forcedEnv ?? Environment.both,
+      client: defaults.client,
+      server: defaults.server,
     );
   }
   if (raw is! Map) {
@@ -384,18 +391,57 @@ ModEntry _parseEntry(
   }
   final channel = channelFromVersion ?? channelExplicit;
 
-  Environment env = forcedEnv ?? Environment.both;
-  final envRaw = m['environment'];
-  if (envRaw != null) {
-    if (!allowEnv) {
+  if (m.containsKey('environment')) {
+    throw _err(
+      '$filePath: $sectionName/$slug uses removed `environment:` field. '
+      'Use per-side `client:` / `server:` (required|optional|unsupported).',
+    );
+  }
+  if (m.containsKey('optional')) {
+    throw _err(
+      '$filePath: $sectionName/$slug uses removed `optional:` field. '
+      'Use per-side `client:` / `server:` (required|optional|unsupported).',
+    );
+  }
+
+  var client = defaults.client;
+  var server = defaults.server;
+  if (m.containsKey('client')) {
+    client = _parseSideEnv(
+      m['client'],
+      '$sectionName/$slug',
+      'client',
+      filePath,
+    );
+  }
+  if (m.containsKey('server')) {
+    server = _parseSideEnv(
+      m['server'],
+      '$sectionName/$slug',
+      'server',
+      filePath,
+    );
+  }
+  if (section == Section.shaders) {
+    if (server != SideEnv.unsupported) {
       throw _err(
-        '$filePath: $sectionName/$slug must not declare environment '
-        '(this section has a fixed side).',
+        '$filePath: $sectionName/$slug shaders cannot run server-side; '
+        '`server` must be `unsupported`.',
       );
     }
-    env = _parseEnv(envRaw, '$sectionName/$slug', filePath);
+    if (client == SideEnv.unsupported) {
+      throw _err(
+        '$filePath: $sectionName/$slug shader entries must install on the '
+        'client (`client: required` or `client: optional`).',
+      );
+    }
   }
-  if (forcedEnv != null) env = forcedEnv;
+  if (client == SideEnv.unsupported && server == SideEnv.unsupported) {
+    throw _err(
+      '$filePath: $sectionName/$slug has both sides set to `unsupported`; '
+      'the entry would not install anywhere.',
+    );
+  }
 
   final acceptsMc = _parseAcceptsMc(
     m['accepts-mc'],
@@ -403,26 +449,14 @@ ModEntry _parseEntry(
     filePath,
   );
 
-  var optional = false;
-  if (m.containsKey('optional')) {
-    final v = m['optional'];
-    if (v is! bool) {
-      throw _err(
-        '$filePath: $sectionName/$slug optional must be true or false '
-        '(got ${v.runtimeType}).',
-      );
-    }
-    optional = v;
-  }
-
   return ModEntry(
     slug: slug,
     constraintRaw: constraintRaw,
     channel: channel,
-    env: env,
+    client: client,
+    server: server,
     source: source,
     acceptsMc: acceptsMc,
-    optional: optional,
   );
 }
 
@@ -601,17 +635,23 @@ ShaderLoader _parseShaderLoader(dynamic raw, String filePath) {
   }
 }
 
-Environment _parseEnv(dynamic raw, String where, String filePath) {
-  switch (raw.toString()) {
-    case 'client':
-      return Environment.client;
-    case 'server':
-      return Environment.server;
-    case 'both':
-      return Environment.both;
+SideEnv _parseSideEnv(
+  dynamic raw,
+  String where,
+  String fieldName,
+  String filePath,
+) {
+  switch (raw?.toString()) {
+    case 'required':
+      return SideEnv.required;
+    case 'optional':
+      return SideEnv.optional;
+    case 'unsupported':
+      return SideEnv.unsupported;
     default:
       throw _err(
-        '$filePath: $where environment "$raw" must be one of client, server, both.',
+        '$filePath: $where $fieldName "$raw" must be one of '
+        'required, optional, unsupported.',
       );
   }
 }

@@ -379,11 +379,11 @@ ModsLock _buildLock(
         sha512: r.file.sha512,
         size: r.file.size,
       ),
-      env: r.env,
+      client: r.client,
+      server: r.server,
       dependency: r.dependency,
       gameVersions: List.unmodifiable(r.version.gameVersions),
       acceptsMc: List.unmodifiable(entry?.acceptsMc ?? const <String>[]),
-      optional: r.optional,
     );
   }
   for (final section in Section.values) {
@@ -395,16 +395,16 @@ ModsLock _buildLock(
           slug: slug,
           sourceKind: LockedSourceKind.url,
           file: LockedFile(name: _filenameFromUrl(src.url), url: src.url),
-          env: entry.env,
-          optional: entry.optional,
+          client: entry.client,
+          server: entry.server,
         );
       } else if (src is PathEntrySource) {
         byKind[section]![slug] = LockedEntry(
           slug: slug,
           sourceKind: LockedSourceKind.path,
           path: src.path,
-          env: entry.env,
-          optional: entry.optional,
+          client: entry.client,
+          server: entry.server,
         );
       }
     });

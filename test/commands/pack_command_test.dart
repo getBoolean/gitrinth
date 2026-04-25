@@ -302,9 +302,11 @@ resource_packs:
     final mrpack = File(p.join(packDir.path, 'build', 'pack-0.1.0.mrpack'));
     expect(mrpack.existsSync(), isTrue);
 
-    // RP went to overrides/, not files[].
+    // RP went to overrides/, not files[]. Resource packs default to
+    // `client: optional, server: unsupported`, so the override lands in
+    // the client-only root.
     final paths = _zipPaths(mrpack);
-    expect(paths, contains('overrides/resourcepacks/custom-pack.zip'));
+    expect(paths, contains('client-overrides/resourcepacks/custom-pack.zip'));
     final fileEntries = (_readIndex(mrpack)['files'] as List)
         .cast<Map<String, dynamic>>();
     expect(fileEntries, hasLength(1));
@@ -402,10 +404,12 @@ mods:
     url: ${modrinth.downloadBaseUrl}/srv/srv-mod.jar
   server-mod:
     url: ${modrinth.downloadBaseUrl}/srv/srv-mod.jar
-    environment: server
+    client: unsupported
+    server: required
   client-mod:
     url: ${modrinth.downloadBaseUrl}/cli/cli-mod.jar
-    environment: client
+    client: required
+    server: unsupported
 shaders:
   custom-shader:
     url: ${modrinth.downloadBaseUrl}/shr/cool-shader.zip

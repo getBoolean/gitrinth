@@ -189,7 +189,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       final long = <String, Object?>{};
       if (urlOpt != null) long['url'] = urlOpt;
       if (pathOpt != null) long['path'] = pathOpt;
-      if (envOpt != null && envOpt != 'both') long['environment'] = envOpt;
+      _writeSideFields(long, envOpt);
       longForm = long;
       writtenValue = null;
     } else {
@@ -266,7 +266,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
           (envOpt != null && envOpt != 'both') || acceptsMc.isNotEmpty;
       if (needsLongForm) {
         final long = <String, Object?>{'version': effectiveConstraint};
-        if (envOpt != null && envOpt != 'both') long['environment'] = envOpt;
+        _writeSideFields(long, envOpt);
         if (acceptsMc.isNotEmpty) {
           long['accepts-mc'] = acceptsMc.length == 1
               ? acceptsMc.first
@@ -484,5 +484,20 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       if (i < entries.length - 1) buf.write('\n');
     }
     return buf.toString();
+  }
+
+  /// Translate the legacy `--env client|server|both` flag into per-side
+  /// `client:` / `server:` map entries on a long-form add. Default
+  /// (`both` or null) leaves the map untouched so the parser falls back
+  /// to per-section defaults.
+  void _writeSideFields(Map<String, Object?> long, String? envOpt) {
+    if (envOpt == null || envOpt == 'both') return;
+    if (envOpt == 'client') {
+      long['client'] = 'required';
+      long['server'] = 'unsupported';
+    } else if (envOpt == 'server') {
+      long['client'] = 'unsupported';
+      long['server'] = 'required';
+    }
   }
 }

@@ -225,17 +225,20 @@ int _assembleEnv({
   final envRoot = Directory(p.join(outputDir.path, envDirName(env)));
   envRoot.createSync(recursive: true);
 
+  // Lazy-create one Directory per unique relative subdir under envRoot.
+  // Data/resource packs split between required_*/ and optional_*/, so
+  // the older "one dir per section" cache no longer fits.
+  final dirCache = <String, Directory>{};
   final usedDestPaths = <String>{};
   var count = 0;
 
   for (final section in Section.values) {
     final sectionMap = lock.sectionFor(section);
     if (sectionMap.isEmpty) continue;
-    final subdir = outputSubdirFor(section);
-    Directory? sectionDir;
 
     for (final entry in sectionMap.values) {
-      if (!shouldIncludeEntry(section, entry, env)) continue;
+      final subdir = buildSubdirFor(section, env, entry);
+      if (subdir == null) continue;
 
       final sourcePath = resolveSourcePath(
         cache,
@@ -256,11 +259,14 @@ int _assembleEnv({
         );
       }
 
-      sectionDir ??= Directory(p.join(envRoot.path, subdir))
-        ..createSync(recursive: true);
+      final destDir = dirCache.putIfAbsent(
+        subdir,
+        () => Directory(p.join(envRoot.path, subdir))
+          ..createSync(recursive: true),
+      );
 
       final destName = destFilenameFor(entry);
-      final destPath = p.join(sectionDir.path, destName);
+      final destPath = p.join(destDir.path, destName);
       if (!usedDestPaths.add(destPath)) {
         throw ValidationError(
           'two entries resolve to the same output file: $destPath '

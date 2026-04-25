@@ -1,5 +1,4 @@
 import 'mods_lock.dart';
-import 'mods_yaml.dart';
 
 /// Emits a deterministic YAML representation of [lock]. Sections are listed
 /// in canonical order; entries within a section are alphabetical by slug.
@@ -63,11 +62,11 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
     }
     if (f.size != null) buf.writeln('      size: ${f.size}');
   }
-  buf.writeln('    env: ${_envName(e.env)}');
+  buf.writeln('    client: ${e.client.name}');
+  buf.writeln('    server: ${e.server.name}');
   if (e.dependency != LockedDependencyKind.direct) {
     buf.writeln('    dependency: ${e.dependency.name}');
   }
-  if (e.optional) buf.writeln('    optional: true');
   if (e.gameVersions.isNotEmpty) {
     final quoted = e.gameVersions.map(_str).join(', ');
     buf.writeln('    game-versions: [$quoted]');
@@ -78,8 +77,8 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   }
 }
 
-String _envName(Environment e) => e.name;
 String _sourceKindName(LockedSourceKind k) => k.name;
+
 
 String _key(String slug) {
   if (_needsQuotes(slug)) return _str(slug);

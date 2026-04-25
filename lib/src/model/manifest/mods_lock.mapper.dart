@@ -277,7 +277,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       MapperContainer.globals.use(_instance = LockedEntryMapper._());
       LockedSourceKindMapper.ensureInitialized();
       LockedFileMapper.ensureInitialized();
-      EnvironmentMapper.ensureInitialized();
+      SideEnvMapper.ensureInitialized();
       LockedDependencyKindMapper.ensureInitialized();
     }
     return _instance!;
@@ -323,12 +323,19 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     _$path,
     opt: true,
   );
-  static Environment _$env(LockedEntry v) => v.env;
-  static const Field<LockedEntry, Environment> _f$env = Field(
-    'env',
-    _$env,
+  static SideEnv _$client(LockedEntry v) => v.client;
+  static const Field<LockedEntry, SideEnv> _f$client = Field(
+    'client',
+    _$client,
     opt: true,
-    def: Environment.both,
+    def: SideEnv.required,
+  );
+  static SideEnv _$server(LockedEntry v) => v.server;
+  static const Field<LockedEntry, SideEnv> _f$server = Field(
+    'server',
+    _$server,
+    opt: true,
+    def: SideEnv.required,
   );
   static LockedDependencyKind _$dependency(LockedEntry v) => v.dependency;
   static const Field<LockedEntry, LockedDependencyKind> _f$dependency = Field(
@@ -351,13 +358,6 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: const [],
   );
-  static bool _$optional(LockedEntry v) => v.optional;
-  static const Field<LockedEntry, bool> _f$optional = Field(
-    'optional',
-    _$optional,
-    opt: true,
-    def: false,
-  );
 
   @override
   final MappableFields<LockedEntry> fields = const {
@@ -368,11 +368,11 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     #versionId: _f$versionId,
     #file: _f$file,
     #path: _f$path,
-    #env: _f$env,
+    #client: _f$client,
+    #server: _f$server,
     #dependency: _f$dependency,
     #gameVersions: _f$gameVersions,
     #acceptsMc: _f$acceptsMc,
-    #optional: _f$optional,
   };
 
   static LockedEntry _instantiate(DecodingData data) {
@@ -384,11 +384,11 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       versionId: data.dec(_f$versionId),
       file: data.dec(_f$file),
       path: data.dec(_f$path),
-      env: data.dec(_f$env),
+      client: data.dec(_f$client),
+      server: data.dec(_f$server),
       dependency: data.dec(_f$dependency),
       gameVersions: data.dec(_f$gameVersions),
       acceptsMc: data.dec(_f$acceptsMc),
-      optional: data.dec(_f$optional),
     );
   }
 
@@ -463,11 +463,11 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     String? versionId,
     LockedFile? file,
     String? path,
-    Environment? env,
+    SideEnv? client,
+    SideEnv? server,
     LockedDependencyKind? dependency,
     List<String>? gameVersions,
     List<String>? acceptsMc,
-    bool? optional,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -506,11 +506,11 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     Object? versionId = $none,
     Object? file = $none,
     Object? path = $none,
-    Environment? env,
+    SideEnv? client,
+    SideEnv? server,
     LockedDependencyKind? dependency,
     List<String>? gameVersions,
     List<String>? acceptsMc,
-    bool? optional,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -520,11 +520,11 @@ class _LockedEntryCopyWithImpl<$R, $Out>
       if (versionId != $none) #versionId: versionId,
       if (file != $none) #file: file,
       if (path != $none) #path: path,
-      if (env != null) #env: env,
+      if (client != null) #client: client,
+      if (server != null) #server: server,
       if (dependency != null) #dependency: dependency,
       if (gameVersions != null) #gameVersions: gameVersions,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
-      if (optional != null) #optional: optional,
     }),
   );
   @override
@@ -536,11 +536,11 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     versionId: data.get(#versionId, or: $value.versionId),
     file: data.get(#file, or: $value.file),
     path: data.get(#path, or: $value.path),
-    env: data.get(#env, or: $value.env),
+    client: data.get(#client, or: $value.client),
+    server: data.get(#server, or: $value.server),
     dependency: data.get(#dependency, or: $value.dependency),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
-    optional: data.get(#optional, or: $value.optional),
   );
 
   @override

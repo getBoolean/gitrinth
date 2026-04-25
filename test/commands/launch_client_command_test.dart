@@ -203,14 +203,16 @@ void main() {
         expect(call, contains('--workDir'));
         expect(call.last, Directory(expectedWorkDir).absolute.path);
 
-        for (final section in const [
+        for (final relPath in const [
           'mods',
           'config',
-          'resourcepacks',
           'shaderpacks',
-          'datapacks',
+          'global_packs/required_data',
+          'global_packs/optional_data',
+          'global_packs/required_resources',
+          'global_packs/optional_resources',
         ]) {
-          final linkPath = p.join(expectedWorkDir, section);
+          final linkPath = p.join(expectedWorkDir, relPath);
           final link = Link(linkPath);
           expect(
             link.existsSync(),
@@ -219,7 +221,7 @@ void main() {
           );
           expect(
             p.normalize(p.absolute(link.targetSync())),
-            p.normalize(p.absolute(p.join(clientDir.path, section))),
+            p.normalize(p.absolute(p.join(clientDir.path, relPath))),
           );
         }
       },

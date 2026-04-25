@@ -1336,7 +1336,8 @@ mc-version: 1.21.1
 mods:
   distanthorizons:
     version: beta
-    optional: true
+    client: optional
+    server: optional
 ''');
 
       final out = await runCli(
@@ -1356,7 +1357,8 @@ mods:
       // higher version (3.0.1-b, the beta) wins under semver ordering.
       expect(lockText, contains('version: 3.0.1-b'));
       expect(lockText, contains('version-id: $betaId'));
-      expect(lockText, contains('optional: true'));
+      expect(lockText, contains('client: optional'));
+      expect(lockText, contains('server: optional'));
     },
   );
 

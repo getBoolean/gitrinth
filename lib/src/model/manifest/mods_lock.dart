@@ -42,7 +42,12 @@ class LockedEntry with LockedEntryMappable {
   final String? versionId;
   final LockedFile? file;
   final String? path;
-  final Environment env;
+
+  /// Mirror of [ModEntry.client] — the resolved client-side install state.
+  final SideEnv client;
+
+  /// Mirror of [ModEntry.server] — the resolved server-side install state.
+  final SideEnv server;
 
   /// Whether this entry was declared by the user (`direct`) or pulled
   /// in transitively (`transitive`). Mirrors dart pub's lockfile
@@ -60,10 +65,6 @@ class LockedEntry with LockedEntryMappable {
   /// the user did not set `accepts-mc` in `mods.yaml`.
   final List<String> acceptsMc;
 
-  /// Mirror of `ModEntry.optional`; preserved through `gitrinth get` so
-  /// `pack` can emit `env: "optional"` in `modrinth.index.json`.
-  final bool optional;
-
   const LockedEntry({
     required this.slug,
     required this.sourceKind,
@@ -72,12 +73,15 @@ class LockedEntry with LockedEntryMappable {
     this.versionId,
     this.file,
     this.path,
-    this.env = Environment.both,
+    this.client = SideEnv.required,
+    this.server = SideEnv.required,
     this.dependency = LockedDependencyKind.direct,
     this.gameVersions = const [],
     this.acceptsMc = const [],
-    this.optional = false,
   });
+
+  /// Returns the install state for the requested build env.
+  SideEnv sideFor(bool isClient) => isClient ? client : server;
 }
 
 @MappableClass()

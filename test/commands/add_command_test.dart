@@ -620,7 +620,8 @@ mc-version: 1.21.1
     final yaml = readYaml();
     expect(yaml, contains('iris:'));
     expect(yaml, contains('version: ^1.8.12'));
-    expect(yaml, contains('environment: client'));
+    expect(yaml, contains('client: required'));
+    expect(yaml, contains('server: unsupported'));
   });
 
   group('--accepts-mc', () {

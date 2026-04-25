@@ -47,8 +47,8 @@ LockedEntry _modrinth({
   String sha1 = '0123456789abcdef',
   String sha512 = 'deadbeef',
   int size = 1024,
-  Environment env = Environment.both,
-  bool optional = false,
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
 }) {
   return LockedEntry(
     slug: slug,
@@ -63,8 +63,8 @@ LockedEntry _modrinth({
       sha512: sha512,
       size: size,
     ),
-    env: env,
-    optional: optional,
+    client: client,
+    server: server,
   );
 }
 
@@ -73,26 +73,30 @@ LockedEntry _url({
   String url = 'https://example.com/x.jar',
   String filename = 'x.jar',
   String sha512 = 'beefcafe',
-  Environment env = Environment.both,
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
 }) {
   return LockedEntry(
     slug: slug,
     sourceKind: LockedSourceKind.url,
     file: LockedFile(name: filename, url: url, sha512: sha512),
-    env: env,
+    client: client,
+    server: server,
   );
 }
 
 LockedEntry _path({
   required String slug,
   String path = './local.jar',
-  Environment env = Environment.both,
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
 }) {
   return LockedEntry(
     slug: slug,
     sourceKind: LockedSourceKind.path,
     path: path,
-    env: env,
+    client: client,
+    server: server,
   );
 }
 
@@ -109,40 +113,38 @@ void main() {
     });
   });
 
-  group('mrpackEnv', () {
-    test('both maps to required/required', () {
-      expect(mrpackEnv(Environment.both), {
+  group('mrpackEnvFor', () {
+    test('both required -> required/required', () {
+      expect(mrpackEnvFor(SideEnv.required, SideEnv.required), {
         'client': 'required',
         'server': 'required',
       });
     });
-    test('client maps to required/unsupported', () {
-      expect(mrpackEnv(Environment.client), {
+    test('client required, server unsupported', () {
+      expect(mrpackEnvFor(SideEnv.required, SideEnv.unsupported), {
         'client': 'required',
         'server': 'unsupported',
       });
     });
-    test('server maps to unsupported/required', () {
-      expect(mrpackEnv(Environment.server), {
+    test('client unsupported, server required', () {
+      expect(mrpackEnvFor(SideEnv.unsupported, SideEnv.required), {
         'client': 'unsupported',
         'server': 'required',
       });
     });
-    test('optional=true makes both sides "optional" when env=both', () {
-      expect(mrpackEnv(Environment.both, optional: true), {
+    test('both optional -> optional/optional', () {
+      expect(mrpackEnvFor(SideEnv.optional, SideEnv.optional), {
         'client': 'optional',
         'server': 'optional',
       });
     });
-    test('optional=true keeps unsupported sides unsupported (env=client)', () {
-      expect(mrpackEnv(Environment.client, optional: true), {
+    test('asymmetric optional/required passes through verbatim', () {
+      expect(mrpackEnvFor(SideEnv.optional, SideEnv.required), {
         'client': 'optional',
-        'server': 'unsupported',
+        'server': 'required',
       });
-    });
-    test('optional=true keeps unsupported sides unsupported (env=server)', () {
-      expect(mrpackEnv(Environment.server, optional: true), {
-        'client': 'unsupported',
+      expect(mrpackEnvFor(SideEnv.required, SideEnv.optional), {
+        'client': 'required',
         'server': 'optional',
       });
     });
@@ -165,6 +167,8 @@ void main() {
             name: 'complementary-r5.7.1.zip',
             projectId: 'COMP',
             versionId: 'V1',
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
         },
       );
@@ -199,6 +203,7 @@ void main() {
         (f) => f.path.startsWith('shaderpacks/'),
       );
       expect(shader.path, 'shaderpacks/complementary-r5.7.1.zip');
+      expect(shader.env, {'client': 'required', 'server': 'unsupported'});
     });
 
     test('uses LockedFile.url verbatim when present (no canonical synth)', () {
@@ -243,7 +248,6 @@ void main() {
         target: PackTarget.combined,
         publishable: false,
       );
-      // `+` must percent-encode to `%2B` in the path segment.
       expect(
         idx.files.single.downloads.single,
         'https://cdn.modrinth.com/data/ETlrkaYF/versions/wXhtL4fb/cwb-fabric-3.0.0%2Bmc1.21.5.jar',
@@ -268,16 +272,18 @@ void main() {
       expect(idx.files.single.path, contains('mod-1.0.0.jar'));
     });
 
-    test('per-entry env maps into per-file env in the index', () {
+    test('per-side state maps into per-file env in the index', () {
       final lock = _lock(
         mods: {
           'client-only': _modrinth(
             slug: 'client-only',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
           'server-only': _modrinth(
             slug: 'server-only',
-            env: Environment.server,
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
           ),
         },
       );
@@ -354,21 +360,26 @@ void main() {
           mods: {'sodium': _modrinth(slug: 'sodium')},
           resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
         );
-        // Should NOT throw — only mods are gated by --publishable.
         final idx = buildIndex(
           yaml: _yaml(),
           lock: lock,
           target: PackTarget.combined,
           publishable: true,
         );
-        expect(idx.files, hasLength(1)); // RP went to overrides, not files[].
+        expect(idx.files, hasLength(1));
       },
     );
 
     test('--publishable allows url-source DATA PACK and SHADER too', () {
       final lock = _lock(
         dataPacks: {'custom-dp': _url(slug: 'custom-dp')},
-        shaders: {'custom-shader': _path(slug: 'custom-shader')},
+        shaders: {
+          'custom-shader': _path(
+            slug: 'custom-shader',
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
+          ),
+        },
       );
       final idx = buildIndex(
         yaml: _yaml(),
@@ -436,12 +447,14 @@ void main() {
           'server-only': _modrinth(
             slug: 'server-only',
             name: 'server.jar',
-            env: Environment.server,
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
           ),
           'client-only': _modrinth(
             slug: 'client-only',
             name: 'client.jar',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
         },
       );
@@ -463,19 +476,22 @@ void main() {
           'server-only': _modrinth(
             slug: 'server-only',
             name: 'server.jar',
-            env: Environment.server,
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
           ),
           'client-only': _modrinth(
             slug: 'client-only',
             name: 'client.jar',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
         },
         shaders: {
           'shader': _modrinth(
             slug: 'shader',
             name: 'shader.zip',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
         },
       );
@@ -486,7 +502,6 @@ void main() {
         publishable: false,
       );
       final names = idx.files.map((f) => p.basename(f.path)).toSet();
-      // shared survives; client-only and the shader (forced client) are dropped.
       expect(names, {'shared.jar', 'server.jar'});
     });
 
@@ -499,12 +514,14 @@ void main() {
             'server-only': _modrinth(
               slug: 'server-only',
               name: 'server.jar',
-              env: Environment.server,
+              client: SideEnv.unsupported,
+              server: SideEnv.required,
             ),
             'client-only': _modrinth(
               slug: 'client-only',
               name: 'client.jar',
-              env: Environment.client,
+              client: SideEnv.required,
+              server: SideEnv.unsupported,
             ),
           },
         );
@@ -543,7 +560,7 @@ void main() {
       });
     });
 
-    test('optional entry produces env: optional in files[]', () {
+    test('per-side optional state produces env: optional in files[]', () {
       final lock = _lock(
         mods: {
           'distanthorizons': _modrinth(
@@ -551,7 +568,8 @@ void main() {
             name: 'distanthorizons-2.3.0-b.jar',
             projectId: 'uCdwusMi',
             versionId: 'abc123',
-            optional: true,
+            client: SideEnv.optional,
+            server: SideEnv.optional,
           ),
         },
       );
@@ -567,7 +585,7 @@ void main() {
       });
     });
 
-    test('optional client-only entry stays optional in client target', () {
+    test('client-only optional entry stays optional in client target', () {
       final lock = _lock(
         mods: {
           'distanthorizons': _modrinth(
@@ -575,8 +593,8 @@ void main() {
             name: 'distanthorizons.jar',
             projectId: 'uCdwusMi',
             versionId: 'abc123',
-            env: Environment.client,
-            optional: true,
+            client: SideEnv.optional,
+            server: SideEnv.unsupported,
           ),
         },
       );
@@ -587,6 +605,52 @@ void main() {
         publishable: false,
       );
       expect(idx.files, hasLength(1));
+      expect(idx.files.single.env, {
+        'client': 'optional',
+        'server': 'unsupported',
+      });
+    });
+
+    test('data_packs in files[] keep historical "datapacks/" path', () {
+      final lock = _lock(
+        dataPacks: {
+          'terralith': _modrinth(
+            slug: 'terralith',
+            name: 'Terralith.zip',
+            projectId: 'TPID',
+            versionId: 'TVID',
+          ),
+        },
+      );
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
+      expect(idx.files.single.path, 'datapacks/Terralith.zip');
+    });
+
+    test('resource_packs in files[] keep historical "resourcepacks/" path', () {
+      final lock = _lock(
+        resourcePacks: {
+          'faithful': _modrinth(
+            slug: 'faithful',
+            name: 'Faithful.zip',
+            projectId: 'FPID',
+            versionId: 'FVID',
+            client: SideEnv.optional,
+            server: SideEnv.unsupported,
+          ),
+        },
+      );
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
+      expect(idx.files.single.path, 'resourcepacks/Faithful.zip');
       expect(idx.files.single.env, {
         'client': 'optional',
         'server': 'unsupported',
@@ -606,6 +670,8 @@ void main() {
             slug: 'custom-rp',
             url: 'https://example.com/rp.zip',
             filename: 'rp.zip',
+            client: SideEnv.optional,
+            server: SideEnv.optional,
           ),
         },
       );
@@ -632,7 +698,13 @@ void main() {
       'hasModOverrides is false when only non-mod sections have overrides',
       () {
         final lock = _lock(
-          resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
+          resourcePacks: {
+            'custom-rp': _url(
+              slug: 'custom-rp',
+              client: SideEnv.optional,
+              server: SideEnv.unsupported,
+            ),
+          },
         );
         final cache = GitrinthCache(root: '/tmp/fakeroot');
         final plan = collectOverrides(
@@ -665,7 +737,8 @@ void main() {
           'server-mod': _url(
             slug: 'server-mod',
             filename: 'server.jar',
-            env: Environment.server,
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
           ),
         },
       );
@@ -677,7 +750,6 @@ void main() {
         target: PackTarget.combined,
       );
       expect(plan.entries.single.zipPath, 'server-overrides/mods/server.jar');
-      // Still counts as a mod override for the permissions warning.
       expect(plan.hasModOverrides, isTrue);
     });
 
@@ -687,7 +759,8 @@ void main() {
           'client-mod': _path(
             slug: 'client-mod',
             path: '/abs/client.jar',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
         },
       );
@@ -702,14 +775,16 @@ void main() {
     });
 
     test(
-      'shaders (forced client at the section level) land in client-overrides/shaderpacks/',
+      'shaders (server unsupported by default) land in '
+      'client-overrides/shaderpacks/',
       () {
         final lock = _lock(
           shaders: {
             'custom-shader': _path(
               slug: 'custom-shader',
               path: '/abs/shader.zip',
-              env: Environment.client, // forced by parser at the section level
+              client: SideEnv.required,
+              server: SideEnv.unsupported,
             ),
           },
         );
@@ -735,7 +810,8 @@ void main() {
           'server-only': _path(
             slug: 'server-only',
             path: '/a/server.jar',
-            env: Environment.server,
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
           ),
         },
       );
@@ -757,11 +833,17 @@ void main() {
           'client-only': _path(
             slug: 'client-only',
             path: '/a/client.jar',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
         },
         shaders: {
-          'sh': _path(slug: 'sh', path: '/a/sh.zip', env: Environment.client),
+          'sh': _path(
+            slug: 'sh',
+            path: '/a/sh.zip',
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
+          ),
         },
       );
       final cache = GitrinthCache(root: '/tmp/fakeroot');
@@ -771,23 +853,24 @@ void main() {
         projectDir: '/proj',
         target: PackTarget.server,
       );
-      // both-mod survives, client-only and the shader are dropped.
       expect(plan.entries.map((e) => e.slug), ['both-mod']);
     });
 
-    test('mixed envs in one section spread across all three roots', () {
+    test('mixed sides in one section spread across all three roots', () {
       final lock = _lock(
         mods: {
           'both-mod': _path(slug: 'both-mod', path: '/a/both.jar'),
           'client-mod': _path(
             slug: 'client-mod',
             path: '/a/client.jar',
-            env: Environment.client,
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
           ),
           'server-mod': _path(
             slug: 'server-mod',
             path: '/a/server.jar',
-            env: Environment.server,
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
           ),
         },
       );

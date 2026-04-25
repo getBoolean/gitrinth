@@ -33,12 +33,13 @@ mods:
   jei: ^1.0.0
   iris:
     version: ^1.8.12
-    environment: client
+    client: required
+    server: unsupported
 ''';
       final after = removeEntry(before, section: Section.mods, slug: 'iris');
       expect(after, contains('jei: ^1.0.0'));
       expect(after, isNot(contains('iris')));
-      expect(after, isNot(contains('environment: client')));
+      expect(after, isNot(contains('client: required')));
       expect(after, isNot(contains('version: ^1.8.12')));
     });
 

@@ -56,23 +56,32 @@ mods:
   # plus later stable 3.x releases.
   distanthorizons:
     version: beta
-    optional: true # Ships as `env: optional` in the .mrpack so launchers offer a toggle.
+    # Ships on both sides but launcher offers a toggle on each
+    # (mrpack `env: optional`).
+    client: optional
+    server: required
   iris:
     version: ^1.8.12+1.21 # 1.8.12+1.21.1-neoforge
-    environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
+    # Restrict to one side. Default per section: mods are required on
+    # both. Set a side to `unsupported` to drop it there.
+    client: required
+    server: unsupported
     accepts-mc:
-      - 1.21.1
+      - 1.21.1 # Use a mod that doesn't declare mc-version support
   netherportalfix:
     version: ^21.1.1
     channel: beta # Restrict to a specific release channel newer than the semver version.
-    environment: server
+    client: optional
+    server: required
   appleskin:
     version: ^3.0.9
     accepts-mc: 1.21.1 # Scalar shorthand for [1.21.1]
   globalpacks: ^21.0.6
 
 resource_packs:
-  faithful-32x: ^1.21.1-december-2025
+  faithful-32x:
+    version: ^1.21.1-december-2025
+    client: required # Resource packs default to `client: optional, server: unsupported`.
 
 data_packs:
   terralith: ^2.5.8

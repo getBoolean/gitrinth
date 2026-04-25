@@ -17,7 +17,8 @@ mods:
       sha1: 81cf0e668f991f83ac8820c386fbd6c9c3602246
       sha512: f4ea46273e407334b63e262e2555c9a8204f7b5e60f23f272fbaa83ad9e88800e0ee186aca840710df2dbe0a18b37758695fef2ae1a902c10b3706e3de772937
       size: 75804
-    env: both
+    client: required
+    server: required
     game-versions: ["1.21", 1.21.1, 1.21.2]
     accepts-mc: [1.21.1]
   balm:
@@ -31,7 +32,8 @@ mods:
       sha1: 471e60cbd2ce9753315e763772a8c55fccf843b8
       sha512: 433178c6c70a87dfe0b057323b3df4dfc00aca317d37634bfc53ff6dfa6cb8601e9d9fe773cb3491bbde46489d8b918f58ed1ae735357106466cfbc594334645
       size: 701108
-    env: both
+    client: required
+    server: required
     dependency: transitive
     game-versions: [1.21.1]
   create:
@@ -45,7 +47,8 @@ mods:
       sha1: 0e97e49837bed766e6f28a4c95b04885d6acc353
       sha512: 11cc8fc049d2f67f6548c7abfada6b82a3adb5c7ca410a742de04bbca76e03862c518721b88d806f6e6d768a4d68531fdb903a85859b25d1484d550cc7bafd4b
       size: 19123767
-    env: both
+    client: required
+    server: required
     game-versions: [1.21.1]
   create-aeronautics:
     source: modrinth
@@ -58,7 +61,8 @@ mods:
       sha1: 320d5c580462fb4bdec3d99837f16e842c314ff6
       sha512: 94831bc4702b3864524258fa0a73a50ab3cd37e9c157b5c6688a6845b866ec5838452804050b55e490549d91dad909fc37f0d619f354c5676e2e2651b9c15ec6
       size: 33003314
-    env: both
+    client: required
+    server: required
     game-versions: [1.21.1]
   distanthorizons:
     source: modrinth
@@ -71,8 +75,8 @@ mods:
       sha1: 1ff0a8920e52add541471f7b32d0d389997145ba
       sha512: dc69b30efd3192a39209d35fa785ea39f92a18a1f7ef1361e9d52cebed055f99834944dbf33b102f14c39c6091cfe4b3fd7b4effda77a3436cecf395f02bb754
       size: 30019727
-    env: both
-    optional: true
+    client: optional
+    server: required
     game-versions: [1.21.1]
   ferrite-core:
     source: modrinth
@@ -85,7 +89,8 @@ mods:
       sha1: 9563692efb708b6b568df27a01ec52f6311928ef
       sha512: 19af89a2075bb10a63884fa853ebf84b02c79dc3242430ecdad056fd764fdcde367a7303276b329df01b0736e2ef264c5d80c7dc92c6aebd244f556a230bb417
       size: 121559
-    env: both
+    client: required
+    server: required
     game-versions: [1.21.1]
   globalpacks:
     source: modrinth
@@ -98,7 +103,8 @@ mods:
       sha1: 55cf667b16b81df9b8f7fead042cf2f732b21b85
       sha512: 5590a9066d84265a53e756fdb5b8872c383ffe069745756f1ff0fe54a315cefb5cc90ee3d0233a95f1dc2a7d68396b1102b9002d8b1aaf3ec476b52c7286c6b8
       size: 27239
-    env: both
+    client: required
+    server: required
     game-versions: ["1.21", 1.21.1]
   iris:
     source: modrinth
@@ -111,7 +117,8 @@ mods:
       sha1: a3e6355915c7d3b2bc392724795113e51d289378
       sha512: 57b8026a3c3c433cf6123d63dc6ce7e11f6d480a72926370db1fc7f2b06059bc16a753ecd7e7af659c19e90b592103196b0e89585ce4f0744a4ca433f59bcf1a
       size: 2438548
-    env: client
+    client: required
+    server: unsupported
     game-versions: [1.21.1]
     accepts-mc: [1.21.1]
   jei:
@@ -125,7 +132,8 @@ mods:
       sha1: 27d0d85e7e32e926fc3664ab6815df5cdabb7941
       sha512: 8bad8eb3c8e974f867e23e4d74598f603c5fbf03eb5356a386dd37cb9fa23e08ad1f58be6b7be50d2fbf9d3fbfaeac8584c70ced736df4b8f82c7c75be242998
       size: 1529391
-    env: both
+    client: required
+    server: required
     game-versions: ["1.21", 1.21.1]
   netherportalfix:
     source: modrinth
@@ -138,7 +146,8 @@ mods:
       sha1: 9f1ba483216aebce1ee6185601231158684f5de8
       sha512: be26c53b4e7aa9dc27b05fe4cafdd120a3d1356410b35d25381d473bd9a7aa19ce6cec1bb982fda842f2a663d15dec5d12248b50141f9479a5e9ec33ed2ab3f7
       size: 211972
-    env: server
+    client: optional
+    server: required
     game-versions: ["1.21", 1.21.1]
   sable:
     source: modrinth
@@ -151,7 +160,8 @@ mods:
       sha1: 98b491efe417046ced3fc4b2e45f603b5007c972
       sha512: 8180e214681c171c9e3b7fa307f7a92bd7de0b8125d671291425f04a4ba26b408758d8ea80a6386d8e73bb1e6b02caf3f20afb9b91ecedd48c37ed44363ac961
       size: 24766579
-    env: both
+    client: required
+    server: required
     game-versions: [1.21.1]
   sodium:
     source: modrinth
@@ -164,7 +174,8 @@ mods:
       sha1: 38af70fa4dc4b2aaac636e92fdba3bedd5a025e1
       sha512: ce58f34d05d96c0a109a5cea23c741f6bdb2e6be31fc087c5989274cefca5f10ba0c08c62083cf554a51f2c7667bf46e4164383f675c844e77633aef2659996b
       size: 1162994
-    env: both
+    client: required
+    server: required
     game-versions: [1.21.1]
 resource_packs:
   faithful-32x:
@@ -178,7 +189,8 @@ resource_packs:
       sha1: 226a833c17ef551c2a747a23b65fd81e7c77c8fb
       sha512: 0c0a6b2bb2ae551f307dbaafa70ee5eee54278d80166d04946e00836ce84fb52878885e35a48e44bad33c20881dbfb0cbaf5433ee8b8a71a90746e71aae1d686
       size: 10895511
-    env: both
+    client: optional
+    server: unsupported
     game-versions: ["1.21", 1.21.1]
 data_packs:
   terralith:
@@ -192,7 +204,8 @@ data_packs:
       sha1: fc1349e387e480bec84c6813d1d75e85c3a5ac4f
       sha512: 31dfba2a60d144ca3af3c0aa8662db84f3e966fdb555b9eadbd5bdf4e4d864d2e4a8393b99388c0eaa0f03052bf35b6ae44b1858fa046fae35d408c40b789166
       size: 3112105
-    env: both
+    client: required
+    server: required
     game-versions: ["1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4]
   terralith-restoned:
     source: modrinth
@@ -205,7 +218,8 @@ data_packs:
       sha1: f51649c6a7e62fac3ef5b8611dae034d19092b43
       sha512: d5699331c34018411a6f38cc33a0f76a0dcfb29572252b781cdfe9047edc6e967f31087c773d9c03a54f9d2322369071c1c28ffa5d56fd296247bc9a3873e800
       size: 6937
-    env: both
+    client: required
+    server: required
     game-versions: ["1.20", 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6, "1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, "26.1", 26.1.1, 26.1.2]
 shaders:
   complementary-reimagined:
@@ -219,5 +233,6 @@ shaders:
       sha1: b560f646a124d5204b1fb7321fec373b9c346fa5
       sha512: 840149dd8aff5d5d06d0d5a4ea83d4ea7f72eab3cb2b02de513c1f3eaa6e4627f68d9c0915b86fa37edad73cafd4648f156f373da52810cd34c67d797e0f6aef
       size: 522970
-    env: client
+    client: required
+    server: unsupported
     game-versions: [1.7.10, "1.8", 1.8.1, 1.8.2, 1.8.3, 1.8.4, 1.8.5, 1.8.6, 1.8.7, 1.8.8, 1.8.9, "1.9", 1.9.1, 1.9.2, 1.9.3, 1.9.4, "1.10", 1.10.1, 1.10.2, "1.11", 1.11.1, 1.11.2, "1.12", 1.12.1, 1.12.2, "1.13", 1.13.1, 1.13.2, "1.14", 1.14.1, 1.14.2, 1.14.3, 1.14.4, "1.15", 1.15.1, 1.15.2, "1.16", 1.16.1, 1.16.2, 1.16.3, 1.16.4, 1.16.5, "1.17", 1.17.1, "1.18", 1.18.1, 1.18.2, "1.19", 1.19.1, 1.19.2, 1.19.3, 1.19.4, "1.20", 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6, "1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, "26.1", 26.1.1, 26.1.2]

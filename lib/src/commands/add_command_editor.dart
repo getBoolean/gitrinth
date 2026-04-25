@@ -52,7 +52,8 @@ Section? sectionFromTypeFlag(String? raw) {
 ///     `terralith: ^2.5.8`).
 ///   - [longForm] emits the mapping form
 ///     (`slug:\n  key: value\n  ...`). Used when the caller needs
-///     `environment:`, `url:`, `path:`, or any other long-only field.
+///     `client:`, `server:`, `url:`, `path:`, or any other long-only
+///     field.
 ///
 /// Throws [UserError] when the section already contains [slug] — the caller
 /// is expected to detect the duplicate earlier with a nicer message, but

@@ -11,11 +11,50 @@ enum ShaderLoader { iris, optifine, canvas, vanilla }
 @MappableEnum()
 enum PluginLoader { bukkit, folia, paper, spigot }
 
+/// Per-side install state. Mirrors the values mrpack's per-file `env`
+/// block uses, so `.mrpack` output can pass these through verbatim.
+///
+/// `required` — installed and mandatory.
+/// `optional` — installed but user-toggleable (launcher shows a switch).
+/// `unsupported` — not installed on this side at all.
 @MappableEnum()
-enum Environment { client, server, both }
+enum SideEnv {
+  required,
+  optional,
+  unsupported;
+
+  /// True when the entry contributes a file on this side (either
+  /// `required` or `optional`). Used to gate build output and to compute
+  /// mrpack overrides roots.
+  bool get includes => this != SideEnv.unsupported;
+}
 
 @MappableEnum()
 enum Section { mods, resourcePacks, dataPacks, shaders }
+
+/// Default per-side install state for entries declared in [section].
+/// Resource packs default to client-only because servers don't ship
+/// resource packs through the `globalpacks` global tree; everything else
+/// defaults to installed on both sides.
+({SideEnv client, SideEnv server}) defaultSidesFor(Section section) =>
+    switch (section) {
+      Section.mods => (
+        client: SideEnv.required,
+        server: SideEnv.required,
+      ),
+      Section.shaders => (
+        client: SideEnv.required,
+        server: SideEnv.unsupported,
+      ),
+      Section.resourcePacks => (
+        client: SideEnv.optional,
+        server: SideEnv.unsupported,
+      ),
+      Section.dataPacks => (
+        client: SideEnv.required,
+        server: SideEnv.required,
+      ),
+    };
 
 @MappableEnum()
 enum Channel { release, beta, alpha }
@@ -69,7 +108,15 @@ class ModEntry with ModEntryMappable {
   final String slug;
   final String? constraintRaw;
   final Channel? channel;
-  final Environment env;
+
+  /// Install state on the client side. The parser sets this from the
+  /// entry's `client:` field, defaulting per [defaultSidesFor].
+  final SideEnv client;
+
+  /// Install state on the server side. The parser sets this from the
+  /// entry's `server:` field, defaulting per [defaultSidesFor].
+  final SideEnv server;
+
   final EntrySource source;
 
   /// Additional Minecraft versions to union with the pack's `mc-version`
@@ -77,18 +124,14 @@ class ModEntry with ModEntryMappable {
   /// influence pack-level decisions.
   final List<String> acceptsMc;
 
-  /// When true, the entry ships in the .mrpack as `env: optional` on
-  /// every side it's installed on, so launchers offer a toggle.
-  final bool optional;
-
   const ModEntry({
     required this.slug,
     this.constraintRaw,
     this.channel,
-    this.env = Environment.both,
+    this.client = SideEnv.required,
+    this.server = SideEnv.required,
     this.source = const ModrinthEntrySource(),
     this.acceptsMc = const [],
-    this.optional = false,
   });
 }
 

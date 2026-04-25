@@ -136,7 +136,7 @@ properties:
       declared here.
 
       Under plugin loaders (`bukkit`, `folia`, `paper`, `spigot`),
-      `mods` ship client-only regardless of `environment`; `plugins`
+      `mods` ship client-only regardless of per-side fields; `plugins`
       ship server-only. `shaders` are always client-only; `sponge`
       behaves like `forge`/`fabric`/`neoforge`.
     required:
@@ -222,19 +222,20 @@ properties:
 
   shaders:
     description: |
-      Shader packs. Same syntax as `mods`; `environment` is not
-      permitted — shaders are always client-only.
+      Shader packs. Same syntax as `mods`. Shader entries always have
+      `server: unsupported` (validated by the parser); the only meaningful
+      `client` values are `required` and `optional`.
     oneOf:
       - type: "null"
-      - $ref: "#/$defs/forcedEnvModMap"
+      - $ref: "#/$defs/modMap"
 
   plugins:
     description: |
-      Server plugins. Same syntax as `mods`; `environment` is not
-      permitted — plugins are always server-only.
+      Server plugins. Same syntax as `mods`. Plugin entries are server
+      side; the parser is expected to default `client` to `unsupported`.
     oneOf:
       - type: "null"
-      - $ref: "#/$defs/forcedEnvModMap"
+      - $ref: "#/$defs/modMap"
 
   overrides:
     description: |
@@ -314,20 +315,23 @@ $defs:
           - release
           - beta
           - alpha
-      environment:
-        description: Which side this mod ships with.
-        default: both
-        enum:
-          - client
-          - server
-          - both
-      optional:
-        type: boolean
-        default: false
+      client:
         description: |
-          When true, this entry ships as `env: optional` per side in
-          the produced .mrpack so launchers (Modrinth app, Prism)
-          present a user-facing toggle.
+          Install state on the client side. `required` ships the entry
+          as a mandatory dependency; `optional` ships it but lets the
+          launcher present a user-facing toggle (mrpack `env: optional`);
+          `unsupported` excludes it from the client build entirely.
+        enum:
+          - required
+          - optional
+          - unsupported
+      server:
+        description: |
+          Install state on the server side. Same vocabulary as `client`.
+        enum:
+          - required
+          - optional
+          - unsupported
       accepts-mc:
         $ref: "#/$defs/acceptsMc"
       hosted:
@@ -358,71 +362,3 @@ $defs:
     additionalProperties:
       $ref: "#/$defs/modDependency"
 
-  forcedEnvSource:
-    type: object
-    description: |
-      Long-form dependency for `shaders` and `plugins`. Same as
-      `modSource` but `environment` is not permitted.
-    additionalProperties: false
-    errorMessage:
-      additionalProperties: "`environment` is not allowed here — shaders are always client-only and plugins are always server-only. Remove this field; the section itself decides the side."
-    properties:
-      version:
-        $ref: "#/$defs/modVersion"
-      channel:
-        description: |
-          Release-channel floor for this entry. Stability floors:
-          `release` admits only stable releases, `beta` admits
-          `release` + `beta`, `alpha` admits all. Omit to default to
-          `alpha` (any `version_type`).
-        enum:
-          - release
-          - beta
-          - alpha
-      optional:
-        type: boolean
-        default: false
-        description: |
-          When true, this entry ships as `env: optional` per side in
-          the produced .mrpack so launchers (Modrinth app, Prism)
-          present a user-facing toggle.
-      accepts-mc:
-        $ref: "#/$defs/acceptsMc"
-      hosted:
-        type: string
-        format: uri
-        description: Base URL of a Modrinth-compatible server.
-      url:
-        type: string
-        format: uri
-        description: Direct .jar download URL.
-      path:
-        type: string
-        description: Local path relative to mods.yaml.
-        minLength: 1
-    allOf:
-      - not:
-          required: [ hosted, url ]
-      - not:
-          required: [ hosted, path ]
-      - not:
-          required: [ url, path ]
-
-  forcedEnvModMap:
-    type: object
-    description: |
-      Map for `shaders` and `plugins` — same as `modMap` but
-      `environment` is disallowed on entries.
-    propertyNames:
-      pattern: ^[a-z0-9][a-z0-9_-]*$
-    additionalProperties:
-      # Dispatch on value shape so the validator reports a specific
-      # error (e.g. "`environment` is not allowed") rather than the
-      # generic "matches 0 schemas" that oneOf produces when every
-      # branch fails.
-      if:
-        type: object
-      then:
-        $ref: "#/$defs/forcedEnvSource"
-      else:
-        $ref: "#/$defs/modVersion"

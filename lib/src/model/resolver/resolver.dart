@@ -27,7 +27,6 @@ class Resolver {
   }) async {
     final roots = <RootConstraint>[];
     final entryBySection = <String, Section>{};
-    final entryByEnv = <String, Environment>{};
     final entryBySlug = <String, ModEntry>{};
 
     for (final section in Section.values) {
@@ -50,7 +49,6 @@ class Resolver {
           ),
         );
         entryBySection[slug] = section;
-        entryByEnv[slug] = entry.env;
         entryBySlug[slug] = entry;
       });
     }
@@ -85,8 +83,10 @@ class Resolver {
         );
       }
       final section = entryBySection[slug] ?? Section.mods;
-      final env = entryByEnv[slug] ?? Environment.both;
-      final optional = entryBySlug[slug]?.optional ?? false;
+      final declared = entryBySlug[slug];
+      final defaults = defaultSidesFor(section);
+      final client = declared?.client ?? defaults.client;
+      final server = declared?.server ?? defaults.server;
       final dependency = (result.auto[slug] ?? true)
           ? LockedDependencyKind.transitive
           : LockedDependencyKind.direct;
@@ -94,11 +94,11 @@ class Resolver {
         ResolvedEntry(
           slug: slug,
           section: section,
-          env: env,
+          client: client,
+          server: server,
           dependency: dependency,
           version: v,
           file: file,
-          optional: optional,
         ),
       );
     }

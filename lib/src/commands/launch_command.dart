@@ -476,21 +476,29 @@ Future<int> runLaunchClient({
     effectiveCache.launcherWorkDir(slug: yaml.slug),
   )..createSync(recursive: true);
 
-  for (final section in const [
-    'mods',
-    'config',
-    'resourcepacks',
-    'shaderpacks',
-    'datapacks',
+  // Each entry is a list of path segments so it composes correctly with
+  // the platform's directory separator (Windows mklink rejects forward
+  // slashes inside the link path) and so the link's parent directory can
+  // be pre-created (mklink /J fails if the link's parent doesn't exist).
+  for (final segments in const [
+    ['mods'],
+    ['config'],
+    ['shaderpacks'],
+    ['global_packs', 'required_data'],
+    ['global_packs', 'optional_data'],
+    ['global_packs', 'required_resources'],
+    ['global_packs', 'optional_resources'],
   ]) {
-    // Pre-create the build/client/<section> dir so junctions never fail
-    // when the build didn't populate that section this run.
-    final target = Directory(p.join(clientDir.path, section))
+    // Pre-create the build/client/<rel> dir so the junction target
+    // exists even when the build didn't populate that path this run.
+    final target = Directory(p.joinAll([clientDir.path, ...segments]))
       ..createSync(recursive: true);
-    await ensureDirSymlink(
-      linkPath: p.join(workDir.path, section),
-      target: target.path,
-    );
+    final linkPath = p.joinAll([workDir.path, ...segments]);
+    // Pre-create the link's parent (e.g. workDir/global_packs/) so
+    // Windows mklink /J can create the junction inside it.
+    final linkParent = Directory(p.dirname(linkPath));
+    if (!linkParent.existsSync()) linkParent.createSync(recursive: true);
+    await ensureDirSymlink(linkPath: linkPath, target: target.path);
   }
 
   final installerJar = await effectiveFetcher.fetchClientInstaller(

@@ -15,18 +15,18 @@ import 'build_assembler.dart';
 /// in one zip, partitioned at install time by the per-file `env` map.
 enum PackTarget { client, server, combined }
 
-/// Returns true when an entry with [env] should be included in the
-/// `files[]` / overrides of a pack targeting [target]. `combined` keeps
-/// everything; `client` and `server` drop the opposite side's
-/// dedicated entries but always keep `Environment.both`.
-bool _includeForTarget(Environment env, PackTarget target) {
+/// Returns true when an entry should be included in the `files[]` /
+/// overrides of a pack targeting [target]. `combined` keeps everything;
+/// `client` drops server-only entries (server marked as required/optional
+/// while client is unsupported) and `server` drops client-only entries.
+bool _includeForTarget(LockedEntry entry, PackTarget target) {
   switch (target) {
     case PackTarget.combined:
-      return true;
+      return entry.client.includes || entry.server.includes;
     case PackTarget.client:
-      return env != Environment.server;
+      return entry.client.includes;
     case PackTarget.server:
-      return env != Environment.client;
+      return entry.server.includes;
   }
 }
 
@@ -119,10 +119,10 @@ MrpackIndex buildIndex({
 
   final files = <MrpackFile>[];
   for (final section in Section.values) {
-    final subdir = outputSubdirFor(section);
+    final subdir = mrpackSubdirFor(section);
     for (final entry in lock.sectionFor(section).values) {
       if (entry.sourceKind != LockedSourceKind.modrinth) continue;
-      if (!_includeForTarget(entry.env, target)) continue;
+      if (!_includeForTarget(entry, target)) continue;
       files.add(_modrinthFileFor(entry, subdir));
     }
   }
@@ -170,7 +170,7 @@ MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
   return MrpackFile(
     path: '$subdir/${file.name}',
     hashes: {'sha1': file.sha1!, 'sha512': file.sha512!},
-    env: mrpackEnv(entry.env, optional: entry.optional),
+    env: mrpackEnvFor(entry.client, entry.server),
     downloads: [downloadUrl],
     fileSize: file.size!,
   );
@@ -197,10 +197,8 @@ String _canonicalModrinthUrl(LockedEntry entry, LockedFile file) {
 ///   - `client-overrides/`  — installed on client only
 ///   - `server-overrides/`  — installed on server only
 ///
-/// We route by [LockedEntry.env]: `both → overrides/`, `client →
-/// client-overrides/`, `server → server-overrides/`. Shaders are parsed
-/// with `forcedEnv: Environment.client`, so they naturally land in
-/// `client-overrides/shaderpacks/` without a special case.
+/// We route by per-side install state: both sides installed → `overrides/`,
+/// client-only → `client-overrides/`, server-only → `server-overrides/`.
 ///
 /// When [target] is `client`, server-only entries are dropped entirely
 /// (a server-only override has nothing to do in a client pack); same
@@ -215,10 +213,10 @@ OverridesPlan collectOverrides({
   var hasModOverrides = false;
 
   for (final section in Section.values) {
-    final subdir = outputSubdirFor(section);
+    final subdir = mrpackSubdirFor(section);
     for (final entry in lock.sectionFor(section).values) {
       if (entry.sourceKind == LockedSourceKind.modrinth) continue;
-      if (!_includeForTarget(entry.env, target)) continue;
+      if (!_includeForTarget(entry, target)) continue;
       final sourcePath = resolveSourcePath(
         cache,
         entry,
@@ -231,7 +229,11 @@ OverridesPlan collectOverrides({
           section: section,
           sourceKind: entry.sourceKind.name,
           sourcePath: sourcePath,
-          zipPath: p.posix.join(_overridesRootFor(entry.env), subdir, destName),
+          zipPath: p.posix.join(
+            _overridesRootFor(entry.client, entry.server),
+            subdir,
+            destName,
+          ),
         ),
       );
       if (section == Section.mods) hasModOverrides = true;
@@ -241,13 +243,8 @@ OverridesPlan collectOverrides({
   return OverridesPlan(entries: entries, hasModOverrides: hasModOverrides);
 }
 
-String _overridesRootFor(Environment env) {
-  switch (env) {
-    case Environment.both:
-      return 'overrides';
-    case Environment.client:
-      return 'client-overrides';
-    case Environment.server:
-      return 'server-overrides';
-  }
+String _overridesRootFor(SideEnv client, SideEnv server) {
+  if (client.includes && server.includes) return 'overrides';
+  if (client.includes) return 'client-overrides';
+  return 'server-overrides';
 }
