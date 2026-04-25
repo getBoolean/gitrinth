@@ -93,16 +93,29 @@ gitrinth get [--dry-run] [--enforce-lockfile]
 
 Re-resolve to the **newest** version allowed by each constraint,
 updating `mods.lock`. Leaves `mods.yaml` untouched unless
-`--major-versions` is passed. Pass slugs to upgrade only those entries.
+`--major-versions` or `--tighten` is passed. Pass slugs to upgrade
+only those entries.
 
 ```text
-gitrinth upgrade [<slug>...] [--major-versions] [--dry-run]
+gitrinth upgrade [<slug>...] [--major-versions] [--tighten] [--dry-run]
 ```
 
-| Option             | Description                                                                                           |
-|--------------------|-------------------------------------------------------------------------------------------------------|
-| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`. |
-| `--dry-run`        | Print changes without writing.                                                                        |
+| Option             | Description                                                                                                                                     |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`.                                           |
+| `--tighten`        | After resolving, raise each caret-bound entry's lower bound in `mods.yaml` to match the resolved version. Mirrors `dart pub upgrade --tighten`. |
+| `--dry-run`        | Print changes without writing.                                                                                                                  |
+
+`--major-versions` only rewrites entries whose resolved version isn't
+already permitted by the existing constraint — same skip rule as `dart
+pub upgrade --major-versions`. `--tighten` covers the other case:
+in-major bumps where the constraint already allowed the new version
+but its lower bound is now stale. Combine the two when both behaviors
+are wanted.
+
+`--unlock-transitive` (also a pub flag) is not yet supported because
+the lock format does not record parent→child edges; tracked as a
+separate MVP item.
 
 ### `add`
 

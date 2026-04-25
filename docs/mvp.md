@@ -9,7 +9,7 @@ post-MVP.
 
 Scaffolding:
 
-- [ ] `CommandRunner` with all nine MVP commands registered (seven done; `upgrade` and `cache` pending).
+- [ ] `CommandRunner` with all nine MVP commands registered (eight done; `cache` pending).
 - [x] Global options (`-h`, `--help`, `--version`, `-C`, `-v`).
 - [ ] Exit-code mapping (`0`/`1`/`2`/`5`/`64`) via `GitrinthException` hierarchy. Code `5` lands with `cache`.
 
@@ -17,7 +17,7 @@ Commands:
 
 - [x] `create` — fully implemented.
 - [x] `get` — fully implemented.
-- [ ] `upgrade` — planned.
+- [x] `upgrade` — implemented; `--unlock-transitive` deferred (needs lock dep graph).
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
 - [x] `build` — implemented; server-binary auto-download deferred.
@@ -32,6 +32,10 @@ Supporting work:
 - [x] Resolver and `mods.lock` format.
 - [x] Artifact cache (platform cache root, hash-verified download).
 - [x] `.mrpack` archive builder.
+- [ ] Lock-format dependency graph + `upgrade --unlock-transitive` flag —
+  record parent→child edges in `mods.lock` so an upgrade can compute the
+  transitive closure of named targets and unpin only those entries
+  (mirrors `dart pub upgrade --unlock-transitive`).
 
 Post-MVP work is tracked in [`todo.md`](todo.md).
 
@@ -83,12 +87,15 @@ Re-resolve to the newest version allowed by each constraint, updating
 `mods.lock`.
 
 ```text
-gitrinth upgrade [<slug>...] [--major-versions] [--dry-run]
+gitrinth upgrade [<slug>...] [--major-versions] [--tighten] [--dry-run]
 ```
 
 - `<slug>...` — upgrade only these entries (default: all).
 - `--major-versions` — ignore caret boundaries and pick the absolute
   newest version; rewrites the constraint in `mods.yaml`.
+- `--tighten` — raise each caret-bound entry's lower bound in
+  `mods.yaml` to match the resolved version (`dart pub upgrade
+  --tighten` parity).
 - `--dry-run`
 
 ### [`add`](cli.md#add)

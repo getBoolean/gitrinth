@@ -48,6 +48,14 @@ class ResolveSyncResult {
 /// carries [exitValidationError] if the lock would have changed, otherwise
 /// [exitOk]. When [enforce] is true, any lock change throws a
 /// [ValidationError] (same semantics as `gitrinth get --enforce-lockfile`).
+///
+/// [freshSlugs] holds slugs whose `mods.lock` entries should NOT be passed to
+/// the resolver as soft pins, so the resolver picks newest-within-constraint
+/// instead of preserving the existing lock. [relaxConstraints] holds slugs
+/// whose version constraint should be treated as `any` for resolution. Both
+/// power `gitrinth upgrade`; `get` leaves them empty. The diff and the
+/// rebuilt lock still come from the *original* manifest and lock, so per-entry
+/// metadata (env/optional/channel/etc.) is preserved.
 Future<ResolveSyncResult> resolveAndSync({
   required ManifestIo io,
   required Console console,
@@ -58,6 +66,8 @@ Future<ResolveSyncResult> resolveAndSync({
   required bool verbose,
   bool dryRun = false,
   bool enforce = false,
+  Set<String> freshSlugs = const {},
+  Set<String> relaxConstraints = const {},
 }) async {
   final reporter = SolveReporter(console);
 
@@ -69,6 +79,12 @@ Future<ResolveSyncResult> resolveAndSync({
   if (enforce) {
     _checkUserEntriesPresentInLock(merged, existingLock);
   }
+
+  final lockForResolution = _stripLockPins(existingLock, freshSlugs);
+  final manifestForResolution = _relaxManifestConstraints(
+    merged,
+    relaxConstraints,
+  );
 
   final loaderConfig = merged.loader;
   final mc = merged.mcVersion;
@@ -154,7 +170,10 @@ Future<ResolveSyncResult> resolveAndSync({
   console.detail(
     'Resolving with loader.mods=${loaderConfig.mods.name} mc=$mc...',
   );
-  final resolution = await resolver.resolve(merged, existingLock: existingLock);
+  final resolution = await resolver.resolve(
+    manifestForResolution,
+    existingLock: lockForResolution,
+  );
 
   final newLock = _buildLock(merged, resolution, resolvedLoaderVersion);
   final diff = diffLocks(existingLock, newLock);
@@ -421,6 +440,45 @@ Future<String> _resolveLoaderVersion({
     loader: loaderConfig.mods,
     tag: tag,
     mcVersion: mcVersion,
+  );
+}
+
+/// Returns [existingLock] with each section's map filtered to drop any slug
+/// in [freshSlugs]. Used by `gitrinth upgrade` to force the resolver to pick
+/// a new version for the named entries instead of preserving the soft pin.
+/// When [freshSlugs] is empty (the `get` path), returns [existingLock]
+/// unchanged.
+ModsLock? _stripLockPins(ModsLock? existingLock, Set<String> freshSlugs) {
+  if (existingLock == null || freshSlugs.isEmpty) return existingLock;
+  Map<String, LockedEntry> strip(Map<String, LockedEntry> m) => {
+    for (final e in m.entries)
+      if (!freshSlugs.contains(e.key)) e.key: e.value,
+  };
+  return existingLock.copyWith(
+    mods: strip(existingLock.mods),
+    resourcePacks: strip(existingLock.resourcePacks),
+    dataPacks: strip(existingLock.dataPacks),
+    shaders: strip(existingLock.shaders),
+  );
+}
+
+/// Returns [merged] with each section entry whose slug is in [relaxConstraints]
+/// rewritten to have `constraintRaw: null` (parsed as `VersionConstraint.any`).
+/// Channel/env/optional/source are preserved. Used by
+/// `gitrinth upgrade --major-versions` to bypass caret ceilings.
+ModsYaml _relaxManifestConstraints(ModsYaml merged, Set<String> relax) {
+  if (relax.isEmpty) return merged;
+  Map<String, ModEntry> relaxSection(Map<String, ModEntry> m) => {
+    for (final e in m.entries)
+      e.key: relax.contains(e.key)
+          ? e.value.copyWith(constraintRaw: null)
+          : e.value,
+  };
+  return merged.copyWith(
+    mods: relaxSection(merged.mods),
+    resourcePacks: relaxSection(merged.resourcePacks),
+    dataPacks: relaxSection(merged.dataPacks),
+    shaders: relaxSection(merged.shaders),
   );
 }
 
