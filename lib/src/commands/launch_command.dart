@@ -11,11 +11,13 @@ import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/console.dart';
+import '../service/cache.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/manifest_io.dart';
 import '../service/minecraft_launcher_locator.dart';
 import '../service/server_installer.dart' show ProcessRunner;
+import '../service/symlink_util.dart';
 import 'build_orchestrator.dart';
 
 class LaunchCommand extends GitrinthCommand {
@@ -405,6 +407,7 @@ Future<int> runLaunchClient({
   LoaderBinaryFetcher? fetcher,
   LoaderClientInstaller? clientInstaller,
   MinecraftLauncherLocator? locator,
+  GitrinthCache? cache,
 }) async {
   if (options.offline) {
     throw const UserError(
@@ -425,6 +428,7 @@ Future<int> runLaunchClient({
       clientInstaller ?? container.read(loaderClientInstallerProvider);
   final MinecraftLauncherLocator effectiveLocator =
       locator ?? container.read(minecraftLauncherLocatorProvider);
+  final GitrinthCache effectiveCache = cache ?? container.read(cacheProvider);
 
   if (options.autoBuild) {
     final exit = await effectiveDoBuild(
@@ -461,21 +465,49 @@ Future<int> runLaunchClient({
     );
   }
 
+  // The launcher's `.minecraft` lives in the gitrinth cache, scoped per
+  // pack slug. This lets `gitrinth clean` wipe build/ without taking the
+  // user's saves, screenshots, options.txt, or installed loader with it.
+  // Artifact dirs (mods/, config/, ...) under the cache workdir are
+  // symlinked back to build/client/<section> — the source of truth for
+  // those files stays in the pack tree.
+  final yaml = manifestIo.readModsYaml();
+  final workDir = Directory(
+    effectiveCache.launcherWorkDir(slug: yaml.slug),
+  )..createSync(recursive: true);
+
+  for (final section in const [
+    'mods',
+    'config',
+    'resourcepacks',
+    'shaderpacks',
+    'datapacks',
+  ]) {
+    // Pre-create the build/client/<section> dir so junctions never fail
+    // when the build didn't populate that section this run.
+    final target = Directory(p.join(clientDir.path, section))
+      ..createSync(recursive: true);
+    await ensureDirSymlink(
+      linkPath: p.join(workDir.path, section),
+      target: target.path,
+    );
+  }
+
   final installerJar = await effectiveFetcher.fetchClientInstaller(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
     loaderVersion: lock.loader.modsVersion,
   );
 
-  // Install the loader into the modpack's own build/client/ tree so
-  // versions/, libraries/, and the installer's auto-injected
-  // launcher_profiles.json entry all live there. The launcher's --workDir
-  // flag below makes the GUI read this tree as its .minecraft.
+  // Install the loader into the cache workdir so versions/, libraries/,
+  // and the installer's auto-injected launcher_profiles.json entry all
+  // live there. The launcher's --workDir flag below makes the GUI read
+  // this tree as its .minecraft.
   final lastVersionId = await effectiveClientInstaller.installClient(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
     loaderVersion: lock.loader.modsVersion,
-    dotMinecraftDir: clientDir,
+    dotMinecraftDir: workDir,
     installerJar: installerJar,
     offline: options.offline,
   );
@@ -484,22 +516,21 @@ Future<int> runLaunchClient({
   // (e.g. "NeoForge"). Rename it to "gitrinth: <slug>" so the launcher GUI
   // identifies which modpack this workDir belongs to. Match by
   // lastVersionId so we don't depend on the installer's chosen key.
-  final yaml = manifestIo.readModsYaml();
   _renameInstallerProfile(
-    profilesFile: File(p.join(clientDir.path, 'launcher_profiles.json')),
+    profilesFile: File(p.join(workDir.path, 'launcher_profiles.json')),
     lastVersionId: lastVersionId,
     newName: 'gitrinth: ${yaml.slug}',
   );
 
   final launcherExe = effectiveLocator.launcherExecutable;
   console.info(
-    'Opening Minecraft Launcher with workDir ${clientDir.path}. The '
-    'profile is named "gitrinth: ${yaml.slug}"; click Play to boot the '
-    'modpack.',
+    'Opening Minecraft Launcher with workDir ${workDir.path} '
+    '(artifacts symlinked from ${clientDir.path}). The profile is named '
+    '"gitrinth: ${yaml.slug}"; click Play to boot the modpack.',
   );
 
   return effectiveRunProcess(
     launcherExe.path,
-    ['--workDir', clientDir.absolute.path],
+    ['--workDir', workDir.absolute.path],
   );
 }

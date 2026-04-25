@@ -18,6 +18,19 @@ class GitrinthCache {
   String get urlRoot => p.join(root, 'url');
   String get tmpRoot => p.join(root, 'tmp');
   String get loadersRoot => p.join(root, 'loaders');
+  String get launchersRoot => p.join(root, 'launchers');
+
+  /// Per-pack launcher work directory used by `gitrinth launch client`.
+  /// Holds the loader install (`versions/`, `libraries/`, `assets/`),
+  /// `launcher_profiles.json`, and Minecraft's user-state files (`saves/`,
+  /// `screenshots/`, `options.txt`, ...). Survives `gitrinth clean` so worlds
+  /// and tweaked options aren't wiped when build artifacts are.
+  String launcherWorkDir({required String slug}) {
+    if (slug.isEmpty) {
+      throw ArgumentError.value(slug, 'slug', 'must not be empty');
+    }
+    return p.join(launchersRoot, slug);
+  }
 
   /// Path where a loader binary (server installer JAR, vanilla server.jar,
   /// fabric-server-launch.jar, etc.) lives. Keyed by `(loader, mcVersion,

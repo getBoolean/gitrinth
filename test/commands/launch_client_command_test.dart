@@ -6,6 +6,7 @@ import 'package:gitrinth/src/commands/launch_command.dart';
 import 'package:gitrinth/src/model/manifest/emitter.dart';
 import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
+import 'package:gitrinth/src/service/cache.dart';
 import 'package:gitrinth/src/service/console.dart';
 import 'package:gitrinth/src/service/loader_binary_fetcher.dart';
 import 'package:gitrinth/src/service/loader_client_installer.dart';
@@ -87,6 +88,8 @@ void main() {
     late Directory tempRoot;
     late Directory packDir;
     late Directory clientDir;
+    late Directory cacheRoot;
+    late GitrinthCache cache;
     late File launcherExe;
     late File installerJar;
     late ManifestIo io;
@@ -97,6 +100,8 @@ void main() {
       packDir = Directory(p.join(tempRoot.path, 'pack'))..createSync();
       clientDir = Directory(p.join(packDir.path, 'build', 'client'))
         ..createSync(recursive: true);
+      cacheRoot = Directory(p.join(tempRoot.path, 'cache'))..createSync();
+      cache = GitrinthCache(root: cacheRoot.path);
       launcherExe = File(p.join(tempRoot.path, 'launcher.exe'))
         ..writeAsStringSync('STUB');
       installerJar = File(p.join(tempRoot.path, 'installer.jar'))
@@ -147,7 +152,8 @@ void main() {
     );
 
     test(
-      'happy path: installs into clientDir and spawns launcher with --workDir',
+      'happy path: installs into cache workdir and symlinks artifact dirs '
+      'back to build/client',
       () async {
         final spawnCalls = <List<String>>[];
         final fakeFetcher = _FakeFetcher(installerJar);
@@ -177,22 +183,85 @@ void main() {
           fetcher: fakeFetcher,
           clientInstaller: fakeInstaller,
           locator: locator,
+          cache: cache,
         );
+
+        final expectedWorkDir = p.join(cacheRoot.path, 'launchers', 'pack');
 
         expect(code, 0);
         expect(fakeFetcher.called, isTrue);
         expect(fakeInstaller.called, isTrue);
         expect(
           fakeInstaller.lastDotMinecraftDir?.path,
-          clientDir.path,
-          reason: 'loader installer must target build/client/, not <dotMc>',
+          expectedWorkDir,
+          reason: 'loader installer must target the cache workdir',
         );
 
         expect(spawnCalls, hasLength(1));
         final call = spawnCalls.single;
         expect(call.first, launcherExe.path);
         expect(call, contains('--workDir'));
-        expect(call.last, clientDir.absolute.path);
+        expect(call.last, Directory(expectedWorkDir).absolute.path);
+
+        for (final section in const [
+          'mods',
+          'config',
+          'resourcepacks',
+          'shaderpacks',
+          'datapacks',
+        ]) {
+          final linkPath = p.join(expectedWorkDir, section);
+          final link = Link(linkPath);
+          expect(
+            link.existsSync(),
+            isTrue,
+            reason: 'expected symlink at $linkPath',
+          );
+          expect(
+            p.normalize(p.absolute(link.targetSync())),
+            p.normalize(p.absolute(p.join(clientDir.path, section))),
+          );
+        }
+      },
+    );
+
+    test(
+      're-running is idempotent: existing symlinks are kept, no errors',
+      () async {
+        Future<int> runOnce() => runLaunchClient(
+              options: const LaunchClientOptions(
+                autoBuild: false,
+                offline: false,
+                verbose: false,
+              ),
+              container: container,
+              console: const Console(),
+              io: io,
+              runProcess: (
+                exe,
+                args, {
+                Directory? workingDirectory,
+                bool runInShell = false,
+              }) async => 0,
+              fetcher: _FakeFetcher(installerJar),
+              clientInstaller: _FakeClientInstaller(
+                'fabric-loader-0.17.3-1.21.1',
+              ),
+              locator: _FakeLocator(launcherExecutable: launcherExe),
+              cache: cache,
+            );
+
+        expect(await runOnce(), 0);
+        expect(await runOnce(), 0);
+
+        final modsLink = Link(
+          p.join(cacheRoot.path, 'launchers', 'pack', 'mods'),
+        );
+        expect(modsLink.existsSync(), isTrue);
+        expect(
+          p.normalize(p.absolute(modsLink.targetSync())),
+          p.normalize(p.absolute(p.join(clientDir.path, 'mods'))),
+        );
       },
     );
 
@@ -218,6 +287,7 @@ void main() {
           fetcher: _FakeFetcher(installerJar),
           clientInstaller: _FakeClientInstaller('fabric-loader-0.17.3-1.21.1'),
           locator: _FakeLocator(launcherExecutable: launcherExe),
+          cache: cache,
           doBuild: (opts) async {
             captured = opts;
             return 0;
@@ -249,6 +319,7 @@ void main() {
         fetcher: _CountingFetcher(installerJar, () => fetched = true),
         clientInstaller: _FakeClientInstaller('id'),
         locator: _FakeLocator(launcherExecutable: launcherExe),
+        cache: cache,
         doBuild: (_) async => 9,
       );
       expect(code, 9);
@@ -256,7 +327,8 @@ void main() {
     });
 
     test(
-      'missing build/client when --no-build surfaces a clear UserError',
+      'missing build/client when --no-build surfaces a clear UserError '
+      'and leaves cache workdir untouched',
       () async {
         clientDir.deleteSync(recursive: true);
         await expectLater(
@@ -278,6 +350,7 @@ void main() {
             fetcher: _FakeFetcher(installerJar),
             clientInstaller: _FakeClientInstaller('id'),
             locator: _FakeLocator(launcherExecutable: launcherExe),
+            cache: cache,
           ),
           throwsA(
             isA<UserError>().having(
@@ -286,6 +359,12 @@ void main() {
               contains('client distribution not found'),
             ),
           ),
+        );
+        expect(
+          Directory(p.join(cacheRoot.path, 'launchers', 'pack')).existsSync(),
+          isFalse,
+          reason:
+              'cache workdir should not be created if build/client is missing',
         );
       },
     );

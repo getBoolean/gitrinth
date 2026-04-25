@@ -473,8 +473,10 @@ test it end-to-end without leaving the CLI. Two subcommands:
 
 - [`launch server`](#launch-server) — boot the server JVM/script in
   `build/server/` directly.
-- [`launch client`](#launch-client) — register a profile in your
-  official Minecraft Launcher pointing at `build/client/` and open it.
+- [`launch client`](#launch-client) — install the loader into a
+  per-pack workdir under the gitrinth cache, symlink the build's
+  artifact dirs (`mods/`, `config/`, ...) into it, and open the
+  official Minecraft Launcher there.
 
 #### `launch server`
 
@@ -516,27 +518,36 @@ gitrinth launch client [--no-build] [--output <path>] [--offline]
 | `--output`, `-o` | Override the build output directory. Defaults to `./build`.                                     |
 | `--offline`      | Rejected — the launcher needs network on first run to download libraries and assets.            |
 
-Each modpack gets its own self-contained `.minecraft`-shaped tree under
-`build/client/`. The launcher is opened with `--workDir <build/client>`
-so the GUI reads only that tree's `launcher_profiles.json` (which has
-just the loader's auto-injected entry — no risk of picking the wrong
-profile). The user's real `~/.minecraft/launcher_profiles.json` is left
-untouched.
+Each modpack gets its own `.minecraft`-shaped workdir under the
+gitrinth cache at `~/.gitrinth_cache/launchers/<slug>/`. The artifact
+dirs inside that workdir (`mods/`, `config/`, `resourcepacks/`,
+`shaderpacks/`, `datapacks/`) are directory symlinks — junctions on
+Windows — pointing back at `build/client/<section>`. Everything else
+the launcher writes (`versions/`, `libraries/`, `assets/`,
+`launcher_profiles.json`) and everything the user accumulates
+(`saves/`, `screenshots/`, `options.txt`, `servers.dat`, `logs/`,
+`crash-reports/`) is a real file inside the cache workdir. Result:
+`gitrinth clean` can wipe `build/` without touching the user's worlds
+or installed loader. The user's real `~/.minecraft/launcher_profiles.json`
+is also left untouched — the launcher reads only the workdir's copy.
 
 The flow:
 
 1. Builds `build/client/` (drop with `--no-build`).
-2. Fetches the loader's client installer JAR (cached at
+2. Creates the cache workdir at
+   `~/.gitrinth_cache/launchers/<slug>/` and refreshes a symlink for
+   each artifact section pointing at `build/client/<section>`.
+3. Fetches the loader's client installer JAR (cached at
    `~/.gitrinth_cache/loaders/<loader>/<mc>/<v>/`).
-3. Runs `<installer> --installClient build/client/` once per
+4. Runs `<installer> --installClient <cache workdir>` once per
    `(loader, mc, loader-version)` triple. This populates
-   `build/client/versions/<id>/<id>.json`, `build/client/libraries/`,
-   and writes a single profile entry in
-   `build/client/launcher_profiles.json`.
-4. Spawns `MinecraftLauncher.exe --workDir <abs path to build/client>`.
-5. The launcher GUI offers exactly one profile; click Play. Auth +
-   asset/JRE download are handled by the launcher, scoped to
-   `build/client/`.
+   `<cache workdir>/versions/<id>/<id>.json`,
+   `<cache workdir>/libraries/`, and writes a single profile entry in
+   `<cache workdir>/launcher_profiles.json`.
+5. Spawns `MinecraftLauncher.exe --workDir <abs path to cache workdir>`.
+6. The launcher GUI offers exactly one profile; click Play. Auth +
+   asset/JRE download are handled by the launcher, scoped to the cache
+   workdir.
 
 **Requirements.** This relies on the
 [`--workDir`](https://minecraft.wiki/w/Minecraft_Launcher) flag of the
@@ -545,9 +556,22 @@ Microsoft Store / Xbox-app variant does **not** honour `--workDir` —
 self-launching the JVM directly is tracked as a follow-up in
 [`todo.md`](todo.md#self-launch-jvm-skip-the-official-launcher).
 
+**Caveats.**
+
+- Two checkouts of the same modpack share `<cache>/launchers/<slug>/`,
+  including saves and `options.txt`. Rename the slug or remove the
+  workdir before forking a checkout you want isolated.
+- After `gitrinth clean` the artifact symlinks dangle; the next
+  `gitrinth launch client` rebuilds `build/client/` and refreshes
+  them automatically.
+- The cache workdir is not removed by `gitrinth clean`. Delete
+  `<cache>/launchers/<slug>/` manually to reclaim its disk or reset
+  in-game state.
+
 **Disk cost.** Each modpack carries its own libraries (~500 MB),
-assets (~1 GB on first launch), and bundled JRE (~200 MB) inside
-`build/client/`. `gitrinth clean` sweeps the whole tree. Hardlink
+assets (~1 GB on first launch), and bundled JRE (~200 MB) inside its
+cache workdir. `gitrinth clean` does not sweep them; the cache
+workdir survives so worlds and tweaked options aren't lost. Hardlink
 deduplication across modpacks is a future optimization.
 
 Override the launcher locator with `GITRINTH_LAUNCHER` (single path)
