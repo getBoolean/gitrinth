@@ -155,7 +155,14 @@ class PubGrubSolver {
     }
 
     // Lock-suggestion preference: if the current lock pin satisfies, try it first.
-    candidates.sort((a, b) => b.parsed.compareTo(a.parsed)); // desc
+    candidates.sort(
+      (a, b) => compareModrinthSelectionOrder(
+        a.modrinthVersion,
+        a.parsed,
+        b.modrinthVersion,
+        b.parsed,
+      ),
+    );
     final pin = state.lockSuggestions[slug];
     if (pin != null) {
       final pinIdx = candidates.indexWhere(

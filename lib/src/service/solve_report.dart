@@ -85,36 +85,67 @@ bool _equalLocked(LockedEntry a, LockedEntry b) {
 }
 
 /// Returns the raw `version_number` of the newest entry in [candidates]
-/// that parses to a semver strictly greater than [chosenRaw]. Returns null
-/// when [chosenRaw] is already the newest, when parsing fails, or when the
+/// that ranks strictly above [chosenRaw] under the resolver's selection
+/// order — `date_published` descending, parsed semver descending as
+/// tiebreaker (see [compareModrinthSelectionOrder]). Returns null when
+/// [chosenRaw] is already the newest, when parsing fails, or when the
 /// candidate list is missing. Unparseable candidates are skipped rather
 /// than failing — the resolver would have skipped them too.
+///
+/// Mirroring the resolver's order matters because the user's "(X
+/// available)" hint must point at what `gitrinth upgrade` would actually
+/// pick. For date-encoded labels (Faithful 32x' `1.21.x-<month>-<year>`),
+/// parsed-semver-only comparison would advertise an older publish date as
+/// "newer" simply because its leading max-MC segment is higher.
 String? newerAvailableThan(
   String chosenRaw,
   List<modrinth.Version>? candidates,
 ) {
   if (candidates == null || candidates.isEmpty) return null;
-  semver.Version chosenParsed;
+  final semver.Version chosenParsed;
   try {
     chosenParsed = parseModrinthVersion(chosenRaw);
   } on FormatException {
     return null;
   }
+  // The chosen version's datePublished comes from the candidate list when
+  // it's there (typical: `versionsPerSlug` carries the API response that
+  // resolution chose from). Falling back to a synthetic Version with no
+  // date keeps the comparator's null-handling rules consistent.
+  modrinth.Version chosenForCompare = candidates.firstWhere(
+    (v) => v.versionNumber == chosenRaw,
+    orElse: () => modrinth.Version(
+      id: '',
+      projectId: '',
+      versionNumber: chosenRaw,
+      files: const [],
+      dependencies: const [],
+      loaders: const [],
+      gameVersions: const [],
+    ),
+  );
+
+  modrinth.Version? best;
   semver.Version? bestParsed;
-  String? bestRaw;
   for (final v in candidates) {
+    final semver.Version parsed;
     try {
-      final parsed = parseModrinthVersion(v.versionNumber);
-      if (bestParsed == null || parsed > bestParsed) {
-        bestParsed = parsed;
-        bestRaw = v.versionNumber;
-      }
+      parsed = parseModrinthVersion(v.versionNumber);
     } on FormatException {
-      // Skip — same policy the resolver uses.
+      continue;
+    }
+    if (best == null ||
+        compareModrinthSelectionOrder(v, parsed, best, bestParsed!) < 0) {
+      best = v;
+      bestParsed = parsed;
     }
   }
-  if (bestParsed == null) return null;
-  return bestParsed > chosenParsed ? bestRaw : null;
+  if (best == null || bestParsed == null) return null;
+  if (best.versionNumber == chosenRaw) return null;
+  if (compareModrinthSelectionOrder(best, bestParsed, chosenForCompare, chosenParsed) >= 0) {
+    return null;
+  }
+  return best.versionNumber;
 }
 
 /// Counts modrinth-source entries across every section of [newLock] that have

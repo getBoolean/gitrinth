@@ -2,6 +2,7 @@ import 'package:pub_semver/pub_semver.dart';
 
 import '../../cli/exceptions.dart';
 import '../manifest/mods_yaml.dart';
+import '../modrinth/version.dart' as modrinth;
 import 'exact_constraint.dart';
 
 /// Parses a `mods.yaml` version constraint into a [VersionConstraint].
@@ -29,13 +30,28 @@ VersionConstraint parseConstraint(String? raw) {
       // `+mc1.21.1`) so candidates with different or missing tags aren't
       // excluded.
       final numericPrefix = _numericBuildPrefix(version.build);
+      // When the user-supplied caret base has no explicit pre-release,
+      // widen the lower bound to admit `<mmp>-<label>` candidates of the
+      // same MMP. In standard semver `^1.21.1` excludes `1.21.1-rc1`
+      // (pre-releases sort below their base), but Modrinth doesn't use
+      // pre-release suffixes as RC tags — resource packs (Faithful 32x:
+      // `1.21.1-december-2025`) and shaders (`r5.7.1-rc`) treat the
+      // suffix as the canonical release label. Stability floor is
+      // expressed via the `channel` field, not by the version-string
+      // shape, so excluding labelled releases here gives counter-intuitive
+      // resolves where `^1.21.1` skips every `1.21.1-*` and lands on
+      // `1.21.3-june-2025` simply because its parsed MMP is higher.
+      // Using `pre: '0'` admits any non-empty pre-release identifier
+      // (numeric "0" is the lowest possible identifier under semver
+      // ordering) without changing the upper bound.
+      final pre = version.preRelease.isEmpty
+          ? '0'
+          : version.preRelease.join('.');
       final bound = Version(
         version.major,
         version.minor,
         version.patch,
-        pre: version.preRelease.isEmpty
-            ? null
-            : version.preRelease.join('.'),
+        pre: pre,
         build: numericPrefix.isEmpty ? null : numericPrefix.join('.'),
       );
       return VersionConstraint.compatibleWith(bound);
@@ -185,6 +201,41 @@ String bareVersionForPin(String raw) {
   }
   final numericPrefix = _numericBuildPrefix(parsed.build);
   return numericPrefix.isEmpty ? base : '$base+${numericPrefix.join('.')}';
+}
+
+/// Comparator: orders Modrinth versions "newest first" under the resolver's
+/// selection rule — `date_published` descending, with parsed semver descending
+/// as tiebreaker.
+///
+/// Modrinth doesn't enforce semver on `version_number`. Resource packs and
+/// shaders in particular bake max-MC compatibility into the leading
+/// `MAJOR.MINOR.PATCH` (Faithful 32x: `1.21.3-june-2025` was published *before*
+/// `1.21.1-december-2025` even though parsed semver makes 1.21.3 look "higher").
+/// Sorting by publish date matches Modrinth's UI and the user's intuition for
+/// "newest within constraint"; falling back to parsed semver keeps existing
+/// callers (and tests) that don't carry a publish date deterministic.
+///
+/// [aParsed] / [bParsed] are the pre-parsed semvers — callers typically already
+/// have these from constraint matching, and threading them avoids re-parsing
+/// inside the sort.
+int compareModrinthSelectionOrder(
+  modrinth.Version a,
+  Version aParsed,
+  modrinth.Version b,
+  Version bParsed,
+) {
+  final aDate = a.datePublished;
+  final bDate = b.datePublished;
+  if (aDate != null && bDate != null) {
+    // ISO 8601 strings sort correctly lexicographically.
+    final cmp = bDate.compareTo(aDate);
+    if (cmp != 0) return cmp;
+  } else if (aDate != null) {
+    return -1;
+  } else if (bDate != null) {
+    return 1;
+  }
+  return bParsed.compareTo(aParsed);
 }
 
 /// Parses a release-channel token (`release`, `beta`, `alpha`) into a [Channel].

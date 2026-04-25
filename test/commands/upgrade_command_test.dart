@@ -435,6 +435,111 @@ mods:
     expect(lock, contains('optional: true'));
   });
 
+  test(
+    '`^1.21.1` (bare MMP) admits `1.21.1-<label>` releases and resolves '
+    'to the newest by date_published',
+    () async {
+      // Direct repro of the user-reported regression: with constraint
+      // `^1.21.1` the resolver was picking `1.21.3-june-2025` because
+      // standard semver carets exclude pre-release-suffixed versions of
+      // the same MMP, leaving only the higher-MMP june release inside
+      // the range. The Modrinth-aware caret admits the labelled
+      // releases, and the date_published sort then picks december over
+      // both april and june.
+      modrinth
+        ..registerVersion(
+          slug: 'faithful-32x',
+          versionNumber: '1.21.1-april-2025',
+          loader: 'minecraft',
+          datePublished: '2025-04-15T00:00:00Z',
+        )
+        ..registerVersion(
+          slug: 'faithful-32x',
+          versionNumber: '1.21.3-june-2025',
+          loader: 'minecraft',
+          datePublished: '2025-06-15T00:00:00Z',
+        )
+        ..registerVersion(
+          slug: 'faithful-32x',
+          versionNumber: '1.21.1-december-2025',
+          loader: 'minecraft',
+          datePublished: '2025-12-15T00:00:00Z',
+        );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+resource_packs:
+  faithful-32x: ^1.21.1
+''');
+      final out = await runGet();
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final lock = readLock();
+      expect(lock, contains('version: 1.21.1-december-2025'));
+      expect(lock, isNot(contains('version: 1.21.3-june-2025')));
+      expect(lock, isNot(contains('version: 1.21.1-april-2025')));
+    },
+  );
+
+  test(
+    'resource pack with date-encoded labels: upgrade picks newest by '
+    'date_published, not highest MMP',
+    () async {
+      // Faithful 32x ships versions named `<max-mc>-<release-label>`
+      // — the leading `1.21.x` is the highest-supported MC, not a
+      // version of the pack. With pure semver-desc sort, `1.21.3-june-2025`
+      // would beat `1.21.1-december-2025` even though june was published
+      // six months *before* december. This test guards against that
+      // regression end-to-end.
+      modrinth
+        ..registerVersion(
+          slug: 'faithful-32x',
+          versionNumber: '1.21.1-april-2025',
+          loader: 'minecraft',
+          datePublished: '2025-04-15T00:00:00Z',
+        )
+        ..registerVersion(
+          slug: 'faithful-32x',
+          versionNumber: '1.21.3-june-2025',
+          loader: 'minecraft',
+          datePublished: '2025-06-15T00:00:00Z',
+        );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+resource_packs:
+  faithful-32x: ^1.21.1-april-2025
+''');
+      expect((await runGet()).exitCode, 0);
+
+      // Newer release lands later, with a higher publish date and a
+      // *lower* leading MMP than the june-2025 entry. Upgrade must pick it.
+      modrinth.registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.1-december-2025',
+        loader: 'minecraft',
+        datePublished: '2025-12-15T00:00:00Z',
+      );
+
+      final out = await runUpgrade([]);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final lock = readLock();
+      expect(lock, contains('version: 1.21.1-december-2025'));
+      expect(lock, isNot(contains('version: 1.21.3-june-2025')));
+    },
+  );
+
   // The four cases below mirror dart-lang/pub's
   // test/upgrade/upgrade_transitive_test.dart, ported to gitrinth's
   // FakeModrinth-driven integration setup. `foo`/`bar`/`baz` follow

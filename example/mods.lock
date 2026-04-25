@@ -142,31 +142,31 @@ mods:
     game-versions: [1.21.1]
   sodium:
     source: modrinth
-    version: mc1.21.1-0.6.9-neoforge
+    version: mc1.21.1-0.6.13-neoforge
     project-id: AANobbMI
-    version-id: I9RMZOOH
+    version-id: Pb3OXVqC
     file:
-      name: sodium-neoforge-0.6.9+mc1.21.1.jar
-      url: "https://cdn.modrinth.com/data/AANobbMI/versions/I9RMZOOH/sodium-neoforge-0.6.9%2Bmc1.21.1.jar"
-      sha1: 489fa60823fdde380618ce2ae7dcb1b8423ffddc
-      sha512: bdd2b56fd54787e0ef666c7e0d30d8d800097ae726904a2d95e689a33c20b583a619ec0bfdd0fd1fe57c71fc0516ff2bbb9880806f642b9885451481bd9e7148
-      size: 1162487
+      name: sodium-neoforge-0.6.13+mc1.21.1.jar
+      url: "https://cdn.modrinth.com/data/AANobbMI/versions/Pb3OXVqC/sodium-neoforge-0.6.13%2Bmc1.21.1.jar"
+      sha1: 38af70fa4dc4b2aaac636e92fdba3bedd5a025e1
+      sha512: ce58f34d05d96c0a109a5cea23c741f6bdb2e6be31fc087c5989274cefca5f10ba0c08c62083cf554a51f2c7667bf46e4164383f675c844e77633aef2659996b
+      size: 1162994
     env: both
     game-versions: [1.21.1]
 resource_packs:
   faithful-32x:
     source: modrinth
-    version: 1.21.3-june-2025
+    version: 1.21.1-december-2025
     project-id: w0TnApzs
-    version-id: Bda58rDq
+    version-id: Zlz4qPlw
     file:
-      name: Faithful 32x - 1.21.3.zip
-      url: "https://cdn.modrinth.com/data/w0TnApzs/versions/Bda58rDq/Faithful%2032x%20-%201.21.3.zip"
-      sha1: f389143590b5f82c401979a4f3ca3f0946c79855
-      sha512: cab3f6c4f14eaae1df8764656288efe3d1be5eed5a9114e8b0ecd74421c516b787ccce6d5581e2e0579f881a8262cc6aad29eb9e64e3774289f9adaf86986c36
-      size: 10909262
+      name: Faithful 32x - 1.21.1.zip
+      url: "https://cdn.modrinth.com/data/w0TnApzs/versions/Zlz4qPlw/Faithful%2032x%20-%201.21.1.zip"
+      sha1: 226a833c17ef551c2a747a23b65fd81e7c77c8fb
+      sha512: 0c0a6b2bb2ae551f307dbaafa70ee5eee54278d80166d04946e00836ce84fb52878885e35a48e44bad33c20881dbfb0cbaf5433ee8b8a71a90746e71aae1d686
+      size: 10895511
     env: both
-    game-versions: ["1.21", 1.21.1, 1.21.2, 1.21.3]
+    game-versions: ["1.21", 1.21.1]
 data_packs:
   terralith:
     source: modrinth

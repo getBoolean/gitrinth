@@ -104,6 +104,7 @@ class FakeModrinth {
     String loader = 'neoforge',
     String gameVersion = '1.21.1',
     List<String> requiredDeps = const [],
+    String? datePublished,
   }) {
     final pid = projectId.isEmpty ? '${slug}_ID' : projectId;
     final versionId =
@@ -150,6 +151,7 @@ class FakeModrinth {
       'game_versions': [gameVersion],
     };
     if (versionType != null) entry['version_type'] = versionType;
+    if (datePublished != null) entry['date_published'] = datePublished;
     versions.putIfAbsent(slug, () => <Map<String, dynamic>>[]).add(entry);
     return versionId;
   }

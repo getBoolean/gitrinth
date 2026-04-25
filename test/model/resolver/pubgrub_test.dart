@@ -12,6 +12,7 @@ modrinth.Version v({
   required String number,
   List<Dependency> deps = const [],
   String? versionType,
+  String? datePublished,
 }) => modrinth.Version(
   id: '$slug-$number',
   projectId: slug,
@@ -29,6 +30,7 @@ modrinth.Version v({
   loaders: const ['neoforge'],
   gameVersions: const ['1.21.1'],
   versionType: versionType,
+  datePublished: datePublished,
 );
 
 void main() {
@@ -381,6 +383,86 @@ void main() {
     );
   });
 
+
+  group('candidate ordering', () {
+    test(
+      'date-encoded resource pack labels: newest by date_published wins '
+      'over higher-MMP older release',
+      () async {
+        // Faithful 32x ships its versions as `<max-mc>-<release-label>`
+        // (e.g. `1.21.1-december-2025`). The leading `1.21.x` is the
+        // highest-supported MC version, NOT a newer pack release —
+        // `1.21.3-june-2025` was published *before* `1.21.1-december-2025`
+        // even though its parsed semver is "higher." Sort must follow
+        // `date_published` so upgrade picks the December release.
+        final db = {
+          'faithful-32x': [
+            v(
+              slug: 'faithful-32x',
+              number: '1.21.1-november-2024',
+              datePublished: '2024-11-15T00:00:00Z',
+            ),
+            v(
+              slug: 'faithful-32x',
+              number: '1.21.1-april-2025',
+              datePublished: '2025-04-15T00:00:00Z',
+            ),
+            v(
+              slug: 'faithful-32x',
+              number: '1.21.3-june-2025',
+              datePublished: '2025-06-15T00:00:00Z',
+            ),
+            v(
+              slug: 'faithful-32x',
+              number: '1.21.1-december-2025',
+              datePublished: '2025-12-15T00:00:00Z',
+            ),
+          ],
+        };
+        final solver = PubGrubSolver(
+          listVersions: (slug) async => db[slug] ?? [],
+          resolveSlugForProjectId: (id) async => null,
+        );
+        final out = await solver.solve([
+          RootConstraint(
+            slug: 'faithful-32x',
+            constraint: VersionConstraint.any,
+            isUserDeclared: true,
+          ),
+        ]);
+        expect(
+          out.decisions['faithful-32x']!.versionNumber,
+          '1.21.1-december-2025',
+        );
+      },
+    );
+
+    test('null date_published falls back to parsed semver desc', () async {
+      // Existing-callers contract: when Modrinth doesn't return a
+      // date_published (or in tests that don't set one), candidate sort
+      // falls back to parsed semver descending — matching pre-fix
+      // behavior for normal semver-shaped mod versions.
+      final db = {
+        'a': [
+          v(slug: 'a', number: '1.0.0'),
+          v(slug: 'a', number: '1.5.0'),
+          v(slug: 'a', number: '1.2.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => null,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'a',
+          constraint: VersionConstraint.parse('^1.0.0'),
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions['a']!.versionNumber, '1.5.0');
+    });
+  });
 
   group('failure messages (dart pub-style)', () {
     test(

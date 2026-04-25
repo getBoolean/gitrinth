@@ -20,6 +20,29 @@ void main() {
       expect(c.allows(Version.parse('5.9.0')), isFalse);
     });
 
+    test(
+      'caret on bare MMP admits <mmp>-<label> Modrinth release tags',
+      () {
+        // Modrinth uses `<mmp>-<label>` as a release label (Faithful 32x:
+        // `1.21.1-december-2025`). Standard semver puts pre-release
+        // versions BELOW their base, which would make `^1.21.1` skip
+        // every `1.21.1-*` and pick a higher-MMP candidate even when its
+        // publish date is older. The Modrinth-aware caret admits these.
+        final c = parseConstraint('^1.21.1');
+        expect(c.allows(parseModrinthVersion('1.21.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('1.21.1-april-2025')), isTrue);
+        expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
+        // Higher-MMP labels still admitted (under the caret ceiling).
+        expect(c.allows(parseModrinthVersion('1.21.3-june-2025')), isTrue);
+        expect(c.allows(parseModrinthVersion('1.22.0')), isTrue);
+        // Major bump still excluded.
+        expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
+        expect(c.allows(parseModrinthVersion('2.0.0-pre')), isFalse);
+        // Earlier major still excluded.
+        expect(c.allows(parseModrinthVersion('1.20.4')), isFalse);
+      },
+    );
+
     test('caret on 0.x.y -> compatibleWith same minor', () {
       final c = parseConstraint('^0.5.2');
       expect(c.allows(Version.parse('0.5.2')), isTrue);
