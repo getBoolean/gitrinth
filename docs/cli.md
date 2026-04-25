@@ -507,35 +507,52 @@ notice and exits, and you can re-run with the flag.
 #### `launch client`
 
 ```text
-gitrinth launch client [--no-build] [--memory <size>] [--output <path>]
+gitrinth launch client [--no-build] [--output <path>] [--offline]
 ```
 
 | Option           | Description                                                                                     |
 |------------------|-------------------------------------------------------------------------------------------------|
 | `--no-build`     | Skip the implicit `gitrinth build --env client`. Use when the build tree is already up to date. |
-| `--memory`, `-m` | JVM heap size, applied as `javaArgs` on the launcher profile. Examples: `4G`, `6G`, `8192M`.    |
 | `--output`, `-o` | Override the build output directory. Defaults to `./build`.                                     |
+| `--offline`      | Rejected — the launcher needs network on first run to download libraries and assets.            |
 
-Delegates to your locally-installed **official Minecraft Launcher**:
+Each modpack gets its own self-contained `.minecraft`-shaped tree under
+`build/client/`. The launcher is opened with `--workDir <build/client>`
+so the GUI reads only that tree's `launcher_profiles.json` (which has
+just the loader's auto-injected entry — no risk of picking the wrong
+profile). The user's real `~/.minecraft/launcher_profiles.json` is left
+untouched.
+
+The flow:
 
 1. Builds `build/client/` (drop with `--no-build`).
 2. Fetches the loader's client installer JAR (cached at
-   `~/.gitrinth_cache/loaders/<loader>/<mc>/<v>/`) and runs it in
-   `--installClient` mode against your `.minecraft` directory once per
-   `(loader, mc, loader-version)` triple.
-3. Upserts a `gitrinth: <slug>` profile into
-   `<dotMinecraft>/launcher_profiles.json` whose `gameDir` points at
-   `build/client/`, so mods/resourcepacks/datapacks/shaderpacks resolve
-   from the modpack and saves stay separate from the rest of your
-   launcher state.
-4. Opens the launcher; click "Play" on the `gitrinth: <slug>` profile.
-   Auth and asset/library download are handled by the launcher.
+   `~/.gitrinth_cache/loaders/<loader>/<mc>/<v>/`).
+3. Runs `<installer> --installClient build/client/` once per
+   `(loader, mc, loader-version)` triple. This populates
+   `build/client/versions/<id>/<id>.json`, `build/client/libraries/`,
+   and writes a single profile entry in
+   `build/client/launcher_profiles.json`.
+4. Spawns `MinecraftLauncher.exe --workDir <abs path to build/client>`.
+5. The launcher GUI offers exactly one profile; click Play. Auth +
+   asset/JRE download are handled by the launcher, scoped to
+   `build/client/`.
 
-Requirements: the official Minecraft Launcher must be installed.
-Override the locator with `GITRINTH_LAUNCHER` (path to the executable)
-and `GITRINTH_DOT_MINECRAFT` (path to the game directory) when running
-on a portable install or in CI. `--offline` is rejected because the
-launcher needs network on first run.
+**Requirements.** This relies on the
+[`--workDir`](https://minecraft.wiki/w/Minecraft_Launcher) flag of the
+**legacy unified Minecraft Launcher** (`MinecraftLauncher.exe`). The
+Microsoft Store / Xbox-app variant does **not** honour `--workDir` —
+self-launching the JVM directly is tracked as a follow-up in
+[`todo.md`](todo.md#self-launch-jvm-skip-the-official-launcher).
+
+**Disk cost.** Each modpack carries its own libraries (~500 MB),
+assets (~1 GB on first launch), and bundled JRE (~200 MB) inside
+`build/client/`. `gitrinth clean` sweeps the whole tree. Hardlink
+deduplication across modpacks is a future optimization.
+
+Override the launcher locator with `GITRINTH_LAUNCHER` (single path)
+or `GITRINTH_LAUNCHER_SEARCH_PATHS` (list, separated by `;` on Windows
+or `:` elsewhere) — useful for portable installs and CI.
 
 ### `cache`
 

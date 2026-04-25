@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -50,6 +51,23 @@ class LoaderClientInstaller {
     }
 
     dotMinecraftDir.createSync(recursive: true);
+    // All three installers want a `launcher_profiles.json` to exist before
+    // they will append a profile entry to it (Forge/NeoForge error out
+    // otherwise; Fabric needs it once we drop `-noprofile`). Seed an empty
+    // one if missing.
+    final profilesFile = File(
+      p.join(dotMinecraftDir.path, 'launcher_profiles.json'),
+    );
+    if (!profilesFile.existsSync()) {
+      profilesFile.writeAsStringSync(
+        const JsonEncoder.withIndent('  ').convert(<String, dynamic>{
+          'profiles': <String, dynamic>{},
+          'settings': <String, dynamic>{},
+          'version': 3,
+        }),
+      );
+    }
+
     final java = _resolveJava();
     final args = _installArgs(
       loader: loader,
@@ -106,7 +124,6 @@ class LoaderClientInstaller {
           mcVersion,
           '-loader',
           loaderVersion,
-          '-noprofile',
         ];
       case Loader.forge:
       case Loader.neoforge:

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -10,11 +11,10 @@ import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/console.dart';
-import '../service/launcher_profile_injector.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/manifest_io.dart';
-import '../service/official_launcher_locator.dart';
+import '../service/minecraft_launcher_locator.dart';
 import '../service/server_installer.dart' show ProcessRunner;
 import 'build_orchestrator.dart';
 
@@ -304,18 +304,48 @@ Future<int> _defaultRunProcess(
   return process.exitCode;
 }
 
+/// Renames the profile in [profilesFile] whose `lastVersionId` matches
+/// [lastVersionId] so the launcher GUI displays [newName]. No-op if the
+/// file is missing/malformed or no profile matches — the launcher still
+/// works either way; this is purely cosmetic.
+void _renameInstallerProfile({
+  required File profilesFile,
+  required String lastVersionId,
+  required String newName,
+}) {
+  if (!profilesFile.existsSync()) return;
+  Map<String, dynamic> root;
+  try {
+    final raw = jsonDecode(profilesFile.readAsStringSync());
+    if (raw is! Map<String, dynamic>) return;
+    root = raw;
+  } on FormatException {
+    return;
+  }
+  final profiles = root['profiles'];
+  if (profiles is! Map) return;
+  for (final entry in profiles.values) {
+    if (entry is! Map) continue;
+    if (entry['lastVersionId'] == lastVersionId) {
+      entry['name'] = newName;
+    }
+  }
+  profilesFile.writeAsStringSync(
+    const JsonEncoder.withIndent('  ').convert(root),
+  );
+}
+
 class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'client';
 
   @override
   String get description =>
-      'Build (if needed), register a profile in launcher_profiles.json, '
-      'and open the official Minecraft Launcher.';
+      'Build (if needed), install the loader into build/client/, and open '
+      'the official Minecraft Launcher with --workDir build/client/.';
 
   @override
-  String get invocation =>
-      'gitrinth launch client [--no-build] [--memory <size>]';
+  String get invocation => 'gitrinth launch client [--no-build]';
 
   LaunchClientCommand() {
     argParser
@@ -323,14 +353,6 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
         'build',
         defaultsTo: true,
         help: 'Auto-build client/ before launching. Use --no-build to skip.',
-      )
-      ..addOption(
-        'memory',
-        abbr: 'm',
-        valueHelp: 'size',
-        help:
-            'JVM heap size, applied as `javaArgs` on the launcher profile. '
-            'Examples: 4G, 6G, 8192M.',
       )
       ..addOption(
         'output',
@@ -346,7 +368,6 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
     return runLaunchClient(
       options: LaunchClientOptions(
         autoBuild: argResults!['build'] as bool,
-        memory: argResults!['memory'] as String?,
         outputPath: argResults!['output'] as String?,
         offline: readOfflineFlag(),
         verbose: gitrinthRunner.verbose,
@@ -362,12 +383,10 @@ class LaunchClientOptions {
     required this.autoBuild,
     required this.offline,
     required this.verbose,
-    this.memory,
     this.outputPath,
   });
 
   final bool autoBuild;
-  final String? memory;
   final String? outputPath;
   final bool offline;
   final bool verbose;
@@ -385,9 +404,7 @@ Future<int> runLaunchClient({
   Future<int> Function(BuildOptions)? doBuild,
   LoaderBinaryFetcher? fetcher,
   LoaderClientInstaller? clientInstaller,
-  OfficialLauncherLocator? locator,
-  LauncherProfileInjector Function(Directory)? injectorFactory,
-  String Function()? slugProvider,
+  MinecraftLauncherLocator? locator,
 }) async {
   if (options.offline) {
     throw const UserError(
@@ -406,11 +423,8 @@ Future<int> runLaunchClient({
       fetcher ?? container.read(loaderBinaryFetcherProvider);
   final LoaderClientInstaller effectiveClientInstaller =
       clientInstaller ?? container.read(loaderClientInstallerProvider);
-  final OfficialLauncherLocator effectiveLocator =
-      locator ?? container.read(officialLauncherLocatorProvider);
-  final LauncherProfileInjector Function(Directory) effectiveInjectorFactory =
-      injectorFactory ??
-      container.read(launcherProfileInjectorFactoryProvider);
+  final MinecraftLauncherLocator effectiveLocator =
+      locator ?? container.read(minecraftLauncherLocatorProvider);
 
   if (options.autoBuild) {
     final exit = await effectiveDoBuild(
@@ -431,8 +445,6 @@ Future<int> runLaunchClient({
       'or drop --no-build.',
     );
   }
-  final yaml = manifestIo.readModsYaml();
-  final slug = (slugProvider ?? () => yaml.slug)();
 
   final outputDir = Directory(
     p.normalize(
@@ -455,32 +467,39 @@ Future<int> runLaunchClient({
     loaderVersion: lock.loader.modsVersion,
   );
 
-  final dotMc = effectiveLocator.dotMinecraftDir;
+  // Install the loader into the modpack's own build/client/ tree so
+  // versions/, libraries/, and the installer's auto-injected
+  // launcher_profiles.json entry all live there. The launcher's --workDir
+  // flag below makes the GUI read this tree as its .minecraft.
   final lastVersionId = await effectiveClientInstaller.installClient(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
     loaderVersion: lock.loader.modsVersion,
-    dotMinecraftDir: dotMc,
+    dotMinecraftDir: clientDir,
     installerJar: installerJar,
     offline: options.offline,
   );
 
-  final injector = effectiveInjectorFactory(dotMc);
-  await injector.upsertProfile(
-    key: 'gitrinth-$slug',
-    displayName: 'gitrinth: $slug',
+  // The loader installer auto-injects a profile with a generic name
+  // (e.g. "NeoForge"). Rename it to "gitrinth: <slug>" so the launcher GUI
+  // identifies which modpack this workDir belongs to. Match by
+  // lastVersionId so we don't depend on the installer's chosen key.
+  final yaml = manifestIo.readModsYaml();
+  _renameInstallerProfile(
+    profilesFile: File(p.join(clientDir.path, 'launcher_profiles.json')),
     lastVersionId: lastVersionId,
-    gameDir: clientDir,
-    javaArgs: options.memory == null
-        ? null
-        : '-Xmx${options.memory} -Xms${options.memory}',
+    newName: 'gitrinth: ${yaml.slug}',
   );
 
   final launcherExe = effectiveLocator.launcherExecutable;
   console.info(
-    'Opening Minecraft Launcher; pick the "gitrinth: $slug" profile and '
-    'click Play.',
+    'Opening Minecraft Launcher with workDir ${clientDir.path}. The '
+    'profile is named "gitrinth: ${yaml.slug}"; click Play to boot the '
+    'modpack.',
   );
 
-  return effectiveRunProcess(launcherExe.path, const []);
+  return effectiveRunProcess(
+    launcherExe.path,
+    ['--workDir', clientDir.absolute.path],
+  );
 }

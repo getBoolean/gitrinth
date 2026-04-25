@@ -56,7 +56,14 @@ void main() {
         expect(call, contains('1.21.1'));
         expect(call, contains('-loader'));
         expect(call, contains('0.17.3'));
-        expect(call, contains('-noprofile'));
+        expect(
+          call,
+          isNot(contains('-noprofile')),
+          reason:
+              'Fabric installer must auto-inject a profile into '
+              'launcher_profiles.json so we can rename it to '
+              '"gitrinth: <slug>" later.',
+        );
       },
     );
 

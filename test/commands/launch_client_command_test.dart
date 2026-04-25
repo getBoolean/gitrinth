@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:gitrinth/src/cli/exceptions.dart';
@@ -8,11 +7,10 @@ import 'package:gitrinth/src/model/manifest/emitter.dart';
 import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/service/console.dart';
-import 'package:gitrinth/src/service/launcher_profile_injector.dart';
 import 'package:gitrinth/src/service/loader_binary_fetcher.dart';
 import 'package:gitrinth/src/service/loader_client_installer.dart';
 import 'package:gitrinth/src/service/manifest_io.dart';
-import 'package:gitrinth/src/service/official_launcher_locator.dart';
+import 'package:gitrinth/src/service/minecraft_launcher_locator.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
@@ -58,6 +56,7 @@ class _FakeFetcher implements LoaderBinaryFetcher {
 class _FakeClientInstaller implements LoaderClientInstaller {
   final String returnId;
   bool called = false;
+  Directory? lastDotMinecraftDir;
 
   _FakeClientInstaller(this.returnId);
 
@@ -71,17 +70,16 @@ class _FakeClientInstaller implements LoaderClientInstaller {
     required bool offline,
   }) async {
     called = true;
+    lastDotMinecraftDir = dotMinecraftDir;
     return returnId;
   }
 }
 
-class _FakeLocator implements OfficialLauncherLocator {
-  @override
-  final Directory dotMinecraftDir;
+class _FakeLocator implements MinecraftLauncherLocator {
   @override
   final File launcherExecutable;
 
-  _FakeLocator({required this.dotMinecraftDir, required this.launcherExecutable});
+  _FakeLocator({required this.launcherExecutable});
 }
 
 void main() {
@@ -89,7 +87,6 @@ void main() {
     late Directory tempRoot;
     late Directory packDir;
     late Directory clientDir;
-    late Directory dotMc;
     late File launcherExe;
     late File installerJar;
     late ManifestIo io;
@@ -100,7 +97,6 @@ void main() {
       packDir = Directory(p.join(tempRoot.path, 'pack'))..createSync();
       clientDir = Directory(p.join(packDir.path, 'build', 'client'))
         ..createSync(recursive: true);
-      dotMc = Directory(p.join(tempRoot.path, '.minecraft'))..createSync();
       launcherExe = File(p.join(tempRoot.path, 'launcher.exe'))
         ..writeAsStringSync('STUB');
       installerJar = File(p.join(tempRoot.path, 'installer.jar'))
@@ -150,64 +146,55 @@ void main() {
       },
     );
 
-    test('happy path: fetch + install + inject + spawn launcher', () async {
-      final spawnCalls = <List<String>>[];
-      final fakeFetcher = _FakeFetcher(installerJar);
-      final fakeInstaller = _FakeClientInstaller('fabric-loader-0.17.3-1.21.1');
-      final locator = _FakeLocator(
-        dotMinecraftDir: dotMc,
-        launcherExecutable: launcherExe,
-      );
+    test(
+      'happy path: installs into clientDir and spawns launcher with --workDir',
+      () async {
+        final spawnCalls = <List<String>>[];
+        final fakeFetcher = _FakeFetcher(installerJar);
+        final fakeInstaller = _FakeClientInstaller(
+          'fabric-loader-0.17.3-1.21.1',
+        );
+        final locator = _FakeLocator(launcherExecutable: launcherExe);
 
-      final code = await runLaunchClient(
-        options: const LaunchClientOptions(
-          autoBuild: false,
-          offline: false,
-          verbose: false,
-          memory: '4G',
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess: (
-          exe,
-          args, {
-          Directory? workingDirectory,
-          bool runInShell = false,
-        }) async {
-          spawnCalls.add([exe, ...args]);
-          return 0;
-        },
-        fetcher: fakeFetcher,
-        clientInstaller: fakeInstaller,
-        locator: locator,
-        injectorFactory: (dir) => LauncherProfileInjector(
-          file: File(p.join(dir.path, 'launcher_profiles.json')),
-        ),
-      );
+        final code = await runLaunchClient(
+          options: const LaunchClientOptions(
+            autoBuild: false,
+            offline: false,
+            verbose: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: (
+            exe,
+            args, {
+            Directory? workingDirectory,
+            bool runInShell = false,
+          }) async {
+            spawnCalls.add([exe, ...args]);
+            return 0;
+          },
+          fetcher: fakeFetcher,
+          clientInstaller: fakeInstaller,
+          locator: locator,
+        );
 
-      expect(code, 0);
-      expect(fakeFetcher.called, isTrue);
-      expect(fakeFetcher.loader, Loader.fabric);
-      expect(fakeFetcher.mc, '1.21.1');
-      expect(fakeFetcher.lv, '0.17.3');
-      expect(fakeInstaller.called, isTrue);
+        expect(code, 0);
+        expect(fakeFetcher.called, isTrue);
+        expect(fakeInstaller.called, isTrue);
+        expect(
+          fakeInstaller.lastDotMinecraftDir?.path,
+          clientDir.path,
+          reason: 'loader installer must target build/client/, not <dotMc>',
+        );
 
-      // Profile written.
-      final profileFile = File(p.join(dotMc.path, 'launcher_profiles.json'));
-      expect(profileFile.existsSync(), isTrue);
-      final profiles = (jsonDecode(profileFile.readAsStringSync())
-          as Map)['profiles'] as Map;
-      expect(profiles, contains('gitrinth-pack'));
-      final entry = profiles['gitrinth-pack'] as Map;
-      expect(entry['lastVersionId'], 'fabric-loader-0.17.3-1.21.1');
-      expect(entry['gameDir'], endsWith('client'));
-      expect(entry['javaArgs'], contains('-Xmx4G'));
-
-      // Launcher spawned.
-      expect(spawnCalls, hasLength(1));
-      expect(spawnCalls.single.first, launcherExe.path);
-    });
+        expect(spawnCalls, hasLength(1));
+        final call = spawnCalls.single;
+        expect(call.first, launcherExe.path);
+        expect(call, contains('--workDir'));
+        expect(call.last, clientDir.absolute.path);
+      },
+    );
 
     test(
       'autoBuild=true delegates to doBuild with env=client before launching',
@@ -230,13 +217,7 @@ void main() {
           }) async => 0,
           fetcher: _FakeFetcher(installerJar),
           clientInstaller: _FakeClientInstaller('fabric-loader-0.17.3-1.21.1'),
-          locator: _FakeLocator(
-            dotMinecraftDir: dotMc,
-            launcherExecutable: launcherExe,
-          ),
-          injectorFactory: (dir) => LauncherProfileInjector(
-            file: File(p.join(dir.path, 'launcher_profiles.json')),
-          ),
+          locator: _FakeLocator(launcherExecutable: launcherExe),
           doBuild: (opts) async {
             captured = opts;
             return 0;
@@ -267,13 +248,7 @@ void main() {
         }) async => 0,
         fetcher: _CountingFetcher(installerJar, () => fetched = true),
         clientInstaller: _FakeClientInstaller('id'),
-        locator: _FakeLocator(
-          dotMinecraftDir: dotMc,
-          launcherExecutable: launcherExe,
-        ),
-        injectorFactory: (dir) => LauncherProfileInjector(
-          file: File(p.join(dir.path, 'launcher_profiles.json')),
-        ),
+        locator: _FakeLocator(launcherExecutable: launcherExe),
         doBuild: (_) async => 9,
       );
       expect(code, 9);
@@ -302,13 +277,7 @@ void main() {
             }) async => 0,
             fetcher: _FakeFetcher(installerJar),
             clientInstaller: _FakeClientInstaller('id'),
-            locator: _FakeLocator(
-              dotMinecraftDir: dotMc,
-              launcherExecutable: launcherExe,
-            ),
-            injectorFactory: (dir) => LauncherProfileInjector(
-              file: File(p.join(dir.path, 'launcher_profiles.json')),
-            ),
+            locator: _FakeLocator(launcherExecutable: launcherExe),
           ),
           throwsA(
             isA<UserError>().having(

@@ -4,41 +4,16 @@ import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
 
-/// Resolves the user's `.minecraft` directory and the path to the official
-/// Minecraft Launcher executable. Per-platform defaults can be overridden
-/// with the `GITRINTH_DOT_MINECRAFT`, `GITRINTH_LAUNCHER`, and
-/// `GITRINTH_LAUNCHER_SEARCH_PATHS` environment variables — useful for
-/// portable installs and tests.
-class OfficialLauncherLocator {
+/// Resolves the path to the official Minecraft Launcher executable. The
+/// per-OS search paths can be overridden with the `GITRINTH_LAUNCHER` (a
+/// single absolute path) and `GITRINTH_LAUNCHER_SEARCH_PATHS` (`;`/`:`
+/// separated list) environment variables — useful for portable installs
+/// and tests.
+class MinecraftLauncherLocator {
   final Map<String, String> _environment;
 
-  OfficialLauncherLocator({Map<String, String>? environment})
+  MinecraftLauncherLocator({Map<String, String>? environment})
     : _environment = environment ?? Platform.environment;
-
-  /// Path to the user's `.minecraft` directory. Existence is **not** checked
-  /// here so callers can write into it on first run.
-  Directory get dotMinecraftDir {
-    final override = _environment['GITRINTH_DOT_MINECRAFT'];
-    if (override != null && override.isNotEmpty) return Directory(override);
-    if (Platform.isWindows) {
-      final appData = _environment['APPDATA'];
-      if (appData == null || appData.isEmpty) {
-        throw const UserError(
-          'cannot locate %APPDATA% to derive .minecraft path; '
-          'set GITRINTH_DOT_MINECRAFT to your launcher game directory.',
-        );
-      }
-      return Directory(p.join(appData, '.minecraft'));
-    }
-    if (Platform.isMacOS) {
-      final home = _environment['HOME'] ?? '';
-      return Directory(
-        p.join(home, 'Library', 'Application Support', 'minecraft'),
-      );
-    }
-    final home = _environment['HOME'] ?? '';
-    return Directory(p.join(home, '.minecraft'));
-  }
 
   /// First existing path among (`GITRINTH_LAUNCHER`, then
   /// `GITRINTH_LAUNCHER_SEARCH_PATHS`, then per-OS defaults). Throws
@@ -75,14 +50,19 @@ class OfficialLauncherLocator {
       return;
     }
     if (Platform.isWindows) {
-      final pf86 = _environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)';
+      final pf86 =
+          _environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)';
       final pf = _environment['ProgramFiles'] ?? r'C:\Program Files';
       final localAppData = _environment['LOCALAPPDATA'] ?? '';
       yield p.join(pf86, 'Minecraft Launcher', 'MinecraftLauncher.exe');
       yield p.join(pf, 'Minecraft Launcher', 'MinecraftLauncher.exe');
       if (localAppData.isNotEmpty) {
-        yield p.join(localAppData, 'Programs', 'Minecraft Launcher',
-            'MinecraftLauncher.exe');
+        yield p.join(
+          localAppData,
+          'Programs',
+          'Minecraft Launcher',
+          'MinecraftLauncher.exe',
+        );
       }
     } else if (Platform.isMacOS) {
       yield '/Applications/Minecraft.app/Contents/MacOS/launcher';
