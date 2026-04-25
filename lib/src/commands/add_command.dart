@@ -6,6 +6,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart' as modrinth;
@@ -18,7 +19,7 @@ import '../service/section_inference.dart';
 import '../service/solve_report.dart';
 import 'add_command_editor.dart';
 
-class AddCommand extends GitrinthCommand {
+class AddCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'add';
 
@@ -81,6 +82,7 @@ class AddCommand extends GitrinthCommand {
         allowed: typeFlagValues,
         help: 'Override the inferred section.',
       );
+    addOfflineFlag();
   }
 
   @override
@@ -104,6 +106,7 @@ class AddCommand extends GitrinthCommand {
     final dryRun = argResults!['dry-run'] as bool;
     final exactFlag = argResults!['exact'] as bool;
     final pinFlag = argResults!['pin'] as bool;
+    final offline = readOfflineFlag();
     final typeOverride = sectionFromTypeFlag(argResults!['type'] as String?);
     final acceptsMc = _parseAcceptsMcFlag(
       argResults!['accepts-mc'] as List<String>,
@@ -314,12 +317,19 @@ class AddCommand extends GitrinthCommand {
       downloader: downloader,
       loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
+      offline: offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
     reporter.printSummary(
       changeCount: result.changeCount,
       outdated: result.outdated,
     );
+    if (offline) {
+      console.warn(
+        'Entries added when offline may not resolve to the latest '
+        'compatible version available.',
+      );
+    }
     return exitOk;
   }
 

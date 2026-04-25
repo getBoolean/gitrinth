@@ -6,6 +6,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/cache.dart';
@@ -14,7 +15,7 @@ import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
 import 'build_assembler.dart';
 
-class BuildCommand extends GitrinthCommand {
+class BuildCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'build';
 
@@ -49,6 +50,7 @@ class BuildCommand extends GitrinthCommand {
         negatable: false,
         help: 'Fail rather than fetch missing artifacts.',
       );
+    addOfflineFlag();
   }
 
   @override
@@ -61,6 +63,7 @@ class BuildCommand extends GitrinthCommand {
     final outputOpt = argResults!['output'] as String?;
     final clean = argResults!['clean'] as bool;
     final skipDownload = argResults!['skip-download'] as bool;
+    final offline = readOfflineFlag();
 
     final envs = targetEnvironments(envFlag);
 
@@ -87,6 +90,7 @@ class BuildCommand extends GitrinthCommand {
         downloader: downloader,
         loaderResolver: loaderResolver,
         verbose: gitrinthRunner.verbose,
+        offline: offline,
       );
       if (result.exitCode != exitOk) return result.exitCode;
       SolveReporter(console).printSummary(

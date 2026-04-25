@@ -7,6 +7,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
@@ -16,7 +17,7 @@ import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
 import 'pin_editor.dart';
 
-class UpgradeCommand extends GitrinthCommand {
+class UpgradeCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'upgrade';
 
@@ -53,6 +54,7 @@ class UpgradeCommand extends GitrinthCommand {
         negatable: false,
         help: "Report what entries would change but don't change any.",
       );
+    addOfflineFlag();
   }
 
   @override
@@ -62,6 +64,7 @@ class UpgradeCommand extends GitrinthCommand {
     final tighten = results['tighten'] as bool;
     final unlockTransitive = results['unlock-transitive'] as bool;
     final dryRun = results['dry-run'] as bool;
+    final offline = readOfflineFlag();
     final requestedSlugs = results.rest;
 
     final io = ManifestIo();
@@ -137,6 +140,7 @@ class UpgradeCommand extends GitrinthCommand {
       downloader: downloader,
       loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
+      offline: offline,
       dryRun: dryRun,
       freshSlugs: targets,
       relaxConstraints: relaxSet,
@@ -165,6 +169,12 @@ class UpgradeCommand extends GitrinthCommand {
       changeCount: result.changeCount,
       outdated: result.outdated,
     );
+    if (offline) {
+      console.warn(
+        'Upgrading when offline may not update you to the latest '
+        'versions of your dependencies.',
+      );
+    }
     return exitOk;
   }
 

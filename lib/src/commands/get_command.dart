@@ -1,11 +1,12 @@
 import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
 
-class GetCommand extends GitrinthCommand {
+class GetCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'get';
 
@@ -32,6 +33,7 @@ class GetCommand extends GitrinthCommand {
             'or if any content hash has changed.\n'
             'Useful for CI or deploying to production.',
       );
+    addOfflineFlag();
   }
 
   @override
@@ -39,6 +41,7 @@ class GetCommand extends GitrinthCommand {
     final results = argResults!;
     final dryRun = results['dry-run'] as bool;
     final enforce = results['enforce-lockfile'] as bool;
+    final offline = readOfflineFlag();
 
     final api = read(modrinthApiProvider);
     final cache = read(cacheProvider);
@@ -55,6 +58,7 @@ class GetCommand extends GitrinthCommand {
       downloader: downloader,
       loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
+      offline: offline,
       dryRun: dryRun,
       enforce: enforce,
     );

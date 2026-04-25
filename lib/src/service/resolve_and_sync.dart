@@ -65,6 +65,7 @@ Future<ResolveSyncResult> resolveAndSync({
   required Downloader downloader,
   required LoaderVersionResolver loaderResolver,
   required bool verbose,
+  bool offline = false,
   bool dryRun = false,
   bool enforce = false,
   Set<String> freshSlugs = const {},
@@ -94,20 +95,23 @@ Future<ResolveSyncResult> resolveAndSync({
   // One-shot mc-version validation: only call /tag/game_version when the
   // mc-version differs from what mods.lock already records. The pairing
   // was already validated when it was first locked, so a stable lock is
-  // proof enough.
-  if (existingLock?.mcVersion != mc) {
+  // proof enough. Skipped under --offline since we can't reach the tag
+  // endpoint; trust mods.yaml.
+  if (existingLock?.mcVersion != mc && !offline) {
     await _validateGameVersion(api: api, mcVersion: mc);
   }
 
   // Loader-tag resolution. Concrete tags pass through unchanged with no
   // network call; `stable` / `latest` always re-resolve (those tags exist
   // precisely to drift). For concrete tags that already match the lock,
-  // skip even the passthrough — the lock is the cache.
+  // skip even the passthrough — the lock is the cache. Under --offline,
+  // `stable`/`latest` falls back to the lock's concrete version.
   final resolvedLoaderVersion = await _resolveLoaderVersion(
     loaderResolver: loaderResolver,
     loaderConfig: loaderConfig,
     mcVersion: mc,
     existingLock: existingLock,
+    offline: offline,
   );
 
   final slugToSection = <String, Section>{};
@@ -134,11 +138,32 @@ Future<ResolveSyncResult> resolveAndSync({
 
   final resolver = Resolver(
     listVersions: (slug) async {
+      final section = slugToSection[slug] ?? Section.mods;
+      final loaderFilter = filterForSection(section);
+      final entry = merged.sectionEntries(section)[slug];
+      final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
+
+      if (offline) {
+        final lockedProjectId = existingLock?.sectionFor(section)[slug]
+            ?.projectId;
+        if (lockedProjectId == null) {
+          throw UserError(
+            'cannot resolve "$slug" while offline: not present in mods.lock '
+            'and never cached. Try again without --offline, or run '
+            '`gitrinth get` once with the network available.',
+          );
+        }
+        final cached = cache.listCachedVersions(lockedProjectId).where((v) {
+          final loaderOk =
+              loaderFilter == null || v.loaders.any(loaderFilter.contains);
+          final mcOk = v.gameVersions.any(gameVersions.contains);
+          return loaderOk && mcOk;
+        }).toList();
+        versionsPerSlug[slug] = cached;
+        return cached;
+      }
+
       try {
-        final section = slugToSection[slug] ?? Section.mods;
-        final loaderFilter = filterForSection(section);
-        final entry = merged.sectionEntries(section)[slug];
-        final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
         final list = await api.listVersions(
           slug,
           loadersJson: loaderFilter == null
@@ -448,7 +473,8 @@ Future<void> _validateGameVersion({
     final list = await api.getGameVersions();
     known = list.map((v) => v.version).toList();
   } on Object catch (e) {
-    if (e is GitrinthException) rethrow;
+    final err = (e is DioException) ? e.error : e;
+    if (err is GitrinthException) throw err;
     throw UserError(
       'failed to fetch Minecraft game versions from Modrinth: $e',
     );
@@ -473,6 +499,7 @@ Future<String> _resolveLoaderVersion({
   required LoaderConfig loaderConfig,
   required String mcVersion,
   required ModsLock? existingLock,
+  required bool offline,
 }) async {
   final tag = loaderConfig.modsVersion;
   final lockedSameLoader = existingLock?.loader.mods == loaderConfig.mods;
@@ -480,6 +507,17 @@ Future<String> _resolveLoaderVersion({
   final tagIsConcrete = tag != 'stable' && tag != 'latest';
   if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
     return tag;
+  }
+  if (!tagIsConcrete && offline) {
+    if (lockedSameLoader && lockedVersion != null) {
+      return lockedVersion;
+    }
+    throw UserError(
+      'cannot resolve loader tag "$tag" while offline: no concrete '
+      'version recorded in mods.lock. Try again without --offline, or '
+      'pin a concrete tag like `${loaderConfig.mods.name}:<version>` in '
+      'mods.yaml.',
+    );
   }
   return loaderResolver.resolve(
     loader: loaderConfig.mods,

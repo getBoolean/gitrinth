@@ -71,6 +71,21 @@ finish with a summary line such as `Locked 15 entries to mods.lock.`
 or `Updated 2 entries in mods.lock.`. `--verbose` (`-v`) adds resolver
 detail.
 
+## Offline mode
+
+[`get`](#get), [`upgrade`](#upgrade), [`add`](#add), [`remove`](#remove),
+[`build`](#build), and [`pack`](#pack) accept `--offline`. When set,
+the resolver narrows its candidate set to versions already present in
+the local cache and skips the Modrinth game-version check; for
+[`loader.mods`](mods-yaml.md#loader) tags `:stable` / `:latest`, the
+concrete version recorded in `mods.lock` is reused. A slug that has
+never been resolved on this system cannot be resolved offline.
+[`upgrade`](#upgrade) and [`add`](#add) print a warning when run with
+`--offline` to remind you the result may not include the latest
+available versions. [`create`](#create) also accepts `--offline`,
+where it skips the slug-availability round-trip; that's the only
+network call `create` makes.
+
 ## Command details
 
 ### `get`
@@ -81,13 +96,14 @@ artifacts into the cache. Does not upgrade entries already locked to a
 satisfying version — use [`upgrade`](#upgrade) for that.
 
 ```text
-gitrinth get [--dry-run] [--enforce-lockfile]
+gitrinth get [--dry-run] [--enforce-lockfile] [--offline]
 ```
 
-| Option               | Description                                                              |
-|----------------------|--------------------------------------------------------------------------|
-| `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change.    |
-| `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries. |
+| Option               | Description                                                                                            |
+|----------------------|--------------------------------------------------------------------------------------------------------|
+| `--dry-run`          | Resolve without writing. Exits non-zero if the lockfile would change.                                  |
+| `--enforce-lockfile` | Fail if `mods.lock` would change. Also forbids missing lockfile entries.                               |
+| `--offline`          | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 ### `upgrade`
 
@@ -98,7 +114,7 @@ only those entries.
 
 ```text
 gitrinth upgrade [<slug>...] [--major-versions] [--tighten]
-                 [--unlock-transitive] [--dry-run]
+                 [--unlock-transitive] [--dry-run] [--offline]
 ```
 
 | Option                | Description                                                                                                                                                  |
@@ -107,6 +123,7 @@ gitrinth upgrade [<slug>...] [--major-versions] [--tighten]
 | `--tighten`           | After resolving, raise each caret-bound entry's lower bound in `mods.yaml` to match the resolved version.                                                    |
 | `--unlock-transitive` | Also re-resolve every entry transitively reachable from the named targets via `mods.lock` dependency edges.                                                  |
 | `--dry-run`           | Print changes without writing.                                                                                                                               |
+| `--offline`           | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.                                                       |
 
 `--major-versions` only rewrites entries whose resolved version isn't
 already permitted by the existing constraint. `--tighten` covers the
@@ -140,7 +157,7 @@ gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--url <url> | --path <path>]
             [--type <mod|resourcepack|datapack|shader>]
             [--accepts-mc <mc-version>]...
-            [--exact | --pin] [--dry-run]
+            [--exact | --pin] [--dry-run] [--offline]
 ```
 
 The target section is inferred from the slug's Modrinth project type —
@@ -150,16 +167,17 @@ mods to [`mods`](mods-yaml.md#mods), resource packs to
 override the inference; it is required for `--url` / `--path` entries
 whose filename doesn't uniquely identify a type (non-`.jar` files).
 
-| Option         | Description                                                                                         |
-|----------------|-----------------------------------------------------------------------------------------------------|
-| `--env`        | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                           |
-| `--url`        | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`. |
-| `--path`       | Use a [`path:` source](mods-yaml.md#long-form).                                                     |
-| `--type`       | Override the inferred section. Accepts `mod`, `resourcepack`, `datapack`, `shader`. See below.      |
-| `--accepts-mc` | Additional MC versions to tolerate for this entry. Repeatable. See below.                           |
-| `--exact`      | Keep the resolved version's build metadata inside the caret. See below.                             |
-| `--pin`        | Write the resolved version as a bare semver (no caret). Equivalent to `add` then [`pin`](#pin).     |
-| `--dry-run`    | Print the edit without writing.                                                                     |
+| Option         | Description                                                                                            |
+|----------------|--------------------------------------------------------------------------------------------------------|
+| `--env`        | Sets [`environment`](mods-yaml.md#per-mod-environment). Forces long form.                              |
+| `--url`        | Use a [`url:` source](mods-yaml.md#long-form). Marks the pack non-publishable when added to `mods`.    |
+| `--path`       | Use a [`path:` source](mods-yaml.md#long-form).                                                        |
+| `--type`       | Override the inferred section. Accepts `mod`, `resourcepack`, `datapack`, `shader`. See below.         |
+| `--accepts-mc` | Additional MC versions to tolerate for this entry. Repeatable. See below.                              |
+| `--exact`      | Keep the resolved version's build metadata inside the caret. See below.                                |
+| `--pin`        | Write the resolved version as a bare semver (no caret). Equivalent to `add` then [`pin`](#pin).        |
+| `--dry-run`    | Print the edit without writing.                                                                        |
+| `--offline`    | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 `--accepts-mc <mc-version>` widens the Modrinth `game_versions` query
 when picking a default constraint, and persists the list under
@@ -198,8 +216,13 @@ resource pack, data pack, or shader); `add` refuses to guess.
 Remove an entry and re-resolve. Identifies the target by slug.
 
 ```text
-gitrinth remove <slug> [--dry-run]
+gitrinth remove <slug> [--dry-run] [--offline]
 ```
+
+| Option      | Description                                                                                            |
+|-------------|--------------------------------------------------------------------------------------------------------|
+| `--dry-run` | Print the edit without writing.                                                                        |
+| `--offline` | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 The section is inferred from where `<slug>` currently lives in
 `mods.yaml`.
@@ -257,6 +280,10 @@ created if missing.
 gitrinth create [--loader <loader>] [--mc-version <version>] [--slug <slug>]
                 [--name <name>] [--force] [--offline] <directory>
 ```
+
+(`--offline` here is the create-specific form: it skips the Modrinth
+slug-availability round-trip; the cache is not consulted because
+`create` does not resolve any entries.)
 
 [`slug`](mods-yaml.md#slug) defaults to the basename of `<directory>`,
 lower-cased. [`name`](mods-yaml.md#name) defaults to the slug. The
@@ -333,15 +360,16 @@ installer by hand (see [`todo.md`](todo.md#build-auto-downloads-server-binary)).
 
 ```text
 gitrinth build [--env <client|server|both>] [--output <path>]
-              [--clean] [--skip-download]
+              [--clean] [--skip-download] [--offline]
 ```
 
-| Option            | Description                                          |
-|-------------------|------------------------------------------------------|
-| `--env`           | Build only the named environment.                    |
-| `--output`, `-o`  | Override the output directory. Defaults to `./build`.|
-| `--clean`         | Remove the output directory before building.         |
-| `--skip-download` | Fail rather than fetch missing artifacts.            |
+| Option            | Description                                                                                            |
+|-------------------|--------------------------------------------------------------------------------------------------------|
+| `--env`           | Build only the named environment.                                                                      |
+| `--output`, `-o`  | Override the output directory. Defaults to `./build`.                                                  |
+| `--clean`         | Remove the output directory before building.                                                           |
+| `--skip-download` | Fail rather than fetch missing artifacts.                                                              |
+| `--offline`       | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 Partitioning follows
 [`environment`](mods-yaml.md#per-mod-environment): default `both`;
@@ -384,7 +412,7 @@ Non-existent paths are a silent no-op.
 Modpack-specific. Produce Modrinth `.mrpack` archives.
 
 ```text
-gitrinth pack [--output <path>] [--combined] [--publishable]
+gitrinth pack [--output <path>] [--combined] [--publishable] [--offline]
 ```
 
 | Option           | Description                                                                                                                                       |
@@ -392,6 +420,7 @@ gitrinth pack [--output <path>] [--combined] [--publishable]
 | `--output`, `-o` | Override the base output path. Defaults to `./build/<slug>-<version>.mrpack`. The server pack is derived by inserting `-server` before `.mrpack`. |
 | `--combined`     | Produce a single `.mrpack` that contains both client and server files instead of a client + server pair.                                          |
 | `--publishable`  | Refuse to pack if any [`mods`](mods-yaml.md#mods) entry uses a `url` or `path` source. Other sections are unaffected.                             |
+| `--offline`      | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.                                            |
 
 By default `pack` produces two artifacts:
 

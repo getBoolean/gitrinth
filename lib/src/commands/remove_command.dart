@@ -4,6 +4,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve_and_sync.dart';
@@ -11,7 +12,7 @@ import '../service/solve_report.dart';
 import 'add_command_editor.dart';
 import 'remove_command_editor.dart';
 
-class RemoveCommand extends GitrinthCommand {
+class RemoveCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'remove';
 
@@ -27,6 +28,7 @@ class RemoveCommand extends GitrinthCommand {
       negatable: false,
       help: "Report what entries would change but don't change any.",
     );
+    addOfflineFlag();
   }
 
   @override
@@ -50,6 +52,7 @@ class RemoveCommand extends GitrinthCommand {
     }
 
     final dryRun = argResults!['dry-run'] as bool;
+    final offline = readOfflineFlag();
 
     final io = ManifestIo();
     final manifest = io.readModsYaml();
@@ -95,6 +98,7 @@ class RemoveCommand extends GitrinthCommand {
       downloader: downloader,
       loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
+      offline: offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
     reporter.printSummary(

@@ -7,6 +7,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../model/templates.dart';
 import '../version.dart';
 
@@ -18,7 +19,7 @@ const List<String> _allowedLoaders = ['forge', 'fabric', 'neoforge'];
 final RegExp _slugPattern = RegExp(r'^[a-zA-Z0-9!@$()`.+,_"\-]{3,64}$');
 final RegExp _mcVersionPattern = RegExp(r'^\d+\.\d+(?:\.\d+)?$');
 
-class CreateCommand extends GitrinthCommand {
+class CreateCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'create';
 
@@ -49,14 +50,10 @@ class CreateCommand extends GitrinthCommand {
         negatable: false,
         help:
             'Allow scaffolding into a non-empty directory; overwrites existing mods.yaml.',
-      )
-      ..addFlag(
-        'offline',
-        negatable: false,
-        help:
-            'Skip the Modrinth slug-availability check. Use when offline or to '
-            'avoid the round-trip.',
       );
+    addOfflineFlag(
+      helpOverride: 'Skip the Modrinth slug-availability check.',
+    );
   }
 
   @override
@@ -78,7 +75,7 @@ class CreateCommand extends GitrinthCommand {
     final loader = (results['loader'] as String?) ?? defaultLoader;
     final mcVersion = _resolveMcVersion(results['mc-version'] as String?);
 
-    final offline = results['offline'] as bool;
+    final offline = readOfflineFlag();
     if (offline) {
       console.detail('Skipping Modrinth slug-availability check (--offline).');
     } else {

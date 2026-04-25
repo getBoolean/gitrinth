@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -5,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
+import '../model/modrinth/version.dart' as modrinth;
 
 class GitrinthCache {
   final String root;
@@ -34,6 +36,29 @@ class GitrinthCache {
     required String versionId,
   }) {
     return p.join(modrinthRoot, projectId, versionId, 'version.json');
+  }
+
+  /// Walks `<modrinthRoot>/<projectId>/*/version.json` and yields each
+  /// successfully-parsed [modrinth.Version]. Malformed sidecars are skipped
+  /// with a stderr warning so a single corrupt file doesn't abort an
+  /// `--offline` resolve.
+  Iterable<modrinth.Version> listCachedVersions(String projectId) sync* {
+    final dir = Directory(p.join(modrinthRoot, projectId));
+    if (!dir.existsSync()) return;
+    for (final entry in dir.listSync()) {
+      if (entry is! Directory) continue;
+      final sidecar = File(p.join(entry.path, 'version.json'));
+      if (!sidecar.existsSync()) continue;
+      try {
+        final raw = jsonDecode(sidecar.readAsStringSync());
+        if (raw is! Map<String, dynamic>) continue;
+        yield modrinth.VersionMapper.fromMap(raw);
+      } on Object catch (e) {
+        stderr.writeln(
+          'warning: cache: skipping malformed ${sidecar.path}: $e',
+        );
+      }
+    }
   }
 
   /// Path where a url:-sourced artifact should live, keyed by sha512.

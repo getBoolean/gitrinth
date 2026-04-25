@@ -59,6 +59,8 @@ class LoaderVersionResolver {
       final resp = await _dio.get<List<dynamic>>(url);
       body = resp.data ?? const [];
     } on DioException catch (e) {
+      final err = e.error;
+      if (err is GitrinthException) throw err;
       throw UserError(
         'failed to fetch Fabric loader versions from meta.fabricmc.net: '
         '${e.message ?? e.toString()}',

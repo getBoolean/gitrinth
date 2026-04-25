@@ -9,12 +9,21 @@ import '../service/loader_version_resolver.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_error_interceptor.dart';
 import '../service/modrinth_url.dart';
+import '../service/offline_guard_interceptor.dart';
 import '../version.dart';
+import 'offline_notifier.dart';
 
 final consoleProvider = Provider<Console>((ref) => const Console());
 
+final offlineProvider = NotifierProvider<OfflineNotifier, bool>(
+  OfflineNotifier.new,
+);
+
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio()
+    ..interceptors.add(
+      OfflineGuardInterceptor(() => ref.read(offlineProvider)),
+    )
     ..interceptors.add(ModrinthErrorInterceptor())
     ..options.headers['User-Agent'] =
         'gitrinth/$packageVersion (+github.com/getBoolean/gitrinth)';

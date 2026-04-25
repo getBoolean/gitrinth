@@ -22,7 +22,7 @@ Deferred MVP work:
 - [x] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
 - [ ] [Hosted source support](#hosted-source-support)
 - [ ] [Plugin-loader support](#plugin-loader-support)
-- [ ] [Global options: `-q`/`--quiet`, `--offline`, `--no-color`, `--config`](#deferred-global-options)
+- [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [ ] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [ ] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [ ] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
@@ -33,6 +33,7 @@ Deferred MVP work:
 - [ ] [`login` / `logout` commands](#login--logout-commands)
 - [ ] [`token` command](#token-command)
 - [ ] [`unpack` command](#unpack-command)
+- [ ] Respect rate limits (300 per ip per minute), read rate limit headers, and implement queue/retry logic in the Modrinth API client.
 
 ## `accepts-mc` — per-entry MC version tolerance
 
@@ -195,14 +196,22 @@ archive builder, [`mods-yaml.md`](mods-yaml.md).
 
 ## Deferred global options
 
-Four deferred flags on the top-level CLI:
+Three deferred flags on the top-level CLI:
 
 | Option            | Description                                                                             |
 |-------------------|-----------------------------------------------------------------------------------------|
 | `-q`, `--quiet`   | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
-| `--offline`       | Never hit the network. Fails if the cache is missing a required mod.                    |
 | `--no-color`      | Disable ANSI colour. Also respected via `NO_COLOR`.                                     |
 | `--config <path>` | Use an alternate user config file.                                                      |
+
+`--offline` shipped per-command (on every command that hits HTTP) rather
+than as a global flag, to match `dart pub`'s shape — `dart pub` exposes
+`--offline` on each resolution-style command (`get`, `upgrade`,
+`downgrade`, `add`, `remove`) rather than as a top-level flag. See
+[`get`](cli.md#get), [`upgrade`](cli.md#upgrade), [`add`](cli.md#add),
+[`remove`](cli.md#remove), [`build`](cli.md#build), [`pack`](cli.md#pack),
+[`create`](cli.md#create), and the [Offline mode](cli.md#offline-mode)
+overview.
 
 `--config` implies a companion `GITRINTH_CONFIG` environment variable
 and a platform user-config location (where stored tokens live — see

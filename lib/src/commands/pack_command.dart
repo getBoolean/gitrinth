@@ -8,6 +8,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../cli/offline_flag.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/mrpack_index.dart';
@@ -24,7 +25,7 @@ const String _serverInstallerHint =
     'Install the server pack with mrpack-install: '
     'https://github.com/nothub/mrpack-install';
 
-class PackCommand extends GitrinthCommand {
+class PackCommand extends GitrinthCommand with OfflineFlag {
   @override
   String get name => 'pack';
 
@@ -56,6 +57,7 @@ class PackCommand extends GitrinthCommand {
         negatable: false,
         help: 'Refuse to pack if any mod uses a url: or path: source.',
       );
+    addOfflineFlag();
   }
 
   @override
@@ -67,6 +69,7 @@ class PackCommand extends GitrinthCommand {
     final outputOpt = argResults!['output'] as String?;
     final combined = argResults!['combined'] as bool;
     final publishable = argResults!['publishable'] as bool;
+    final offline = readOfflineFlag();
 
     final io = ManifestIo();
     final api = read(modrinthApiProvider);
@@ -85,6 +88,7 @@ class PackCommand extends GitrinthCommand {
       downloader: downloader,
       loaderResolver: loaderResolver,
       verbose: gitrinthRunner.verbose,
+      offline: offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
     SolveReporter(
