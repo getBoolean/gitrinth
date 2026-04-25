@@ -23,7 +23,7 @@ class AddCommand extends GitrinthCommand {
   String get name => 'add';
 
   @override
-  String get description => 'Add an entry to a section.';
+  String get description => 'Add an entry to `mods.yaml`.';
 
   @override
   String get invocation => 'gitrinth add <slug>[@<constraint>] [arguments]';
@@ -40,51 +40,46 @@ class AddCommand extends GitrinthCommand {
         'url',
         valueHelp: 'url',
         help:
-            'Use a url: source. Marks the pack non-publishable when added to mods.',
+            'Use a url: source. Marks the pack non-publishable when added '
+            'to mods.',
       )
       ..addOption(
         'path',
         valueHelp: 'path',
         help:
-            'Use a path: source. Marks the pack non-publishable when added to mods.',
+            'Use a path: source. Marks the pack non-publishable when added '
+            'to mods.',
       )
       ..addFlag(
         'dry-run',
         negatable: false,
-        help: 'Print the edit without writing.',
+        help: "Report what entries would change but don't change any.",
       )
       ..addMultiOption(
         'accepts-mc',
         valueHelp: 'mc-version',
         help:
-            'Additively widen the Minecraft version filter for this entry '
-            'when querying Modrinth, and persist the list under '
-            '`accepts-mc` in mods.yaml. Repeatable. Use when a mod works '
-            "on the pack's mc-version but the author tagged only adjacent "
-            'versions on Modrinth.',
+            'Additively widen the Minecraft version filter for this entry. '
+            'Repeatable.',
       )
       ..addFlag(
         'exact',
         negatable: false,
         help:
-            "Preserve the resolved version's build metadata inside the caret "
-            'constraint (e.g. ^6.0.10+mc1.21.1 instead of ^6.0.10).',
+            "Preserve the resolved version's build metadata inside the "
+            'caret constraint.',
       )
       ..addFlag(
         'pin',
         negatable: false,
         help:
-            'Write the resolved version as a bare semver (no caret), '
-            'freezing the entry in place. Equivalent to `add` followed by '
-            '`pin`.',
+            'Write the resolved version as a bare semver, freezing the '
+            'entry in place.',
       )
       ..addOption(
         'type',
         allowed: typeFlagValues,
-        help:
-            'Override the inferred section. Required for --url/--path '
-            'entries whose filename does not uniquely identify a type '
-            '(e.g. .zip files).',
+        help: 'Override the inferred section.',
       );
   }
 

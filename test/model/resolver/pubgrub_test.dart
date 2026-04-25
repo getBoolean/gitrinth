@@ -380,4 +380,175 @@ void main() {
       },
     );
   });
+
+  group('forward dependency edges', () {
+    test('records direct required edges per parent', () async {
+      final db = {
+        'create': [
+          v(
+            slug: 'create',
+            number: '6.0.10',
+            deps: const [
+              Dependency(
+                projectId: 'flywheel',
+                dependencyType: DependencyType.required,
+              ),
+              Dependency(
+                projectId: 'porting-lib',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'flywheel': [v(slug: 'flywheel', number: '1.0.0')],
+        'porting-lib': [v(slug: 'porting-lib', number: '2.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'create',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.edges['create'], unorderedEquals(['flywheel', 'porting-lib']));
+      expect(out.edges['flywheel'], isEmpty);
+      expect(out.edges['porting-lib'], isEmpty);
+    });
+
+    test('diamond dep is listed under each parent that requires it', () async {
+      final db = {
+        'create': [
+          v(
+            slug: 'create',
+            number: '6.0.10',
+            deps: const [
+              Dependency(
+                projectId: 'porting-lib',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'cc-tweaked': [
+          v(
+            slug: 'cc-tweaked',
+            number: '1.115.0',
+            deps: const [
+              Dependency(
+                projectId: 'porting-lib',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'porting-lib': [v(slug: 'porting-lib', number: '2.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'create',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+        RootConstraint(
+          slug: 'cc-tweaked',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.edges['create'], ['porting-lib']);
+      expect(out.edges['cc-tweaked'], ['porting-lib']);
+      expect(out.edges['porting-lib'], isEmpty);
+    });
+
+    test('skips edge when projectId does not resolve to a slug', () async {
+      final db = {
+        'create': [
+          v(
+            slug: 'create',
+            number: '6.0.10',
+            deps: const [
+              Dependency(
+                projectId: 'unknown',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => null,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'create',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.edges['create'], isEmpty);
+      expect(out.decisions.keys, ['create']);
+    });
+
+    test(
+      'backtracked candidate edges are dropped from final result',
+      () async {
+        // create@6.0.11 requires missing-mod which has no published
+        // versions — solver backtracks to create@6.0.10 which requires
+        // porting-lib instead. The final edges must contain only
+        // 6.0.10's edge to porting-lib, never the abandoned 6.0.11's
+        // edge to missing-mod.
+        final db = {
+          'create': [
+            v(
+              slug: 'create',
+              number: '6.0.10',
+              deps: const [
+                Dependency(
+                  projectId: 'porting-lib',
+                  dependencyType: DependencyType.required,
+                ),
+              ],
+            ),
+            v(
+              slug: 'create',
+              number: '6.0.11',
+              deps: const [
+                Dependency(
+                  projectId: 'missing-mod',
+                  dependencyType: DependencyType.required,
+                ),
+              ],
+            ),
+          ],
+          'missing-mod': const <modrinth.Version>[],
+          'porting-lib': [v(slug: 'porting-lib', number: '2.0.0')],
+        };
+        final solver = PubGrubSolver(
+          listVersions: (slug) async => db[slug] ?? [],
+          resolveSlugForProjectId: (id) async => id,
+        );
+        final out = await solver.solve([
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.any,
+            isUserDeclared: true,
+          ),
+        ]);
+        // Sanity: backtracked to 6.0.10.
+        expect(out.decisions['create']!.versionNumber, '6.0.10');
+        expect(out.edges['create'], ['porting-lib']);
+        expect(out.edges['create'], isNot(contains('missing-mod')));
+        expect(out.edges.containsKey('missing-mod'), isFalse);
+      },
+    );
+  });
 }

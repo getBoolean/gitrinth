@@ -303,6 +303,13 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: false,
   );
+  static List<String> _$dependencies(LockedEntry v) => v.dependencies;
+  static const Field<LockedEntry, List<String>> _f$dependencies = Field(
+    'dependencies',
+    _$dependencies,
+    opt: true,
+    def: const [],
+  );
 
   @override
   final MappableFields<LockedEntry> fields = const {
@@ -317,6 +324,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     #auto: _f$auto,
     #gameVersions: _f$gameVersions,
     #optional: _f$optional,
+    #dependencies: _f$dependencies,
   };
 
   static LockedEntry _instantiate(DecodingData data) {
@@ -332,6 +340,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       auto: data.dec(_f$auto),
       gameVersions: data.dec(_f$gameVersions),
       optional: data.dec(_f$optional),
+      dependencies: data.dec(_f$dependencies),
     );
   }
 
@@ -397,6 +406,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   LockedFileCopyWith<$R, LockedFile, LockedFile>? get file;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get gameVersions;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get dependencies;
   $R call({
     String? slug,
     LockedSourceKind? sourceKind,
@@ -409,6 +419,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     bool? auto,
     List<String>? gameVersions,
     bool? optional,
+    List<String>? dependencies,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -432,6 +443,13 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     (v) => call(gameVersions: v),
   );
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+  get dependencies => ListCopyWith(
+    $value.dependencies,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(dependencies: v),
+  );
+  @override
   $R call({
     String? slug,
     LockedSourceKind? sourceKind,
@@ -444,6 +462,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     bool? auto,
     List<String>? gameVersions,
     bool? optional,
+    List<String>? dependencies,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -457,6 +476,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
       if (auto != null) #auto: auto,
       if (gameVersions != null) #gameVersions: gameVersions,
       if (optional != null) #optional: optional,
+      if (dependencies != null) #dependencies: dependencies,
     }),
   );
   @override
@@ -472,6 +492,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     auto: data.get(#auto, or: $value.auto),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
     optional: data.get(#optional, or: $value.optional),
+    dependencies: data.get(#dependencies, or: $value.dependencies),
   );
 
   @override

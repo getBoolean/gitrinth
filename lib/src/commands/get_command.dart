@@ -10,8 +10,7 @@ class GetCommand extends GitrinthCommand {
   String get name => 'get';
 
   @override
-  String get description =>
-      'Resolve mods.yaml, write mods.lock, download artifacts.';
+  String get description => "Get the current modpack's entries.";
 
   @override
   String get invocation => 'gitrinth get [arguments]';
@@ -21,14 +20,17 @@ class GetCommand extends GitrinthCommand {
       ..addFlag(
         'dry-run',
         negatable: false,
-        help:
-            'Resolve without writing. Exits non-zero if the lockfile would change.',
+        help: "Report what entries would change but don't change any.",
       )
       ..addFlag(
         'enforce-lockfile',
         negatable: false,
         help:
-            'Fail if mods.lock would change. Also forbids missing lockfile entries.',
+            'Enforce mods.lock. '
+            'Fail `gitrinth get` if the current `mods.lock` '
+            'does not exactly specify a valid resolution of `mods.yaml` '
+            'or if any content hash has changed.\n'
+            'Useful for CI or deploying to production.',
       );
   }
 

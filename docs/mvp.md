@@ -17,7 +17,7 @@ Commands:
 
 - [x] `create` — fully implemented.
 - [x] `get` — fully implemented.
-- [x] `upgrade` — implemented; `--unlock-transitive` deferred (needs lock dep graph).
+- [x] `upgrade` — fully implemented (including `--unlock-transitive`).
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
 - [x] `build` — implemented; server-binary auto-download deferred.
@@ -32,10 +32,11 @@ Supporting work:
 - [x] Resolver and `mods.lock` format.
 - [x] Artifact cache (platform cache root, hash-verified download).
 - [x] `.mrpack` archive builder.
-- [ ] Lock-format dependency graph + `upgrade --unlock-transitive` flag —
-  record parent→child edges in `mods.lock` so an upgrade can compute the
-  transitive closure of named targets and unpin only those entries
-  (mirrors `dart pub upgrade --unlock-transitive`).
+- [x] Lock-format dependency graph + `upgrade --unlock-transitive` flag —
+  records parent→child edges as `dependencies:` lists per `mods.lock`
+  entry; `upgrade --unlock-transitive <slug>...` walks the closure and
+  unpins each reached entry so the resolver re-picks newest-within-
+  constraint for the named targets and everything they pulled in.
 
 Post-MVP work is tracked in [`todo.md`](todo.md).
 
@@ -87,15 +88,17 @@ Re-resolve to the newest version allowed by each constraint, updating
 `mods.lock`.
 
 ```text
-gitrinth upgrade [<slug>...] [--major-versions] [--tighten] [--dry-run]
+gitrinth upgrade [<slug>...] [--major-versions] [--tighten]
+                 [--unlock-transitive] [--dry-run]
 ```
 
 - `<slug>...` — upgrade only these entries (default: all).
 - `--major-versions` — ignore caret boundaries and pick the absolute
   newest version; rewrites the constraint in `mods.yaml`.
 - `--tighten` — raise each caret-bound entry's lower bound in
-  `mods.yaml` to match the resolved version (`dart pub upgrade
-  --tighten` parity).
+  `mods.yaml` to match the resolved version.
+- `--unlock-transitive` — also re-resolve every entry transitively
+  reachable from the named entries via `mods.lock` dependency edges.
 - `--dry-run`
 
 ### [`add`](cli.md#add)

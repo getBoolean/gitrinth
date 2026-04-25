@@ -145,4 +145,79 @@ void main() {
     final out = emitModsLock(sample());
     expect(out, isNot(contains('optional:')));
   });
+
+  test('dependencies round-trip through emit -> parse -> emit', () {
+    const lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: LoaderConfig(mods: Loader.neoforge),
+      mcVersion: '1.21.1',
+      mods: {
+        'create': LockedEntry(
+          slug: 'create',
+          sourceKind: LockedSourceKind.modrinth,
+          version: '6.0.10',
+          projectId: 'CR',
+          versionId: 'CRV',
+          file: LockedFile(name: 'create.jar', sha512: 'aa', size: 1),
+          // Intentionally unsorted to verify the emitter sorts them.
+          dependencies: ['porting-lib', 'flywheel'],
+        ),
+        'flywheel': LockedEntry(
+          slug: 'flywheel',
+          sourceKind: LockedSourceKind.modrinth,
+          version: '1.0.0',
+          projectId: 'FL',
+          versionId: 'FLV',
+          file: LockedFile(name: 'flywheel.jar', sha512: 'bb', size: 1),
+          auto: true,
+        ),
+        'porting-lib': LockedEntry(
+          slug: 'porting-lib',
+          sourceKind: LockedSourceKind.modrinth,
+          version: '2.0.0',
+          projectId: 'PL',
+          versionId: 'PLV',
+          file: LockedFile(name: 'porting-lib.jar', sha512: 'cc', size: 1),
+          auto: true,
+        ),
+      },
+    );
+    final once = emitModsLock(lock);
+    expect(once, contains('    dependencies: [flywheel, porting-lib]'));
+    final parsed = parseModsLock(once, filePath: 'mods.lock');
+    expect(parsed.mods['create']!.dependencies, ['flywheel', 'porting-lib']);
+    expect(parsed.mods['flywheel']!.dependencies, isEmpty);
+    expect(emitModsLock(parsed), once);
+  });
+
+  test('empty dependencies list omits the field', () {
+    final out = emitModsLock(sample());
+    expect(out, isNot(contains('dependencies:')));
+  });
+
+  test('legacy lock without dependencies field parses to empty list', () {
+    const text = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: neoforge:stable
+mc-version: 1.21.1
+mods:
+  flywheel:
+    source: modrinth
+    version: 1.0.0
+    project-id: FL
+    version-id: FLV
+    file:
+      name: flywheel.jar
+      sha512: bb
+      size: 1
+    env: both
+    auto: true
+resource_packs: {}
+data_packs: {}
+shaders: {}
+''';
+    final parsed = parseModsLock(text, filePath: 'mods.lock');
+    expect(parsed.mods['flywheel']!.dependencies, isEmpty);
+  });
 }

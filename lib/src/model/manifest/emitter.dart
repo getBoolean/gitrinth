@@ -70,6 +70,11 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
     final quoted = e.gameVersions.map(_str).join(', ');
     buf.writeln('    game-versions: [$quoted]');
   }
+  if (e.dependencies.isNotEmpty) {
+    final sorted = [...e.dependencies]..sort();
+    final quoted = sorted.map(_key).join(', ');
+    buf.writeln('    dependencies: [$quoted]');
+  }
 }
 
 String _envName(Environment e) => e.name;

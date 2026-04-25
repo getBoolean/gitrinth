@@ -54,6 +54,13 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     opt: true,
     def: false,
   );
+  static List<String> _$dependencies(ResolvedEntry v) => v.dependencies;
+  static const Field<ResolvedEntry, List<String>> _f$dependencies = Field(
+    'dependencies',
+    _$dependencies,
+    opt: true,
+    def: const [],
+  );
 
   @override
   final MappableFields<ResolvedEntry> fields = const {
@@ -64,6 +71,7 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     #version: _f$version,
     #file: _f$file,
     #optional: _f$optional,
+    #dependencies: _f$dependencies,
   };
 
   static ResolvedEntry _instantiate(DecodingData data) {
@@ -75,6 +83,7 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
       version: data.dec(_f$version),
       file: data.dec(_f$file),
       optional: data.dec(_f$optional),
+      dependencies: data.dec(_f$dependencies),
     );
   }
 
@@ -142,6 +151,7 @@ abstract class ResolvedEntryCopyWith<$R, $In extends ResolvedEntry, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   modrinth.VersionCopyWith<$R, modrinth.Version, modrinth.Version> get version;
   VersionFileCopyWith<$R, VersionFile, VersionFile> get file;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get dependencies;
   $R call({
     String? slug,
     Section? section,
@@ -150,6 +160,7 @@ abstract class ResolvedEntryCopyWith<$R, $In extends ResolvedEntry, $Out>
     modrinth.Version? version,
     VersionFile? file,
     bool? optional,
+    List<String>? dependencies,
   });
   ResolvedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -169,6 +180,13 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
   VersionFileCopyWith<$R, VersionFile, VersionFile> get file =>
       $value.file.copyWith.$chain((v) => call(file: v));
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+  get dependencies => ListCopyWith(
+    $value.dependencies,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(dependencies: v),
+  );
+  @override
   $R call({
     String? slug,
     Section? section,
@@ -177,6 +195,7 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
     modrinth.Version? version,
     VersionFile? file,
     bool? optional,
+    List<String>? dependencies,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -186,6 +205,7 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
       if (version != null) #version: version,
       if (file != null) #file: file,
       if (optional != null) #optional: optional,
+      if (dependencies != null) #dependencies: dependencies,
     }),
   );
   @override
@@ -197,6 +217,7 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
     version: data.get(#version, or: $value.version),
     file: data.get(#file, or: $value.file),
     optional: data.get(#optional, or: $value.optional),
+    dependencies: data.get(#dependencies, or: $value.dependencies),
   );
 
   @override

@@ -97,25 +97,35 @@ updating `mods.lock`. Leaves `mods.yaml` untouched unless
 only those entries.
 
 ```text
-gitrinth upgrade [<slug>...] [--major-versions] [--tighten] [--dry-run]
+gitrinth upgrade [<slug>...] [--major-versions] [--tighten]
+                 [--unlock-transitive] [--dry-run]
 ```
 
-| Option             | Description                                                                                                                                     |
-|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--major-versions` | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`.                                           |
-| `--tighten`        | After resolving, raise each caret-bound entry's lower bound in `mods.yaml` to match the resolved version. Mirrors `dart pub upgrade --tighten`. |
-| `--dry-run`        | Print changes without writing.                                                                                                                  |
+| Option                | Description                                                                                                                                                  |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--major-versions`    | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`.                                                        |
+| `--tighten`           | After resolving, raise each caret-bound entry's lower bound in `mods.yaml` to match the resolved version.                                                    |
+| `--unlock-transitive` | Also re-resolve every entry transitively reachable from the named targets via `mods.lock` dependency edges.                                                  |
+| `--dry-run`           | Print changes without writing.                                                                                                                               |
 
 `--major-versions` only rewrites entries whose resolved version isn't
-already permitted by the existing constraint — same skip rule as `dart
-pub upgrade --major-versions`. `--tighten` covers the other case:
-in-major bumps where the constraint already allowed the new version
-but its lower bound is now stale. Combine the two when both behaviors
-are wanted.
+already permitted by the existing constraint. `--tighten` covers the
+other case: in-major bumps where the constraint already allowed the
+new version but its lower bound is now stale. Combine the two when
+both behaviors are wanted.
 
-`--unlock-transitive` (also a pub flag) is not yet supported because
-the lock format does not record parent→child edges; tracked as a
-separate MVP item.
+Without `--unlock-transitive`, only the named entries are unpinned;
+their transitive dependencies stay at the versions already recorded
+in `mods.lock`. With it, `gitrinth` walks the closure of dependency
+edges in `mods.lock` and unpins every reached entry, so the resolver
+picks the newest version each constraint admits.
+
+`--unlock-transitive` is a no-op without explicit `<slug>` arguments
+(the default already re-resolves everything). When the targeted
+entries' `mods.lock` records have no `dependencies:` lines (legacy
+lock written before this MVP item), the command warns and falls back
+to unlocking only the named entries; the next `gitrinth get` /
+`gitrinth upgrade` repopulates the edges.
 
 ### `add`
 

@@ -16,6 +16,12 @@ class ResolvedEntry with ResolvedEntryMappable {
   final VersionFile file;
   final bool optional;
 
+  /// Forward dep-graph edges: slugs this entry directly required at
+  /// resolution time. Sorted ascending. Persists to `mods.lock` so
+  /// `gitrinth upgrade --unlock-transitive` can compute the transitive
+  /// closure of named targets without a re-resolve.
+  final List<String> dependencies;
+
   const ResolvedEntry({
     required this.slug,
     required this.section,
@@ -24,6 +30,7 @@ class ResolvedEntry with ResolvedEntryMappable {
     required this.version,
     required this.file,
     this.optional = false,
+    this.dependencies = const [],
   });
 }
 

@@ -45,6 +45,12 @@ class LockedEntry with LockedEntryMappable {
   /// `pack` can emit `env: "optional"` in `modrinth.index.json`.
   final bool optional;
 
+  /// Slugs this entry directly required at resolution time (forward edges
+  /// in the dep graph). Empty for non-Modrinth sources and for entries
+  /// whose resolved Modrinth version had no required dependencies.
+  /// Powers `gitrinth upgrade --unlock-transitive`.
+  final List<String> dependencies;
+
   const LockedEntry({
     required this.slug,
     required this.sourceKind,
@@ -57,6 +63,7 @@ class LockedEntry with LockedEntryMappable {
     this.auto = false,
     this.gameVersions = const [],
     this.optional = false,
+    this.dependencies = const [],
   });
 }
 

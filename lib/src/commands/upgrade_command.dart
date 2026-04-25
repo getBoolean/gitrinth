@@ -6,6 +6,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
+import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
 import '../service/manifest_io.dart';
@@ -19,8 +20,7 @@ class UpgradeCommand extends GitrinthCommand {
 
   @override
   String get description =>
-      'Re-resolve to the newest version allowed by each constraint, '
-      'updating mods.lock.';
+      "Upgrade the current modpack's entries to the newest versions.";
 
   @override
   String get invocation => 'gitrinth upgrade [<slug>...] [arguments]';
@@ -31,22 +31,25 @@ class UpgradeCommand extends GitrinthCommand {
         'major-versions',
         negatable: false,
         help:
-            'Ignore caret boundaries; pick the absolute newest version and '
-            'rewrite the constraint in mods.yaml.',
+            'Upgrades entries to their latest resolvable versions, and '
+            'updates mods.yaml.',
       )
       ..addFlag(
         'tighten',
         negatable: false,
         help:
-            "After resolving, raise each caret-bound entry's lower bound in "
-            'mods.yaml to match the resolved version.',
+            'Updates lower bounds in mods.yaml to match the resolved version.',
+      )
+      ..addFlag(
+        'unlock-transitive',
+        negatable: false,
+        help: 'Also upgrades the transitive dependencies of the listed '
+            'entries.',
       )
       ..addFlag(
         'dry-run',
         negatable: false,
-        help:
-            'Print changes without writing. Exits non-zero if anything would '
-            'change.',
+        help: "Report what entries would change but don't change any.",
       );
   }
 
@@ -55,6 +58,7 @@ class UpgradeCommand extends GitrinthCommand {
     final results = argResults!;
     final majorVersions = results['major-versions'] as bool;
     final tighten = results['tighten'] as bool;
+    final unlockTransitive = results['unlock-transitive'] as bool;
     final dryRun = results['dry-run'] as bool;
     final requestedSlugs = results.rest;
 
@@ -97,6 +101,10 @@ class UpgradeCommand extends GitrinthCommand {
           );
         }
       }
+    }
+
+    if (unlockTransitive && targets.isNotEmpty) {
+      targets = _expandTransitiveClosure(targets, io.readModsLock());
     }
 
     final relaxSet = majorVersions
@@ -246,5 +254,61 @@ class UpgradeCommand extends GitrinthCommand {
     } on FormatException {
       return base;
     }
+  }
+
+  /// BFS over forward dep-graph edges in [lock] to compute the transitive
+  /// closure of [seeds]. Powers `--unlock-transitive`: every slug in the
+  /// returned set is fed to [resolveAndSync] as a `freshSlug`, so the
+  /// resolver picks newest-within-constraint instead of preserving the
+  /// existing pin. Cycles terminate via the visited-set; slugs missing
+  /// from the lock are reported via `console.detail` and skipped.
+  ///
+  /// Legacy locks have no edges recorded; if every targeted slug's entry
+  /// exists in the lock with an empty dependency list, warn and return
+  /// the original [seeds] unchanged so the next get/upgrade write
+  /// populates edges.
+  Set<String> _expandTransitiveClosure(Set<String> seeds, ModsLock? lock) {
+    if (lock == null) {
+      console.info(
+        'upgrade --unlock-transitive: no mods.lock found yet — '
+        'falling back to unlocking only the named entries.',
+      );
+      return seeds;
+    }
+
+    final lookup = <String, LockedEntry>{};
+    for (final entry in lock.allEntries) {
+      lookup[entry.key] = entry.value;
+    }
+
+    final seedsInLock = seeds.where(lookup.containsKey).toList();
+    final seedsHaveEdges = seedsInLock.any(
+      (s) => lookup[s]!.dependencies.isNotEmpty,
+    );
+    if (seedsInLock.isNotEmpty && !seedsHaveEdges) {
+      console.info(
+        'upgrade --unlock-transitive: mods.lock has no dependency edges '
+        'for the named entries (legacy lock). Run `gitrinth get` to '
+        'populate edges; falling back to unlocking only the named entries.',
+      );
+      return seeds;
+    }
+
+    final closure = <String>{...seeds};
+    final queue = <String>[...seeds];
+    while (queue.isNotEmpty) {
+      final slug = queue.removeLast();
+      final entry = lookup[slug];
+      if (entry == null) {
+        console.detail(
+          "upgrade --unlock-transitive: '$slug' not in mods.lock; skipping.",
+        );
+        continue;
+      }
+      for (final child in entry.dependencies) {
+        if (closure.add(child)) queue.add(child);
+      }
+    }
+    return closure;
   }
 }

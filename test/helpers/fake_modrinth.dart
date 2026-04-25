@@ -103,6 +103,7 @@ class FakeModrinth {
     String projectId = '',
     String loader = 'neoforge',
     String gameVersion = '1.21.1',
+    List<String> requiredDeps = const [],
   }) {
     final pid = projectId.isEmpty ? '${slug}_ID' : projectId;
     final versionId =
@@ -124,6 +125,13 @@ class FakeModrinth {
         'project_type': 'mod',
       },
     );
+    final deps = <Map<String, dynamic>>[
+      for (final depSlug in requiredDeps)
+        {
+          'project_id': '${depSlug}_ID',
+          'dependency_type': 'required',
+        },
+    ];
     final entry = <String, dynamic>{
       'id': versionId,
       'project_id': pid,
@@ -137,7 +145,7 @@ class FakeModrinth {
           'primary': true,
         },
       ],
-      'dependencies': <dynamic>[],
+      'dependencies': deps,
       'loaders': [loader],
       'game_versions': [gameVersion],
     };
@@ -172,11 +180,20 @@ class FakeModrinth {
             req.response.write(jsonEncode(list));
           }
         } else {
-          final slug = tail;
-          final p = projects[slug];
+          // Modrinth's real /v2/project/{id|slug} accepts either form.
+          // Mirror that so dep lookups (which carry project IDs) resolve.
+          var p = projects[tail];
+          if (p == null) {
+            for (final candidate in projects.values) {
+              if (candidate['id'] == tail) {
+                p = candidate;
+                break;
+              }
+            }
+          }
           if (p == null) {
             req.response.statusCode = 404;
-            req.response.write(jsonEncode({'error': 'unknown slug $slug'}));
+            req.response.write(jsonEncode({'error': 'unknown id/slug $tail'}));
           } else {
             req.response.headers.contentType = ContentType.json;
             // Auto-derive `loaders` from the first registered version when
@@ -186,7 +203,8 @@ class FakeModrinth {
             // tests.
             final body = Map<String, dynamic>.from(p);
             if (!body.containsKey('loaders')) {
-              final vs = versions[slug];
+              final resolvedSlug = body['slug'] as String?;
+              final vs = resolvedSlug == null ? null : versions[resolvedSlug];
               final first = (vs != null && vs.isNotEmpty) ? vs.first : null;
               final derived = first?['loaders'];
               body['loaders'] = derived is List

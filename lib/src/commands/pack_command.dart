@@ -42,24 +42,19 @@ class PackCommand extends GitrinthCommand {
         valueHelp: 'path',
         help:
             'Override the output path. Defaults to '
-            './build/<slug>-<version>.mrpack. Without --combined, the '
-            'server pack is derived by inserting "-server" before the '
-            '.mrpack extension.',
+            './build/<slug>-<version>.mrpack.',
       )
       ..addFlag(
         'combined',
         negatable: false,
         help:
             'Produce a single .mrpack containing both client and server '
-            'files (the older single-artifact behavior). Default is to '
-            'emit a separate client and server pack.',
+            'files.',
       )
       ..addFlag(
         'publishable',
         negatable: false,
-        help:
-            'Refuse to pack if any mod uses a url: or path: source. '
-            'Other sections may still bundle non-Modrinth artifacts.',
+        help: 'Refuse to pack if any mod uses a url: or path: source.',
       );
   }
 

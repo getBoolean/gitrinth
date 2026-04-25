@@ -87,6 +87,8 @@ class Resolver {
       final section = entryBySection[slug] ?? Section.mods;
       final env = entryByEnv[slug] ?? Environment.both;
       final optional = entryBySlug[slug]?.optional ?? false;
+      final rawEdges = result.edges[slug] ?? const <String>[];
+      final sortedEdges = List<String>.unmodifiable([...rawEdges]..sort());
       entries.add(
         ResolvedEntry(
           slug: slug,
@@ -96,6 +98,7 @@ class Resolver {
           version: v,
           file: file,
           optional: optional,
+          dependencies: sortedEdges,
         ),
       );
     }

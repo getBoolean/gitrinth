@@ -32,7 +32,7 @@ class UnpinCommand extends GitrinthCommand {
       ..addFlag(
         'dry-run',
         negatable: false,
-        help: 'Print the edit without writing.',
+        help: "Report what entries would change but don't change any.",
       );
   }
 

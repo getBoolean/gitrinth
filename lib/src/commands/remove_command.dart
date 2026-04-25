@@ -16,7 +16,7 @@ class RemoveCommand extends GitrinthCommand {
   String get name => 'remove';
 
   @override
-  String get description => 'Remove an entry from mods.yaml.';
+  String get description => 'Removes an entry from `mods.yaml`.';
 
   @override
   String get invocation => 'gitrinth remove <slug> [arguments]';
@@ -25,7 +25,7 @@ class RemoveCommand extends GitrinthCommand {
     argParser.addFlag(
       'dry-run',
       negatable: false,
-      help: 'Print the edit without writing.',
+      help: "Report what entries would change but don't change any.",
     );
   }
 

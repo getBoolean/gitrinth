@@ -434,4 +434,411 @@ mods:
     expect(lock, contains('version: 1.5.0'));
     expect(lock, contains('optional: true'));
   });
+
+  // The four cases below mirror dart-lang/pub's
+  // test/upgrade/upgrade_transitive_test.dart, ported to gitrinth's
+  // FakeModrinth-driven integration setup. `foo`/`bar`/`baz` follow
+  // dart pub's naming so the parity is easy to verify.
+  group('--unlock-transitive (mirrors dart pub)', () {
+    test(
+      'without --unlock-transitive, transitive dependencies stay locked',
+      () async {
+        modrinth
+          ..registerVersion(
+            slug: 'foo',
+            versionNumber: '1.0.0',
+            requiredDeps: const ['bar'],
+          )
+          ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+''');
+        expect((await runGet()).exitCode, 0);
+
+        modrinth
+          ..registerVersion(
+            slug: 'foo',
+            versionNumber: '1.5.0',
+            requiredDeps: const ['bar'],
+          )
+          ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+
+        final out = await runUpgrade(['foo']);
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final lock = readLock();
+        expect(lock, contains('version: 1.5.0'));
+        expect(lock, contains('version: 1.0.0'));
+        expect(
+          lock,
+          isNot(contains('version: 1.5.0\n    project-id: bar_ID')),
+          reason: 'bar must stay at 1.0.0',
+        );
+      },
+    );
+
+    test('--unlock-transitive dependencies get unlocked', () async {
+      modrinth
+        ..registerVersion(
+          slug: 'foo',
+          versionNumber: '1.0.0',
+          requiredDeps: const ['bar'],
+        )
+        ..registerVersion(slug: 'bar', versionNumber: '1.0.0')
+        ..registerVersion(slug: 'baz', versionNumber: '1.0.0');
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  baz: ^1.0.0
+''');
+      expect((await runGet()).exitCode, 0);
+
+      modrinth
+        ..registerVersion(
+          slug: 'foo',
+          versionNumber: '1.5.0',
+          requiredDeps: const ['bar'],
+        )
+        ..registerVersion(slug: 'bar', versionNumber: '1.5.0')
+        ..registerVersion(slug: 'baz', versionNumber: '1.5.0');
+
+      final out = await runUpgrade(['--unlock-transitive', 'foo']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final lock = readLock();
+      // foo and bar both move; baz (root, unrelated) keeps its pin.
+      expect(
+        lock,
+        contains(RegExp(r'foo:\s+source: modrinth\s+version: 1\.5\.0')),
+      );
+      expect(
+        lock,
+        contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0')),
+      );
+      expect(
+        lock,
+        contains(RegExp(r'baz:\s+source: modrinth\s+version: 1\.0\.0')),
+      );
+    });
+
+    test(
+      '--major-versions without --unlock-transitive does not bump transitives',
+      () async {
+        modrinth
+          ..registerVersion(
+            slug: 'foo',
+            versionNumber: '1.0.0',
+            requiredDeps: const ['bar'],
+          )
+          ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+''');
+        expect((await runGet()).exitCode, 0);
+
+        modrinth
+          ..registerVersion(
+            slug: 'foo',
+            versionNumber: '2.0.0',
+            requiredDeps: const ['bar'],
+          )
+          ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+
+        final out = await runUpgrade(['--major-versions', 'foo']);
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final lock = readLock();
+        expect(
+          lock,
+          contains(RegExp(r'foo:\s+source: modrinth\s+version: 2\.0\.0')),
+        );
+        expect(
+          lock,
+          contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.0\.0')),
+          reason: 'bar must stay locked at 1.0.0',
+        );
+        expect(readManifest(), contains('foo: ^2.0.0'));
+      },
+    );
+
+    test(
+      '--unlock-transitive --major-versions bumps transitives along with named',
+      () async {
+        modrinth
+          ..registerVersion(
+            slug: 'foo',
+            versionNumber: '1.0.0',
+            requiredDeps: const ['bar'],
+          )
+          ..registerVersion(slug: 'bar', versionNumber: '1.0.0')
+          ..registerVersion(slug: 'baz', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  baz: ^1.0.0
+''');
+        expect((await runGet()).exitCode, 0);
+
+        modrinth
+          ..registerVersion(
+            slug: 'foo',
+            versionNumber: '2.0.0',
+            requiredDeps: const ['bar'],
+          )
+          ..registerVersion(slug: 'bar', versionNumber: '1.5.0')
+          ..registerVersion(slug: 'baz', versionNumber: '1.5.0');
+
+        final out = await runUpgrade([
+          '--major-versions',
+          '--unlock-transitive',
+          'foo',
+        ]);
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final lock = readLock();
+        expect(
+          lock,
+          contains(RegExp(r'foo:\s+source: modrinth\s+version: 2\.0\.0')),
+        );
+        expect(
+          lock,
+          contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0')),
+        );
+        expect(
+          lock,
+          contains(RegExp(r'baz:\s+source: modrinth\s+version: 1\.0\.0')),
+          reason: 'baz is not in foo\'s closure; must stay locked',
+        );
+      },
+    );
+  });
+
+  test(
+    '--unlock-transitive on a legacy lock (no edges) warns and falls back',
+    () async {
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+        ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  bar: ^1.0.0
+''');
+      expect((await runGet()).exitCode, 0);
+
+      // Hand-strip every `dependencies:` line from the lock to simulate a
+      // legacy lock written before this MVP item landed.
+      final lockPath = p.join(packDir.path, 'mods.lock');
+      final stripped = File(lockPath)
+          .readAsStringSync()
+          .split('\n')
+          .where((l) => !l.trimLeft().startsWith('dependencies:'))
+          .join('\n');
+      File(lockPath).writeAsStringSync(stripped);
+
+      modrinth.registerVersion(slug: 'foo', versionNumber: '1.5.0');
+
+      final out = await runUpgrade(['--unlock-transitive', 'foo']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      expect(
+        '${out.stderr}\n${out.stdout}',
+        contains('legacy lock'),
+        reason: 'expected the fallback warning',
+      );
+      // foo still upgrades (named target was unlocked anyway).
+      expect(readLock(), contains('version: 1.5.0'));
+    },
+  );
+
+  // Ported from dart-lang/pub test/upgrade/upgrade_major_versions_test.dart
+  // ("upgrades only the selected package") and
+  // test/upgrade/upgrade_tighten_test.dart ("can tighten a specific package").
+  // Confirms that named-slug `<slug>...` arguments scope rewrites to that
+  // slug only — non-targeted entries' mods.yaml constraints are untouched.
+  group('subset rewrites (mirrors dart pub)', () {
+    test('--major-versions <slug> only bumps the named slug', () async {
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+        ..registerVersion(slug: 'bar', versionNumber: '0.1.0');
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  bar: ^0.1.0
+''');
+      expect((await runGet()).exitCode, 0);
+
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '2.0.0')
+        ..registerVersion(slug: 'bar', versionNumber: '0.2.0');
+
+      final out = await runUpgrade(['--major-versions', 'foo']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readManifest();
+      expect(yaml, contains('foo: ^2.0.0'));
+      expect(yaml, contains('bar: ^0.1.0'));
+      expect(yaml, isNot(contains('bar: ^0.2.0')));
+    });
+
+    test('--tighten <slug> only rewrites the named slug', () async {
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+        ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  bar: ^1.0.0
+''');
+      expect((await runGet()).exitCode, 0);
+
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
+        ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+
+      final out = await runUpgrade(['--tighten', 'foo']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readManifest();
+      expect(yaml, contains('foo: ^1.5.0'));
+      expect(yaml, contains('bar: ^1.0.0'));
+      expect(yaml, isNot(contains('bar: ^1.5.0')));
+    });
+
+    test(
+      'subsequent --tighten <other-slug> --major-versions only touches that slug',
+      () async {
+        modrinth
+          ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+          ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  bar: ^1.0.0
+''');
+        expect((await runGet()).exitCode, 0);
+
+        modrinth
+          ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
+          ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+        expect(
+          (await runUpgrade(['--tighten', 'foo'])).exitCode,
+          0,
+        );
+        expect(readManifest(), contains('foo: ^1.5.0'));
+        expect(readManifest(), contains('bar: ^1.0.0'));
+
+        modrinth
+          ..registerVersion(slug: 'foo', versionNumber: '2.0.0')
+          ..registerVersion(slug: 'bar', versionNumber: '2.0.0');
+
+        final out = await runUpgrade([
+          '--tighten',
+          'bar',
+          '--major-versions',
+        ]);
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final yaml = readManifest();
+        expect(yaml, contains('foo: ^1.5.0'));
+        expect(yaml, contains('bar: ^2.0.0'));
+      },
+    );
+  });
+
+  test('--unlock-transitive terminates on cycles in the lock', () async {
+    modrinth
+      ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+      ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  bar: ^1.0.0
+''');
+    expect((await runGet()).exitCode, 0);
+
+    // Hand-edit the lock to introduce a foo<->bar cycle. The resolver
+    // would not normally produce one (Modrinth deps are acyclic in
+    // practice), but a manually edited or legacy-merged lock can.
+    final lockPath = p.join(packDir.path, 'mods.lock');
+    var text = File(lockPath).readAsStringSync();
+    text = text.replaceAllMapped(
+      RegExp(r'(\n  foo:[^\n]*\n(?:    [^\n]*\n)+)'),
+      (m) => '${m[0]}    dependencies: [bar]\n',
+    );
+    text = text.replaceAllMapped(
+      RegExp(r'(\n  bar:[^\n]*\n(?:    [^\n]*\n)+)'),
+      (m) => '${m[0]}    dependencies: [foo]\n',
+    );
+    File(lockPath).writeAsStringSync(text);
+
+    modrinth
+      ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
+      ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+
+    final out = await runUpgrade(['--unlock-transitive', 'foo']);
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final lock = readLock();
+    // The closure of {foo} over the cyclic edges is {foo, bar}; both
+    // get unlocked and bumped.
+    expect(lock, contains('version: 1.5.0'));
+    expect(lock, isNot(contains('version: 1.0.0')));
+  });
 }

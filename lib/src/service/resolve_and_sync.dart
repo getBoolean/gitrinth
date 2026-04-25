@@ -348,6 +348,7 @@ ModsLock _buildLock(
       auto: r.auto,
       gameVersions: List.unmodifiable(r.version.gameVersions),
       optional: r.optional,
+      dependencies: r.dependencies,
     );
   }
   for (final section in Section.values) {
