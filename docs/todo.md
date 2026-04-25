@@ -25,7 +25,7 @@ Deferred MVP work:
 - [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [ ] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [ ] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
-- [ ] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
+- [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
 - [ ] [`downgrade` command](#downgrade-command)
 - [ ] [`outdated` command](#outdated-command)
 - [ ] [`deps` command](#deps-command)
@@ -248,16 +248,26 @@ new upstream-API clients for Forge and NeoForge.
 
 ## Automatic `:stable` / `:latest` loader tag resolution
 
-[`loader.mods`](mods-yaml.md#loader) accepts a docker-image-style tag:
-`<loader>:stable` (default, latest stable loader), `<loader>:latest`
-(newest of any stability), or a concrete version string. Stable/latest
-resolution is implemented for Fabric (via `meta.fabricmc.net`) but not
-for Forge or NeoForge — users must specify a concrete tag (e.g.
-`forge:52.0.45`, `neoforge:21.1.50`). Wire up the Forge and NeoForge
-upstream APIs.
+Shipped. [`loader.mods`](mods-yaml.md#loader) accepts a docker-image-style
+tag: `<loader>:stable`, `<loader>:latest`, or a concrete version string.
+Resolution targets:
 
-Touches: [`lib/src/service/resolver.dart`](../lib/src/service/resolver.dart),
-new upstream-API clients.
+- Fabric — `meta.fabricmc.net`
+- Forge — `files.minecraftforge.net/.../promotions_slim.json` for
+  `stable`/`latest`; `maven-metadata.json` for concrete-tag validation
+- NeoForge (modern) — `maven.neoforged.net/api/maven/versions/.../neoforge`
+- NeoForge (legacy MC 1.20.1) — `maven.neoforged.net/api/maven/versions/.../forge`
+
+Concrete tags are also validated against the upstream version list, so
+typos or pins for the wrong MC version fail at resolve time rather than
+install time. The lock-file fast-path skips re-validation when the pin
+is unchanged from the previous run; `--offline` skips validation entirely
+and trusts the user's pin (with a stderr warning if it diverges from the
+lock).
+
+Touches:
+[`lib/src/service/loader_version_resolver.dart`](../lib/src/service/loader_version_resolver.dart),
+[`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart).
 
 ## `downgrade` command
 

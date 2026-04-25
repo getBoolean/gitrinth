@@ -494,6 +494,9 @@ Future<void> _validateGameVersion({
 /// Skips re-resolution when the user typed a concrete tag (anything other
 /// than `stable`/`latest`) and the existing lock already records that
 /// same loader+version pair. `stable`/`latest` always re-resolve.
+///
+/// Concrete tags hit the network for upstream validation on first use;
+/// under `--offline` the validation is skipped (we trust the user's pin).
 Future<String> _resolveLoaderVersion({
   required LoaderVersionResolver loaderResolver,
   required LoaderConfig loaderConfig,
@@ -506,6 +509,15 @@ Future<String> _resolveLoaderVersion({
   final lockedVersion = existingLock?.loader.modsVersion;
   final tagIsConcrete = tag != 'stable' && tag != 'latest';
   if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
+    return tag;
+  }
+  if (tagIsConcrete && offline) {
+    if (lockedSameLoader && lockedVersion != null && lockedVersion != tag) {
+      stderr.writeln(
+        'warning: using unvalidated loader pin `${loaderConfig.mods.name}:'
+        '$tag` while offline (mods.lock had `$lockedVersion`).',
+      );
+    }
     return tag;
   }
   if (!tagIsConcrete && offline) {

@@ -12,6 +12,11 @@ import 'package:crypto/crypto.dart';
 ///                                          404 otherwise
 ///   - GET /v2/tag/game_version           -> canned MC version list
 ///   - GET /downloads/{slug}/{filename}   -> the artifact bytes
+///   - GET /fabric/v2/versions/loader     -> fabric-meta loader list
+///   - GET /forge/promotions_slim.json    -> Forge `:stable`/`:latest`
+///   - GET /forge/maven-metadata.json     -> Forge concrete-tag validation
+///   - GET /neoforge/versions             -> NeoForge modern (MC ≥ 1.20.2)
+///   - GET /neoforge-legacy/versions      -> NeoForge legacy (MC 1.20.1)
 class FakeModrinth {
   late final HttpServer _server;
   final Map<String, Map<String, dynamic>> projects;
@@ -81,6 +86,55 @@ class FakeModrinth {
     {'version': '0.17.2-beta.1', 'stable': false},
     {'version': '0.17.1', 'stable': true},
   ];
+
+  /// URL for the fake Forge promotions endpoint (`stable`/`latest`).
+  String get forgePromotionsUrl =>
+      'http://127.0.0.1:${_server.port}/forge/promotions_slim.json';
+
+  /// URL for the fake Forge maven-metadata endpoint (concrete-tag validation).
+  String get forgeVersionsUrl =>
+      'http://127.0.0.1:${_server.port}/forge/maven-metadata.json';
+
+  /// URL for the fake NeoForge modern versions endpoint.
+  String get neoforgeVersionsUrl =>
+      'http://127.0.0.1:${_server.port}/neoforge/versions';
+
+  /// URL for the fake NeoForge legacy (MC 1.20.1) versions endpoint.
+  String get neoforgeLegacyVersionsUrl =>
+      'http://127.0.0.1:${_server.port}/neoforge-legacy/versions';
+
+  /// Body served at [forgePromotionsUrl]. Shape mirrors the real
+  /// `promotions_slim.json` — `promos` keyed by `<mc>-recommended` and
+  /// `<mc>-latest`, values are bare build numbers.
+  Map<String, dynamic> forgePromotions = {
+    'homepage': 'https://files.minecraftforge.net/',
+    'promos': {
+      '1.20.1-recommended': '47.2.0',
+      '1.20.1-latest': '47.4.10',
+    },
+  };
+
+  /// Body served at [forgeVersionsUrl]. Shape mirrors the real
+  /// `maven-metadata.json` — top-level keys are MC versions, values are
+  /// arrays of full `<mc>-<build>` strings.
+  Map<String, dynamic> forgeVersions = {
+    '1.20.1': ['1.20.1-47.2.0', '1.20.1-47.4.10'],
+  };
+
+  /// Body served at [neoforgeVersionsUrl]. Shape mirrors the real
+  /// neoforged maven JSON API: `{"isSnapshot": bool, "versions": [...]}`.
+  /// Versions ascending, `-beta` suffix denotes non-stable.
+  Map<String, dynamic> neoforgeVersionsBody = {
+    'isSnapshot': false,
+    'versions': ['21.1.50', '21.1.228'],
+  };
+
+  /// Body served at [neoforgeLegacyVersionsUrl]. Same shape; entries are
+  /// `1.20.1-<build>`.
+  Map<String, dynamic> neoforgeLegacyVersionsBody = {
+    'isSnapshot': false,
+    'versions': ['1.20.1-47.1.100', '1.20.1-47.1.106'],
+  };
 
   Future<void> start() async {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -181,6 +235,18 @@ class FakeModrinth {
       } else if (path == '/fabric/v2/versions/loader') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode(fabricLoaderVersions));
+      } else if (path == '/forge/promotions_slim.json') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(forgePromotions));
+      } else if (path == '/forge/maven-metadata.json') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(forgeVersions));
+      } else if (path == '/neoforge/versions') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(neoforgeVersionsBody));
+      } else if (path == '/neoforge-legacy/versions') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(neoforgeLegacyVersionsBody));
       } else if (path.startsWith('/v2/project/')) {
         final tail = path.substring('/v2/project/'.length);
         if (tail.endsWith('/check')) {

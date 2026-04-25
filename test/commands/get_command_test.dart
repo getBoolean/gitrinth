@@ -803,7 +803,7 @@ mods:
 
   group('loader-version resolution', () {
     test(
-      'concrete tag passes through, lock records the same version, no fabric-meta call',
+      'concrete tag validates against fabric-meta on first get and lock records it',
       () async {
         modrinth.registerVersion(
           slug: 'sodium',
@@ -835,7 +835,7 @@ mods:
           p.join(packDir.path, 'mods.lock'),
         ).readAsStringSync();
         expect(lockText, contains('mods: "fabric:0.17.3"'));
-        expect(modrinth.requestCounts['/fabric/v2/versions/loader'], isNull);
+        expect(modrinth.requestCounts['/fabric/v2/versions/loader'], 1);
       },
     );
 
@@ -944,7 +944,9 @@ mods:
         };
         await runCli(['-C', packDir.path, 'get'], environment: env);
         await runCli(['-C', packDir.path, 'get'], environment: env);
-        expect(modrinth.requestCounts['/fabric/v2/versions/loader'], isNull);
+        // First get validates against upstream (no lock yet); second get
+        // hits the lock fast-path and skips fabric-meta entirely.
+        expect(modrinth.requestCounts['/fabric/v2/versions/loader'], 1);
       },
     );
 
@@ -978,8 +980,19 @@ mods:
       expect(modrinth.requestCounts['/fabric/v2/versions/loader'], 2);
     });
 
-    test('neoforge:stable yields a clear "deferred" error', () async {
-      await writeManifest('''
+    test(
+      'neoforge:stable resolves against the neoforged maven JSON API',
+      () async {
+        modrinth.neoforgeVersionsBody = {
+          'isSnapshot': false,
+          'versions': ['21.1.50', '21.1.228'],
+        };
+        modrinth.registerVersion(
+          slug: 'jei',
+          versionNumber: '1.0.0',
+          loader: 'neoforge',
+        );
+        await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -987,20 +1000,144 @@ description: x
 loader:
   mods: "neoforge:stable"
 mc-version: 1.21.1
-mods: {}
+mods:
+  jei: ^1.0.0
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'get'],
-        environment: {
+        final out = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: {
+            'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
+            'GITRINTH_CACHE': cacheDir.path,
+          },
+        );
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final lockText = File(
+          p.join(packDir.path, 'mods.lock'),
+        ).readAsStringSync();
+        expect(lockText, contains('mods: "neoforge:21.1.228"'));
+      },
+    );
+
+    test(
+      'concrete forge tag changed in mods.yaml re-validates against upstream',
+      () async {
+        modrinth.forgeVersions = {
+          '1.20.1': ['1.20.1-47.2.0', '1.20.1-47.4.10'],
+        };
+        modrinth.registerVersion(
+          slug: 'jei',
+          versionNumber: '1.0.0',
+          loader: 'forge',
+          gameVersion: '1.20.1',
+        );
+
+        final env = {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_FORGE_VERSIONS_URL': modrinth.forgeVersionsUrl,
+          'GITRINTH_FORGE_PROMOTIONS_URL': modrinth.forgePromotionsUrl,
           'GITRINTH_CACHE': cacheDir.path,
-        },
-      );
-      expect(out.exitCode, isNot(0), reason: out.stdout);
-      expect(out.stderr, contains('not yet implemented'));
-      expect(out.stderr, contains('neoforge:'));
-    });
+        };
+
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "forge:47.2.0"
+mc-version: 1.20.1
+mods:
+  jei: ^1.0.0
+''');
+        final first = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: env,
+        );
+        expect(first.exitCode, 0, reason: '${first.stderr}\n${first.stdout}');
+
+        // User now changes the pin; we should re-validate and lock the new build.
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "forge:47.4.10"
+mc-version: 1.20.1
+mods:
+  jei: ^1.0.0
+''');
+        final second = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: env,
+        );
+        expect(second.exitCode, 0, reason: '${second.stderr}\n${second.stdout}');
+        final lockText = File(
+          p.join(packDir.path, 'mods.lock'),
+        ).readAsStringSync();
+        expect(lockText, contains('mods: "forge:47.4.10"'));
+      },
+    );
+
+    test(
+      'concrete tag with --offline skips validation, warns when pin diverges',
+      () async {
+        modrinth.registerVersion(
+          slug: 'sodium',
+          versionNumber: '0.6.0',
+          loader: 'fabric',
+        );
+
+        final env = {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        };
+
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "fabric:0.17.3"
+mc-version: 1.21.1
+mods:
+  sodium: ^0.6.0
+''');
+        // Warm up cache + lock with the original pin.
+        final warm = await runCli(['-C', packDir.path, 'get'], environment: env);
+        expect(warm.exitCode, 0, reason: '${warm.stderr}\n${warm.stdout}');
+
+        // Change pin, run offline. We should not hit fabric-meta, the new pin
+        // should be accepted as-is, and stderr should warn about the divergence.
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "fabric:0.99.99-unvalidated"
+mc-version: 1.21.1
+mods:
+  sodium: ^0.6.0
+''');
+        final hits = modrinth.requestCounts['/fabric/v2/versions/loader'] ?? 0;
+        final out = await runCli(
+          ['-C', packDir.path, 'get', '--offline'],
+          environment: env,
+        );
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        expect(modrinth.requestCounts['/fabric/v2/versions/loader'], hits);
+        expect(out.stderr, contains('unvalidated loader pin'));
+        final lockText = File(
+          p.join(packDir.path, 'mods.lock'),
+        ).readAsStringSync();
+        expect(lockText, contains('mods: "fabric:0.99.99-unvalidated"'));
+      },
+    );
   });
 
   test('lock includes sha1 alongside sha512 from Modrinth', () async {
