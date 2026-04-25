@@ -549,6 +549,197 @@ class _LockedEntryCopyWithImpl<$R, $Out>
   ) => _LockedEntryCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class LockedFileEntryMapper extends ClassMapperBase<LockedFileEntry> {
+  LockedFileEntryMapper._();
+
+  static LockedFileEntryMapper? _instance;
+  static LockedFileEntryMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = LockedFileEntryMapper._());
+      SideEnvMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'LockedFileEntry';
+
+  static String _$destination(LockedFileEntry v) => v.destination;
+  static const Field<LockedFileEntry, String> _f$destination = Field(
+    'destination',
+    _$destination,
+  );
+  static String _$sourcePath(LockedFileEntry v) => v.sourcePath;
+  static const Field<LockedFileEntry, String> _f$sourcePath = Field(
+    'sourcePath',
+    _$sourcePath,
+  );
+  static SideEnv _$client(LockedFileEntry v) => v.client;
+  static const Field<LockedFileEntry, SideEnv> _f$client = Field(
+    'client',
+    _$client,
+    opt: true,
+    def: SideEnv.required,
+  );
+  static SideEnv _$server(LockedFileEntry v) => v.server;
+  static const Field<LockedFileEntry, SideEnv> _f$server = Field(
+    'server',
+    _$server,
+    opt: true,
+    def: SideEnv.required,
+  );
+  static bool _$preserve(LockedFileEntry v) => v.preserve;
+  static const Field<LockedFileEntry, bool> _f$preserve = Field(
+    'preserve',
+    _$preserve,
+    opt: true,
+    def: false,
+  );
+  static String? _$sha512(LockedFileEntry v) => v.sha512;
+  static const Field<LockedFileEntry, String> _f$sha512 = Field(
+    'sha512',
+    _$sha512,
+    opt: true,
+  );
+
+  @override
+  final MappableFields<LockedFileEntry> fields = const {
+    #destination: _f$destination,
+    #sourcePath: _f$sourcePath,
+    #client: _f$client,
+    #server: _f$server,
+    #preserve: _f$preserve,
+    #sha512: _f$sha512,
+  };
+
+  static LockedFileEntry _instantiate(DecodingData data) {
+    return LockedFileEntry(
+      destination: data.dec(_f$destination),
+      sourcePath: data.dec(_f$sourcePath),
+      client: data.dec(_f$client),
+      server: data.dec(_f$server),
+      preserve: data.dec(_f$preserve),
+      sha512: data.dec(_f$sha512),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static LockedFileEntry fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<LockedFileEntry>(map);
+  }
+
+  static LockedFileEntry fromJson(String json) {
+    return ensureInitialized().decodeJson<LockedFileEntry>(json);
+  }
+}
+
+mixin LockedFileEntryMappable {
+  String toJson() {
+    return LockedFileEntryMapper.ensureInitialized()
+        .encodeJson<LockedFileEntry>(this as LockedFileEntry);
+  }
+
+  Map<String, dynamic> toMap() {
+    return LockedFileEntryMapper.ensureInitialized().encodeMap<LockedFileEntry>(
+      this as LockedFileEntry,
+    );
+  }
+
+  LockedFileEntryCopyWith<LockedFileEntry, LockedFileEntry, LockedFileEntry>
+  get copyWith =>
+      _LockedFileEntryCopyWithImpl<LockedFileEntry, LockedFileEntry>(
+        this as LockedFileEntry,
+        $identity,
+        $identity,
+      );
+  @override
+  String toString() {
+    return LockedFileEntryMapper.ensureInitialized().stringifyValue(
+      this as LockedFileEntry,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return LockedFileEntryMapper.ensureInitialized().equalsValue(
+      this as LockedFileEntry,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return LockedFileEntryMapper.ensureInitialized().hashValue(
+      this as LockedFileEntry,
+    );
+  }
+}
+
+extension LockedFileEntryValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, LockedFileEntry, $Out> {
+  LockedFileEntryCopyWith<$R, LockedFileEntry, $Out> get $asLockedFileEntry =>
+      $base.as((v, t, t2) => _LockedFileEntryCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class LockedFileEntryCopyWith<$R, $In extends LockedFileEntry, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({
+    String? destination,
+    String? sourcePath,
+    SideEnv? client,
+    SideEnv? server,
+    bool? preserve,
+    String? sha512,
+  });
+  LockedFileEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _LockedFileEntryCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, LockedFileEntry, $Out>
+    implements LockedFileEntryCopyWith<$R, LockedFileEntry, $Out> {
+  _LockedFileEntryCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<LockedFileEntry> $mapper =
+      LockedFileEntryMapper.ensureInitialized();
+  @override
+  $R call({
+    String? destination,
+    String? sourcePath,
+    SideEnv? client,
+    SideEnv? server,
+    bool? preserve,
+    Object? sha512 = $none,
+  }) => $apply(
+    FieldCopyWithData({
+      if (destination != null) #destination: destination,
+      if (sourcePath != null) #sourcePath: sourcePath,
+      if (client != null) #client: client,
+      if (server != null) #server: server,
+      if (preserve != null) #preserve: preserve,
+      if (sha512 != $none) #sha512: sha512,
+    }),
+  );
+  @override
+  LockedFileEntry $make(CopyWithData data) => LockedFileEntry(
+    destination: data.get(#destination, or: $value.destination),
+    sourcePath: data.get(#sourcePath, or: $value.sourcePath),
+    client: data.get(#client, or: $value.client),
+    server: data.get(#server, or: $value.server),
+    preserve: data.get(#preserve, or: $value.preserve),
+    sha512: data.get(#sha512, or: $value.sha512),
+  );
+
+  @override
+  LockedFileEntryCopyWith<$R2, LockedFileEntry, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _LockedFileEntryCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
 class ModsLockMapper extends ClassMapperBase<ModsLock> {
   ModsLockMapper._();
 
@@ -558,6 +749,7 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
       MapperContainer.globals.use(_instance = ModsLockMapper._());
       LoaderConfigMapper.ensureInitialized();
       LockedEntryMapper.ensureInitialized();
+      LockedFileEntryMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -605,6 +797,13 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
     opt: true,
     def: const {},
   );
+  static Map<String, LockedFileEntry> _$files(ModsLock v) => v.files;
+  static const Field<ModsLock, Map<String, LockedFileEntry>> _f$files = Field(
+    'files',
+    _$files,
+    opt: true,
+    def: const {},
+  );
 
   @override
   final MappableFields<ModsLock> fields = const {
@@ -615,6 +814,7 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
     #resourcePacks: _f$resourcePacks,
     #dataPacks: _f$dataPacks,
     #shaders: _f$shaders,
+    #files: _f$files,
   };
 
   static ModsLock _instantiate(DecodingData data) {
@@ -626,6 +826,7 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
       resourcePacks: data.dec(_f$resourcePacks),
       dataPacks: data.dec(_f$dataPacks),
       shaders: data.dec(_f$shaders),
+      files: data.dec(_f$files),
     );
   }
 
@@ -715,6 +916,13 @@ abstract class ModsLockCopyWith<$R, $In extends ModsLock, $Out>
     LockedEntryCopyWith<$R, LockedEntry, LockedEntry>
   >
   get shaders;
+  MapCopyWith<
+    $R,
+    String,
+    LockedFileEntry,
+    LockedFileEntryCopyWith<$R, LockedFileEntry, LockedFileEntry>
+  >
+  get files;
   $R call({
     String? gitrinthVersion,
     LoaderConfig? loader,
@@ -723,6 +931,7 @@ abstract class ModsLockCopyWith<$R, $In extends ModsLock, $Out>
     Map<String, LockedEntry>? resourcePacks,
     Map<String, LockedEntry>? dataPacks,
     Map<String, LockedEntry>? shaders,
+    Map<String, LockedFileEntry>? files,
   });
   ModsLockCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -787,6 +996,18 @@ class _ModsLockCopyWithImpl<$R, $Out>
     (v) => call(shaders: v),
   );
   @override
+  MapCopyWith<
+    $R,
+    String,
+    LockedFileEntry,
+    LockedFileEntryCopyWith<$R, LockedFileEntry, LockedFileEntry>
+  >
+  get files => MapCopyWith(
+    $value.files,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(files: v),
+  );
+  @override
   $R call({
     String? gitrinthVersion,
     LoaderConfig? loader,
@@ -795,6 +1016,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
     Map<String, LockedEntry>? resourcePacks,
     Map<String, LockedEntry>? dataPacks,
     Map<String, LockedEntry>? shaders,
+    Map<String, LockedFileEntry>? files,
   }) => $apply(
     FieldCopyWithData({
       if (gitrinthVersion != null) #gitrinthVersion: gitrinthVersion,
@@ -804,6 +1026,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
       if (resourcePacks != null) #resourcePacks: resourcePacks,
       if (dataPacks != null) #dataPacks: dataPacks,
       if (shaders != null) #shaders: shaders,
+      if (files != null) #files: files,
     }),
   );
   @override
@@ -815,6 +1038,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
     resourcePacks: data.get(#resourcePacks, or: $value.resourcePacks),
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),
     shaders: data.get(#shaders, or: $value.shaders),
+    files: data.get(#files, or: $value.files),
   );
 
   @override

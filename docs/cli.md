@@ -366,7 +366,7 @@ output tree contains `run.bat`/`run.sh`, `libraries/`, and
 
 ```text
 gitrinth build [--env <client|server|both>] [--output <path>]
-              [--clean] [--skip-download] [--offline]
+              [--clean] [--skip-download] [--no-prune] [--offline]
 ```
 
 | Option            | Description                                                                                            |
@@ -375,6 +375,7 @@ gitrinth build [--env <client|server|both>] [--output <path>]
 | `--output`, `-o`  | Override the output directory. Defaults to `./build`.                                                  |
 | `--clean`         | Remove the output directory before building.                                                           |
 | `--skip-download` | Fail rather than fetch missing artifacts.                                                              |
+| `--no-prune`      | Skip deleting obsolete files left over from a previous build. The new state ledger is still written.   |
 | `--offline`       | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 Partitioning follows
@@ -385,6 +386,45 @@ server-only. Under plugin loaders (`bukkit`, `folia`, `paper`,
 [`resource_packs`](mods-yaml.md#resource_packs) and
 [`data_packs`](mods-yaml.md#data_packs) partition normally. See
 [Plugin loaders](mods-yaml.md#plugin-loaders).
+
+#### Prune behavior
+
+Each build records the set of files it wrote into a side-car ledger
+at `build/<env>/.gitrinth-state.yaml`. On the next run, `build`
+compares the prior ledger against the new desired set and deletes
+files that are in the prior ledger but no longer wanted — typically
+because a mod was removed from `mods.yaml`, a [`files:`](mods-yaml.md#files)
+entry was deleted, or a per-side state changed.
+
+What `build` will prune:
+
+- Mod jars, pack files, shader packs, and data packs whose lock
+  entries were dropped from the manifest.
+- [`files:`](mods-yaml.md#files) entries that were removed from the
+  manifest (including `preserve: true` entries — `preserve` is *not*
+  sticky against removal).
+
+What `build` will **never** prune:
+
+- Files not in the prior ledger. A custom jar dropped into
+  `build/<env>/mods/` by the user, or any file from a fresh `--clean`
+  rebuild, is invisible to the prune pass and survives indefinitely.
+- The loader installer's outputs (`build/server/libraries/`,
+  `server.jar`, `run.bat`/`run.sh`, etc.). The installer runs after
+  the prune pass and writes outside the ledger.
+- The ledger itself and any `.gitrinth-installed-<loader>-<v>` marker.
+
+`--clean` wipes the output directory before the build, which clears
+the ledger too. `--no-prune` writes the new ledger but skips the
+delete pass — useful for inspecting which files would be pruned on
+the next run.
+
+When the assemble step is about to overwrite an existing destination
+that was *not* in the prior ledger, `build` logs a warning:
+`overwriting unmanaged file at <path> (was not in prior ledger)`.
+This catches the most common collision footgun (a custom jar with
+the same filename as a managed mod) without changing the
+overwrite-by-default behavior.
 
 ### `clean`
 
@@ -461,6 +501,15 @@ narrows the side). `--publishable` gates this for the
 executable mod artifacts require explicit author permission to
 redistribute. Resource packs, data packs, and shaders remain free to
 bundle non-Modrinth artifacts even with `--publishable`.
+
+[`files:`](mods-yaml.md#files) entries are bundled the same way: the
+destination key carries the full sub-path (e.g.
+`config/sodium-options.json`) and `pack` routes the file directly to
+`overrides/<destination>` / `client-overrides/<destination>` /
+`server-overrides/<destination>` based on the entry's per-side state.
+`files:` entries do not trip `--publishable` — Modrinth's permission
+policy targets executable mod jars only, and loose configs are
+explicitly permitted in publishable packs.
 
 When `pack` bundles non-Modrinth mod artifacts (default mode) it prints
 a warning enumerating each offending slug and links to

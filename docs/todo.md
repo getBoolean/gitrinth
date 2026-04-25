@@ -23,7 +23,7 @@ Deferred MVP work:
 - [ ] [Hosted source support](#hosted-source-support)
 - [ ] [Plugin-loader support](#plugin-loader-support)
 - [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
-- [ ] [Loose-files override support in `.mrpack`](#loose-files-override-support)
+- [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
 - [ ] [`downgrade` command](#downgrade-command)
@@ -223,16 +223,49 @@ Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
 
 ## Loose-files override support
 
-Modrinth `.mrpack` archives permit a loose-file override tree (for
-config files, scripts, etc.) separate from the `files[]` array.
-[`pack`](cli.md#pack) currently only routes `url:` / `path:` artifacts
-into `overrides/`. Generalize to first-class config-file overrides: the
-user drops files into `overrides/`, `client-overrides/`, or
-`server-overrides/` under the pack root, and `pack` preserves them in
-the archive.
+Shipped. The new top-level [`files:`](mods-yaml.md#files) section in
+`mods.yaml` declares loose files (configs, scripts, vanilla
+`options.txt`, etc.) keyed by destination path. Both pipelines now
+honor it:
 
-Touches: archive builder, [`mods-yaml.md`](mods-yaml.md),
-[`cli.md`](cli.md) (document the override tree layout).
+- [`build`](cli.md#build) copies each `files:` entry to its
+  destination under `build/<env>/`. A side-car ledger at
+  `build/<env>/.gitrinth-state.yaml` tracks every managed path so
+  re-runs prune obsolete files without touching loose user files.
+  Per-entry `preserve: true` skips overwriting an existing
+  destination — first-install-only behavior so user edits to
+  configs survive rebuilds (preserve is **not** sticky against
+  removal from the manifest).
+- [`pack`](cli.md#pack) bundles each `files:` entry into the
+  appropriate `.mrpack` overrides root (`overrides/`,
+  `client-overrides/`, `server-overrides/`) based on per-side state.
+  Loose configs do not trip `--publishable`.
+
+The prune pass mirrors packwiz-installer's two-layer model:
+authored state in `mods.yaml` + `mods.lock`, consumer-side ledger
+records "what was installed and where," prune by ledger membership.
+
+A new `--no-prune` flag on `build` skips obsolete-file deletion as a
+debug escape hatch.
+
+`optional` is reserved on `files:` entries in v1 — Modrinth's
+`.mrpack` overrides tree has no env/toggle metadata, and `build` has
+no UI toggle, so the flag would have no observable effect. The
+reservation will lift once a real consumer-side toggle materializes.
+
+Touches: [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
+[`lib/src/model/manifest/file_entry.dart`](../lib/src/model/manifest/file_entry.dart),
+[`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart),
+[`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart),
+[`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart),
+[`lib/src/model/manifest/emitter.dart`](../lib/src/model/manifest/emitter.dart),
+[`lib/src/model/state/build_state.dart`](../lib/src/model/state/build_state.dart),
+[`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart),
+[`lib/src/commands/build_command.dart`](../lib/src/commands/build_command.dart),
+[`lib/src/commands/build_orchestrator.dart`](../lib/src/commands/build_orchestrator.dart),
+[`lib/src/commands/build_pruner.dart`](../lib/src/commands/build_pruner.dart),
+[`lib/src/commands/pack_assembler.dart`](../lib/src/commands/pack_assembler.dart),
+[`mods-yaml.md`](mods-yaml.md), [`cli.md`](cli.md).
 
 ## `build` auto-downloads server binary
 

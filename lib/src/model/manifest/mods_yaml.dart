@@ -1,5 +1,7 @@
 import 'package:dart_mappable/dart_mappable.dart';
 
+import 'file_entry.dart';
+
 part 'mods_yaml.mapper.dart';
 
 @MappableEnum()
@@ -149,6 +151,12 @@ class ModsYaml with ModsYamlMappable {
   final Map<String, ModEntry> shaders;
   final Map<String, ModEntry> overrides;
 
+  /// Loose file declarations from the top-level `files:` section.
+  /// Keyed by destination path (relative to the build env root).
+  /// Outside the [Section] taxonomy because they don't flow through
+  /// pubgrub, mrpack `files[]` resolution, or the globalpacks tree.
+  final Map<String, FileEntry> files;
+
   const ModsYaml({
     required this.slug,
     required this.name,
@@ -161,6 +169,7 @@ class ModsYaml with ModsYamlMappable {
     this.dataPacks = const {},
     this.shaders = const {},
     this.overrides = const {},
+    this.files = const {},
   });
 
   Map<String, ModEntry> sectionEntries(Section section) {

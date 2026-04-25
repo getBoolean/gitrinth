@@ -98,3 +98,19 @@ overrides:
   #   # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.
   #   # url: https://example.com/path/to/jei.jar
   #   # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.
+
+files:
+  # Loose files copied into the build tree by `build` and bundled
+  # into the .mrpack overrides root by `pack`. Keys are destination
+  # paths relative to build/<env>/; values declare a local source
+  # path. `preserve: true` means build won't overwrite the dest on
+  # rebuild — user edits to the deployed file survive (preserve is
+  # NOT sticky against removal from this section).
+  #
+  # config/sodium-options.json:
+  #   path: ./presets/sodium-options.json
+  #   preserve: true
+  # kubejs/server_scripts/loot.js:
+  #   path: ./scripts/loot.js
+  #   client: unsupported # Server-only script.
+  #   server: required

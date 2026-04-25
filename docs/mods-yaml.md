@@ -36,6 +36,7 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`shaders`](#shaders)               | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                    |
 | [`plugins`](#plugins)               | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                    |
 | [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                   |
+| [`files`](#files)                   | no       | Loose files (configs, scripts) keyed by destination path. Copied into the build tree by `build` and bundled into the appropriate `*-overrides/` root by `pack`. Optional `preserve: true` skips overwriting existing files on rebuild. |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
 warning so typos don't silently disable options.
@@ -886,6 +887,86 @@ Overrides may also live in a companion
 with a single top-level `overrides:` key carrying the same map.
 When both are present, entries in `mods_overrides.yaml` win on
 conflicting keys and all other keys are unioned.
+
+### `files`
+
+Loose files copied into the build tree alongside mods. Use `files:`
+for content that is not a Modrinth-resolvable artifact: per-mod config
+files (`config/sodium-options.json`), KubeJS scripts, vanilla
+`options.txt`, server config files, and so on.
+
+Keys are destination paths relative to the build env root
+(`build/<env>/`). Each value declares a local source path, optional
+per-side state, and an optional `preserve` flag.
+
+```yaml
+files:
+  config/sodium-options.json:
+    path: ./presets/sodium-options.json
+    preserve: true
+  kubejs/server_scripts/loot.js:
+    path: ./scripts/loot.js
+    client: unsupported
+    server: required
+  options.txt:
+    path: ./client-defaults/options.txt
+    server: unsupported
+```
+
+Per-entry fields:
+
+| Field      | Type    | Default    | Description                                                                                                  |
+|------------|---------|------------|--------------------------------------------------------------------------------------------------------------|
+| `path`     | string  | (required) | Source path relative to `mods.yaml`.                                                                         |
+| `client`   | enum    | `required` | Install state on the client side. `required` or `unsupported`. (`optional` is reserved.)                     |
+| `server`   | enum    | `required` | Install state on the server side. `required` or `unsupported`. (`optional` is reserved.)                     |
+| `preserve` | boolean | `false`    | When `true`, [`build`](cli.md#build) does not overwrite an existing destination. First-install-only behavior. |
+
+Destination keys must be relative, normalized, non-empty paths with
+forward-slash separators. `..` segments, leading `/` or `\`, embedded
+`.\` or `//`, and `\` separators are rejected at parse time.
+
+#### `preserve: true` semantics
+
+`preserve: true` makes the file *first-install-only*. After the first
+build copies the file to its destination, subsequent builds skip the
+copy as long as the destination still exists — letting users edit the
+deployed config without their changes being trampled.
+
+`preserve` is **not sticky**: removing the entry from `files:` prunes
+the file on the next build, even if it was previously preserved. Treat
+`preserve` as "don't overwrite," not as "never delete." If you need a
+file to persist after the entry is removed, use a per-mod config
+default (which mods install themselves on first run) instead.
+
+#### How `files` interacts with `build` and `pack`
+
+[`gitrinth build`](cli.md#build) copies each in-scope `files:` entry to
+its destination under `build/<env>/`. The build also writes a side-car
+ledger (`build/<env>/.gitrinth-state.yaml`) that records every managed
+path; on subsequent runs, files in the prior ledger but not in the new
+desired set are pruned, while user-dropped loose files (anything not
+in the prior ledger) are never touched.
+
+[`gitrinth pack`](cli.md#pack) bundles each `files:` entry into the
+appropriate Modrinth `.mrpack` overrides root based on per-side state:
+
+- `client: required, server: required` → `overrides/<destination>`
+- `client: required, server: unsupported` → `client-overrides/<destination>`
+- `client: unsupported, server: required` → `server-overrides/<destination>`
+
+`files:` entries do not trip the [`--publishable`](cli.md#pack)
+restriction — Modrinth's permission policy targets executable mod
+jars under `mods/`, not loose configs.
+
+#### `optional` is reserved
+
+`client: optional` and `server: optional` are rejected on `files:`
+entries in v1. Modrinth's `.mrpack` format has no env/toggle metadata
+on loose overrides (only on Modrinth-CDN `files[]` entries), and
+`gitrinth build` has no UI toggle, so the flag would have no
+observable effect anywhere. The reservation will be lifted once a
+real consumer-side toggle mechanism appears.
 
 ## Resolution
 

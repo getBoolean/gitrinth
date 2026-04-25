@@ -8,6 +8,7 @@ import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../model/state/build_state.dart';
 import '../service/cache.dart';
 import '../service/console.dart';
 import '../service/loader_binary_fetcher.dart';
@@ -15,7 +16,9 @@ import '../service/manifest_io.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/server_installer.dart';
 import '../service/solve_report.dart';
+import '../version.dart';
 import 'build_assembler.dart';
+import 'build_pruner.dart';
 
 /// Inputs for [runBuild]. Mirrors `gitrinth build`'s flags so [LaunchCommand]
 /// can drive the same pipeline programmatically.
@@ -25,6 +28,7 @@ class BuildOptions {
     this.outputPath,
     this.clean = false,
     this.skipDownload = false,
+    this.noPrune = false,
     this.offline = false,
     this.verbose = false,
   });
@@ -33,6 +37,12 @@ class BuildOptions {
   final String? outputPath;
   final bool clean;
   final bool skipDownload;
+
+  /// When true, the obsolete-file deletion pass is skipped — the new
+  /// state ledger is still written, but files left over from a prior
+  /// build remain on disk. Debug escape hatch; default is false (prune).
+  final bool noPrune;
+
   final bool offline;
   final bool verbose;
 }
@@ -100,16 +110,22 @@ Future<int> runBuild({
 
   final projectDir = manifestIo.directory.path;
   for (final env in envs) {
-    final count = _assembleEnv(
+    final result = _assembleEnv(
       env: env,
       lock: lock,
       cache: cache,
       outputDir: outputDir,
       projectDir: projectDir,
       skipDownload: options.skipDownload,
+      noPrune: options.noPrune,
+      verbose: options.verbose,
+      console: console,
     );
     final envDir = Directory(p.join(outputDir.path, envDirName(env)));
-    console.info('Wrote $count file(s) to ${envDir.path}.');
+    console.info('Wrote ${result.count} file(s) to ${envDir.path}.');
+    if (result.pruned > 0) {
+      console.info('Pruned ${result.pruned} obsolete file(s).');
+    }
   }
 
   if (envs.contains(BuildEnv.server)) {
@@ -214,22 +230,81 @@ String _expectedCachedInstallerPath({
   }
 }
 
-int _assembleEnv({
+/// Result of [_assembleEnv]: count of newly-written/copied files plus
+/// the count of obsolete files pruned from the prior ledger.
+class _AssembleResult {
+  final int count;
+  final int pruned;
+  const _AssembleResult({required this.count, required this.pruned});
+}
+
+_AssembleResult _assembleEnv({
   required BuildEnv env,
   required ModsLock lock,
   required GitrinthCache cache,
   required Directory outputDir,
   required String projectDir,
   required bool skipDownload,
+  required bool noPrune,
+  required bool verbose,
+  required Console console,
 }) {
   final envRoot = Directory(p.join(outputDir.path, envDirName(env)));
   envRoot.createSync(recursive: true);
+
+  // Read the prior ledger once up front so the prune pass and the
+  // unmanaged-collision detector both see the same snapshot.
+  final priorLedger = readLedgerOrEmpty(ledgerPathFor(envRoot), env);
+
+  // Pre-compute the set of destination paths the assemble step is
+  // about to write. Keys are posix-separator relative paths under
+  // envRoot. This lets the prune pass run before any new file is
+  // written — obsolete files from the prior run are gone before
+  // the new ones land, which keeps disk-usage spikes small.
+  final desiredKeys = <String>{};
+  for (final section in Section.values) {
+    for (final entry in lock.sectionFor(section).values) {
+      final subdir = buildSubdirFor(section, env, entry);
+      if (subdir == null) continue;
+      desiredKeys.add(p.posix.join(subdir, destFilenameFor(entry)));
+    }
+  }
+  for (final entry in lock.files.values) {
+    final include = env == BuildEnv.client
+        ? entry.client.includes
+        : entry.server.includes;
+    if (!include) continue;
+    desiredKeys.add(entry.destination);
+  }
+
+  // Prune. Files in priorLedger but not in desiredKeys are obsolete;
+  // delete them and remove any newly-empty parent directories. Loose
+  // user-dropped files are NEVER touched here because they are not
+  // in the prior ledger by construction. Loader-installer outputs
+  // (libraries/, server.jar, etc.) are similarly invisible to the
+  // ledger and survive — see [build_pruner.isProtectedPath] for the
+  // belt-and-suspenders allow-list.
+  var pruned = 0;
+  if (!noPrune) {
+    for (final relPath in obsoletePaths(
+      prior: priorLedger,
+      desired: desiredKeys,
+    )) {
+      pruneFile(envRoot: envRoot, relPath: relPath);
+      pruned++;
+      if (verbose) console.detail('pruned $relPath');
+    }
+  }
 
   // Lazy-create one Directory per unique relative subdir under envRoot.
   // Data/resource packs split between required_*/ and optional_*/, so
   // the older "one dir per section" cache no longer fits.
   final dirCache = <String, Directory>{};
   final usedDestPaths = <String>{};
+  // Ledger entries accumulated as files are written (or preserve-skipped).
+  // Keyed by destination path relative to `envRoot`, normalized to posix
+  // separators so the ledger is identical across platforms.
+  final ledgerFiles = <String, LedgerSource>{};
   var count = 0;
 
   for (final section in Section.values) {
@@ -274,10 +349,98 @@ int _assembleEnv({
         );
       }
 
+      // Unmanaged-collision warning: if a file already exists at the
+      // dest and was NOT in the prior ledger, it's likely a user-
+      // dropped file with the same filename as a managed mod. We
+      // overwrite (matching packwiz-installer's silent-overwrite
+      // default) but surface a warning so the user notices.
+      final relKey = p.posix.join(subdir, destName);
+      if (File(destPath).existsSync() &&
+          !priorLedger.files.containsKey(relKey)) {
+        console.warn(
+          'overwriting unmanaged file at $relKey '
+          '(was not in prior ledger)',
+        );
+      }
       sourceFile.copySync(destPath);
+      ledgerFiles[relKey] = LedgerModSource(
+        section: section.name,
+        slug: entry.slug,
+        sha512: entry.file?.sha512,
+      );
       count++;
     }
   }
 
-  return count;
+  // Loose files declared in `files:` section. Their destination is the
+  // full relative path under the env root (no Section subdir routing),
+  // and per-side state filters which env they apply to.
+  for (final entry in lock.files.values) {
+    final include = env == BuildEnv.client
+        ? entry.client.includes
+        : entry.server.includes;
+    if (!include) continue;
+
+    final destPath = p.normalize(p.join(envRoot.path, entry.destination));
+    if (!usedDestPaths.add(destPath)) {
+      throw ValidationError(
+        'files: entry "${entry.destination}" collides with another '
+        'output file in ${envRoot.path}.',
+      );
+    }
+    // First-install-only: when `preserve: true`, do not overwrite an
+    // existing file. User edits to configs/scripts survive rebuilds.
+    // Removing the entry from `files:` still prunes it via the prune
+    // pass — preserve is not sticky.
+    final preserveSkipped =
+        entry.preserve && File(destPath).existsSync();
+    if (!preserveSkipped) {
+      // Unmanaged-collision warning, same reasoning as the mod loop:
+      // overwrite to match packwiz-installer behavior, but surface a
+      // warning so the user notices when their loose file collides
+      // with a managed `files:` declaration.
+      if (File(destPath).existsSync() &&
+          !priorLedger.files.containsKey(entry.destination)) {
+        console.warn(
+          'overwriting unmanaged file at ${entry.destination} '
+          '(was not in prior ledger)',
+        );
+      }
+      final sourceFile = File(
+        p.isAbsolute(entry.sourcePath)
+            ? entry.sourcePath
+            : p.normalize(p.join(projectDir, entry.sourcePath)),
+      );
+      if (!sourceFile.existsSync()) {
+        throw UserError(
+          'files: entry "${entry.destination}" points to a missing '
+          'source: ${sourceFile.path}',
+        );
+      }
+      Directory(p.dirname(destPath)).createSync(recursive: true);
+      sourceFile.copySync(destPath);
+      count++;
+    }
+    // Even when preserve skips the copy, the entry stays in the ledger
+    // so the next run can identify it as managed (and so removing it
+    // from `files:` later prunes the file).
+    ledgerFiles[entry.destination] = LedgerFileSource(
+      key: entry.destination,
+      preserve: entry.preserve,
+      sourcePath: entry.sourcePath,
+      sha512: entry.sha512,
+    );
+  }
+
+  writeLedger(
+    ledgerPathFor(envRoot),
+    BuildLedger(
+      gitrinthVersion: packageVersion,
+      env: ledgerEnvFor(env),
+      generatedAt: DateTime.now().toUtc().toIso8601String(),
+      files: ledgerFiles,
+    ),
+  );
+
+  return _AssembleResult(count: count, pruned: pruned);
 }

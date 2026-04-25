@@ -23,7 +23,28 @@ String emitModsLock(ModsLock lock) {
   _emitSection(buf, 'resource_packs', lock.resourcePacks);
   _emitSection(buf, 'data_packs', lock.dataPacks);
   _emitSection(buf, 'shaders', lock.shaders);
+  _emitFilesSection(buf, lock.files);
   return buf.toString();
+}
+
+void _emitFilesSection(StringBuffer buf, Map<String, LockedFileEntry> files) {
+  if (files.isEmpty) {
+    buf.writeln('files: {}');
+    return;
+  }
+  buf.writeln('files:');
+  final keys = files.keys.toList()..sort();
+  for (final dest in keys) {
+    final e = files[dest]!;
+    buf.writeln('  ${_key(dest)}:');
+    buf.writeln('    path: ${_str(e.sourcePath)}');
+    buf.writeln('    client: ${e.client.name}');
+    buf.writeln('    server: ${e.server.name}');
+    if (e.preserve) buf.writeln('    preserve: true');
+    if (e.sha512 != null) {
+      buf.writeln('    sha512: ${_str(e.sha512!.toLowerCase())}');
+    }
+  }
 }
 
 void _emitSection(

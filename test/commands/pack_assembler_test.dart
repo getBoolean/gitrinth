@@ -887,4 +887,203 @@ void main() {
       expect(byZip['server-mod'], 'server-overrides/mods/server.jar');
     });
   });
+
+  group('collectOverrides files: section', () {
+    ModsLock filesLock(Map<String, LockedFileEntry> files) => ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: const LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
+      mcVersion: '1.21.1',
+      files: files,
+    );
+
+    test('routes both-sides files: entries to overrides/<destination>', () {
+      final lock = filesLock({
+        'config/sodium-options.json': const LockedFileEntry(
+          destination: 'config/sodium-options.json',
+          sourcePath: './presets/sodium-options.json',
+          preserve: true,
+        ),
+      });
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(plan.entries, hasLength(1));
+      final e = plan.entries.single;
+      expect(e.section, isNull);
+      expect(e.sourceKind, 'file');
+      expect(e.zipPath, 'overrides/config/sodium-options.json');
+      expect(
+        e.sourcePath,
+        endsWith(p.join('proj', 'presets', 'sodium-options.json')),
+      );
+    });
+
+    test('routes client-only files: entries to client-overrides/', () {
+      final lock = filesLock({
+        'config/options.txt': const LockedFileEntry(
+          destination: 'config/options.txt',
+          sourcePath: './options.txt',
+          server: SideEnv.unsupported,
+        ),
+      });
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(
+        plan.entries.single.zipPath,
+        'client-overrides/config/options.txt',
+      );
+    });
+
+    test('routes server-only files: entries to server-overrides/', () {
+      final lock = filesLock({
+        'kubejs/server_scripts/loot.js': const LockedFileEntry(
+          destination: 'kubejs/server_scripts/loot.js',
+          sourcePath: './loot.js',
+          client: SideEnv.unsupported,
+        ),
+      });
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(
+        plan.entries.single.zipPath,
+        'server-overrides/kubejs/server_scripts/loot.js',
+      );
+    });
+
+    test('PackTarget.client drops server-only files: entries', () {
+      final lock = filesLock({
+        'kubejs/server_scripts/loot.js': const LockedFileEntry(
+          destination: 'kubejs/server_scripts/loot.js',
+          sourcePath: './loot.js',
+          client: SideEnv.unsupported,
+        ),
+      });
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.client,
+      );
+      expect(plan.entries, isEmpty);
+    });
+
+    test('PackTarget.server drops client-only files: entries', () {
+      final lock = filesLock({
+        'config/options.txt': const LockedFileEntry(
+          destination: 'config/options.txt',
+          sourcePath: './options.txt',
+          server: SideEnv.unsupported,
+        ),
+      });
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.server,
+      );
+      expect(plan.entries, isEmpty);
+    });
+
+    test('files: entries do not set hasModOverrides', () {
+      final lock = filesLock({
+        'config/options.txt': const LockedFileEntry(
+          destination: 'config/options.txt',
+          sourcePath: './options.txt',
+        ),
+      });
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(plan.hasModOverrides, isFalse);
+    });
+
+    test('rejects `..` segments in destination as defense-in-depth', () {
+      // Schema/parser already block this; the assembler re-asserts in
+      // case a stale or hand-written lock smuggles one through.
+      final lock = filesLock({
+        '../escape.txt': const LockedFileEntry(
+          destination: '../escape.txt',
+          sourcePath: './escape.txt',
+        ),
+      });
+      expect(
+        () => collectOverrides(
+          lock: lock,
+          cache: GitrinthCache(root: '/tmp/fakeroot'),
+          projectDir: '/proj',
+          target: PackTarget.combined,
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('..'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects absolute destination as defense-in-depth', () {
+      final lock = filesLock({
+        '/etc/foo.toml': const LockedFileEntry(
+          destination: '/etc/foo.toml',
+          sourcePath: './foo.toml',
+        ),
+      });
+      expect(
+        () => collectOverrides(
+          lock: lock,
+          cache: GitrinthCache(root: '/tmp/fakeroot'),
+          projectDir: '/proj',
+          target: PackTarget.combined,
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('coexists with mod overrides without setting hasModOverrides on files', () {
+      final lock = ModsLock(
+        gitrinthVersion: '0.1.0',
+        loader: const LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
+        mcVersion: '1.21.1',
+        mods: {
+          'local-mod': _path(slug: 'local-mod', path: '/a/local.jar'),
+        },
+        files: const {
+          'config/options.txt': LockedFileEntry(
+            destination: 'config/options.txt',
+            sourcePath: './options.txt',
+          ),
+        },
+      );
+      final plan = collectOverrides(
+        lock: lock,
+        cache: GitrinthCache(root: '/tmp/fakeroot'),
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(plan.hasModOverrides, isTrue, reason: 'mod entry sets the flag');
+      // Verify both mod and files entries are in the plan, with the
+      // mod entry tagged Section.mods and the files entry tagged null.
+      final modEntry = plan.entries.firstWhere((e) => e.slug == 'local-mod');
+      final fileEntry =
+          plan.entries.firstWhere((e) => e.slug == 'config/options.txt');
+      expect(modEntry.section, Section.mods);
+      expect(fileEntry.section, isNull);
+    });
+  });
 }

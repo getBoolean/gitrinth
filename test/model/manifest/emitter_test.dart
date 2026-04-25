@@ -223,6 +223,52 @@ void main() {
     expect(emitModsLock(parsed), once);
   });
 
+  test('emits and round-trips a files: section', () {
+    const lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: LoaderConfig(mods: Loader.neoforge),
+      mcVersion: '1.21.1',
+      files: {
+        'config/sodium-options.json': LockedFileEntry(
+          destination: 'config/sodium-options.json',
+          sourcePath: './presets/sodium-options.json',
+          preserve: true,
+          sha512: 'ABCDEF',
+        ),
+        'kubejs/server_scripts/loot.js': LockedFileEntry(
+          destination: 'kubejs/server_scripts/loot.js',
+          sourcePath: './scripts/loot.js',
+          client: SideEnv.unsupported,
+          server: SideEnv.required,
+        ),
+      },
+    );
+    final once = emitModsLock(lock);
+    expect(once, contains('files:'));
+    expect(once, contains('  config/sodium-options.json:'));
+    expect(once, contains('    preserve: true'));
+    expect(once, contains('    sha512: abcdef')); // lower-cased
+    expect(once, contains('  kubejs/server_scripts/loot.js:'));
+
+    final parsed = parseModsLock(once, filePath: 'mods.lock');
+    final sodium = parsed.files['config/sodium-options.json']!;
+    expect(sodium.sourcePath, './presets/sodium-options.json');
+    expect(sodium.preserve, isTrue);
+    expect(sodium.client, SideEnv.required);
+    expect(sodium.sha512, 'abcdef');
+    final loot = parsed.files['kubejs/server_scripts/loot.js']!;
+    expect(loot.client, SideEnv.unsupported);
+    expect(loot.server, SideEnv.required);
+    expect(loot.preserve, isFalse);
+
+    expect(emitModsLock(parsed), once);
+  });
+
+  test('empty files section emits empty mapping', () {
+    final out = emitModsLock(sample());
+    expect(out, contains('files: {}'));
+  });
+
   test('legacy `auto: true` lockfile parses to dependency: transitive', () {
     // Tolerate the older field name during the rename's transitional
     // window — old locks should still load, and the next `gitrinth get`

@@ -37,6 +37,14 @@ class BuildCommand extends GitrinthCommand with OfflineFlag {
         'skip-download',
         negatable: false,
         help: 'Fail rather than fetch missing artifacts.',
+      )
+      ..addFlag(
+        'no-prune',
+        negatable: false,
+        help:
+            'Skip deleting obsolete files left over from a previous build. '
+            'The new state ledger is still written. Useful for debugging '
+            'prune behavior.',
       );
     addOfflineFlag();
   }
@@ -53,6 +61,7 @@ class BuildCommand extends GitrinthCommand with OfflineFlag {
         outputPath: argResults!['output'] as String?,
         clean: argResults!['clean'] as bool,
         skipDownload: argResults!['skip-download'] as bool,
+        noPrune: argResults!['no-prune'] as bool,
         offline: readOfflineFlag(),
         verbose: gitrinthRunner.verbose,
       ),

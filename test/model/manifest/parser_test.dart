@@ -953,4 +953,246 @@ shaders: {}
       expect(l.mods['distanthorizons']!.server, SideEnv.optional);
     });
   });
+
+  group('parseModsYaml files: section', () {
+    String wrap(String filesBlock) =>
+        '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+mc-version: 1.21.1
+$filesBlock
+''';
+
+    test('parses a minimal files: entry with defaults', () {
+      final m = parseModsYaml(
+        wrap('''
+files:
+  config/sodium-options.json:
+    path: ./presets/sodium-options.json
+'''),
+        filePath: 'mods.yaml',
+      );
+      final f = m.files['config/sodium-options.json']!;
+      expect(f.destination, 'config/sodium-options.json');
+      expect(f.sourcePath, './presets/sodium-options.json');
+      expect(f.client, SideEnv.required);
+      expect(f.server, SideEnv.required);
+      expect(f.preserve, isFalse);
+    });
+
+    test('parses preserve: true and per-side state', () {
+      final m = parseModsYaml(
+        wrap('''
+files:
+  kubejs/server_scripts/loot.js:
+    path: ./scripts/loot.js
+    client: unsupported
+    server: required
+    preserve: true
+'''),
+        filePath: 'mods.yaml',
+      );
+      final f = m.files['kubejs/server_scripts/loot.js']!;
+      expect(f.client, SideEnv.unsupported);
+      expect(f.server, SideEnv.required);
+      expect(f.preserve, isTrue);
+    });
+
+    test('absent files: section yields empty map', () {
+      final m = parseModsYaml(wrap(''), filePath: 'mods.yaml');
+      expect(m.files, isEmpty);
+    });
+
+    test('rejects missing required path:', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  config/foo.toml:
+    preserve: true
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('missing required `path:`'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects unknown keys', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  config/foo.toml:
+    path: ./foo.toml
+    sha512: deadbeef
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('unknown key "sha512"'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects optional on client/server (deferred)', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  config/foo.toml:
+    path: ./foo.toml
+    client: optional
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('"optional"'),
+              contains('not supported on `files:`'),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('rejects both sides unsupported', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  config/foo.toml:
+    path: ./foo.toml
+    client: unsupported
+    server: unsupported
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('would not install anywhere'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects absolute destination key', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  /etc/foo.toml:
+    path: ./foo.toml
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('relative path'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects `..` segments in destination', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  ../escape.txt:
+    path: ./escape.txt
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('`..` segment'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects backslash separators in destination', () {
+      expect(
+        () => parseModsYaml(
+          wrap(r'''
+files:
+  config\foo.toml:
+    path: ./foo.toml
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('backslashes'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects denormalized destination', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  ./config/foo.toml:
+    path: ./foo.toml
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('contains an empty or `.` segment'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects non-boolean preserve', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+files:
+  config/foo.toml:
+    path: ./foo.toml
+    preserve: yes-please
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('preserve must be a boolean'),
+          ),
+        ),
+      );
+    });
+  });
 }

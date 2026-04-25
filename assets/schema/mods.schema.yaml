@@ -245,6 +245,26 @@ properties:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
+  files:
+    description: |
+      Loose files copied into the build tree (e.g. config files,
+      scripts) and bundled into the `.mrpack` archive's overrides
+      tree. Keys are destination paths relative to the build env
+      root (e.g. `config/sodium-options.json`); values declare a
+      local source path and per-side install state.
+
+      Destination keys must be relative, normalized (no `..`, no
+      `./`, no `//`, no leading `/` or `\`), non-empty paths.
+
+      `preserve: true` makes the file first-install-only: the
+      build step skips overwriting an existing destination so
+      user edits survive subsequent rebuilds. `preserve` is not
+      sticky — removing the entry from `files:` prunes the file on
+      the next build.
+    oneOf:
+      - type: "null"
+      - $ref: "#/$defs/fileMap"
+
 $defs:
 
   modVersion:
@@ -361,4 +381,49 @@ $defs:
       pattern: ^[a-z0-9][a-z0-9_-]*$
     additionalProperties:
       $ref: "#/$defs/modDependency"
+
+  fileEntry:
+    type: object
+    description: |
+      Loose file declaration. `path` (required) is a local source
+      path relative to mods.yaml. `client` / `server` mirror the
+      `SideEnv` vocabulary (`required` / `unsupported`); `optional`
+      is rejected for `files:` entries pending a real toggle
+      mechanism. `preserve: true` skips overwrite on rebuild.
+    additionalProperties: false
+    required:
+      - path
+    properties:
+      path:
+        type: string
+        minLength: 1
+        description: Source path relative to mods.yaml.
+      client:
+        description: Install state on the client side.
+        enum:
+          - required
+          - unsupported
+      server:
+        description: Install state on the server side.
+        enum:
+          - required
+          - unsupported
+      preserve:
+        type: boolean
+        default: false
+        description: |
+          When true, build does not overwrite an existing file at
+          the destination path. First-install-only behavior so
+          user edits survive rebuilds.
+
+  fileMap:
+    type: object
+    description: |
+      Map of destination path (relative to build env root) to file
+      declaration. Destination keys must be relative and normalized
+      (no `..`, no leading `/` or `\`).
+    propertyNames:
+      pattern: ^[^/\\][^\\]*$
+    additionalProperties:
+      $ref: "#/$defs/fileEntry"
 
