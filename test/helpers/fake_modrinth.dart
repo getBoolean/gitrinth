@@ -103,6 +103,88 @@ class FakeModrinth {
   String get neoforgeLegacyVersionsUrl =>
       'http://127.0.0.1:${_server.port}/neoforge-legacy/versions';
 
+  /// Template URL for the fake Forge installer endpoint, with `{mc}` and
+  /// `{v}` placeholders that mirror the real maven.minecraftforge.net path
+  /// shape (`<root>/<mc>-<v>/forge-<mc>-<v>-installer.jar`). Tests pass this
+  /// to [LoaderBinaryFetcher] so the cache exercise hits this server instead
+  /// of upstream.
+  String get forgeInstallerUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/forge-installer/'
+      '{mc}-{v}/forge-{mc}-{v}-installer.jar';
+
+  /// Template URL for the fake NeoForge installer endpoint (modern, MC ≥
+  /// 1.20.2). `{v}` placeholder mirrors `<root>/<v>/neoforge-<v>-installer.jar`.
+  String get neoforgeInstallerUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/neoforge-installer/'
+      '{v}/neoforge-{v}-installer.jar';
+
+  /// Template URL for the fake NeoForge legacy installer endpoint (MC 1.20.1).
+  /// `{mc}` and `{v}` placeholders mirror the real
+  /// `<root>/<mc>-<v>/forge-<mc>-<v>-installer.jar` shape.
+  String get neoforgeLegacyInstallerUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/neoforge-legacy-installer/'
+      '{mc}-{v}/forge-{mc}-{v}-installer.jar';
+
+  /// Template URL for the fake Fabric server-launch JAR endpoint.
+  /// `{mc}` and `{v}` placeholders mirror the real
+  /// `meta.fabricmc.net/v2/versions/loader/<mc>/<v>/server/jar` path.
+  String get fabricServerJarUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/fabric-server/'
+      '{mc}/{v}/server/jar';
+
+  /// Bytes served at the Forge installer endpoint, keyed by `<mc>-<v>`
+  /// (e.g. `1.21.1-52.1.5`). Tests register entries here, then assert the
+  /// downloaded file matches.
+  final Map<String, Uint8List> forgeInstallerBytes = {};
+
+  /// Bytes served at the modern NeoForge installer endpoint, keyed by `<v>`
+  /// (e.g. `21.1.50`).
+  final Map<String, Uint8List> neoforgeInstallerBytes = {};
+
+  /// Bytes served at the legacy NeoForge installer endpoint, keyed by
+  /// `<mc>-<v>` (the legacy maven uses the same path shape as Forge, so the
+  /// key includes the MC prefix).
+  final Map<String, Uint8List> neoforgeLegacyInstallerBytes = {};
+
+  /// Bytes served at the Fabric server-launch JAR endpoint, keyed by
+  /// `<mc>/<v>` (e.g. `1.21.1/0.17.3`).
+  final Map<String, Uint8List> fabricServerJarBytes = {};
+
+  /// Template URL for the fake Fabric universal installer endpoint.
+  /// `{installerVersion}` placeholder mirrors the real
+  /// `maven.fabricmc.net/net/fabricmc/fabric-installer/<v>/fabric-installer-<v>.jar`
+  /// path.
+  String get fabricInstallerUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/fabric-installer/'
+      '{installerVersion}/fabric-installer-{installerVersion}.jar';
+
+  /// Bytes served at the Fabric universal installer endpoint, keyed by
+  /// installer version (e.g. `1.0.1`).
+  final Map<String, Uint8List> fabricInstallerBytes = {};
+
+  /// Template URL for the fake Adoptium metadata endpoint. `{feature}`,
+  /// `{os}`, `{arch}` placeholders mirror the real
+  /// `api.adoptium.net/v3/assets/feature_releases/<feature>/ga` shape.
+  String get adoptiumMetadataUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/adoptium/v3/assets/'
+      'feature_releases/{feature}/ga'
+      '?architecture={arch}&os={os}';
+
+  /// JSON body served at the Adoptium metadata endpoint, keyed by
+  /// `<feature>-<os>-<arch>` (e.g. `21-windows-x64`). Tests register
+  /// entries as `List<Map<String, dynamic>>` to mirror the real shape.
+  final Map<String, List<Map<String, dynamic>>> adoptiumMetadata = {};
+
+  /// Bytes served at the Adoptium fake binary endpoint, keyed by the
+  /// path tail (e.g. `21-windows-x64.zip`). The metadata `package.link`
+  /// must point at `http://127.0.0.1:<port>/adoptium-binary/<key>` for
+  /// the test to wire end-to-end.
+  final Map<String, Uint8List> adoptiumBinaryBytes = {};
+
+  /// URL prefix tests should use when registering [adoptiumBinaryBytes].
+  String get adoptiumBinaryUrlPrefix =>
+      'http://127.0.0.1:${_server.port}/adoptium-binary/';
+
   /// Body served at [forgePromotionsUrl]. Shape mirrors the real
   /// `promotions_slim.json` — `promos` keyed by `<mc>-recommended` and
   /// `<mc>-latest`, values are bare build numbers.
@@ -247,6 +329,115 @@ class FakeModrinth {
       } else if (path == '/neoforge-legacy/versions') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode(neoforgeLegacyVersionsBody));
+      } else if (path.startsWith('/forge-installer/')) {
+        // /forge-installer/<mc>-<v>/forge-<mc>-<v>-installer.jar
+        final tail = path.substring('/forge-installer/'.length);
+        final slash = tail.indexOf('/');
+        final key = slash < 0 ? tail : tail.substring(0, slash);
+        final bytes = forgeInstallerBytes[key];
+        if (bytes == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'java-archive',
+          );
+          req.response.add(bytes);
+        }
+      } else if (path.startsWith('/neoforge-installer/')) {
+        // /neoforge-installer/<v>/neoforge-<v>-installer.jar
+        final tail = path.substring('/neoforge-installer/'.length);
+        final slash = tail.indexOf('/');
+        final key = slash < 0 ? tail : tail.substring(0, slash);
+        final bytes = neoforgeInstallerBytes[key];
+        if (bytes == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'java-archive',
+          );
+          req.response.add(bytes);
+        }
+      } else if (path.startsWith('/neoforge-legacy-installer/')) {
+        // /neoforge-legacy-installer/<mc>-<v>/forge-<mc>-<v>-installer.jar
+        final tail = path.substring('/neoforge-legacy-installer/'.length);
+        final slash = tail.indexOf('/');
+        final key = slash < 0 ? tail : tail.substring(0, slash);
+        final bytes = neoforgeLegacyInstallerBytes[key];
+        if (bytes == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'java-archive',
+          );
+          req.response.add(bytes);
+        }
+      } else if (path.startsWith('/fabric-installer/')) {
+        // /fabric-installer/<v>/fabric-installer-<v>.jar
+        final tail = path.substring('/fabric-installer/'.length);
+        final slash = tail.indexOf('/');
+        final key = slash < 0 ? tail : tail.substring(0, slash);
+        final bytes = fabricInstallerBytes[key];
+        if (bytes == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'java-archive',
+          );
+          req.response.add(bytes);
+        }
+      } else if (path.startsWith('/adoptium/v3/assets/feature_releases/')) {
+        // /adoptium/v3/assets/feature_releases/<feature>/ga?...
+        final tail = path.substring(
+          '/adoptium/v3/assets/feature_releases/'.length,
+        );
+        final slash = tail.indexOf('/');
+        final feature = slash < 0 ? tail : tail.substring(0, slash);
+        final qp = req.uri.queryParameters;
+        final os = qp['os'] ?? '';
+        final arch = qp['architecture'] ?? '';
+        final key = '$feature-$os-$arch';
+        final body = adoptiumMetadata[key];
+        if (body == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType.json;
+          req.response.write(jsonEncode(body));
+        }
+      } else if (path.startsWith('/adoptium-binary/')) {
+        final key = path.substring('/adoptium-binary/'.length);
+        final bytes = adoptiumBinaryBytes[key];
+        if (bytes == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'octet-stream',
+          );
+          req.response.add(bytes);
+        }
+      } else if (path.startsWith('/fabric-server/')) {
+        // /fabric-server/<mc>/<v>/server/jar
+        final tail = path.substring('/fabric-server/'.length);
+        final segments = tail.split('/');
+        if (segments.length >= 2) {
+          final key = '${segments[0]}/${segments[1]}';
+          final bytes = fabricServerJarBytes[key];
+          if (bytes == null) {
+            req.response.statusCode = 404;
+          } else {
+            req.response.headers.contentType = ContentType(
+              'application',
+              'java-archive',
+            );
+            req.response.add(bytes);
+          }
+        } else {
+          req.response.statusCode = 404;
+        }
       } else if (path.startsWith('/v2/project/')) {
         final tail = path.substring('/v2/project/'.length);
         if (tail.endsWith('/check')) {

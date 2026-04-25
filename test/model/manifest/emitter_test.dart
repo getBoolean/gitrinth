@@ -22,7 +22,6 @@ void main() {
           sha512: 'AABBCC',
           size: 12345,
         ),
-        env: Environment.both,
       ),
       'flywheel': LockedEntry(
         slug: 'flywheel',
@@ -148,7 +147,7 @@ void main() {
     expect(out, isNot(contains('accepts-mc')));
   });
 
-  test('emits optional: true and round-trips through parse', () {
+  test('emits client/server lines and round-trips through parse', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
       loader: LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
@@ -166,22 +165,27 @@ void main() {
             sha512: 'cafebabe',
             size: 12345,
           ),
-          env: Environment.both,
-          optional: true,
+          client: SideEnv.optional,
+          server: SideEnv.optional,
         ),
       },
     );
     final once = emitModsLock(lock);
-    expect(once, contains('    optional: true'));
+    expect(once, contains('    client: optional'));
+    expect(once, contains('    server: optional'));
     final reparsed = parseModsLock(once, filePath: 'mods.lock');
     final twice = emitModsLock(reparsed);
     expect(twice, once);
-    expect(reparsed.mods['distanthorizons']!.optional, isTrue);
+    expect(reparsed.mods['distanthorizons']!.client, SideEnv.optional);
+    expect(reparsed.mods['distanthorizons']!.server, SideEnv.optional);
   });
 
-  test('does not emit optional line when false', () {
+  test('emits required client/server by default', () {
     final out = emitModsLock(sample());
+    expect(out, contains('    client: required'));
+    expect(out, contains('    server: required'));
     expect(out, isNot(contains('optional:')));
+    expect(out, isNot(contains('env:')));
   });
 
   test('dependency: enum round-trips through emit -> parse -> emit', () {
@@ -219,6 +223,52 @@ void main() {
     expect(emitModsLock(parsed), once);
   });
 
+  test('emits and round-trips a files: section', () {
+    const lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: LoaderConfig(mods: Loader.neoforge),
+      mcVersion: '1.21.1',
+      files: {
+        'config/sodium-options.json': LockedFileEntry(
+          destination: 'config/sodium-options.json',
+          sourcePath: './presets/sodium-options.json',
+          preserve: true,
+          sha512: 'ABCDEF',
+        ),
+        'kubejs/server_scripts/loot.js': LockedFileEntry(
+          destination: 'kubejs/server_scripts/loot.js',
+          sourcePath: './scripts/loot.js',
+          client: SideEnv.unsupported,
+          server: SideEnv.required,
+        ),
+      },
+    );
+    final once = emitModsLock(lock);
+    expect(once, contains('files:'));
+    expect(once, contains('  config/sodium-options.json:'));
+    expect(once, contains('    preserve: true'));
+    expect(once, contains('    sha512: abcdef')); // lower-cased
+    expect(once, contains('  kubejs/server_scripts/loot.js:'));
+
+    final parsed = parseModsLock(once, filePath: 'mods.lock');
+    final sodium = parsed.files['config/sodium-options.json']!;
+    expect(sodium.sourcePath, './presets/sodium-options.json');
+    expect(sodium.preserve, isTrue);
+    expect(sodium.client, SideEnv.required);
+    expect(sodium.sha512, 'abcdef');
+    final loot = parsed.files['kubejs/server_scripts/loot.js']!;
+    expect(loot.client, SideEnv.unsupported);
+    expect(loot.server, SideEnv.required);
+    expect(loot.preserve, isFalse);
+
+    expect(emitModsLock(parsed), once);
+  });
+
+  test('empty files section emits empty mapping', () {
+    final out = emitModsLock(sample());
+    expect(out, contains('files: {}'));
+  });
+
   test('legacy `auto: true` lockfile parses to dependency: transitive', () {
     // Tolerate the older field name during the rename's transitional
     // window — old locks should still load, and the next `gitrinth get`
@@ -238,7 +288,8 @@ mods:
       name: flywheel.jar
       sha512: bb
       size: 1
-    env: both
+    client: required
+    server: required
     auto: true
 resource_packs: {}
 data_packs: {}

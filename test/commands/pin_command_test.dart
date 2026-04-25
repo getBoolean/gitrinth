@@ -90,7 +90,8 @@ mc-version: 1.21.1
 mods:
   jei:
     version: ^19.27.0.340
-    environment: client
+    client: required
+    server: unsupported
 ''');
     writeLock(baseLock);
 
@@ -98,7 +99,8 @@ mods:
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('version: 19.27.0+340'));
-    expect(yaml, contains('environment: client'));
+    expect(yaml, contains('client: required'));
+    expect(yaml, contains('server: unsupported'));
   });
 
   test('pin strips build metadata from the locked version', () async {

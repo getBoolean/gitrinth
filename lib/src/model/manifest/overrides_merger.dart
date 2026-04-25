@@ -45,12 +45,14 @@ Map<String, ModEntry> _applyTo(
       result[slug] = entry;
       return;
     }
-    // Override replaces version + source for this entry; env is overridden
-    // only if the override declared a non-default value.
+    // Override replaces version + source for this entry; per-side
+    // install state is overridden whenever the override declared a
+    // non-default value.
     result[slug] = ModEntry(
       slug: slug,
       constraintRaw: ov.constraintRaw ?? entry.constraintRaw,
-      env: ov.env,
+      client: ov.client,
+      server: ov.server,
       source: ov.source,
     );
   });

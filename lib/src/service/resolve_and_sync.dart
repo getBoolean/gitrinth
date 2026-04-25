@@ -312,6 +312,21 @@ Future<ResolveSyncResult> resolveAndSync({
       }
     }
   }
+  // Verify `files:` source paths exist; mirrors the `path:` mod-entry
+  // existence check above. Build-time resolution would also catch
+  // this, but failing fast at `get` time matches user expectations.
+  for (final entry in newLock.files.values) {
+    final resolved = p.isAbsolute(entry.sourcePath)
+        ? entry.sourcePath
+        : p.normalize(p.join(io.directory.path, entry.sourcePath));
+    if (FileSystemEntity.typeSync(resolved) ==
+        FileSystemEntityType.notFound) {
+      fetchErrors.add(
+        'files: entry "${entry.destination}" points to a missing source: '
+        '${entry.sourcePath} (looked in $resolved)',
+      );
+    }
+  }
   if (fetchErrors.isNotEmpty) {
     throw ValidationError(
       fetchErrors.length == 1
@@ -379,11 +394,11 @@ ModsLock _buildLock(
         sha512: r.file.sha512,
         size: r.file.size,
       ),
-      env: r.env,
+      client: r.client,
+      server: r.server,
       dependency: r.dependency,
       gameVersions: List.unmodifiable(r.version.gameVersions),
       acceptsMc: List.unmodifiable(entry?.acceptsMc ?? const <String>[]),
-      optional: r.optional,
     );
   }
   for (final section in Section.values) {
@@ -395,16 +410,16 @@ ModsLock _buildLock(
           slug: slug,
           sourceKind: LockedSourceKind.url,
           file: LockedFile(name: _filenameFromUrl(src.url), url: src.url),
-          env: entry.env,
-          optional: entry.optional,
+          client: entry.client,
+          server: entry.server,
         );
       } else if (src is PathEntrySource) {
         byKind[section]![slug] = LockedEntry(
           slug: slug,
           sourceKind: LockedSourceKind.path,
           path: src.path,
-          env: entry.env,
-          optional: entry.optional,
+          client: entry.client,
+          server: entry.server,
         );
       }
     });
@@ -416,6 +431,20 @@ ModsLock _buildLock(
     shaders: manifest.loader.shaders,
     plugins: manifest.loader.plugins,
   );
+  // Forward `files:` entries verbatim. `files:` is manifest-only — no
+  // pubgrub resolution, no Modrinth round-trip — so the lock entry is
+  // a 1:1 mirror of the FileEntry. Source-existence is verified later
+  // in the artifact-fetch loop (mirrors `path:` mod entries).
+  final lockedFiles = <String, LockedFileEntry>{
+    for (final e in manifest.files.entries)
+      e.key: LockedFileEntry(
+        destination: e.value.destination,
+        sourcePath: e.value.sourcePath,
+        client: e.value.client,
+        server: e.value.server,
+        preserve: e.value.preserve,
+      ),
+  };
   return ModsLock(
     gitrinthVersion: packageVersion,
     loader: lockedLoader,
@@ -424,6 +453,7 @@ ModsLock _buildLock(
     resourcePacks: byKind[Section.resourcePacks]!,
     dataPacks: byKind[Section.dataPacks]!,
     shaders: byKind[Section.shaders]!,
+    files: lockedFiles,
   );
 }
 

@@ -1,9 +1,11 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:pub_semver/pub_semver.dart';
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../util/mc_version.dart';
 
 /// Resolves the docker-style `<loader>:<tag>` syntax in `mods.yaml` to a
 /// concrete loader version.
@@ -278,27 +280,31 @@ class LoaderVersionResolver {
   }
 
   /// Extracts `(minor, patch)` from MC `1.A.B` or `1.A`. `1.A` returns
-  /// `(A, 0)` so the NeoForge prefix derivation is uniform.
-  ///
-  /// TODO: when MC versions ≥ 26 ship, daedalus_client switches to a year-
-  /// based versioning scheme (forge.rs:141-187) — this prefix derivation
-  /// will need to be revisited then.
+  /// `(A, 0)` so the NeoForge prefix derivation is uniform. Only accepts
+  /// the legacy `1.A[.B]` shape — Forge's prefix scheme is built on
+  /// `1.<minor>` and the `26.x` year-based scheme would need a different
+  /// derivation path.
   ({int minor, int patch}) _parseMcMinorPatch(
     String mc,
     Loader loader,
     String tag,
   ) {
-    final m = RegExp(r'^1\.(\d+)(?:\.(\d+))?$').firstMatch(mc);
-    if (m == null) {
+    final Version v;
+    try {
+      v = parseMcVersion(mc);
+    } on FormatException {
       throw UserError(
         'mc-version "$mc" is not a valid Minecraft release version '
         '(expected `1.A` or `1.A.B`); cannot resolve `${loader.name}:$tag`.',
       );
     }
-    return (
-      minor: int.parse(m.group(1)!),
-      patch: int.tryParse(m.group(2) ?? '0') ?? 0,
-    );
+    if (v.major != 1) {
+      throw UserError(
+        'mc-version "$mc" is not a valid Minecraft release version '
+        '(expected `1.A` or `1.A.B`); cannot resolve `${loader.name}:$tag`.',
+      );
+    }
+    return (minor: v.minor, patch: v.patch);
   }
 
   List<String> _neoforgeVersionList(dynamic body) {

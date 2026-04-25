@@ -15,18 +15,32 @@ import 'build_assembler.dart';
 /// in one zip, partitioned at install time by the per-file `env` map.
 enum PackTarget { client, server, combined }
 
-/// Returns true when an entry with [env] should be included in the
-/// `files[]` / overrides of a pack targeting [target]. `combined` keeps
-/// everything; `client` and `server` drop the opposite side's
-/// dedicated entries but always keep `Environment.both`.
-bool _includeForTarget(Environment env, PackTarget target) {
+/// Returns true when an entry should be included in the `files[]` /
+/// overrides of a pack targeting [target]. `combined` keeps everything;
+/// `client` drops server-only entries (server marked as required/optional
+/// while client is unsupported) and `server` drops client-only entries.
+bool _includeForTarget(LockedEntry entry, PackTarget target) {
   switch (target) {
     case PackTarget.combined:
-      return true;
+      return entry.client.includes || entry.server.includes;
     case PackTarget.client:
-      return env != Environment.server;
+      return entry.client.includes;
     case PackTarget.server:
-      return env != Environment.client;
+      return entry.server.includes;
+  }
+}
+
+/// `LockedFileEntry`-typed analogue of [_includeForTarget]. Same
+/// vocabulary, different parameter type — `files:` entries don't
+/// share the [LockedEntry] hierarchy.
+bool _includeForFileTarget(LockedFileEntry entry, PackTarget target) {
+  switch (target) {
+    case PackTarget.combined:
+      return entry.client.includes || entry.server.includes;
+    case PackTarget.client:
+      return entry.client.includes;
+    case PackTarget.server:
+      return entry.server.includes;
   }
 }
 
@@ -34,15 +48,26 @@ bool _includeForTarget(Environment env, PackTarget target) {
 /// Generated for any non-modrinth source (url/path), since the mrpack
 /// `files[]` list can only carry Modrinth CDN URLs.
 class OverridePlan {
+  /// Identifier surfaced in user-facing warnings. For mod/pack entries
+  /// this is the Modrinth slug; for `files:` entries it's the
+  /// destination path (the natural identifier in the manifest).
   final String slug;
-  final Section section;
 
-  /// Source kind, lowercase: `url` or `path`. Surfaced in user messages
-  /// so the permissions warning can name what to seek permission for.
+  /// Manifest section the entry came from, or `null` for `files:`
+  /// entries which live outside the [Section] taxonomy. Callers that
+  /// care about section (the `--publishable` warning text, the
+  /// mod-overrides counter) treat `null` as "not a mod section".
+  final Section? section;
+
+  /// Source kind, lowercase: `url`, `path`, or `file`. Surfaced in
+  /// user messages so the permissions warning can name what to seek
+  /// permission for. `file` entries (loose configs from the `files:`
+  /// section) never need Modrinth permission and never trip the
+  /// `--publishable` rejection.
   final String sourceKind;
 
   /// Absolute filesystem path to the source bytes (cached artifact for
-  /// `url:`, resolved disk path for `path:`).
+  /// `url:`, resolved disk path for `path:` and `files:`).
   final String sourcePath;
 
   /// Path inside the zip, e.g. `overrides/mods/local-mod.jar`.
@@ -119,10 +144,10 @@ MrpackIndex buildIndex({
 
   final files = <MrpackFile>[];
   for (final section in Section.values) {
-    final subdir = outputSubdirFor(section);
+    final subdir = mrpackSubdirFor(section);
     for (final entry in lock.sectionFor(section).values) {
       if (entry.sourceKind != LockedSourceKind.modrinth) continue;
-      if (!_includeForTarget(entry.env, target)) continue;
+      if (!_includeForTarget(entry, target)) continue;
       files.add(_modrinthFileFor(entry, subdir));
     }
   }
@@ -170,7 +195,7 @@ MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
   return MrpackFile(
     path: '$subdir/${file.name}',
     hashes: {'sha1': file.sha1!, 'sha512': file.sha512!},
-    env: mrpackEnv(entry.env, optional: entry.optional),
+    env: mrpackEnvFor(entry.client, entry.server),
     downloads: [downloadUrl],
     fileSize: file.size!,
   );
@@ -197,10 +222,8 @@ String _canonicalModrinthUrl(LockedEntry entry, LockedFile file) {
 ///   - `client-overrides/`  — installed on client only
 ///   - `server-overrides/`  — installed on server only
 ///
-/// We route by [LockedEntry.env]: `both → overrides/`, `client →
-/// client-overrides/`, `server → server-overrides/`. Shaders are parsed
-/// with `forcedEnv: Environment.client`, so they naturally land in
-/// `client-overrides/shaderpacks/` without a special case.
+/// We route by per-side install state: both sides installed → `overrides/`,
+/// client-only → `client-overrides/`, server-only → `server-overrides/`.
 ///
 /// When [target] is `client`, server-only entries are dropped entirely
 /// (a server-only override has nothing to do in a client pack); same
@@ -215,10 +238,10 @@ OverridesPlan collectOverrides({
   var hasModOverrides = false;
 
   for (final section in Section.values) {
-    final subdir = outputSubdirFor(section);
+    final subdir = mrpackSubdirFor(section);
     for (final entry in lock.sectionFor(section).values) {
       if (entry.sourceKind == LockedSourceKind.modrinth) continue;
-      if (!_includeForTarget(entry.env, target)) continue;
+      if (!_includeForTarget(entry, target)) continue;
       final sourcePath = resolveSourcePath(
         cache,
         entry,
@@ -231,23 +254,69 @@ OverridesPlan collectOverrides({
           section: section,
           sourceKind: entry.sourceKind.name,
           sourcePath: sourcePath,
-          zipPath: p.posix.join(_overridesRootFor(entry.env), subdir, destName),
+          zipPath: p.posix.join(
+            _overridesRootFor(entry.client, entry.server),
+            subdir,
+            destName,
+          ),
         ),
       );
       if (section == Section.mods) hasModOverrides = true;
     }
   }
 
+  // `files:` entries: loose configs/scripts that route through the same
+  // overrides tree but live outside the [Section] taxonomy. Their
+  // destination key already carries the full sub-path
+  // (e.g. `config/sodium-options.json`), so there is no `subdir` to
+  // join — only the per-side overrides root prefix. Loose configs are
+  // explicitly permitted by Modrinth's policy (only mod jars under
+  // `mods/` need permission), so `files:` entries never set
+  // `hasModOverrides` and never trip `--publishable`.
+  for (final entry in lock.files.values) {
+    if (!_includeForFileTarget(entry, target)) continue;
+    // Re-assert destination-path safety here as defense-in-depth: the
+    // schema/parser already reject `..` and absolute keys, but a
+    // malicious or stale lock could still reach this point.
+    if (entry.destination.isEmpty ||
+        entry.destination.startsWith('/') ||
+        entry.destination.startsWith(r'\') ||
+        entry.destination.contains(r'\')) {
+      throw ValidationError(
+        'files: entry "${entry.destination}" has an unsafe destination '
+        'path; refusing to include in the .mrpack archive.',
+      );
+    }
+    for (final seg in p.posix.split(entry.destination)) {
+      if (seg == '..' || seg == '.' || seg.isEmpty) {
+        throw ValidationError(
+          'files: entry "${entry.destination}" contains a `..`/`.` '
+          'segment; refusing to include in the .mrpack archive.',
+        );
+      }
+    }
+    final sourcePath = p.isAbsolute(entry.sourcePath)
+        ? entry.sourcePath
+        : p.normalize(p.join(projectDir, entry.sourcePath));
+    entries.add(
+      OverridePlan(
+        slug: entry.destination,
+        section: null,
+        sourceKind: 'file',
+        sourcePath: sourcePath,
+        zipPath: p.posix.join(
+          _overridesRootFor(entry.client, entry.server),
+          entry.destination,
+        ),
+      ),
+    );
+  }
+
   return OverridesPlan(entries: entries, hasModOverrides: hasModOverrides);
 }
 
-String _overridesRootFor(Environment env) {
-  switch (env) {
-    case Environment.both:
-      return 'overrides';
-    case Environment.client:
-      return 'client-overrides';
-    case Environment.server:
-      return 'server-overrides';
-  }
+String _overridesRootFor(SideEnv client, SideEnv server) {
+  if (client.includes && server.includes) return 'overrides';
+  if (client.includes) return 'client-overrides';
+  return 'server-overrides';
 }

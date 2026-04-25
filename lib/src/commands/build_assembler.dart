@@ -23,26 +23,45 @@ List<BuildEnv> targetEnvironments(String? envFlag) {
       return const [BuildEnv.client, BuildEnv.server];
     default:
       throw UsageError(
-        'invalid --env value: $envFlag (expected client, server, or both)',
+        'invalid environment "$envFlag" (expected client, server, or both)',
       );
   }
 }
 
-bool shouldIncludeEntry(Section section, LockedEntry entry, BuildEnv env) {
-  if (section == Section.shaders) {
-    return env == BuildEnv.client;
-  }
-  switch (entry.env) {
-    case Environment.both:
-      return true;
-    case Environment.client:
-      return env == BuildEnv.client;
-    case Environment.server:
-      return env == BuildEnv.server;
+/// Returns the install state for [entry] on [env]'s side, or
+/// [SideEnv.unsupported] if the entry isn't installed on that side.
+SideEnv sideForBuildEnv(LockedEntry entry, BuildEnv env) =>
+    entry.sideFor(env == BuildEnv.client);
+
+/// Loose-file build subdir for [entry] in the given [section] and [env],
+/// or null when the entry doesn't install on that side. Data and resource
+/// packs route by per-side install state into the `global_packs/*` tree
+/// the `globalpacks` mod loads from; mods and shaders keep their static
+/// subdirs.
+String? buildSubdirFor(Section section, BuildEnv env, LockedEntry entry) {
+  final side = sideForBuildEnv(entry, env);
+  if (side == SideEnv.unsupported) return null;
+  final isOptional = side == SideEnv.optional;
+  switch (section) {
+    case Section.mods:
+      return 'mods';
+    case Section.shaders:
+      return 'shaderpacks';
+    case Section.dataPacks:
+      return isOptional
+          ? 'global_packs/optional_data'
+          : 'global_packs/required_data';
+    case Section.resourcePacks:
+      return isOptional
+          ? 'global_packs/optional_resources'
+          : 'global_packs/required_resources';
   }
 }
 
-String outputSubdirFor(Section section) => switch (section) {
+/// `.mrpack` `files[]` and `overrides/` paths. Independent of build env
+/// and per-side install state — Modrinth pack consumers expect the
+/// historical `datapacks/` and `resourcepacks/` subdirs.
+String mrpackSubdirFor(Section section) => switch (section) {
   Section.mods => 'mods',
   Section.resourcePacks => 'resourcepacks',
   Section.dataPacks => 'datapacks',

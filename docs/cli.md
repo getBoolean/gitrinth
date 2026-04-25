@@ -55,6 +55,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 | [`build`](#build)   | Assemble the client and/or server distribution into `build/`. |
 | [`clean`](#clean)   | Delete generated files: `build/` and `mods.lock`.             |
 | [`pack`](#pack)     | Produce a Modrinth `.mrpack` artifact.                        |
+| [`launch`](#launch) | Build (when needed) and start the server to test the modpack. |
 
 ### Shell integration
 
@@ -74,7 +75,8 @@ detail.
 ## Offline mode
 
 [`get`](#get), [`upgrade`](#upgrade), [`add`](#add), [`remove`](#remove),
-[`build`](#build), and [`pack`](#pack) accept `--offline`. When set,
+[`build`](#build), [`pack`](#pack), and [`launch`](#launch) accept
+`--offline`. When set,
 the resolver narrows its candidate set to versions already present in
 the local cache and skips the Modrinth game-version check; for
 [`loader.mods`](mods-yaml.md#loader) tags `:stable` / `:latest`, the
@@ -355,21 +357,31 @@ or server.
 
 The server distribution includes the matching server binary for
 [`loader`](mods-yaml.md#loader) and
-[`mc-version`](mods-yaml.md#mc-version); users currently supply the
-installer by hand (see [`todo.md`](todo.md#build-auto-downloads-server-binary)).
+[`mc-version`](mods-yaml.md#mc-version), fetched and installed
+automatically from the upstream Maven repositories. Fabric drops in
+`fabric-server-launch.jar`; Forge and NeoForge run their official
+installer in `--installServer` mode against `build/server/`, so the
+output tree contains `run.bat`/`run.sh`, `libraries/`, and
+`user_jvm_args.txt` ready for [`launch server`](#launch).
 
 ```text
-gitrinth build [--env <client|server|both>] [--output <path>]
-              [--clean] [--skip-download] [--offline]
+gitrinth build [<client|server|both>] [--output <path>]
+              [--clean] [--skip-download] [--no-prune]
+              [--java <path>] [--no-managed-java] [--offline]
 ```
 
-| Option            | Description                                                                                            |
-|-------------------|--------------------------------------------------------------------------------------------------------|
-| `--env`           | Build only the named environment.                                                                      |
-| `--output`, `-o`  | Override the output directory. Defaults to `./build`.                                                  |
-| `--clean`         | Remove the output directory before building.                                                           |
-| `--skip-download` | Fail rather than fetch missing artifacts.                                                              |
-| `--offline`       | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
+The optional positional argument selects which environment to build.
+Omit it (or pass `both`) to build client and server together.
+
+| Option              | Description                                                                                            |
+|---------------------|--------------------------------------------------------------------------------------------------------|
+| `--output`, `-o`    | Override the output directory. Defaults to `./build`.                                                  |
+| `--clean`           | Remove the output directory before building.                                                           |
+| `--skip-download`   | Fail rather than fetch missing artifacts.                                                              |
+| `--no-prune`        | Skip deleting obsolete files left over from a previous build. The new state ledger is still written.   |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                      |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.          |
+| `--offline`         | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 Partitioning follows
 [`environment`](mods-yaml.md#per-mod-environment): default `both`;
@@ -379,6 +391,45 @@ server-only. Under plugin loaders (`bukkit`, `folia`, `paper`,
 [`resource_packs`](mods-yaml.md#resource_packs) and
 [`data_packs`](mods-yaml.md#data_packs) partition normally. See
 [Plugin loaders](mods-yaml.md#plugin-loaders).
+
+#### Prune behavior
+
+Each build records the set of files it wrote into a side-car ledger
+at `build/<env>/.gitrinth-state.yaml`. On the next run, `build`
+compares the prior ledger against the new desired set and deletes
+files that are in the prior ledger but no longer wanted — typically
+because a mod was removed from `mods.yaml`, a [`files:`](mods-yaml.md#files)
+entry was deleted, or a per-side state changed.
+
+What `build` will prune:
+
+- Mod jars, pack files, shader packs, and data packs whose lock
+  entries were dropped from the manifest.
+- [`files:`](mods-yaml.md#files) entries that were removed from the
+  manifest (including `preserve: true` entries — `preserve` is *not*
+  sticky against removal).
+
+What `build` will **never** prune:
+
+- Files not in the prior ledger. A custom jar dropped into
+  `build/<env>/mods/` by the user, or any file from a fresh `--clean`
+  rebuild, is invisible to the prune pass and survives indefinitely.
+- The loader installer's outputs (`build/server/libraries/`,
+  `server.jar`, `run.bat`/`run.sh`, etc.). The installer runs after
+  the prune pass and writes outside the ledger.
+- The ledger itself and any `.gitrinth-installed-<loader>-<v>` marker.
+
+`--clean` wipes the output directory before the build, which clears
+the ledger too. `--no-prune` writes the new ledger but skips the
+delete pass — useful for inspecting which files would be pruned on
+the next run.
+
+When the assemble step is about to overwrite an existing destination
+that was *not* in the prior ledger, `build` logs a warning:
+`overwriting unmanaged file at <path> (was not in prior ledger)`.
+This catches the most common collision footgun (a custom jar with
+the same filename as a managed mod) without changing the
+overwrite-by-default behavior.
 
 ### `clean`
 
@@ -456,9 +507,193 @@ executable mod artifacts require explicit author permission to
 redistribute. Resource packs, data packs, and shaders remain free to
 bundle non-Modrinth artifacts even with `--publishable`.
 
+[`files:`](mods-yaml.md#files) entries are bundled the same way: the
+destination key carries the full sub-path (e.g.
+`config/sodium-options.json`) and `pack` routes the file directly to
+`overrides/<destination>` / `client-overrides/<destination>` /
+`server-overrides/<destination>` based on the entry's per-side state.
+`files:` entries do not trip `--publishable` — Modrinth's permission
+policy targets executable mod jars only, and loose configs are
+explicitly permitted in publishable packs.
+
 When `pack` bundles non-Modrinth mod artifacts (default mode) it prints
 a warning enumerating each offending slug and links to
 [Modrinth's permissions guidance](https://support.modrinth.com/en/articles/8797527-obtaining-modpack-permissions).
+
+### `launch`
+
+Modpack-specific. Build (when needed) and start the modpack so you can
+test it end-to-end without leaving the CLI. Two subcommands:
+
+- [`launch server`](#launch-server) — boot the server JVM/script in
+  `build/server/` directly.
+- [`launch client`](#launch-client) — install the loader into a
+  per-pack workdir under the gitrinth cache, symlink the build's
+  artifact dirs (`mods/`, `config/`, ...) into it, and open the
+  official Minecraft Launcher there.
+
+#### `launch server`
+
+```text
+gitrinth launch server [--accept-eula] [--no-build] [--memory <size>]
+                       [--output <path>] [--java <path>] [--no-managed-java]
+                       [--offline] [-- <extra args>]
+```
+
+| Option              | Description                                                                                            |
+|---------------------|--------------------------------------------------------------------------------------------------------|
+| `--accept-eula`     | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.          |
+| `--no-build`        | Skip the implicit `gitrinth build server`. Use when the build tree is already up to date.              |
+| `--memory`, `-m`    | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.              |
+| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                            |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                      |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.          |
+| `--offline`         | Forwarded to the auto-build step and to the JDK auto-download fallback (both refuse network).          |
+| `-- <args>`         | Trailing args after `--` are appended to the server JVM/script invocation (e.g. `-- --port 25566`).    |
+
+`launch server` reads `mods.lock` to pick the right command per loader:
+
+- Fabric — `java -Xmx<mem> -Xms<mem> -jar fabric-server-launch.jar nogui`
+- Forge / NeoForge — `run.bat` (Windows) or `run.sh` (POSIX); the heap
+  size is written into `user_jvm_args.txt` rather than the CLI so the
+  installer's wrapper script picks it up.
+
+The Mojang EULA at <https://aka.ms/MinecraftEULA> applies — `eula.txt`
+must be `eula=true` before any vanilla server boots. `--accept-eula`
+performs that flip on your behalf; without it the JVM prints the EULA
+notice and exits, and you can re-run with the flag.
+
+#### `launch client`
+
+```text
+gitrinth launch client [--no-build] [--output <path>]
+                       [--java <path>] [--no-managed-java] [--offline]
+```
+
+| Option              | Description                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------|
+| `--no-build`        | Skip the implicit `gitrinth build client`. Use when the build tree is already up to date.       |
+| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                     |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).               |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.   |
+| `--offline`         | Rejected — the launcher needs network on first run to download libraries and assets.            |
+
+Each modpack gets its own `.minecraft`-shaped workdir under the
+gitrinth cache at `~/.gitrinth_cache/launchers/<slug>/`. The artifact
+dirs inside that workdir (`mods/`, `config/`, `resourcepacks/`,
+`shaderpacks/`, `datapacks/`) are directory symlinks — junctions on
+Windows — pointing back at `build/client/<section>`. Everything else
+the launcher writes (`versions/`, `libraries/`, `assets/`,
+`launcher_profiles.json`) and everything the user accumulates
+(`saves/`, `screenshots/`, `options.txt`, `servers.dat`, `logs/`,
+`crash-reports/`) is a real file inside the cache workdir. Result:
+`gitrinth clean` can wipe `build/` without touching the user's worlds
+or installed loader. The user's real `~/.minecraft/launcher_profiles.json`
+is also left untouched — the launcher reads only the workdir's copy.
+
+The flow:
+
+1. Builds `build/client/` (drop with `--no-build`).
+2. Creates the cache workdir at
+   `~/.gitrinth_cache/launchers/<slug>/` and refreshes a symlink for
+   each artifact section pointing at `build/client/<section>`.
+3. Fetches the loader's client installer JAR (cached at
+   `~/.gitrinth_cache/loaders/<loader>/<mc>/<v>/`).
+4. Runs `<installer> --installClient <cache workdir>` once per
+   `(loader, mc, loader-version)` triple. This populates
+   `<cache workdir>/versions/<id>/<id>.json`,
+   `<cache workdir>/libraries/`, and writes a single profile entry in
+   `<cache workdir>/launcher_profiles.json`.
+5. Spawns `MinecraftLauncher.exe --workDir <abs path to cache workdir>`.
+6. The launcher GUI offers exactly one profile; click Play. Auth +
+   asset/JRE download are handled by the launcher, scoped to the cache
+   workdir.
+
+**Requirements.** This relies on the
+[`--workDir`](https://minecraft.wiki/w/Minecraft_Launcher) flag of the
+**legacy unified Minecraft Launcher** (`MinecraftLauncher.exe`). The
+Microsoft Store / Xbox-app variant does **not** honour `--workDir` —
+self-launching the JVM directly is tracked as a follow-up in
+[`todo.md`](todo.md#self-launch-jvm-skip-the-official-launcher).
+
+**Caveats.**
+
+- Two checkouts of the same modpack share `<cache>/launchers/<slug>/`,
+  including saves and `options.txt`. Rename the slug or remove the
+  workdir before forking a checkout you want isolated.
+- After `gitrinth clean` the artifact symlinks dangle; the next
+  `gitrinth launch client` rebuilds `build/client/` and refreshes
+  them automatically.
+- The cache workdir is not removed by `gitrinth clean`. Delete
+  `<cache>/launchers/<slug>/` manually to reclaim its disk or reset
+  in-game state.
+
+**Disk cost.** Each modpack carries its own libraries (~500 MB),
+assets (~1 GB on first launch), and bundled JRE (~200 MB) inside its
+cache workdir. `gitrinth clean` does not sweep them; the cache
+workdir survives so worlds and tweaked options aren't lost. Hardlink
+deduplication across modpacks is a future optimization.
+
+Override the launcher locator with `GITRINTH_LAUNCHER` (single path)
+or `GITRINTH_LAUNCHER_SEARCH_PATHS` (list, separated by `;` on Windows
+or `:` elsewhere) — useful for portable installs and CI.
+
+#### Java runtime selection
+
+`launch server`, `launch client`, and `build server` all need a
+JVM — the server's launch script, the loader installer, and the
+Forge/NeoForge `--installServer` step. gitrinth picks one automatically
+based on the modpack's `mc-version` so you don't have to install or
+switch JDKs yourself.
+
+##### Required JDK feature per Minecraft version
+
+| MC version range                         | Required JDK feature |
+|------------------------------------------|----------------------|
+| `< 1.17`                                 | 8                    |
+| `1.17 ≤ v < 1.18`                        | 16                   |
+| `1.18 ≤ v < 1.20.5`                      | 17                   |
+| `1.20.5 ≤ v < 26.1` (incl. 1.21.x, 26.0) | 21                   |
+| `26.1 ≤ v`                               | 25                   |
+
+(Mojang's year-based versioning lands major engine bumps in point
+releases — MC 26.0 is still on Java 21, MC 26.1 is the first to need
+Java 25. The table is hand-maintained; future bumps add a row.)
+
+**Resolution chain.** The first source that satisfies the requirement
+wins:
+
+1. `--java <path>` — accepts a `java`/`java.exe` binary OR a JDK home
+   directory. **Hard-fails** if the major version doesn't match — the
+   resolver never silently overrides an explicit user choice.
+2. `JAVA_HOME` — same probe. **Soft-fails** on version mismatch:
+   logs a warning and falls through, so a stale system-wide JAVA_HOME
+   doesn't block a correctly-flagged invocation. Under
+   `--no-managed-java` (no auto-download escape hatch), the mismatch
+   surfaces in the final remediation error.
+3. **gitrinth-managed Temurin JDK** under
+   `~/.gitrinth_cache/runtimes/temurin/<feature>/<os>-<arch>/`.
+   Skips ahead of `PATH` because it's known-good and free (no
+   `java -version` probe needed).
+4. `PATH java` — the first `java[.exe]` on `PATH`. Soft-fail; falls
+   through to the auto-download if the version doesn't match.
+5. **Auto-download** Eclipse Temurin from the Adoptium API into the
+   cache (~190 MB once per JDK feature version). Refused when
+   `--no-managed-java` or `--offline` is set.
+6. Nothing satisfies → `UserError` listing what was tried plus
+   concrete remediation (`--java <path>`, drop `--offline`, install
+   a JDK manually).
+
+For Forge/NeoForge servers the chosen JDK's `bin/` is prepended to
+`PATH` and `JAVA_HOME` is set for the spawned `run.bat`/`run.sh` —
+the unmodified loader script picks up the right `java` without
+patching.
+
+**Air-gapped mirrors.** Override the metadata endpoint with
+`GITRINTH_JAVA_METADATA_URL`. The placeholder shape is
+`/<feature>/ga?architecture={arch}&os={os}&...`; point it at an
+internal Adoptium-shaped redistributor when the public API isn't
+reachable.
 
 ### `cache`
 
@@ -515,11 +750,13 @@ Overrides may also live in a standalone
 
 ## Environment variables
 
-| Variable                     | Used by       | Purpose                                                   |
-|------------------------------|---------------|-----------------------------------------------------------|
-| `GITRINTH_CACHE`             | every command | Override the cache root.                                  |
-| `GITRINTH_MODRINTH_URL`      | every command | Override the default Modrinth base URL.                   |
-| `HTTPS_PROXY` / `HTTP_PROXY` | every command | Standard proxy variables, honoured by every HTTP request. |
+| Variable                      | Used by                  | Purpose                                                   |
+|-------------------------------|--------------------------|-----------------------------------------------------------|
+| `GITRINTH_CACHE`              | every command            | Override the cache root.                                  |
+| `GITRINTH_MODRINTH_URL`       | every command            | Override the default Modrinth base URL.                   |
+| `GITRINTH_JAVA_METADATA_URL`  | `launch` / `build`       | Override Adoptium metadata URL.                           |
+| `JAVA_HOME`                   | `launch` / `build`       | Honored by the Java resolver if its major matches.        |
+| `HTTPS_PROXY` / `HTTP_PROXY`  | every command            | Standard proxy variables, honoured by every HTTP request. |
 
 ## Shell completion
 

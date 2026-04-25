@@ -5,7 +5,13 @@ import '../service/cache.dart';
 import '../service/cache_root.dart';
 import '../service/console.dart';
 import '../service/downloader.dart';
+import '../service/java_runtime_fetcher.dart';
+import '../service/java_runtime_resolver.dart';
+import '../service/loader_binary_fetcher.dart';
+import '../service/loader_client_installer.dart';
 import '../service/loader_version_resolver.dart';
+import '../service/minecraft_launcher_locator.dart';
+import '../service/server_installer.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_error_interceptor.dart';
 import '../service/modrinth_url.dart';
@@ -53,5 +59,51 @@ final loaderVersionResolverProvider = Provider<LoaderVersionResolver>(
   (ref) => LoaderVersionResolver(
     dio: ref.read(dioProvider),
     environment: ref.read(environmentProvider),
+  ),
+);
+
+final loaderBinaryFetcherProvider = Provider<LoaderBinaryFetcher>(
+  (ref) => LoaderBinaryFetcher(
+    cache: ref.read(cacheProvider),
+    downloader: ref.read(downloaderProvider),
+    environment: ref.read(environmentProvider),
+  ),
+);
+
+final javaRuntimeFetcherProvider = Provider<JavaRuntimeFetcher>(
+  (ref) => JavaRuntimeFetcher(
+    cache: ref.read(cacheProvider),
+    downloader: ref.read(downloaderProvider),
+    console: ref.read(consoleProvider),
+    environment: ref.read(environmentProvider),
+  ),
+);
+
+final javaRuntimeResolverProvider = Provider<JavaRuntimeResolver>(
+  (ref) => JavaRuntimeResolver(
+    fetcher: ref.read(javaRuntimeFetcherProvider),
+    environment: ref.read(environmentProvider),
+    console: ref.read(consoleProvider),
+  ),
+);
+
+final serverInstallerProvider = Provider<ServerInstaller>(
+  (ref) => ServerInstaller(
+    environment: ref.read(environmentProvider),
+    resolver: ref.read(javaRuntimeResolverProvider),
+    console: ref.read(consoleProvider),
+  ),
+);
+
+final minecraftLauncherLocatorProvider = Provider<MinecraftLauncherLocator>(
+  (ref) =>
+      MinecraftLauncherLocator(environment: ref.read(environmentProvider)),
+);
+
+final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(
+  (ref) => LoaderClientInstaller(
+    environment: ref.read(environmentProvider),
+    resolver: ref.read(javaRuntimeResolverProvider),
+    console: ref.read(consoleProvider),
   ),
 );

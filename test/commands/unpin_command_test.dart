@@ -56,13 +56,15 @@ mc-version: 1.21.1
 mods:
   iris:
     version: 1.8.12
-    environment: client
+    client: required
+    server: unsupported
 ''');
     final out = await runCli(['-C', packDir.path, 'unpin', 'iris']);
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('version: ^1.8.12'));
-    expect(yaml, contains('environment: client'));
+    expect(yaml, contains('client: required'));
+    expect(yaml, contains('server: unsupported'));
   });
 
   test('unpin errors when the constraint already has a caret', () async {

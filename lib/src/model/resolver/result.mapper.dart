@@ -16,7 +16,7 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ResolvedEntryMapper._());
       SectionMapper.ensureInitialized();
-      EnvironmentMapper.ensureInitialized();
+      SideEnvMapper.ensureInitialized();
       LockedDependencyKindMapper.ensureInitialized();
       modrinth.VersionMapper.ensureInitialized();
       VersionFileMapper.ensureInitialized();
@@ -34,8 +34,16 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     'section',
     _$section,
   );
-  static Environment _$env(ResolvedEntry v) => v.env;
-  static const Field<ResolvedEntry, Environment> _f$env = Field('env', _$env);
+  static SideEnv _$client(ResolvedEntry v) => v.client;
+  static const Field<ResolvedEntry, SideEnv> _f$client = Field(
+    'client',
+    _$client,
+  );
+  static SideEnv _$server(ResolvedEntry v) => v.server;
+  static const Field<ResolvedEntry, SideEnv> _f$server = Field(
+    'server',
+    _$server,
+  );
   static LockedDependencyKind _$dependency(ResolvedEntry v) => v.dependency;
   static const Field<ResolvedEntry, LockedDependencyKind> _f$dependency = Field(
     'dependency',
@@ -51,34 +59,27 @@ class ResolvedEntryMapper extends ClassMapperBase<ResolvedEntry> {
     'file',
     _$file,
   );
-  static bool _$optional(ResolvedEntry v) => v.optional;
-  static const Field<ResolvedEntry, bool> _f$optional = Field(
-    'optional',
-    _$optional,
-    opt: true,
-    def: false,
-  );
 
   @override
   final MappableFields<ResolvedEntry> fields = const {
     #slug: _f$slug,
     #section: _f$section,
-    #env: _f$env,
+    #client: _f$client,
+    #server: _f$server,
     #dependency: _f$dependency,
     #version: _f$version,
     #file: _f$file,
-    #optional: _f$optional,
   };
 
   static ResolvedEntry _instantiate(DecodingData data) {
     return ResolvedEntry(
       slug: data.dec(_f$slug),
       section: data.dec(_f$section),
-      env: data.dec(_f$env),
+      client: data.dec(_f$client),
+      server: data.dec(_f$server),
       dependency: data.dec(_f$dependency),
       version: data.dec(_f$version),
       file: data.dec(_f$file),
-      optional: data.dec(_f$optional),
     );
   }
 
@@ -149,11 +150,11 @@ abstract class ResolvedEntryCopyWith<$R, $In extends ResolvedEntry, $Out>
   $R call({
     String? slug,
     Section? section,
-    Environment? env,
+    SideEnv? client,
+    SideEnv? server,
     LockedDependencyKind? dependency,
     modrinth.Version? version,
     VersionFile? file,
-    bool? optional,
   });
   ResolvedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -176,31 +177,31 @@ class _ResolvedEntryCopyWithImpl<$R, $Out>
   $R call({
     String? slug,
     Section? section,
-    Environment? env,
+    SideEnv? client,
+    SideEnv? server,
     LockedDependencyKind? dependency,
     modrinth.Version? version,
     VersionFile? file,
-    bool? optional,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
       if (section != null) #section: section,
-      if (env != null) #env: env,
+      if (client != null) #client: client,
+      if (server != null) #server: server,
       if (dependency != null) #dependency: dependency,
       if (version != null) #version: version,
       if (file != null) #file: file,
-      if (optional != null) #optional: optional,
     }),
   );
   @override
   ResolvedEntry $make(CopyWithData data) => ResolvedEntry(
     slug: data.get(#slug, or: $value.slug),
     section: data.get(#section, or: $value.section),
-    env: data.get(#env, or: $value.env),
+    client: data.get(#client, or: $value.client),
+    server: data.get(#server, or: $value.server),
     dependency: data.get(#dependency, or: $value.dependency),
     version: data.get(#version, or: $value.version),
     file: data.get(#file, or: $value.file),
-    optional: data.get(#optional, or: $value.optional),
   );
 
   @override

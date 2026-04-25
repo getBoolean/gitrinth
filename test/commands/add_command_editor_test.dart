@@ -63,7 +63,8 @@ data_packs:
       expect(after, contains('terralith: ^2.5.8'));
     });
 
-    test('emits long-form with version + environment when longForm is set', () {
+    test('emits long-form with version + per-side state when longForm is set',
+        () {
       final before = '''
 slug: pack
 mods:
@@ -73,11 +74,16 @@ mods:
         before,
         section: Section.mods,
         slug: 'iris',
-        longForm: const {'version': '^1.8.12', 'environment': 'client'},
+        longForm: const {
+          'version': '^1.8.12',
+          'client': 'required',
+          'server': 'unsupported',
+        },
       );
       expect(after, contains('iris:'));
       expect(after, contains('version: ^1.8.12'));
-      expect(after, contains('environment: client'));
+      expect(after, contains('client: required'));
+      expect(after, contains('server: unsupported'));
     });
 
     test('emits long-form with only `url:` (no version key)', () {

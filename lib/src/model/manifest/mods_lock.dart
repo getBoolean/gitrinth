@@ -42,7 +42,12 @@ class LockedEntry with LockedEntryMappable {
   final String? versionId;
   final LockedFile? file;
   final String? path;
-  final Environment env;
+
+  /// Mirror of [ModEntry.client] — the resolved client-side install state.
+  final SideEnv client;
+
+  /// Mirror of [ModEntry.server] — the resolved server-side install state.
+  final SideEnv server;
 
   /// Whether this entry was declared by the user (`direct`) or pulled
   /// in transitively (`transitive`). Mirrors dart pub's lockfile
@@ -60,10 +65,6 @@ class LockedEntry with LockedEntryMappable {
   /// the user did not set `accepts-mc` in `mods.yaml`.
   final List<String> acceptsMc;
 
-  /// Mirror of `ModEntry.optional`; preserved through `gitrinth get` so
-  /// `pack` can emit `env: "optional"` in `modrinth.index.json`.
-  final bool optional;
-
   const LockedEntry({
     required this.slug,
     required this.sourceKind,
@@ -72,12 +73,50 @@ class LockedEntry with LockedEntryMappable {
     this.versionId,
     this.file,
     this.path,
-    this.env = Environment.both,
+    this.client = SideEnv.required,
+    this.server = SideEnv.required,
     this.dependency = LockedDependencyKind.direct,
     this.gameVersions = const [],
     this.acceptsMc = const [],
-    this.optional = false,
   });
+
+  /// Returns the install state for the requested build env.
+  SideEnv sideFor(bool isClient) => isClient ? client : server;
+}
+
+/// Locked counterpart of `FileEntry`. Manifest-only loose copy with a
+/// `preserve` bit; intentionally a separate class from [LockedEntry]
+/// because `LockedEntry.sourceKind` is closed over dep-graph semantics
+/// (`modrinth | url | path`), and `files:` entries do not flow through
+/// pubgrub.
+@MappableClass()
+class LockedFileEntry with LockedFileEntryMappable {
+  /// Destination path relative to the build env root.
+  final String destination;
+
+  /// Source path relative to the `mods.yaml` directory.
+  final String sourcePath;
+
+  final SideEnv client;
+  final SideEnv server;
+  final bool preserve;
+
+  /// Optional sha512 of the source bytes, recorded at copy time.
+  /// Reserved for future "did source change?" optimizations; not
+  /// currently consulted by build or pack.
+  final String? sha512;
+
+  const LockedFileEntry({
+    required this.destination,
+    required this.sourcePath,
+    this.client = SideEnv.required,
+    this.server = SideEnv.required,
+    this.preserve = false,
+    this.sha512,
+  });
+
+  /// Returns the install state for the requested build env.
+  SideEnv sideFor(bool isClient) => isClient ? client : server;
 }
 
 @MappableClass()
@@ -90,6 +129,10 @@ class ModsLock with ModsLockMappable {
   final Map<String, LockedEntry> dataPacks;
   final Map<String, LockedEntry> shaders;
 
+  /// Loose-file entries forwarded from `mods.yaml`'s `files:` section.
+  /// Keyed by destination path. Outside the [Section] taxonomy.
+  final Map<String, LockedFileEntry> files;
+
   const ModsLock({
     required this.gitrinthVersion,
     required this.loader,
@@ -98,6 +141,7 @@ class ModsLock with ModsLockMappable {
     this.resourcePacks = const {},
     this.dataPacks = const {},
     this.shaders = const {},
+    this.files = const {},
   });
 
   Iterable<MapEntry<String, LockedEntry>> get allEntries sync* {

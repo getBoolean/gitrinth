@@ -34,7 +34,8 @@ slug: pack
 mods:
   iris:
     version: ^1.8.12
-    environment: client
+    client: required
+    server: unsupported
 ''';
       final after = updateEntryConstraint(
         before,
@@ -43,7 +44,8 @@ mods:
         newConstraint: '1.8.12',
       );
       expect(after, contains('version: 1.8.12'));
-      expect(after, contains('environment: client'));
+      expect(after, contains('client: required'));
+      expect(after, contains('server: unsupported'));
     });
 
     test('rejects long-form entries without `version:`', () {

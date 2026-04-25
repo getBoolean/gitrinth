@@ -23,9 +23,10 @@ Deferred MVP work:
 - [ ] [Hosted source support](#hosted-source-support)
 - [ ] [Plugin-loader support](#plugin-loader-support)
 - [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
-- [ ] [Loose-files override support in `.mrpack`](#loose-files-override-support)
-- [ ] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
+- [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)
+- [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
+- [x] [Auto-fetch JDK matching `mc-version`](#auto-fetch-jdk-matching-mc-version)
 - [ ] [`downgrade` command](#downgrade-command)
 - [ ] [`outdated` command](#outdated-command)
 - [ ] [`deps` command](#deps-command)
@@ -223,28 +224,77 @@ Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
 
 ## Loose-files override support
 
-Modrinth `.mrpack` archives permit a loose-file override tree (for
-config files, scripts, etc.) separate from the `files[]` array.
-[`pack`](cli.md#pack) currently only routes `url:` / `path:` artifacts
-into `overrides/`. Generalize to first-class config-file overrides: the
-user drops files into `overrides/`, `client-overrides/`, or
-`server-overrides/` under the pack root, and `pack` preserves them in
-the archive.
+Shipped. The new top-level [`files:`](mods-yaml.md#files) section in
+`mods.yaml` declares loose files (configs, scripts, vanilla
+`options.txt`, etc.) keyed by destination path. Both pipelines now
+honor it:
 
-Touches: archive builder, [`mods-yaml.md`](mods-yaml.md),
-[`cli.md`](cli.md) (document the override tree layout).
+- [`build`](cli.md#build) copies each `files:` entry to its
+  destination under `build/<env>/`. A side-car ledger at
+  `build/<env>/.gitrinth-state.yaml` tracks every managed path so
+  re-runs prune obsolete files without touching loose user files.
+  Per-entry `preserve: true` skips overwriting an existing
+  destination — first-install-only behavior so user edits to
+  configs survive rebuilds (preserve is **not** sticky against
+  removal from the manifest).
+- [`pack`](cli.md#pack) bundles each `files:` entry into the
+  appropriate `.mrpack` overrides root (`overrides/`,
+  `client-overrides/`, `server-overrides/`) based on per-side state.
+  Loose configs do not trip `--publishable`.
+
+The prune pass mirrors packwiz-installer's two-layer model:
+authored state in `mods.yaml` + `mods.lock`, consumer-side ledger
+records "what was installed and where," prune by ledger membership.
+
+A new `--no-prune` flag on `build` skips obsolete-file deletion as a
+debug escape hatch.
+
+`optional` is reserved on `files:` entries in v1 — Modrinth's
+`.mrpack` overrides tree has no env/toggle metadata, and `build` has
+no UI toggle, so the flag would have no observable effect. The
+reservation will lift once a real consumer-side toggle materializes.
+
+Touches: [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
+[`lib/src/model/manifest/file_entry.dart`](../lib/src/model/manifest/file_entry.dart),
+[`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart),
+[`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart),
+[`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart),
+[`lib/src/model/manifest/emitter.dart`](../lib/src/model/manifest/emitter.dart),
+[`lib/src/model/state/build_state.dart`](../lib/src/model/state/build_state.dart),
+[`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart),
+[`lib/src/commands/build_command.dart`](../lib/src/commands/build_command.dart),
+[`lib/src/commands/build_orchestrator.dart`](../lib/src/commands/build_orchestrator.dart),
+[`lib/src/commands/build_pruner.dart`](../lib/src/commands/build_pruner.dart),
+[`lib/src/commands/pack_assembler.dart`](../lib/src/commands/pack_assembler.dart),
+[`mods-yaml.md`](mods-yaml.md), [`cli.md`](cli.md).
 
 ## `build` auto-downloads server binary
 
-[`build`](cli.md#build)'s server distribution needs the matching server
-binary for [`loader.mods`](mods-yaml.md#loader) +
-[`mc-version`](mods-yaml.md#mc-version). Fabric works today via
-`meta.fabricmc.net`; Forge and NeoForge require the user to supply the
-installer by hand. Wire up the corresponding upstream APIs so `build`
-fetches the server installer automatically.
+Shipped. [`build server`](cli.md#build) fetches the matching
+server binary for [`loader.mods`](mods-yaml.md#loader) +
+[`mc-version`](mods-yaml.md#mc-version) and lays out a runnable
+`build/server/` tree without user intervention:
 
-Touches: [`lib/src/commands/build.dart`](../lib/src/commands/build.dart),
-new upstream-API clients for Forge and NeoForge.
+- Fabric — `meta.fabricmc.net/v2/versions/loader/<mc>/<v>/server/jar`,
+  dropped in as `fabric-server-launch.jar`.
+- Forge — installer JAR from `maven.minecraftforge.net`, run in
+  `--installServer` mode against `build/server/`.
+- NeoForge (modern, MC ≥ 1.20.2) — installer from
+  `maven.neoforged.net/.../neoforge`, run in `--installServer` mode.
+- NeoForge (legacy, MC 1.20.1) — installer from
+  `maven.neoforged.net/.../forge` (legacy namespace).
+
+Installer JARs are cached under
+`<gitrinth-cache>/loaders/<loader>/<mc>/<v>/` so re-builds are
+network-free. A sentinel marker (`.gitrinth-installed-<loader>-<v>` in
+the build output) makes the install step idempotent. `--offline`
+refuses to run the Forge/NeoForge installers (which themselves fetch
+libraries) unless the marker already exists.
+
+Touches:
+[`lib/src/service/loader_binary_fetcher.dart`](../lib/src/service/loader_binary_fetcher.dart),
+[`lib/src/service/server_installer.dart`](../lib/src/service/server_installer.dart),
+[`lib/src/commands/build_orchestrator.dart`](../lib/src/commands/build_orchestrator.dart).
 
 ## Automatic `:stable` / `:latest` loader tag resolution
 
@@ -268,6 +318,40 @@ lock).
 Touches:
 [`lib/src/service/loader_version_resolver.dart`](../lib/src/service/loader_version_resolver.dart),
 [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart).
+
+## Auto-fetch JDK matching `mc-version`
+
+Shipped. See [Java runtime selection](cli.md#java-runtime-selection) in
+the CLI docs. `gitrinth launch server`, `launch client`, and
+`build --env server` resolve a JDK that satisfies the modpack's
+`mc-version` (1.20.5+ → 21, 1.21.x → 21, 26.1+ → 25, etc.) using a
+five-step chain: `--java <path>` → `JAVA_HOME` → cached gitrinth
+Temurin → `PATH java` → auto-download from Adoptium. `--java` and
+`JAVA_HOME` hard-fail on version mismatch; `PATH` soft-falls; the
+auto-download is refused under `--offline` or `--no-managed-java`.
+
+For Forge/NeoForge servers the chosen JDK's `bin/` is prepended to
+`PATH` and `JAVA_HOME` is set in the spawn environment, so the
+unmodified `run.bat`/`run.sh` picks up the right `java` without
+patching the loader's wrapper script.
+
+Cache layout:
+`~/.gitrinth_cache/runtimes/temurin/<feature>/<os>-<arch>/<jdk-dir>/`
+with a `.gitrinth-installed-temurin-<full-version>` JSON sentinel for
+inspector and prune integration.
+
+Touches:
+[`lib/src/util/host_platform.dart`](../lib/src/util/host_platform.dart),
+[`lib/src/util/mc_version.dart`](../lib/src/util/mc_version.dart),
+[`lib/src/service/cache.dart`](../lib/src/service/cache.dart),
+[`lib/src/service/java_runtime_fetcher.dart`](../lib/src/service/java_runtime_fetcher.dart),
+[`lib/src/service/java_runtime_resolver.dart`](../lib/src/service/java_runtime_resolver.dart),
+[`lib/src/service/server_installer.dart`](../lib/src/service/server_installer.dart),
+[`lib/src/service/loader_client_installer.dart`](../lib/src/service/loader_client_installer.dart),
+[`lib/src/commands/launch_command.dart`](../lib/src/commands/launch_command.dart),
+[`lib/src/commands/build_command.dart`](../lib/src/commands/build_command.dart),
+[`lib/src/commands/build_orchestrator.dart`](../lib/src/commands/build_orchestrator.dart),
+[`lib/src/app/providers.dart`](../lib/src/app/providers.dart).
 
 ## `downgrade` command
 

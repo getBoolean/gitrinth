@@ -20,7 +20,7 @@ Commands:
 - [x] `upgrade` — fully implemented (including `--unlock-transitive`).
 - [x] `add` — fully implemented.
 - [x] `remove` — fully implemented.
-- [x] `build` — implemented; server-binary auto-download deferred.
+- [x] `build` — implemented;
 - [x] `clean` — fully implemented.
 - [x] `pack` — implemented; emits a separate client + server `.mrpack` by default (use `--combined` for a single artifact); routes url/path artifacts into `overrides/` / `client-overrides/` / `server-overrides/` by env; `--publishable` refuses url/path mods (other sections still allowed). Recommended server installer: [mrpack-install](https://github.com/nothub/mrpack-install).
 - [x] `cache` — fully implemented.
@@ -28,7 +28,7 @@ Commands:
 Supporting work:
 
 - [x] `mods.yaml` read/write — done.
-- [x] Modrinth API client (version lookup; project-validity check still deferred).
+- [x] Modrinth API client (version lookup; project-validity check).
 - [x] Resolver and `mods.lock` format.
 - [x] Artifact cache (platform cache root, hash-verified download).
 - [x] `.mrpack` archive builder.
@@ -132,11 +132,11 @@ gitrinth remove <slug> [--dry-run]
 Assemble client and/or server distributions into `build/`.
 
 ```text
-gitrinth build [--env <client|server|both>] [--output <path>]
+gitrinth build [<client|server|both>] [--output <path>]
               [--clean] [--skip-download]
 ```
 
-- `--env <client|server|both>`
+- `<client|server|both>` (positional, optional; defaults to `both`)
 - `--output <path>`, `-o`
 - `--clean`
 - `--skip-download`

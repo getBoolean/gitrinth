@@ -58,20 +58,8 @@ String mrpackLoaderKey(Loader loader) {
   }
 }
 
-/// Maps an [Environment] to the per-file `env` map used by
-/// `modrinth.index.json`. Each side is `"required"`, `"optional"`, or
-/// `"unsupported"`. When [optional] is true, sides that would have been
-/// `"required"` become `"optional"` so the launcher presents a
-/// user-facing toggle. `"unsupported"` sides are preserved (env-split
-/// correctness — a server-only mod can't be optional on the client).
-Map<String, String> mrpackEnv(Environment env, {bool optional = false}) {
-  final included = optional ? 'optional' : 'required';
-  switch (env) {
-    case Environment.both:
-      return {'client': included, 'server': included};
-    case Environment.client:
-      return {'client': included, 'server': 'unsupported'};
-    case Environment.server:
-      return {'client': 'unsupported', 'server': included};
-  }
-}
+/// Maps a per-side install state pair to the per-file `env` map used by
+/// `modrinth.index.json`. Both sides pass through verbatim — [SideEnv]
+/// values share names with the strings mrpack expects.
+Map<String, String> mrpackEnvFor(SideEnv client, SideEnv server) =>
+    {'client': client.name, 'server': server.name};

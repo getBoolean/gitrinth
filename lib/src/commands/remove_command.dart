@@ -78,7 +78,7 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
 
     if (dryRun) {
       console.info('Would remove from ${sectionKeyFor(foundSection)}:');
-      console.info(_describeEntry(slug, foundEntry));
+      console.info(_describeEntry(slug, foundEntry, foundSection));
       return exitOk;
     }
 
@@ -108,7 +108,7 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
     return exitOk;
   }
 
-  String _describeEntry(String slug, ModEntry entry) {
+  String _describeEntry(String slug, ModEntry entry, Section section) {
     final src = entry.source;
     if (src is UrlEntrySource) {
       return '  $slug: url ${src.url}';
@@ -122,8 +122,12 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
     } else if (entry.channel != null) {
       parts.add(entry.channel!.name);
     }
-    if (entry.env != Environment.both) {
-      parts.add('[env=${entry.env.name}]');
+    final defaults = defaultSidesFor(section);
+    if (entry.client != defaults.client) {
+      parts.add('[client=${entry.client.name}]');
+    }
+    if (entry.server != defaults.server) {
+      parts.add('[server=${entry.server.name}]');
     }
     if (parts.isEmpty) return '  $slug';
     return '  $slug: ${parts.join(' ')}';

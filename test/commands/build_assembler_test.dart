@@ -7,42 +7,52 @@ import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/service/cache.dart';
 
-LockedEntry _modrinth(String slug, {Environment env = Environment.both}) =>
-    LockedEntry(
-      slug: slug,
-      sourceKind: LockedSourceKind.modrinth,
-      projectId: 'PRJ',
-      versionId: 'VER',
-      file: LockedFile(
-        name: '$slug.jar',
-        url: 'https://example.invalid/$slug.jar',
-        sha512: 'a' * 128, // 64-byte hex, matches expected sha512 length
-        size: 0,
-      ),
-      env: env,
-    );
+LockedEntry _modrinth(
+  String slug, {
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
+}) => LockedEntry(
+  slug: slug,
+  sourceKind: LockedSourceKind.modrinth,
+  projectId: 'PRJ',
+  versionId: 'VER',
+  file: LockedFile(
+    name: '$slug.jar',
+    url: 'https://example.invalid/$slug.jar',
+    sha512: 'a' * 128,
+    size: 0,
+  ),
+  client: client,
+  server: server,
+);
 
-LockedEntry _url(String slug, {Environment env = Environment.both}) =>
-    LockedEntry(
-      slug: slug,
-      sourceKind: LockedSourceKind.url,
-      file: LockedFile(
-        name: '$slug.jar',
-        url: 'https://example.invalid/$slug.jar',
-        sha512: 'b' * 128,
-      ),
-      env: env,
-    );
+LockedEntry _url(
+  String slug, {
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
+}) => LockedEntry(
+  slug: slug,
+  sourceKind: LockedSourceKind.url,
+  file: LockedFile(
+    name: '$slug.jar',
+    url: 'https://example.invalid/$slug.jar',
+    sha512: 'b' * 128,
+  ),
+  client: client,
+  server: server,
+);
 
 LockedEntry _path(
   String slug,
   String path, {
-  Environment env = Environment.both,
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
 }) => LockedEntry(
   slug: slug,
   sourceKind: LockedSourceKind.path,
   path: path,
-  env: env,
+  client: client,
+  server: server,
 );
 
 void main() {
@@ -65,65 +75,113 @@ void main() {
     });
   });
 
-  group('shouldIncludeEntry', () {
-    test('shaders are client-only regardless of entry env', () {
-      final shader = _modrinth('cr', env: Environment.both);
-      expect(
-        shouldIncludeEntry(Section.shaders, shader, BuildEnv.client),
-        isTrue,
+  group('buildSubdirFor', () {
+    test('shaders ship client-only when server is unsupported', () {
+      final shader = _modrinth(
+        'cr',
+        client: SideEnv.required,
+        server: SideEnv.unsupported,
       );
       expect(
-        shouldIncludeEntry(Section.shaders, shader, BuildEnv.server),
-        isFalse,
+        buildSubdirFor(Section.shaders, BuildEnv.client, shader),
+        'shaderpacks',
+      );
+      expect(
+        buildSubdirFor(Section.shaders, BuildEnv.server, shader),
+        isNull,
       );
     });
 
-    test('mods with env=both ship to both sides', () {
+    test('mods with both sides required ship to mods/ on both envs', () {
       final mod = _modrinth('jei');
-      expect(shouldIncludeEntry(Section.mods, mod, BuildEnv.client), isTrue);
-      expect(shouldIncludeEntry(Section.mods, mod, BuildEnv.server), isTrue);
+      expect(buildSubdirFor(Section.mods, BuildEnv.client, mod), 'mods');
+      expect(buildSubdirFor(Section.mods, BuildEnv.server, mod), 'mods');
     });
 
-    test('mods with env=client ship only client-side', () {
-      final mod = _modrinth('iris', env: Environment.client);
-      expect(shouldIncludeEntry(Section.mods, mod, BuildEnv.client), isTrue);
-      expect(shouldIncludeEntry(Section.mods, mod, BuildEnv.server), isFalse);
+    test('mods with client-only state skip server build', () {
+      final mod = _modrinth(
+        'iris',
+        client: SideEnv.required,
+        server: SideEnv.unsupported,
+      );
+      expect(buildSubdirFor(Section.mods, BuildEnv.client, mod), 'mods');
+      expect(buildSubdirFor(Section.mods, BuildEnv.server, mod), isNull);
     });
 
-    test('mods with env=server ship only server-side', () {
-      final mod = _modrinth('netherportalfix', env: Environment.server);
-      expect(shouldIncludeEntry(Section.mods, mod, BuildEnv.client), isFalse);
-      expect(shouldIncludeEntry(Section.mods, mod, BuildEnv.server), isTrue);
+    test('mods with server-only state skip client build', () {
+      final mod = _modrinth(
+        'netherportalfix',
+        client: SideEnv.unsupported,
+        server: SideEnv.required,
+      );
+      expect(buildSubdirFor(Section.mods, BuildEnv.client, mod), isNull);
+      expect(buildSubdirFor(Section.mods, BuildEnv.server, mod), 'mods');
     });
 
-    test('resource_packs and data_packs partition the same way as mods', () {
-      final rp = _modrinth('rp', env: Environment.client);
-      final dp = _modrinth('dp', env: Environment.server);
+    test('data_packs route by per-side state into global_packs/', () {
+      final required = _modrinth('terralith');
       expect(
-        shouldIncludeEntry(Section.resourcePacks, rp, BuildEnv.client),
-        isTrue,
+        buildSubdirFor(Section.dataPacks, BuildEnv.client, required),
+        'global_packs/required_data',
       );
       expect(
-        shouldIncludeEntry(Section.resourcePacks, rp, BuildEnv.server),
-        isFalse,
+        buildSubdirFor(Section.dataPacks, BuildEnv.server, required),
+        'global_packs/required_data',
+      );
+      final clientOptional = _modrinth(
+        'cosmetic-pack',
+        client: SideEnv.optional,
+        server: SideEnv.required,
       );
       expect(
-        shouldIncludeEntry(Section.dataPacks, dp, BuildEnv.client),
-        isFalse,
+        buildSubdirFor(Section.dataPacks, BuildEnv.client, clientOptional),
+        'global_packs/optional_data',
       );
       expect(
-        shouldIncludeEntry(Section.dataPacks, dp, BuildEnv.server),
-        isTrue,
+        buildSubdirFor(Section.dataPacks, BuildEnv.server, clientOptional),
+        'global_packs/required_data',
+      );
+    });
+
+    test(
+      'resource_packs default (client optional, server unsupported) lands in '
+      'global_packs/optional_resources on client only',
+      () {
+        final faithful = _modrinth(
+          'faithful-32x',
+          client: SideEnv.optional,
+          server: SideEnv.unsupported,
+        );
+        expect(
+          buildSubdirFor(Section.resourcePacks, BuildEnv.client, faithful),
+          'global_packs/optional_resources',
+        );
+        expect(
+          buildSubdirFor(Section.resourcePacks, BuildEnv.server, faithful),
+          isNull,
+        );
+      },
+    );
+
+    test('resource_packs with client: required land in required_resources', () {
+      final branding = _modrinth(
+        'branding-pack',
+        client: SideEnv.required,
+        server: SideEnv.unsupported,
+      );
+      expect(
+        buildSubdirFor(Section.resourcePacks, BuildEnv.client, branding),
+        'global_packs/required_resources',
       );
     });
   });
 
-  group('outputSubdirFor', () {
-    test('maps sections to launcher-style directory names', () {
-      expect(outputSubdirFor(Section.mods), 'mods');
-      expect(outputSubdirFor(Section.resourcePacks), 'resourcepacks');
-      expect(outputSubdirFor(Section.dataPacks), 'datapacks');
-      expect(outputSubdirFor(Section.shaders), 'shaderpacks');
+  group('mrpackSubdirFor', () {
+    test('keeps the historical mrpack paths regardless of per-side state', () {
+      expect(mrpackSubdirFor(Section.mods), 'mods');
+      expect(mrpackSubdirFor(Section.resourcePacks), 'resourcepacks');
+      expect(mrpackSubdirFor(Section.dataPacks), 'datapacks');
+      expect(mrpackSubdirFor(Section.shaders), 'shaderpacks');
     });
   });
 
@@ -194,8 +252,6 @@ void main() {
     test(
       'url entry missing sha512 falls back to the _unverified cache path',
       () {
-        // Mirrors the downloader: when a url-source artifact has no
-        // sha512 yet, it lives at <cache>/url/_unverified/<slug>/<name>.
         final entry = LockedEntry(
           slug: 'unhashed',
           sourceKind: LockedSourceKind.url,

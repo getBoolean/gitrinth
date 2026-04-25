@@ -166,53 +166,53 @@ extension PluginLoaderMapperExtension on PluginLoader {
   }
 }
 
-class EnvironmentMapper extends EnumMapper<Environment> {
-  EnvironmentMapper._();
+class SideEnvMapper extends EnumMapper<SideEnv> {
+  SideEnvMapper._();
 
-  static EnvironmentMapper? _instance;
-  static EnvironmentMapper ensureInitialized() {
+  static SideEnvMapper? _instance;
+  static SideEnvMapper ensureInitialized() {
     if (_instance == null) {
-      MapperContainer.globals.use(_instance = EnvironmentMapper._());
+      MapperContainer.globals.use(_instance = SideEnvMapper._());
     }
     return _instance!;
   }
 
-  static Environment fromValue(dynamic value) {
+  static SideEnv fromValue(dynamic value) {
     ensureInitialized();
     return MapperContainer.globals.fromValue(value);
   }
 
   @override
-  Environment decode(dynamic value) {
+  SideEnv decode(dynamic value) {
     switch (value) {
-      case r'client':
-        return Environment.client;
-      case r'server':
-        return Environment.server;
-      case r'both':
-        return Environment.both;
+      case r'required':
+        return SideEnv.required;
+      case r'optional':
+        return SideEnv.optional;
+      case r'unsupported':
+        return SideEnv.unsupported;
       default:
         throw MapperException.unknownEnumValue(value);
     }
   }
 
   @override
-  dynamic encode(Environment self) {
+  dynamic encode(SideEnv self) {
     switch (self) {
-      case Environment.client:
-        return r'client';
-      case Environment.server:
-        return r'server';
-      case Environment.both:
-        return r'both';
+      case SideEnv.required:
+        return r'required';
+      case SideEnv.optional:
+        return r'optional';
+      case SideEnv.unsupported:
+        return r'unsupported';
     }
   }
 }
 
-extension EnvironmentMapperExtension on Environment {
+extension SideEnvMapperExtension on SideEnv {
   String toValue() {
-    EnvironmentMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<Environment>(this) as String;
+    SideEnvMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<SideEnv>(this) as String;
   }
 }
 
@@ -916,7 +916,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ModEntryMapper._());
       ChannelMapper.ensureInitialized();
-      EnvironmentMapper.ensureInitialized();
+      SideEnvMapper.ensureInitialized();
       EntrySourceMapper.ensureInitialized();
     }
     return _instance!;
@@ -939,12 +939,19 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     _$channel,
     opt: true,
   );
-  static Environment _$env(ModEntry v) => v.env;
-  static const Field<ModEntry, Environment> _f$env = Field(
-    'env',
-    _$env,
+  static SideEnv _$client(ModEntry v) => v.client;
+  static const Field<ModEntry, SideEnv> _f$client = Field(
+    'client',
+    _$client,
     opt: true,
-    def: Environment.both,
+    def: SideEnv.required,
+  );
+  static SideEnv _$server(ModEntry v) => v.server;
+  static const Field<ModEntry, SideEnv> _f$server = Field(
+    'server',
+    _$server,
+    opt: true,
+    def: SideEnv.required,
   );
   static EntrySource _$source(ModEntry v) => v.source;
   static const Field<ModEntry, EntrySource> _f$source = Field(
@@ -960,23 +967,16 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     opt: true,
     def: const [],
   );
-  static bool _$optional(ModEntry v) => v.optional;
-  static const Field<ModEntry, bool> _f$optional = Field(
-    'optional',
-    _$optional,
-    opt: true,
-    def: false,
-  );
 
   @override
   final MappableFields<ModEntry> fields = const {
     #slug: _f$slug,
     #constraintRaw: _f$constraintRaw,
     #channel: _f$channel,
-    #env: _f$env,
+    #client: _f$client,
+    #server: _f$server,
     #source: _f$source,
     #acceptsMc: _f$acceptsMc,
-    #optional: _f$optional,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -984,10 +984,10 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       slug: data.dec(_f$slug),
       constraintRaw: data.dec(_f$constraintRaw),
       channel: data.dec(_f$channel),
-      env: data.dec(_f$env),
+      client: data.dec(_f$client),
+      server: data.dec(_f$server),
       source: data.dec(_f$source),
       acceptsMc: data.dec(_f$acceptsMc),
-      optional: data.dec(_f$optional),
     );
   }
 
@@ -1054,10 +1054,10 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     String? slug,
     String? constraintRaw,
     Channel? channel,
-    Environment? env,
+    SideEnv? client,
+    SideEnv? server,
     EntrySource? source,
     List<String>? acceptsMc,
-    bool? optional,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1085,19 +1085,19 @@ class _ModEntryCopyWithImpl<$R, $Out>
     String? slug,
     Object? constraintRaw = $none,
     Object? channel = $none,
-    Environment? env,
+    SideEnv? client,
+    SideEnv? server,
     EntrySource? source,
     List<String>? acceptsMc,
-    bool? optional,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
       if (constraintRaw != $none) #constraintRaw: constraintRaw,
       if (channel != $none) #channel: channel,
-      if (env != null) #env: env,
+      if (client != null) #client: client,
+      if (server != null) #server: server,
       if (source != null) #source: source,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
-      if (optional != null) #optional: optional,
     }),
   );
   @override
@@ -1105,10 +1105,10 @@ class _ModEntryCopyWithImpl<$R, $Out>
     slug: data.get(#slug, or: $value.slug),
     constraintRaw: data.get(#constraintRaw, or: $value.constraintRaw),
     channel: data.get(#channel, or: $value.channel),
-    env: data.get(#env, or: $value.env),
+    client: data.get(#client, or: $value.client),
+    server: data.get(#server, or: $value.server),
     source: data.get(#source, or: $value.source),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
-    optional: data.get(#optional, or: $value.optional),
   );
 
   @override
@@ -1126,6 +1126,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       MapperContainer.globals.use(_instance = ModsYamlMapper._());
       LoaderConfigMapper.ensureInitialized();
       ModEntryMapper.ensureInitialized();
+      FileEntryMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1189,6 +1190,13 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     opt: true,
     def: const {},
   );
+  static Map<String, FileEntry> _$files(ModsYaml v) => v.files;
+  static const Field<ModsYaml, Map<String, FileEntry>> _f$files = Field(
+    'files',
+    _$files,
+    opt: true,
+    def: const {},
+  );
 
   @override
   final MappableFields<ModsYaml> fields = const {
@@ -1203,6 +1211,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     #dataPacks: _f$dataPacks,
     #shaders: _f$shaders,
     #overrides: _f$overrides,
+    #files: _f$files,
   };
 
   static ModsYaml _instantiate(DecodingData data) {
@@ -1218,6 +1227,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       dataPacks: data.dec(_f$dataPacks),
       shaders: data.dec(_f$shaders),
       overrides: data.dec(_f$overrides),
+      files: data.dec(_f$files),
     );
   }
 
@@ -1289,6 +1299,13 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
   get shaders;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get overrides;
+  MapCopyWith<
+    $R,
+    String,
+    FileEntry,
+    FileEntryCopyWith<$R, FileEntry, FileEntry>
+  >
+  get files;
   $R call({
     String? slug,
     String? name,
@@ -1301,6 +1318,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     Map<String, ModEntry>? dataPacks,
     Map<String, ModEntry>? shaders,
     Map<String, ModEntry>? overrides,
+    Map<String, FileEntry>? files,
   });
   ModsYamlCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1352,6 +1370,18 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     (v) => call(overrides: v),
   );
   @override
+  MapCopyWith<
+    $R,
+    String,
+    FileEntry,
+    FileEntryCopyWith<$R, FileEntry, FileEntry>
+  >
+  get files => MapCopyWith(
+    $value.files,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(files: v),
+  );
+  @override
   $R call({
     String? slug,
     String? name,
@@ -1364,6 +1394,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     Map<String, ModEntry>? dataPacks,
     Map<String, ModEntry>? shaders,
     Map<String, ModEntry>? overrides,
+    Map<String, FileEntry>? files,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1377,6 +1408,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
       if (dataPacks != null) #dataPacks: dataPacks,
       if (shaders != null) #shaders: shaders,
       if (overrides != null) #overrides: overrides,
+      if (files != null) #files: files,
     }),
   );
   @override
@@ -1392,6 +1424,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),
     shaders: data.get(#shaders, or: $value.shaders),
     overrides: data.get(#overrides, or: $value.overrides),
+    files: data.get(#files, or: $value.files),
   );
 
   @override
