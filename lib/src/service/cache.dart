@@ -19,6 +19,24 @@ class GitrinthCache {
   String get tmpRoot => p.join(root, 'tmp');
   String get loadersRoot => p.join(root, 'loaders');
   String get launchersRoot => p.join(root, 'launchers');
+  String get runtimesRoot => p.join(root, 'runtimes');
+
+  /// Root directory of an extracted JDK feature for the current host.
+  /// Inside lives the vendor's archive top-level directory (e.g.
+  /// `jdk-21.0.5+11/`) plus a sentinel marker file.
+  String javaRuntimeDir({
+    required String vendor,
+    required int feature,
+    required String osKey,
+    required String archKey,
+  }) {
+    return p.join(
+      runtimesRoot,
+      vendor,
+      feature.toString(),
+      '$osKey-$archKey',
+    );
+  }
 
   /// Per-pack launcher work directory used by `gitrinth launch client`.
   /// Holds the loader install (`versions/`, `libraries/`, `assets/`),
@@ -118,5 +136,22 @@ class GitrinthCache {
   static Future<void> verifyFileSha512(File file, String expectedSha512) async {
     final bytes = await file.readAsBytes();
     verifySha512(Uint8List.fromList(bytes), expectedSha512);
+  }
+
+  /// Verifies [bytes] against [expectedSha256] (case-insensitive). Throws
+  /// [UserError] on mismatch.
+  static void verifySha256(List<int> bytes, String expectedSha256) {
+    final actual = sha256.convert(bytes).toString();
+    if (actual.toLowerCase() != expectedSha256.toLowerCase()) {
+      throw UserError(
+        'checksum mismatch: expected $expectedSha256, got $actual',
+      );
+    }
+  }
+
+  /// Verifies the contents of [file] against [expectedSha256].
+  static Future<void> verifyFileSha256(File file, String expectedSha256) async {
+    final bytes = await file.readAsBytes();
+    verifySha256(Uint8List.fromList(bytes), expectedSha256);
   }
 }

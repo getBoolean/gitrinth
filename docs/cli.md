@@ -366,17 +366,20 @@ output tree contains `run.bat`/`run.sh`, `libraries/`, and
 
 ```text
 gitrinth build [--env <client|server|both>] [--output <path>]
-              [--clean] [--skip-download] [--no-prune] [--offline]
+              [--clean] [--skip-download] [--no-prune]
+              [--java <path>] [--no-managed-java] [--offline]
 ```
 
-| Option            | Description                                                                                            |
-|-------------------|--------------------------------------------------------------------------------------------------------|
-| `--env`           | Build only the named environment.                                                                      |
-| `--output`, `-o`  | Override the output directory. Defaults to `./build`.                                                  |
-| `--clean`         | Remove the output directory before building.                                                           |
-| `--skip-download` | Fail rather than fetch missing artifacts.                                                              |
-| `--no-prune`      | Skip deleting obsolete files left over from a previous build. The new state ledger is still written.   |
-| `--offline`       | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
+| Option              | Description                                                                                            |
+|---------------------|--------------------------------------------------------------------------------------------------------|
+| `--env`             | Build only the named environment.                                                                      |
+| `--output`, `-o`    | Override the output directory. Defaults to `./build`.                                                  |
+| `--clean`           | Remove the output directory before building.                                                           |
+| `--skip-download`   | Fail rather than fetch missing artifacts.                                                              |
+| `--no-prune`        | Skip deleting obsolete files left over from a previous build. The new state ledger is still written.   |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                      |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.          |
+| `--offline`         | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
 
 Partitioning follows
 [`environment`](mods-yaml.md#per-mod-environment): default `both`;
@@ -531,17 +534,20 @@ test it end-to-end without leaving the CLI. Two subcommands:
 
 ```text
 gitrinth launch server [--accept-eula] [--no-build] [--memory <size>]
-                       [--output <path>] [--offline] [-- <extra args>]
+                       [--output <path>] [--java <path>] [--no-managed-java]
+                       [--offline] [-- <extra args>]
 ```
 
-| Option           | Description                                                                                         |
-|------------------|-----------------------------------------------------------------------------------------------------|
-| `--accept-eula`  | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.       |
-| `--no-build`     | Skip the implicit `gitrinth build --env server`. Use when the build tree is already up to date.     |
-| `--memory`, `-m` | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.           |
-| `--output`, `-o` | Override the build output directory. Defaults to `./build`.                                         |
-| `--offline`      | Forwarded to the auto-build step. Refuses to launch if a Forge/NeoForge install would need network. |
-| `-- <args>`      | Trailing args after `--` are appended to the server JVM/script invocation (e.g. `-- --port 25566`). |
+| Option              | Description                                                                                            |
+|---------------------|--------------------------------------------------------------------------------------------------------|
+| `--accept-eula`     | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.          |
+| `--no-build`        | Skip the implicit `gitrinth build --env server`. Use when the build tree is already up to date.        |
+| `--memory`, `-m`    | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.              |
+| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                            |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                      |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.          |
+| `--offline`         | Forwarded to the auto-build step and to the JDK auto-download fallback (both refuse network).          |
+| `-- <args>`         | Trailing args after `--` are appended to the server JVM/script invocation (e.g. `-- --port 25566`).    |
 
 `launch server` reads `mods.lock` to pick the right command per loader:
 
@@ -558,14 +564,17 @@ notice and exits, and you can re-run with the flag.
 #### `launch client`
 
 ```text
-gitrinth launch client [--no-build] [--output <path>] [--offline]
+gitrinth launch client [--no-build] [--output <path>]
+                       [--java <path>] [--no-managed-java] [--offline]
 ```
 
-| Option           | Description                                                                                     |
-|------------------|-------------------------------------------------------------------------------------------------|
-| `--no-build`     | Skip the implicit `gitrinth build --env client`. Use when the build tree is already up to date. |
-| `--output`, `-o` | Override the build output directory. Defaults to `./build`.                                     |
-| `--offline`      | Rejected — the launcher needs network on first run to download libraries and assets.            |
+| Option              | Description                                                                                     |
+|---------------------|-------------------------------------------------------------------------------------------------|
+| `--no-build`        | Skip the implicit `gitrinth build --env client`. Use when the build tree is already up to date. |
+| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                     |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).               |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.   |
+| `--offline`         | Rejected — the launcher needs network on first run to download libraries and assets.            |
 
 Each modpack gets its own `.minecraft`-shaped workdir under the
 gitrinth cache at `~/.gitrinth_cache/launchers/<slug>/`. The artifact
@@ -627,6 +636,59 @@ Override the launcher locator with `GITRINTH_LAUNCHER` (single path)
 or `GITRINTH_LAUNCHER_SEARCH_PATHS` (list, separated by `;` on Windows
 or `:` elsewhere) — useful for portable installs and CI.
 
+#### Java runtime selection
+
+`launch server`, `launch client`, and `build --env server` all need a
+JVM — the server's launch script, the loader installer, and the
+Forge/NeoForge `--installServer` step. gitrinth picks one automatically
+based on the modpack's `mc-version` so you don't have to install or
+switch JDKs yourself.
+
+##### Required JDK feature per Minecraft version
+
+| MC version range                         | Required JDK feature |
+|------------------------------------------|----------------------|
+| `< 1.17`                                 | 8                    |
+| `1.17 ≤ v < 1.18`                        | 16                   |
+| `1.18 ≤ v < 1.20.5`                      | 17                   |
+| `1.20.5 ≤ v < 26.1` (incl. 1.21.x, 26.0) | 21                   |
+| `26.1 ≤ v`                               | 25                   |
+
+(Mojang's year-based versioning lands major engine bumps in point
+releases — MC 26.0 is still on Java 21, MC 26.1 is the first to need
+Java 25. The table is hand-maintained; future bumps add a row.)
+
+**Resolution chain.** The first source that satisfies the requirement
+wins:
+
+1. `--java <path>` — accepts a `java`/`java.exe` binary OR a JDK home
+   directory. **Hard-fails** if the major version doesn't match — the
+   resolver never silently overrides an explicit user choice.
+2. `JAVA_HOME` — same probe as above, same hard-fail behavior.
+3. **gitrinth-managed Temurin JDK** under
+   `~/.gitrinth_cache/runtimes/temurin/<feature>/<os>-<arch>/`.
+   Skips ahead of `PATH` because it's known-good and free (no
+   `java -version` probe needed).
+4. `PATH java` — the first `java[.exe]` on `PATH`. Soft-fail; falls
+   through to the auto-download if the version doesn't match.
+5. **Auto-download** Eclipse Temurin from the Adoptium API into the
+   cache (~190 MB once per JDK feature version). Refused when
+   `--no-managed-java` or `--offline` is set.
+6. Nothing satisfies → `UserError` listing what was tried plus
+   concrete remediation (`--java <path>`, drop `--offline`, install
+   a JDK manually).
+
+For Forge/NeoForge servers the chosen JDK's `bin/` is prepended to
+`PATH` and `JAVA_HOME` is set for the spawned `run.bat`/`run.sh` —
+the unmodified loader script picks up the right `java` without
+patching.
+
+**Air-gapped mirrors.** Override the metadata endpoint with
+`GITRINTH_JAVA_METADATA_URL`. The placeholder shape is
+`/<feature>/ga?architecture={arch}&os={os}&...`; point it at an
+internal Adoptium-shaped redistributor when the public API isn't
+reachable.
+
 ### `cache`
 
 Inspect, clean, or repair the local cache — downloaded `.jar` files
@@ -682,11 +744,13 @@ Overrides may also live in a standalone
 
 ## Environment variables
 
-| Variable                     | Used by       | Purpose                                                   |
-|------------------------------|---------------|-----------------------------------------------------------|
-| `GITRINTH_CACHE`             | every command | Override the cache root.                                  |
-| `GITRINTH_MODRINTH_URL`      | every command | Override the default Modrinth base URL.                   |
-| `HTTPS_PROXY` / `HTTP_PROXY` | every command | Standard proxy variables, honoured by every HTTP request. |
+| Variable                      | Used by                  | Purpose                                                   |
+|-------------------------------|--------------------------|-----------------------------------------------------------|
+| `GITRINTH_CACHE`              | every command            | Override the cache root.                                  |
+| `GITRINTH_MODRINTH_URL`       | every command            | Override the default Modrinth base URL.                   |
+| `GITRINTH_JAVA_METADATA_URL`  | `launch` / `build`       | Override Adoptium metadata URL.                           |
+| `JAVA_HOME`                   | `launch` / `build`       | Honored by the Java resolver if its major matches.        |
+| `HTTPS_PROXY` / `HTTP_PROXY`  | every command            | Standard proxy variables, honoured by every HTTP request. |
 
 ## Shell completion
 

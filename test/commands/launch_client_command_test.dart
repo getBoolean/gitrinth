@@ -58,6 +58,8 @@ class _FakeClientInstaller implements LoaderClientInstaller {
   final String returnId;
   bool called = false;
   Directory? lastDotMinecraftDir;
+  String? lastJavaPath;
+  bool? lastAllowManagedJava;
 
   _FakeClientInstaller(this.returnId);
 
@@ -69,9 +71,13 @@ class _FakeClientInstaller implements LoaderClientInstaller {
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
+    String? javaPath,
+    bool allowManagedJava = true,
   }) async {
     called = true;
     lastDotMinecraftDir = dotMinecraftDir;
+    lastJavaPath = javaPath;
+    lastAllowManagedJava = allowManagedJava;
     return returnId;
   }
 }
@@ -176,6 +182,7 @@ void main() {
             args, {
             Directory? workingDirectory,
             bool runInShell = false,
+          Map<String, String>? environment,
           }) async {
             spawnCalls.add([exe, ...args]);
             return 0;
@@ -244,6 +251,7 @@ void main() {
                 args, {
                 Directory? workingDirectory,
                 bool runInShell = false,
+          Map<String, String>? environment,
               }) async => 0,
               fetcher: _FakeFetcher(installerJar),
               clientInstaller: _FakeClientInstaller(
@@ -285,6 +293,7 @@ void main() {
             args, {
             Directory? workingDirectory,
             bool runInShell = false,
+          Map<String, String>? environment,
           }) async => 0,
           fetcher: _FakeFetcher(installerJar),
           clientInstaller: _FakeClientInstaller('fabric-loader-0.17.3-1.21.1'),
@@ -317,6 +326,7 @@ void main() {
           args, {
           Directory? workingDirectory,
           bool runInShell = false,
+          Map<String, String>? environment,
         }) async => 0,
         fetcher: _CountingFetcher(installerJar, () => fetched = true),
         clientInstaller: _FakeClientInstaller('id'),
@@ -348,6 +358,7 @@ void main() {
               args, {
               Directory? workingDirectory,
               bool runInShell = false,
+          Map<String, String>? environment,
             }) async => 0,
             fetcher: _FakeFetcher(installerJar),
             clientInstaller: _FakeClientInstaller('id'),

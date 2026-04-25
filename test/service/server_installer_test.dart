@@ -26,7 +26,7 @@ void main() {
     test('Fabric installs by copying the launch JAR into outputDir', () async {
       final calls = <List<String>>[];
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           calls.add([exe, ...args]);
           return 0;
         },
@@ -50,7 +50,7 @@ void main() {
         () async {
       final calls = <List<String>>[];
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           calls.add([exe, ...args]);
           return 0;
         },
@@ -76,7 +76,7 @@ void main() {
     test('NeoForge invokes java with --installServer', () async {
       final calls = <List<String>>[];
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           calls.add([exe, ...args]);
           return 0;
         },
@@ -96,7 +96,7 @@ void main() {
     test('writes a sentinel marker so the second call is a no-op', () async {
       var callCount = 0;
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           callCount++;
           return 0;
         },
@@ -123,7 +123,7 @@ void main() {
 
     test('non-zero installer exit code is surfaced as UserError', () async {
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async =>
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async =>
             1,
       );
       await expectLater(
@@ -156,7 +156,7 @@ void main() {
     test('offline + no marker refuses to run the installer', () async {
       var called = false;
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           called = true;
           return 0;
         },
@@ -188,7 +188,7 @@ void main() {
           .writeAsStringSync('prior');
       var called = false;
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           called = true;
           return 0;
         },

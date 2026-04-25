@@ -7,6 +7,7 @@ import 'package:gitrinth/src/model/manifest/emitter.dart';
 import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/service/console.dart';
+import 'package:gitrinth/src/service/java_runtime_resolver.dart';
 import 'package:gitrinth/src/service/manifest_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
@@ -20,11 +21,42 @@ ModsLock _lock({Loader loader = Loader.fabric, String mcVersion = '1.21.1'}) {
   );
 }
 
+/// Stub resolver that returns a fixed `java` path without probing the host.
+/// All launch-server tests use this so they don't depend on the real JDK
+/// installed on the CI machine.
+class _FakeResolver implements JavaRuntimeResolver {
+  final String javaPath;
+  String? lastMcVersion;
+  String? lastExplicitPath;
+  bool? lastAllowManaged;
+  bool? lastOffline;
+
+  _FakeResolver({required this.javaPath});
+
+  @override
+  Future<File> resolve({
+    required String mcVersion,
+    String? explicitPath,
+    bool allowManaged = true,
+    bool offline = false,
+  }) async {
+    lastMcVersion = mcVersion;
+    lastExplicitPath = explicitPath;
+    lastAllowManaged = allowManaged;
+    lastOffline = offline;
+    return File(javaPath);
+  }
+
+  @override
+  Future<int?> probeMajorVersion(String javaPath) async => null;
+}
+
 class _FakeRunProcess {
   String? executable;
   List<String>? args;
   Directory? workingDirectory;
   bool? runInShell;
+  Map<String, String>? environment;
   int exitCode = 0;
 
   _FakeRunProcess();
@@ -34,11 +66,13 @@ class _FakeRunProcess {
     List<String> a, {
     Directory? workingDirectory,
     bool runInShell = false,
+    Map<String, String>? environment,
   }) async {
     executable = exe;
     args = a;
     this.workingDirectory = workingDirectory;
     this.runInShell = runInShell;
+    this.environment = environment;
     return exitCode;
   }
 }
@@ -51,6 +85,7 @@ void main() {
     late Directory serverDir;
     late ManifestIo io;
     late ProviderContainer container;
+    late _FakeResolver fakeResolver;
 
     setUp(() {
       tempRoot = Directory.systemTemp.createTempSync('gitrinth_launch_');
@@ -59,6 +94,9 @@ void main() {
       serverDir = Directory(p.join(buildDir.path, 'server'))..createSync();
       io = ManifestIo(directory: packDir);
       container = ProviderContainer();
+      fakeResolver = _FakeResolver(
+        javaPath: p.join(tempRoot.path, 'fake', 'bin', 'java'),
+      );
     });
 
     tearDown(() {
@@ -89,6 +127,7 @@ void main() {
         console: const Console(),
         io: io,
         runProcess: fake.call,
+        resolver: fakeResolver,
       );
 
       expect(code, 0);
@@ -117,10 +156,12 @@ void main() {
         console: const Console(),
         io: io,
         runProcess: fake.call,
+        resolver: fakeResolver,
       );
 
       expect(fake.executable, isNotNull);
-      expect(fake.executable!.toLowerCase(), contains('java'));
+      // Fabric runs the resolved JDK directly (not run.sh / run.bat).
+      expect(fake.executable, fakeResolver.javaPath);
       expect(fake.args, contains('-Xmx4G'));
       expect(fake.args, contains('-Xms4G'));
       expect(fake.args, contains('-jar'));
@@ -128,6 +169,33 @@ void main() {
       expect(fake.args, contains('nogui'));
       expect(fake.args, containsAllInOrder(['--port', '25566']));
       expect(fake.workingDirectory?.path, serverDir.path);
+    });
+
+    test('--java and --no-managed-java flow through to the resolver',
+        () async {
+      writeLock(_lock(loader: Loader.fabric));
+      File(p.join(serverDir.path, 'fabric-server-launch.jar'))
+          .writeAsStringSync('FAB');
+      await runLaunchServer(
+        options: LaunchServerOptions(
+          acceptEula: false,
+          autoBuild: false,
+          memory: '2G',
+          offline: false,
+          verbose: false,
+          extraArgs: const [],
+          javaPath: '/some/explicit/java',
+          allowManagedJava: false,
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess: _FakeRunProcess().call,
+        resolver: fakeResolver,
+      );
+      expect(fakeResolver.lastExplicitPath, '/some/explicit/java');
+      expect(fakeResolver.lastAllowManaged, isFalse);
+      expect(fakeResolver.lastMcVersion, '1.21.1');
     });
 
     test('Fabric launch does not write eula.txt without --accept-eula',
@@ -148,6 +216,7 @@ void main() {
         console: const Console(),
         io: io,
         runProcess: _FakeRunProcess().call,
+        resolver: fakeResolver,
       );
       expect(File(p.join(serverDir.path, 'eula.txt')).existsSync(), isFalse);
     });
@@ -175,6 +244,7 @@ void main() {
           console: const Console(),
           io: io,
           runProcess: fake.call,
+        resolver: fakeResolver,
           doBuild: (opts) async {
             captured = opts;
             return 0;
@@ -208,6 +278,7 @@ void main() {
           args, {
           Directory? workingDirectory,
           bool runInShell = false,
+          Map<String, String>? environment,
         }) async {
           spawnCalled = true;
           return 0;
@@ -235,6 +306,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: _FakeRunProcess().call,
+        resolver: fakeResolver,
           ),
           throwsA(
             isA<UserError>().having(
@@ -266,6 +338,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: _FakeRunProcess().call,
+        resolver: fakeResolver,
           ),
           throwsA(
             isA<UserError>().having(
@@ -301,6 +374,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: fake.call,
+        resolver: fakeResolver,
           );
 
           if (Platform.isWindows) {
@@ -342,9 +416,22 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: fake.call,
+        resolver: fakeResolver,
           );
           expect(fake.executable, endsWith('run.bat'));
           expect(fake.runInShell, isTrue);
+          // The chosen JDK's bin/ is prepended to PATH and JAVA_HOME
+          // points at its parent so the unmodified run.bat picks it up.
+          expect(fake.environment, isNotNull);
+          final fakeJavaBinDir = p.dirname(fakeResolver.javaPath);
+          expect(
+            fake.environment!['PATH'],
+            startsWith(fakeJavaBinDir),
+          );
+          expect(
+            fake.environment!['JAVA_HOME'],
+            p.dirname(fakeJavaBinDir),
+          );
         },
         skip: !Platform.isWindows ? 'Windows-only' : null,
       );
@@ -372,6 +459,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: _FakeRunProcess().call,
+        resolver: fakeResolver,
           );
           final body = File(
             p.join(serverDir.path, 'user_jvm_args.txt'),
@@ -402,6 +490,7 @@ void main() {
               console: const Console(),
               io: io,
               runProcess: _FakeRunProcess().call,
+        resolver: fakeResolver,
             ),
             throwsA(
               isA<UserError>().having(

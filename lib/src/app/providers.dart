@@ -5,6 +5,8 @@ import '../service/cache.dart';
 import '../service/cache_root.dart';
 import '../service/console.dart';
 import '../service/downloader.dart';
+import '../service/java_runtime_fetcher.dart';
+import '../service/java_runtime_resolver.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/loader_version_resolver.dart';
@@ -68,8 +70,28 @@ final loaderBinaryFetcherProvider = Provider<LoaderBinaryFetcher>(
   ),
 );
 
+final javaRuntimeFetcherProvider = Provider<JavaRuntimeFetcher>(
+  (ref) => JavaRuntimeFetcher(
+    cache: ref.read(cacheProvider),
+    downloader: ref.read(downloaderProvider),
+    console: ref.read(consoleProvider),
+    environment: ref.read(environmentProvider),
+  ),
+);
+
+final javaRuntimeResolverProvider = Provider<JavaRuntimeResolver>(
+  (ref) => JavaRuntimeResolver(
+    fetcher: ref.read(javaRuntimeFetcherProvider),
+    environment: ref.read(environmentProvider),
+    console: ref.read(consoleProvider),
+  ),
+);
+
 final serverInstallerProvider = Provider<ServerInstaller>(
-  (ref) => ServerInstaller(environment: ref.read(environmentProvider)),
+  (ref) => ServerInstaller(
+    environment: ref.read(environmentProvider),
+    resolver: ref.read(javaRuntimeResolverProvider),
+  ),
 );
 
 final minecraftLauncherLocatorProvider = Provider<MinecraftLauncherLocator>(
@@ -78,5 +100,8 @@ final minecraftLauncherLocatorProvider = Provider<MinecraftLauncherLocator>(
 );
 
 final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(
-  (ref) => LoaderClientInstaller(environment: ref.read(environmentProvider)),
+  (ref) => LoaderClientInstaller(
+    environment: ref.read(environmentProvider),
+    resolver: ref.read(javaRuntimeResolverProvider),
+  ),
 );

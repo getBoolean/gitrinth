@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
 
+import '../app/env.dart';
 import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
@@ -12,6 +13,7 @@ import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/console.dart';
 import '../service/cache.dart';
+import '../service/java_runtime_resolver.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/manifest_io.dart';
@@ -88,6 +90,22 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
         abbr: 'o',
         valueHelp: 'path',
         help: 'Override the build output directory. Defaults to ./build.',
+      )
+      ..addOption(
+        'java',
+        valueHelp: 'path',
+        help:
+            'Path to a `java` binary OR a JDK home directory. Overrides '
+            'JAVA_HOME and the auto-managed JDK. Hard-fails if its major '
+            'version does not satisfy the modpack.',
+      )
+      ..addFlag(
+        'managed-java',
+        defaultsTo: true,
+        help:
+            'Auto-download a matching Eclipse Temurin JDK into the gitrinth '
+            'cache when no system JDK satisfies the modpack. Use '
+            '--no-managed-java to refuse and require --java/JAVA_HOME.',
       );
     addOfflineFlag();
   }
@@ -103,6 +121,8 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
         offline: readOfflineFlag(),
         verbose: gitrinthRunner.verbose,
         extraArgs: List<String>.from(argResults!.rest),
+        javaPath: argResults!['java'] as String?,
+        allowManagedJava: argResults!['managed-java'] as bool,
       ),
       container: container,
       console: console,
@@ -119,6 +139,8 @@ class LaunchServerOptions {
     required this.verbose,
     required this.extraArgs,
     this.outputPath,
+    this.javaPath,
+    this.allowManagedJava = true,
   });
 
   final bool acceptEula;
@@ -128,6 +150,16 @@ class LaunchServerOptions {
   final bool offline;
   final bool verbose;
   final List<String> extraArgs;
+
+  /// Explicit `--java <path>`: a `java` binary or a JDK home directory.
+  /// When set, takes precedence over JAVA_HOME and the auto-managed
+  /// JDK; mismatched major version hard-fails.
+  final String? javaPath;
+
+  /// When false (`--no-managed-java`), the resolver refuses to
+  /// auto-download a JDK and surfaces a clear error if no system JDK
+  /// satisfies the modpack.
+  final bool allowManagedJava;
 }
 
 /// Public hook so [LaunchServerCommand] can drive the launch flow without a
@@ -140,6 +172,7 @@ Future<int> runLaunchServer({
   ManifestIo? io,
   ProcessRunner? runProcess,
   Future<int> Function(BuildOptions)? doBuild,
+  JavaRuntimeResolver? resolver,
 }) async {
   final manifestIo = io ?? ManifestIo();
   final effectiveDoBuild =
@@ -147,6 +180,8 @@ Future<int> runLaunchServer({
       (BuildOptions opts) =>
           runBuild(options: opts, container: container, console: console);
   final effectiveRunProcess = runProcess ?? _defaultRunProcess;
+  final JavaRuntimeResolver effectiveResolver =
+      resolver ?? container.read(javaRuntimeResolverProvider);
 
   if (options.autoBuild) {
     final exit = await effectiveDoBuild(
@@ -183,6 +218,15 @@ Future<int> runLaunchServer({
     );
   }
 
+  // Resolve Java BEFORE side effects (eula.txt, spawn) so a misconfigured
+  // --java fails fast without leaving partial state.
+  final java = await effectiveResolver.resolve(
+    mcVersion: lock.mcVersion,
+    explicitPath: options.javaPath,
+    allowManaged: options.allowManagedJava,
+    offline: options.offline,
+  );
+
   if (options.acceptEula) {
     File(p.join(serverDir.path, 'eula.txt')).writeAsStringSync('eula=true\n');
   }
@@ -192,6 +236,7 @@ Future<int> runLaunchServer({
     serverDir: serverDir,
     memory: options.memory,
     extraArgs: options.extraArgs,
+    javaPath: java.path,
   );
 
   console.info(
@@ -203,7 +248,27 @@ Future<int> runLaunchServer({
     args,
     workingDirectory: serverDir,
     runInShell: useShell,
+    environment: _spawnEnvironment(
+      base: container.read(environmentProvider),
+      javaPath: java.path,
+    ),
   );
+}
+
+/// Builds the spawn environment so the loader's `run.bat`/`run.sh` (and
+/// any nested `java` invocations) resolve to the chosen JDK even when
+/// they consult `PATH` or `JAVA_HOME`.
+Map<String, String> _spawnEnvironment({
+  required Map<String, String> base,
+  required String javaPath,
+}) {
+  final pathSep = Platform.isWindows ? ';' : ':';
+  final binDir = p.dirname(javaPath);
+  return {
+    ...base,
+    'PATH': '$binDir$pathSep${base['PATH'] ?? ''}',
+    'JAVA_HOME': p.dirname(binDir),
+  };
 }
 
 (String executable, List<String> args, bool runInShell) _serverLaunchCommand({
@@ -211,11 +276,12 @@ Future<int> runLaunchServer({
   required Directory serverDir,
   required String memory,
   required List<String> extraArgs,
+  required String javaPath,
 }) {
   switch (loader) {
     case Loader.fabric:
       return (
-        _javaExecutable(),
+        javaPath,
         [
           '-Xmx$memory',
           '-Xms$memory',
@@ -277,24 +343,12 @@ void _writeUserJvmArgs(Directory serverDir, String memory) {
   file.writeAsStringSync('${out.join('\n')}\n');
 }
 
-String _javaExecutable() {
-  final javaHome = Platform.environment['JAVA_HOME'];
-  if (javaHome != null && javaHome.isNotEmpty) {
-    final candidate = p.join(
-      javaHome,
-      'bin',
-      Platform.isWindows ? 'java.exe' : 'java',
-    );
-    if (File(candidate).existsSync()) return candidate;
-  }
-  return Platform.isWindows ? 'java.exe' : 'java';
-}
-
 Future<int> _defaultRunProcess(
   String executable,
   List<String> arguments, {
   Directory? workingDirectory,
   bool runInShell = false,
+  Map<String, String>? environment,
 }) async {
   final process = await Process.start(
     executable,
@@ -302,6 +356,7 @@ Future<int> _defaultRunProcess(
     workingDirectory: workingDirectory?.path,
     mode: ProcessStartMode.inheritStdio,
     runInShell: runInShell,
+    environment: environment,
   );
   return process.exitCode;
 }
@@ -361,6 +416,23 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
         abbr: 'o',
         valueHelp: 'path',
         help: 'Override the build output directory. Defaults to ./build.',
+      )
+      ..addOption(
+        'java',
+        valueHelp: 'path',
+        help:
+            'Path to a `java` binary OR a JDK home directory used to run '
+            'the loader installer. Overrides JAVA_HOME and the auto-managed '
+            'JDK. Hard-fails if its major version does not satisfy the '
+            'modpack.',
+      )
+      ..addFlag(
+        'managed-java',
+        defaultsTo: true,
+        help:
+            'Auto-download a matching Eclipse Temurin JDK into the gitrinth '
+            'cache when no system JDK satisfies the modpack. Use '
+            '--no-managed-java to refuse and require --java/JAVA_HOME.',
       );
     addOfflineFlag();
   }
@@ -373,6 +445,8 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
         outputPath: argResults!['output'] as String?,
         offline: readOfflineFlag(),
         verbose: gitrinthRunner.verbose,
+        javaPath: argResults!['java'] as String?,
+        allowManagedJava: argResults!['managed-java'] as bool,
       ),
       container: container,
       console: console,
@@ -386,12 +460,16 @@ class LaunchClientOptions {
     required this.offline,
     required this.verbose,
     this.outputPath,
+    this.javaPath,
+    this.allowManagedJava = true,
   });
 
   final bool autoBuild;
   final String? outputPath;
   final bool offline;
   final bool verbose;
+  final String? javaPath;
+  final bool allowManagedJava;
 }
 
 /// Public hook so [LaunchClientCommand] can drive the client-launch flow
@@ -518,6 +596,8 @@ Future<int> runLaunchClient({
     dotMinecraftDir: workDir,
     installerJar: installerJar,
     offline: options.offline,
+    javaPath: options.javaPath,
+    allowManagedJava: options.allowManagedJava,
   );
 
   // The loader installer auto-injects a profile with a generic name

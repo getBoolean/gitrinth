@@ -162,6 +162,29 @@ class FakeModrinth {
   /// installer version (e.g. `1.0.1`).
   final Map<String, Uint8List> fabricInstallerBytes = {};
 
+  /// Template URL for the fake Adoptium metadata endpoint. `{feature}`,
+  /// `{os}`, `{arch}` placeholders mirror the real
+  /// `api.adoptium.net/v3/assets/feature_releases/<feature>/ga` shape.
+  String get adoptiumMetadataUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/adoptium/v3/assets/'
+      'feature_releases/{feature}/ga'
+      '?architecture={arch}&os={os}';
+
+  /// JSON body served at the Adoptium metadata endpoint, keyed by
+  /// `<feature>-<os>-<arch>` (e.g. `21-windows-x64`). Tests register
+  /// entries as `List<Map<String, dynamic>>` to mirror the real shape.
+  final Map<String, List<Map<String, dynamic>>> adoptiumMetadata = {};
+
+  /// Bytes served at the Adoptium fake binary endpoint, keyed by the
+  /// path tail (e.g. `21-windows-x64.zip`). The metadata `package.link`
+  /// must point at `http://127.0.0.1:<port>/adoptium-binary/<key>` for
+  /// the test to wire end-to-end.
+  final Map<String, Uint8List> adoptiumBinaryBytes = {};
+
+  /// URL prefix tests should use when registering [adoptiumBinaryBytes].
+  String get adoptiumBinaryUrlPrefix =>
+      'http://127.0.0.1:${_server.port}/adoptium-binary/';
+
   /// Body served at [forgePromotionsUrl]. Shape mirrors the real
   /// `promotions_slim.json` — `promos` keyed by `<mc>-recommended` and
   /// `<mc>-latest`, values are bare build numbers.
@@ -363,6 +386,36 @@ class FakeModrinth {
           req.response.headers.contentType = ContentType(
             'application',
             'java-archive',
+          );
+          req.response.add(bytes);
+        }
+      } else if (path.startsWith('/adoptium/v3/assets/feature_releases/')) {
+        // /adoptium/v3/assets/feature_releases/<feature>/ga?...
+        final tail = path.substring(
+          '/adoptium/v3/assets/feature_releases/'.length,
+        );
+        final slash = tail.indexOf('/');
+        final feature = slash < 0 ? tail : tail.substring(0, slash);
+        final qp = req.uri.queryParameters;
+        final os = qp['os'] ?? '';
+        final arch = qp['architecture'] ?? '';
+        final key = '$feature-$os-$arch';
+        final body = adoptiumMetadata[key];
+        if (body == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType.json;
+          req.response.write(jsonEncode(body));
+        }
+      } else if (path.startsWith('/adoptium-binary/')) {
+        final key = path.substring('/adoptium-binary/'.length);
+        final bytes = adoptiumBinaryBytes[key];
+        if (bytes == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'octet-stream',
           );
           req.response.add(bytes);
         }

@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import 'java_runtime_resolver.dart';
 import 'server_installer.dart' show ProcessRunner;
 
 /// Runs the loader's installer in client mode against the user's `.minecraft`
@@ -14,12 +15,15 @@ import 'server_installer.dart' show ProcessRunner;
 class LoaderClientInstaller {
   final ProcessRunner _runProcess;
   final Map<String, String> _environment;
+  final JavaRuntimeResolver? _resolver;
 
   LoaderClientInstaller({
     ProcessRunner? runProcess,
     Map<String, String>? environment,
+    JavaRuntimeResolver? resolver,
   }) : _runProcess = runProcess ?? _defaultRunProcess,
-       _environment = environment ?? Platform.environment;
+       _environment = environment ?? Platform.environment,
+       _resolver = resolver;
 
   Future<String> installClient({
     required Loader loader,
@@ -28,6 +32,8 @@ class LoaderClientInstaller {
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
+    String? javaPath,
+    bool allowManagedJava = true,
   }) async {
     final versionId = expectedClientVersionId(
       loader: loader,
@@ -68,7 +74,12 @@ class LoaderClientInstaller {
       );
     }
 
-    final java = _resolveJava();
+    final java = await _resolveJava(
+      mcVersion: mcVersion,
+      javaPath: javaPath,
+      allowManagedJava: allowManagedJava,
+      offline: offline,
+    );
     final args = _installArgs(
       loader: loader,
       mcVersion: mcVersion,
@@ -77,7 +88,11 @@ class LoaderClientInstaller {
       dotMinecraftDir: dotMinecraftDir,
     );
 
-    final exitCode = await _runProcess(java, args);
+    final exitCode = await _runProcess(
+      java.path,
+      args,
+      environment: _spawnEnvironment(java.path),
+    );
     if (exitCode != 0) {
       throw UserError(
         '${loader.name} client installer exited with code $exitCode '
@@ -86,6 +101,16 @@ class LoaderClientInstaller {
     }
 
     return versionId;
+  }
+
+  Map<String, String> _spawnEnvironment(String javaPath) {
+    final pathSep = Platform.isWindows ? ';' : ':';
+    final binDir = p.dirname(javaPath);
+    return {
+      ..._environment,
+      'PATH': '$binDir$pathSep${_environment['PATH'] ?? ''}',
+      'JAVA_HOME': p.dirname(binDir),
+    };
   }
 
   /// The `lastVersionId` the launcher uses for the freshly-installed profile.
@@ -136,17 +161,31 @@ class LoaderClientInstaller {
     }
   }
 
-  String _resolveJava() {
+  Future<File> _resolveJava({
+    required String mcVersion,
+    required String? javaPath,
+    required bool allowManagedJava,
+    required bool offline,
+  }) async {
+    final r = _resolver;
+    if (r != null) {
+      return r.resolve(
+        mcVersion: mcVersion,
+        explicitPath: javaPath,
+        allowManaged: allowManagedJava,
+        offline: offline,
+      );
+    }
+    // Fallback for tests that don't inject a resolver: legacy
+    // JAVA_HOME-or-PATH lookup, no version validation.
     final javaHome = _environment['JAVA_HOME'];
     if (javaHome != null && javaHome.isNotEmpty) {
-      final candidate = p.join(
-        javaHome,
-        'bin',
-        Platform.isWindows ? 'java.exe' : 'java',
+      final candidate = File(
+        p.join(javaHome, 'bin', Platform.isWindows ? 'java.exe' : 'java'),
       );
-      if (File(candidate).existsSync()) return candidate;
+      if (candidate.existsSync()) return candidate;
     }
-    return Platform.isWindows ? 'java.exe' : 'java';
+    return File(Platform.isWindows ? 'java.exe' : 'java');
   }
 }
 
@@ -155,6 +194,7 @@ Future<int> _defaultRunProcess(
   List<String> arguments, {
   Directory? workingDirectory,
   bool runInShell = false,
+  Map<String, String>? environment,
 }) async {
   final process = await Process.start(
     executable,
@@ -162,6 +202,7 @@ Future<int> _defaultRunProcess(
     workingDirectory: workingDirectory?.path,
     mode: ProcessStartMode.inheritStdio,
     runInShell: runInShell,
+    environment: environment,
   );
   return process.exitCode;
 }

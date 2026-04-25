@@ -28,7 +28,7 @@ void main() {
       () async {
         final calls = <List<String>>[];
         final ci = LoaderClientInstaller(
-          runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+          runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
             calls.add([exe, ...args]);
             return 0;
           },
@@ -70,7 +70,7 @@ void main() {
     test('Forge runs --installClient and returns its profile id', () async {
       final calls = <List<String>>[];
       final ci = LoaderClientInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           calls.add([exe, ...args]);
           return 0;
         },
@@ -95,7 +95,7 @@ void main() {
       () async {
         final ci = LoaderClientInstaller(
           runProcess:
-              (exe, args, {workingDirectory, runInShell = false}) async => 0,
+              (exe, args, {workingDirectory, runInShell = false, environment}) async => 0,
         );
         final id = await ci.installClient(
           loader: Loader.neoforge,
@@ -119,7 +119,7 @@ void main() {
 
       var called = false;
       final ci = LoaderClientInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           called = true;
           return 0;
         },
@@ -140,7 +140,7 @@ void main() {
     test('non-zero installer exit becomes UserError', () async {
       final ci = LoaderClientInstaller(
         runProcess:
-            (exe, args, {workingDirectory, runInShell = false}) async => 2,
+            (exe, args, {workingDirectory, runInShell = false, environment}) async => 2,
       );
       await expectLater(
         ci.installClient(
@@ -165,7 +165,7 @@ void main() {
         () async {
       var called = false;
       final ci = LoaderClientInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false}) async {
+        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
           called = true;
           return 0;
         },

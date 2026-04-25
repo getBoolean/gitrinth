@@ -26,6 +26,7 @@ Deferred MVP work:
 - [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
+- [x] [Auto-fetch JDK matching `mc-version`](#auto-fetch-jdk-matching-mc-version)
 - [ ] [`downgrade` command](#downgrade-command)
 - [ ] [`outdated` command](#outdated-command)
 - [ ] [`deps` command](#deps-command)
@@ -317,6 +318,40 @@ lock).
 Touches:
 [`lib/src/service/loader_version_resolver.dart`](../lib/src/service/loader_version_resolver.dart),
 [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart).
+
+## Auto-fetch JDK matching `mc-version`
+
+Shipped. See [Java runtime selection](cli.md#java-runtime-selection) in
+the CLI docs. `gitrinth launch server`, `launch client`, and
+`build --env server` resolve a JDK that satisfies the modpack's
+`mc-version` (1.20.5+ → 21, 1.21.x → 21, 26.1+ → 25, etc.) using a
+five-step chain: `--java <path>` → `JAVA_HOME` → cached gitrinth
+Temurin → `PATH java` → auto-download from Adoptium. `--java` and
+`JAVA_HOME` hard-fail on version mismatch; `PATH` soft-falls; the
+auto-download is refused under `--offline` or `--no-managed-java`.
+
+For Forge/NeoForge servers the chosen JDK's `bin/` is prepended to
+`PATH` and `JAVA_HOME` is set in the spawn environment, so the
+unmodified `run.bat`/`run.sh` picks up the right `java` without
+patching the loader's wrapper script.
+
+Cache layout:
+`~/.gitrinth_cache/runtimes/temurin/<feature>/<os>-<arch>/<jdk-dir>/`
+with a `.gitrinth-installed-temurin-<full-version>` JSON sentinel for
+inspector and prune integration.
+
+Touches:
+[`lib/src/util/host_platform.dart`](../lib/src/util/host_platform.dart),
+[`lib/src/util/mc_version.dart`](../lib/src/util/mc_version.dart),
+[`lib/src/service/cache.dart`](../lib/src/service/cache.dart),
+[`lib/src/service/java_runtime_fetcher.dart`](../lib/src/service/java_runtime_fetcher.dart),
+[`lib/src/service/java_runtime_resolver.dart`](../lib/src/service/java_runtime_resolver.dart),
+[`lib/src/service/server_installer.dart`](../lib/src/service/server_installer.dart),
+[`lib/src/service/loader_client_installer.dart`](../lib/src/service/loader_client_installer.dart),
+[`lib/src/commands/launch_command.dart`](../lib/src/commands/launch_command.dart),
+[`lib/src/commands/build_command.dart`](../lib/src/commands/build_command.dart),
+[`lib/src/commands/build_orchestrator.dart`](../lib/src/commands/build_orchestrator.dart),
+[`lib/src/app/providers.dart`](../lib/src/app/providers.dart).
 
 ## `downgrade` command
 

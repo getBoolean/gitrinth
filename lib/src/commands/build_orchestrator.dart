@@ -31,6 +31,8 @@ class BuildOptions {
     this.noPrune = false,
     this.offline = false,
     this.verbose = false,
+    this.javaPath,
+    this.allowManagedJava = true,
   });
 
   final String? envFlag;
@@ -45,6 +47,11 @@ class BuildOptions {
 
   final bool offline;
   final bool verbose;
+
+  /// Forwarded to [ServerInstaller] when running the Forge/NeoForge
+  /// `--installServer` step. Same semantics as the launch flags.
+  final String? javaPath;
+  final bool allowManagedJava;
 }
 
 /// Resolves dependencies, populates `mods.lock`, and writes a runnable build
@@ -140,6 +147,8 @@ Future<int> runBuild({
       installer: container.read(serverInstallerProvider),
       skipDownload: options.skipDownload,
       offline: options.offline,
+      javaPath: options.javaPath,
+      allowManagedJava: options.allowManagedJava,
       console: console,
     );
   }
@@ -155,6 +164,8 @@ Future<void> _installServerBinary({
   required ServerInstaller installer,
   required bool skipDownload,
   required bool offline,
+  required String? javaPath,
+  required bool allowManagedJava,
   required Console console,
 }) async {
   final loader = lock.loader.mods;
@@ -189,6 +200,8 @@ Future<void> _installServerBinary({
     outputDir: serverDir,
     installerOrServerJar: installerJar,
     offline: offline,
+    javaPath: javaPath,
+    allowManagedJava: allowManagedJava,
   );
   console.info(
     'Installed ${loader.name} $loaderVersion server binary into '
