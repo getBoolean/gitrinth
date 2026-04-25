@@ -270,7 +270,7 @@ Touches: [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
 
 ## `build` auto-downloads server binary
 
-Shipped. [`build --env server`](cli.md#build) fetches the matching
+Shipped. [`build server`](cli.md#build) fetches the matching
 server binary for [`loader.mods`](mods-yaml.md#loader) +
 [`mc-version`](mods-yaml.md#mc-version) and lays out a runnable
 `build/server/` tree without user intervention:
@@ -323,7 +323,7 @@ Touches:
 
 Shipped. See [Java runtime selection](cli.md#java-runtime-selection) in
 the CLI docs. `gitrinth launch server`, `launch client`, and
-`build --env server` resolve a JDK that satisfies the modpack's
+`build server` resolve a JDK that satisfies the modpack's
 `mc-version` (1.20.5+ → 21, 1.21.x → 21, 26.1+ → 25, etc.) using a
 five-step chain: `--java <path>` → `JAVA_HOME` → cached gitrinth
 Temurin → `PATH java` → auto-download from Adoptium. `--java` and
