@@ -122,6 +122,39 @@ mods:
   appleskin: 3.0.9-mc1.21.1
 ```
 
+#### Long form syntax
+
+Specify additional metadata for a mod to control which version is used and how it
+is distributed.
+
+```yaml
+mods:
+  appleskin:
+    version: ^3.0.9
+    # Allow beta releases when no stable build matches the constraint.
+    channel: beta
+    # Search additional Minecraft versions for compatible versions.
+    # Useful if a mod supports a new release but is not declared as compatible yet.
+    accepts-mc:
+      - 1.21.1
+    # Override the mod's declared client/server compatibility
+    client: required
+    server: unsupported
+```
+
+| Field        | Description                                                                                                                                                   |
+|--------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `version`    | Mod-version constraint — exact pin, blank, or caret range. Same forms as the short syntax.                                                                    |
+| `channel`    | Stability floor: `release` (only stable), `beta` (release + beta), or `alpha` (everything). Defaults to `alpha`.                                              |
+| `accepts-mc` | Extra Minecraft versions to widen the search for this entry only. Scalar or list. Doesn't change the pack's `mc-version`.                                     |
+| `client`     | Install state on the client. `required` (default), `optional`, or `unsupported`. `optional` exposes a launcher toggle.                                        |
+| `server`     | Install state on the server. Same vocabulary as `client`. Both sides cannot be `unsupported`.                                                                 |
+| `hosted`     | Base URL of a Modrinth-compatible server to fetch the mod from. Mutually exclusive with `url` and `path` (TODO: not implement yet)                            |
+| `url`        | Direct `.jar` download URL. Mutually exclusive with `hosted` and `path`. Makes the modpack unpublishable to Modrinth without author permission.               |
+| `path`       | Local `.jar` path relative to `mods.yaml`. Mutually exclusive with `hosted` and `url`. Makes the modpack unpublishable to Modrinth without author permission. |
+
+See the [`mods.yaml` reference](./docs/mods-yaml.md#long-form) for the full schema.
+
 ## Contributing
 
 ### Regenerating templates and generated code

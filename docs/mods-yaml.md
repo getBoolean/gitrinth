@@ -514,7 +514,9 @@ mods:
 The value is a map with any combination of:
 
 - a `version` — a [mod-version constraint](#mod-version-constraints);
+- a `channel` — a [release-channel floor](#release-channel-channel);
 - a `client:` and/or `server:` install state — see [Sides](#sides-client--server);
+- an `accepts-mc` widening — see [Per-entry MC version tolerance](#per-entry-mc-version-tolerance-accepts-mc);
 - at most one **source** — where `gitrinth` should fetch the mod from.
 
 ```yaml
@@ -558,6 +560,43 @@ for [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
 [`shaders`](#shaders), and [`plugins`](#plugins) without affecting
 publishability — the Publishable? column above applies only when the
 entry is a mod.
+
+#### Release channel (`channel`)
+
+A long-form entry may include a `channel` field to set a **stability floor**
+on the version_type values the resolver accepts for that entry. Modrinth tags
+every version as `release`, `beta`, or `alpha`; `channel` admits the stated
+tier *and every more-stable tier* — never an exact-match filter.
+
+| Value     | Admits                 | Use when                                                                                       |
+|-----------|------------------------|------------------------------------------------------------------------------------------------|
+| `release` | release only           | The pack should ship only stable builds for this entry.                                        |
+| `beta`    | release + beta         | A stable build doesn't yet exist for the target `mc-version`, but a tagged beta is acceptable. |
+| `alpha`   | release + beta + alpha | The mod only publishes alpha builds, or the pack tracks bleeding-edge versions deliberately.   |
+
+Omitting `channel` defaults to `alpha`, matching Modrinth's default of returning
+every `version_type`. The floor is applied **before** the
+[mod-version constraint](#mod-version-constraints) — a `channel: release` entry
+with a caret range that only resolves to a beta build will fail to resolve
+rather than silently fall through to the beta.
+
+```yaml
+mods:
+  # Use the latest stable version tagged `release` on Modrinth
+  # Defaults to alpha, so no releases are filtered
+  sodium: release
+
+  # You can also filter by version and channel
+  # This prevents newer alpha releases from being chosen, even if they match the version constraint
+  distanthorizons:
+    version: ^2.3.0
+    channel: beta
+```
+
+`channel` is only available on long-form entries and works in the same
+sections that support long form — [`mods`](#mods),
+[`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
+[`shaders`](#shaders), and [`plugins`](#plugins).
 
 #### Sides (`client` / `server`)
 
