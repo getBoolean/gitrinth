@@ -1076,6 +1076,93 @@ mods:
       ).readAsStringSync();
       expect(lockText, contains('appleskin:'));
       expect(lockText, contains('game-versions: ["1.21"]'));
+      expect(lockText, contains('accepts-mc: ["1.21"]'));
+    },
+  );
+
+  test(
+    'lock mirrors accepts-mc as a separate field when the user sets it',
+    () async {
+      modrinth.registerVersion(
+        slug: 'appleskin',
+        versionNumber: '3.0.9',
+        gameVersion: '1.21.1',
+      );
+      // Modrinth tagged this file for both 1.21.1 and 1.21; game-versions
+      // should record the full API tag list, while accepts-mc is mirrored
+      // verbatim from mods.yaml as a separate field.
+      (modrinth.versions['appleskin']!.first['game_versions'] as List)
+        ..clear()
+        ..addAll(<String>['1.21', '1.21.1']);
+
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  appleskin:
+    version: ^3.0.9
+    accepts-mc: [1.21]
+''');
+
+      final out = await runCli(
+        ['-C', packDir.path, 'get'],
+        environment: {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        },
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final lockText = File(
+        p.join(packDir.path, 'mods.lock'),
+      ).readAsStringSync();
+      expect(lockText, contains('game-versions: ["1.21", 1.21.1]'));
+      expect(lockText, contains('accepts-mc: ["1.21"]'));
+    },
+  );
+
+  test(
+    'lock omits accepts-mc when the user did not set it',
+    () async {
+      modrinth.registerVersion(
+        slug: 'appleskin',
+        versionNumber: '3.0.9',
+        gameVersion: '1.21.1',
+      );
+      (modrinth.versions['appleskin']!.first['game_versions'] as List)
+        ..clear()
+        ..addAll(<String>['1.21', '1.21.1', '1.21.2']);
+
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  appleskin: ^3.0.9
+''');
+
+      final out = await runCli(
+        ['-C', packDir.path, 'get'],
+        environment: {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        },
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final lockText = File(
+        p.join(packDir.path, 'mods.lock'),
+      ).readAsStringSync();
+      expect(lockText, isNot(contains('accepts-mc:')));
     },
   );
 

@@ -72,6 +72,10 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
     final quoted = e.gameVersions.map(_str).join(', ');
     buf.writeln('    game-versions: [$quoted]');
   }
+  if (e.acceptsMc.isNotEmpty) {
+    final quoted = e.acceptsMc.map(_str).join(', ');
+    buf.writeln('    accepts-mc: [$quoted]');
+  }
 }
 
 String _envName(Environment e) => e.name;

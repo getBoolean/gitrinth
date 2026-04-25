@@ -344,6 +344,13 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: const [],
   );
+  static List<String> _$acceptsMc(LockedEntry v) => v.acceptsMc;
+  static const Field<LockedEntry, List<String>> _f$acceptsMc = Field(
+    'acceptsMc',
+    _$acceptsMc,
+    opt: true,
+    def: const [],
+  );
   static bool _$optional(LockedEntry v) => v.optional;
   static const Field<LockedEntry, bool> _f$optional = Field(
     'optional',
@@ -364,6 +371,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     #env: _f$env,
     #dependency: _f$dependency,
     #gameVersions: _f$gameVersions,
+    #acceptsMc: _f$acceptsMc,
     #optional: _f$optional,
   };
 
@@ -379,6 +387,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       env: data.dec(_f$env),
       dependency: data.dec(_f$dependency),
       gameVersions: data.dec(_f$gameVersions),
+      acceptsMc: data.dec(_f$acceptsMc),
       optional: data.dec(_f$optional),
     );
   }
@@ -445,6 +454,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   LockedFileCopyWith<$R, LockedFile, LockedFile>? get file;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get gameVersions;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc;
   $R call({
     String? slug,
     LockedSourceKind? sourceKind,
@@ -456,6 +466,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     Environment? env,
     LockedDependencyKind? dependency,
     List<String>? gameVersions,
+    List<String>? acceptsMc,
     bool? optional,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -480,6 +491,13 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     (v) => call(gameVersions: v),
   );
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc =>
+      ListCopyWith(
+        $value.acceptsMc,
+        (v, t) => ObjectCopyWith(v, $identity, t),
+        (v) => call(acceptsMc: v),
+      );
+  @override
   $R call({
     String? slug,
     LockedSourceKind? sourceKind,
@@ -491,6 +509,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     Environment? env,
     LockedDependencyKind? dependency,
     List<String>? gameVersions,
+    List<String>? acceptsMc,
     bool? optional,
   }) => $apply(
     FieldCopyWithData({
@@ -504,6 +523,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
       if (env != null) #env: env,
       if (dependency != null) #dependency: dependency,
       if (gameVersions != null) #gameVersions: gameVersions,
+      if (acceptsMc != null) #acceptsMc: acceptsMc,
       if (optional != null) #optional: optional,
     }),
   );
@@ -519,6 +539,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     env: data.get(#env, or: $value.env),
     dependency: data.get(#dependency, or: $value.dependency),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
+    acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
     optional: data.get(#optional, or: $value.optional),
   );
 

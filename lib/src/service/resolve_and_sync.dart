@@ -340,6 +340,7 @@ ModsLock _buildLock(
     for (final s in Section.values) s: <String, LockedEntry>{},
   };
   for (final r in resolution.entries) {
+    final entry = manifest.sectionEntries(r.section)[r.slug];
     byKind[r.section]![r.slug] = LockedEntry(
       slug: r.slug,
       sourceKind: LockedSourceKind.modrinth,
@@ -356,6 +357,7 @@ ModsLock _buildLock(
       env: r.env,
       dependency: r.dependency,
       gameVersions: List.unmodifiable(r.version.gameVersions),
+      acceptsMc: List.unmodifiable(entry?.acceptsMc ?? const <String>[]),
       optional: r.optional,
     );
   }

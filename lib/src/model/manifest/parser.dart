@@ -194,6 +194,10 @@ Map<String, LockedEntry> _parseLockSection(
     final gameVersions = gameVersionsRaw is List
         ? List<String>.unmodifiable(gameVersionsRaw.map((v) => v.toString()))
         : const <String>[];
+    final acceptsMcRaw = m['accepts-mc'];
+    final acceptsMc = acceptsMcRaw is List
+        ? List<String>.unmodifiable(acceptsMcRaw.map((v) => v.toString()))
+        : const <String>[];
     result[slug] = LockedEntry(
       slug: slug,
       sourceKind: sourceKind,
@@ -205,6 +209,7 @@ Map<String, LockedEntry> _parseLockSection(
       env: env,
       dependency: dependency,
       gameVersions: gameVersions,
+      acceptsMc: acceptsMc,
       optional: optional,
     );
   });

@@ -113,6 +113,41 @@ void main() {
     expect(out, isNot(contains('game-versions')));
   });
 
+  test('accepts-mc round-trips through emit -> parse -> emit', () {
+    const lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: LoaderConfig(mods: Loader.neoforge),
+      mcVersion: '1.21.1',
+      mods: {
+        'appleskin': LockedEntry(
+          slug: 'appleskin',
+          sourceKind: LockedSourceKind.modrinth,
+          version: '3.0.9+mc1.21',
+          projectId: 'P1',
+          versionId: 'V1',
+          file: LockedFile(
+            name: 'appleskin.jar',
+            url: 'https://cdn.modrinth.com/data/appleskin.jar',
+            sha512: 'ff00',
+            size: 1,
+          ),
+          gameVersions: ['1.21', '1.21.1'],
+          acceptsMc: ['1.21'],
+        ),
+      },
+    );
+    final once = emitModsLock(lock);
+    expect(once, contains('accepts-mc: ["1.21"]'));
+    final parsed = parseModsLock(once, filePath: 'mods.lock');
+    expect(parsed.mods['appleskin']!.acceptsMc, ['1.21']);
+    expect(emitModsLock(parsed), once);
+  });
+
+  test('empty acceptsMc omits the field', () {
+    final out = emitModsLock(sample());
+    expect(out, isNot(contains('accepts-mc')));
+  });
+
   test('emits optional: true and round-trips through parse', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',

@@ -54,6 +54,12 @@ class LockedEntry with LockedEntryMappable {
   /// that became under-tagged after a pack `mc-version` bump.
   final List<String> gameVersions;
 
+  /// Mirror of `ModEntry.acceptsMc`; the user's per-entry override
+  /// declaring additional `mc-version`s this entry should be considered
+  /// compatible with even when Modrinth's tagging disagrees. Empty when
+  /// the user did not set `accepts-mc` in `mods.yaml`.
+  final List<String> acceptsMc;
+
   /// Mirror of `ModEntry.optional`; preserved through `gitrinth get` so
   /// `pack` can emit `env: "optional"` in `modrinth.index.json`.
   final bool optional;
@@ -69,6 +75,7 @@ class LockedEntry with LockedEntryMappable {
     this.env = Environment.both,
     this.dependency = LockedDependencyKind.direct,
     this.gameVersions = const [],
+    this.acceptsMc = const [],
     this.optional = false,
   });
 }

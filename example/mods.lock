@@ -19,6 +19,7 @@ mods:
       size: 75804
     env: both
     game-versions: ["1.21", 1.21.1, 1.21.2]
+    accepts-mc: [1.21.1]
   balm:
     source: modrinth
     version: 21.0.57+neoforge-1.21.1
@@ -99,6 +100,7 @@ mods:
       size: 2438548
     env: client
     game-versions: [1.21.1]
+    accepts-mc: [1.21.1]
   jei:
     source: modrinth
     version: 19.27.0.340
