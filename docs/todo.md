@@ -19,7 +19,7 @@ Planned improvements:
 
 Deferred MVP work:
 
-- [ ] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
+- [x] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
 - [ ] [Hosted source support](#hosted-source-support)
 - [ ] [Plugin-loader support](#plugin-loader-support)
 - [ ] [Global options: `-q`/`--quiet`, `--offline`, `--no-color`, `--config`](#deferred-global-options)
@@ -153,14 +153,21 @@ Touches: [`lib/src/commands/add.dart`](../lib/src/commands/add.dart),
 
 ## Modrinth slug-validity check in `create`
 
-[`create`](cli.md#create) currently scaffolds without verifying the
-target slug is available on Modrinth. Wire up the
-[Modrinth project-validity endpoint](https://docs.modrinth.com/api/operations/checkprojectvalidity/)
-so `create` refuses to run when the slug is malformed or already taken.
+Shipped. See [`create`](cli.md#create) in the CLI docs. Before
+scaffolding, [`create`](cli.md#create) hits Modrinth's
+[`/project/<slug>/check`](https://docs.modrinth.com/api/operations/checkprojectvalidity/)
+endpoint. If the slug is already taken (200), `create` warns and
+proceeds anyway — users can rename later or rerun with `--slug`.
+Network failures degrade to a warning so offline scaffolding still
+works; pass `--offline` to skip the round-trip.
 
-Touches: [`lib/src/commands/create.dart`](../lib/src/commands/create.dart),
-[`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart),
-[`cli.md`](cli.md).
+The local slug regex was loosened to mirror Modrinth's own
+`RE_URL_SAFE` + length 3–64, so any slug accepted locally is also
+accepted by Modrinth's project-create endpoint. Malformed slugs still
+fail locally with `ValidationError` (exit 2) — that's the
+"refuses to run" half of the original ticket. Collisions are
+warn-only rather than hard errors because the user can rename later
+and a wrong server-side reading shouldn't block scaffolding.
 
 ## Hosted source support
 
