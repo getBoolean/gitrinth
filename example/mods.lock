@@ -87,6 +87,19 @@ mods:
       size: 121559
     env: both
     game-versions: [1.21.1]
+  globalpacks:
+    source: modrinth
+    version: 21.0.6
+    project-id: NRLPy2mk
+    version-id: FPcUOp35
+    file:
+      name: globalpacks-neoforge-1.21.1-21.0.6.jar
+      url: "https://cdn.modrinth.com/data/NRLPy2mk/versions/FPcUOp35/globalpacks-neoforge-1.21.1-21.0.6.jar"
+      sha1: 55cf667b16b81df9b8f7fead042cf2f732b21b85
+      sha512: 5590a9066d84265a53e756fdb5b8872c383ffe069745756f1ff0fe54a315cefb5cc90ee3d0233a95f1dc2a7d68396b1102b9002d8b1aaf3ec476b52c7286c6b8
+      size: 27239
+    env: both
+    game-versions: ["1.21", 1.21.1]
   iris:
     source: modrinth
     version: 1.8.12+1.21.1-neoforge

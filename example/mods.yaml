@@ -69,6 +69,7 @@ mods:
   appleskin:
     version: ^3.0.9
     accepts-mc: 1.21.1 # Scalar shorthand for [1.21.1]
+  globalpacks: ^21.0.6
 
 resource_packs:
   faithful-32x: ^1.21.1-december-2025
