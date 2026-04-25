@@ -36,6 +36,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 |-----------------------|--------------------------------------------------------------|
 | [`get`](#get)         | Resolve entries, write `mods.lock`, download into the cache. |
 | [`upgrade`](#upgrade) | Re-resolve to the newest version allowed by each constraint. |
+| [`migrate`](#migrate) | Re-target the pack to a new Minecraft version or loader.     |
 | [`add`](#add)         | Add an entry to a section.                                   |
 | [`remove`](#remove)   | Remove an entry.                                             |
 | [`pin`](#pin)         | Freeze an entry to its currently-locked version.             |
@@ -145,6 +146,37 @@ entries' `mods.lock` records have no `dependencies:` lines (legacy
 lock written before this MVP item), the command warns and falls back
 to unlocking only the named entries; the next `gitrinth get` /
 `gitrinth upgrade` repopulates the edges.
+
+### `migrate`
+
+Re-target the modpack to a new Minecraft version or mod loader and
+re-resolve every entry. Always crosses caret boundaries (like
+`upgrade --major-versions`).
+
+```text
+gitrinth migrate mc <version>                       [--dry-run] [--offline]
+gitrinth migrate loader <loader>[:<tag>]            [--dry-run] [--offline]
+```
+
+| Option      | Description                                            |
+|-------------|--------------------------------------------------------|
+| `--dry-run` | Resolve and report the diff without writing files.     |
+| `--offline` | Use cached versions only; skip the availability check. |
+
+`<loader>` is `forge`, `fabric`, or `neoforge`. `:<tag>` is a concrete
+version, `stable`, or `latest` (default `stable`).
+
+If a mod has no version published for the new target, its `version:` is
+rewritten to `gitrinth:not-found` and the entry is omitted from the
+lock; `client`/`server`/`channel`/etc. are preserved. A later `migrate`
+that finds a compatible version rewrites the marker to `^<resolved>`.
+[`get`](#get), [`upgrade`](#upgrade), and `--enforce-lockfile` skip
+marker entries and print a one-line count.
+
+If the resolver finds versions but the graph is unsatisfiable, `migrate`
+exits non-zero and leaves both files untouched.
+
+`--offline` skips the availability check; marker entries stay markers.
 
 ### `add`
 

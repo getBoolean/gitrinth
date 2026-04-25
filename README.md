@@ -56,6 +56,8 @@ Common commands:
 | `gitrinth get`                      | Resolve `mods.yaml`, write `mods.lock`, fill cache.                           |
 | `gitrinth upgrade`                  | Re-resolve to the newest in-range version per entry.                          |
 | `gitrinth upgrade --major-versions` | Upgrade to newest version, even when version number implies breaking changes. |
+| `gitrinth migrate mc <version>`     | Re-target the pack to a new Minecraft version and re-resolve every entry.     |
+| `gitrinth migrate loader <loader>`  | Switch the pack's mod loader and re-resolve every entry.                      |
 | `gitrinth build`                    | Assemble modpack distributions for client and server.                         |
 | `gitrinth pack`                     | Produce `.mrpack` artifacts under `build/`.                                   |
 | `gitrinth launch server`            | Build and start the server.                                                   |
@@ -154,6 +156,34 @@ mods:
 | `path`       | Local `.jar` path relative to `mods.yaml`. Mutually exclusive with `hosted` and `url`. Makes the modpack unpublishable to Modrinth without author permission. |
 
 See the [`mods.yaml` reference](./docs/mods-yaml.md#long-form) for the full schema.
+
+#### Migrating to a new Minecraft version or loader
+
+`gitrinth migrate` re-targets the pack and re-resolves every mod in one step.
+
+```sh
+# Move the pack to a new Minecraft version.
+gitrinth migrate mc 1.21.4
+
+# Upgrade or switch to a different mod loader (optionally with a tag).
+gitrinth migrate loader fabric
+gitrinth migrate loader neoforge:21.1.50
+```
+
+Migrating upgrades every mod/dependency to the newest compatible version
+for the new target. If a compatible version is not found, its `version:` field is
+rewritten to `gitrinth:not-found`. A later `migrate` (or
+`upgrade --major-versions`) that finds a compatible version rewrites the
+marker back to a fresh caret version.
+
+```yaml
+mods:
+  abandoned_mod: gitrinth:not-found
+```
+
+If the resolver finds versions but the dependency graph is unsatisfiable,
+`migrate` exits non-zero and leaves both `mods.yaml` and `mods.lock`
+untouched. Pass `--dry-run` to preview the diff without writing.
 
 ## Contributing
 

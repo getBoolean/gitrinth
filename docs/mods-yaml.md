@@ -808,6 +808,23 @@ exact pin (no caret). Subsequent [`get`](cli.md#get) runs won't pick
 up newer versions automatically — edit the pin by hand when a new
 release comes out.
 
+##### `gitrinth:not-found` marker
+
+[`migrate`](cli.md#migrate) writes `gitrinth:not-found` to an entry's
+`version:` when no version of the mod is published for the new
+MC/loader. The entry is skipped by [`get`](cli.md#get),
+[`upgrade`](cli.md#upgrade), and `--enforce-lockfile`, and is omitted
+from `mods.lock`. A later `migrate` against a target where the mod is
+published rewrites the marker back to `^<resolved>`.
+
+```yaml
+mods:
+  abandoned_mod:
+    version: gitrinth:not-found
+    client: required
+    server: required
+```
+
 ### `mods`
 
 **Optional.** Every mod in the pack. Keys are [Modrinth project

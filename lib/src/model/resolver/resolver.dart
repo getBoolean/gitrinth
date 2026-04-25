@@ -36,6 +36,10 @@ class Resolver {
           // url:/path: sources don't take part in resolution.
           return;
         }
+        if (isNotFoundMarker(entry.constraintRaw)) {
+          // Skipped: `migrate` couldn't find a version on the current target.
+          return;
+        }
         // Permissive default: an entry with no explicit channel accepts
         // every Modrinth `version_type`. Users narrow to `release`/`beta`
         // only when they want a stricter stability floor.

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:pub_semver/pub_semver.dart';
+import 'package:dio/dio.dart';
 
 import '../app/providers.dart';
 import '../cli/base_command.dart';
@@ -13,9 +13,11 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
 import '../service/cache.dart';
 import '../service/manifest_io.dart';
+import '../service/modrinth_api.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
-import 'pin_editor.dart';
+import 'caret_rewriter.dart';
+import 'migrate_editor.dart';
 
 class UpgradeCommand extends GitrinthCommand with OfflineFlag {
   @override
@@ -71,22 +73,65 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     final manifest = io.readModsYaml();
 
     final modrinthByEntry = <(Section, String), ModEntry>{};
+    final markerByEntry = <(Section, String), ModEntry>{};
     final nonModrinthSlugs = <String>{};
     for (final section in Section.values) {
       manifest.sectionEntries(section).forEach((slug, entry) {
         if (entry.source is ModrinthEntrySource) {
-          modrinthByEntry[(section, slug)] = entry;
+          if (isNotFoundMarker(entry.constraintRaw)) {
+            markerByEntry[(section, slug)] = entry;
+          } else {
+            modrinthByEntry[(section, slug)] = entry;
+          }
         } else {
           nonModrinthSlugs.add(slug);
         }
       });
     }
     final modrinthSlugs = {for (final k in modrinthByEntry.keys) k.$2};
-    final allSlugs = {...modrinthSlugs, ...nonModrinthSlugs};
+    final markerSlugs = {for (final k in markerByEntry.keys) k.$2};
+    final allSlugs = {...modrinthSlugs, ...markerSlugs, ...nonModrinthSlugs};
+
+    final api = read(modrinthApiProvider);
+
+    // Recovery rewrites a constraint, so it's gated on --major-versions.
+    final recovered = <(Section, String)>{};
+    if (majorVersions && !offline && markerByEntry.isNotEmpty) {
+      for (final pair in markerByEntry.entries) {
+        final (_, slug) = pair.key;
+        final entry = pair.value;
+        final gameVersions = <String>{
+          manifest.mcVersion,
+          ...entry.acceptsMc,
+        }.toList();
+        List versions;
+        try {
+          versions = await api.listVersions(
+            slug,
+            loadersJson: encodeFilterArray([manifest.loader.mods.name]),
+            gameVersionsJson: encodeFilterArray(gameVersions),
+          );
+        } on DioException catch (e) {
+          if (e.response?.statusCode == 404) {
+            versions = const [];
+          } else {
+            rethrow;
+          }
+        }
+        final loaderName = manifest.loader.mods.name;
+        final hasMatch = versions.any((v) {
+          final loaderOk = (v.loaders as List).contains(loaderName);
+          final mcOk = (v.gameVersions as List).any(gameVersions.contains);
+          return loaderOk && mcOk;
+        });
+        if (hasMatch) recovered.add(pair.key);
+      }
+    }
+    final recoveredSlugs = {for (final k in recovered) k.$2};
 
     Set<String> targets;
     if (requestedSlugs.isEmpty) {
-      targets = modrinthSlugs;
+      targets = {...modrinthSlugs, ...recoveredSlugs};
     } else {
       final unknown = requestedSlugs
           .where((s) => !allSlugs.contains(s))
@@ -98,8 +143,13 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       }
       targets = <String>{};
       for (final slug in requestedSlugs) {
-        if (modrinthSlugs.contains(slug)) {
+        if (modrinthSlugs.contains(slug) || recoveredSlugs.contains(slug)) {
           targets.add(slug);
+        } else if (markerSlugs.contains(slug)) {
+          console.info(
+            "skipping '$slug' — still marked $notFoundMarker on the "
+            'current target.',
+          );
         } else {
           console.detail(
             "skipping '$slug' — non-Modrinth source has no version to upgrade.",
@@ -116,17 +166,26 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       );
     }
 
-    final relaxSet = majorVersions
-        ? {
-            for (final entry in modrinthByEntry.entries)
-              if (targets.contains(entry.key.$2) &&
-                  (entry.value.constraintRaw?.trimLeft().startsWith('^') ??
-                      false))
-                entry.key.$2,
-          }
-        : <String>{};
+    final relaxSet = <String>{
+      // Recovered entries have no real constraint; pick newest.
+      for (final slug in recoveredSlugs)
+        if (targets.contains(slug)) slug,
+      if (majorVersions)
+        for (final entry in modrinthByEntry.entries)
+          if (targets.contains(entry.key.$2) &&
+              (entry.value.constraintRaw?.trimLeft().startsWith('^') ??
+                  false))
+            entry.key.$2,
+    };
 
-    final api = read(modrinthApiProvider);
+    final unrecoverableMarkers = <String>{
+      for (final (_, slug) in markerByEntry.keys)
+        if (!recoveredSlugs.contains(slug)) slug,
+    };
+    final manifestForResolve = unrecoverableMarkers.isEmpty
+        ? null
+        : _stripSlugs(manifest, unrecoverableMarkers);
+
     final cache = read(cacheProvider);
     final downloader = read(downloaderProvider);
     final loaderResolver = read(loaderVersionResolverProvider);
@@ -144,6 +203,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       dryRun: dryRun,
       freshSlugs: targets,
       relaxConstraints: relaxSet,
+      manifestOverride: manifestForResolve,
     );
 
     if (result.exitCode != exitOk) {
@@ -153,15 +213,42 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       return exitOk;
     }
 
+    if (recovered.isNotEmpty && result.newLock != null) {
+      var yamlText = File(io.modsYamlPath).readAsStringSync();
+      final newLock = result.newLock!;
+      var rewrites = 0;
+      for (final (section, slug) in recovered) {
+        if (!targets.contains(slug)) continue;
+        final resolvedRaw = newLock.sectionFor(section)[slug]?.version;
+        if (resolvedRaw == null) continue;
+        final String bareResolved;
+        try {
+          bareResolved = bareVersionForPin(resolvedRaw);
+        } on FormatException {
+          continue;
+        }
+        yamlText = setEntryVersion(
+          yamlText,
+          section: section,
+          slug: slug,
+          newVersion: '^$bareResolved',
+        );
+        rewrites++;
+        console.info('$slug: $notFoundMarker → ^$bareResolved in mods.yaml');
+      }
+      if (rewrites > 0) io.writeModsYaml(yamlText);
+    }
+
     if ((majorVersions || tighten) && result.newLock != null) {
-      _rewriteCaretConstraints(
+      rewriteCaretConstraints(
         io: io,
+        console: console,
         modrinthByEntry: modrinthByEntry,
         targets: targets,
         relaxSet: relaxSet,
         majorVersions: majorVersions,
         tighten: tighten,
-        result: result,
+        newLock: result.newLock!,
       );
     }
 
@@ -176,100 +263,6 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       );
     }
     return exitOk;
-  }
-
-  /// Walks each Modrinth-source caret-bound target whose resolved version
-  /// either crossed the caret (`--major-versions`) or moved within-major
-  /// (`--tighten`), and rewrites `mods.yaml` to `^<bare>` for the resolved
-  /// version. Mirrors `dart pub upgrade`'s `allowsAll`-skip — entries already
-  /// satisfied by the existing constraint are left alone.
-  void _rewriteCaretConstraints({
-    required ManifestIo io,
-    required Map<(Section, String), ModEntry> modrinthByEntry,
-    required Set<String> targets,
-    required Set<String> relaxSet,
-    required bool majorVersions,
-    required bool tighten,
-    required ResolveSyncResult result,
-  }) {
-    final newLock = result.newLock!;
-    var yamlText = File(io.modsYamlPath).readAsStringSync();
-    var rewrites = 0;
-
-    for (final entry in modrinthByEntry.entries) {
-      final (section, slug) = entry.key;
-      if (!targets.contains(slug)) continue;
-      final mod = entry.value;
-      final raw = mod.constraintRaw?.trim();
-      if (raw == null || !raw.startsWith('^')) continue;
-
-      final locked = newLock.sectionFor(section)[slug];
-      final resolvedRaw = locked?.version;
-      if (resolvedRaw == null) continue;
-
-      final String bareResolved;
-      try {
-        bareResolved = bareVersionForPin(resolvedRaw);
-      } on FormatException {
-        console.info(
-          "skipped '$slug' rewrite — resolved version '$resolvedRaw' is not "
-          'semver-shaped.',
-        );
-        continue;
-      }
-
-      final crossed =
-          majorVersions && relaxSet.contains(slug) &&
-          !_constraintAllows(raw, resolvedRaw);
-      final tightened = tighten && _bareCaretBase(raw) != bareResolved;
-      if (!crossed && !tightened) continue;
-
-      final newConstraint = '^$bareResolved';
-      final updated = updateEntryConstraint(
-        yamlText,
-        section: section,
-        slug: slug,
-        newConstraint: newConstraint,
-      );
-      if (updated == yamlText) continue;
-      yamlText = updated;
-      rewrites++;
-      console.info('$slug: $raw → $newConstraint in mods.yaml');
-    }
-
-    if (rewrites > 0) {
-      io.writeModsYaml(yamlText);
-    }
-  }
-
-  bool _constraintAllows(String raw, String resolvedRaw) {
-    final VersionConstraint constraint;
-    try {
-      constraint = parseConstraint(raw);
-    } on Object {
-      return false;
-    }
-    final Version parsed;
-    try {
-      parsed = parseModrinthVersionBestEffort(resolvedRaw);
-    } on FormatException {
-      return false;
-    }
-    return constraint.allows(parsed);
-  }
-
-  /// Returns the bare-pinnable form of a caret constraint's base version, or
-  /// the raw string when parsing fails. Used by the `--tighten` predicate to
-  /// detect "constraint base differs from resolved" without false positives
-  /// from tag metadata in either side.
-  String _bareCaretBase(String raw) {
-    if (!raw.startsWith('^')) return raw;
-    final base = raw.substring(1);
-    try {
-      return bareVersionForPin(base);
-    } on FormatException {
-      return base;
-    }
   }
 
   /// BFS over the dep graph to compute the transitive closure of
@@ -373,4 +366,17 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
     return out;
   }
+}
+
+ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {
+  Map<String, ModEntry> strip(Map<String, ModEntry> m) => {
+    for (final e in m.entries)
+      if (!slugs.contains(e.key)) e.key: e.value,
+  };
+  return manifest.copyWith(
+    mods: strip(manifest.mods),
+    resourcePacks: strip(manifest.resourcePacks),
+    dataPacks: strip(manifest.dataPacks),
+    shaders: strip(manifest.shaders),
+  );
 }

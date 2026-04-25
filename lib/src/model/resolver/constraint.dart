@@ -5,6 +5,14 @@ import '../manifest/mods_yaml.dart';
 import '../modrinth/version.dart' as modrinth;
 import 'exact_constraint.dart';
 
+/// Sentinel written to `version:` by `gitrinth migrate` when no version of
+/// the project is published for the new MC/loader. Resolver-side callers
+/// filter these out; [parseConstraint] throws a tailored error if one slips
+/// through.
+const String notFoundMarker = 'gitrinth:not-found';
+
+bool isNotFoundMarker(String? raw) => raw?.trim() == notFoundMarker;
+
 /// Parses a `mods.yaml` version constraint into a [VersionConstraint].
 ///
 /// Forms:
@@ -18,6 +26,12 @@ VersionConstraint parseConstraint(String? raw) {
   if (raw == null) return VersionConstraint.any;
   final trimmed = raw.trim();
   if (trimmed.isEmpty) return VersionConstraint.any;
+  if (trimmed == notFoundMarker) {
+    throw ValidationError(
+      "version is '$notFoundMarker' — re-run `gitrinth migrate` against a "
+      'target where this mod is published, or remove the entry.',
+    );
+  }
   try {
     if (trimmed.startsWith('^')) {
       // Carets require a semver-shaped base — the lower bound and

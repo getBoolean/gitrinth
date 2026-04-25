@@ -10,7 +10,7 @@ detailed spec further down.
 Planned improvements:
 
 - [x] [`accepts-mc` — per-entry MC version tolerance](#accepts-mc--per-entry-mc-version-tolerance)
-- [ ] [`migrate` command](#migrate-command)
+- [x] [`migrate` command](#migrate-command)
 - [x] [Optional mods](#optional-mods)
 - [x] [`pin` / `unpin` commands](#pin--unpin-commands)
 - [x] [Shell completion](#shell-completion)
@@ -64,22 +64,32 @@ Touches: [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
 
 ## `migrate` command
 
-Bump `mc-version` or `loader.mods` in `mods.yaml` and re-resolve against
-the new target in one step. Leverages the existing pubgrub resolver;
-aligns with gitrinth's single-MC-version invariant (one command, one
-deterministic transition).
+Shipped. See [`migrate`](cli.md#migrate) in the CLI docs. Bumps
+`mc-version` or `loader.mods` and re-resolves every entry, always
+crossing caret boundaries.
 
 ```text
 gitrinth migrate mc <version>
 gitrinth migrate loader <loader>[:<tag>]
 ```
 
-`--dry-run` resolves and reports the diff without writing files.
-Failure policy: leave `mods.yaml` and `mods.lock` untouched if any
-required entry fails to resolve; print the offending entries.
+Soft-fail policy (departure from the original spec): when a mod has no
+version published for the new target, its `version:` is rewritten to
+`gitrinth:not-found` and the entry is omitted from the lock. Other
+fields are preserved, [`get`](cli.md#get) and [`upgrade`](cli.md#upgrade)
+skip marker entries, and a later `migrate` that finds a compatible
+version rewrites the marker to `^<resolved>`. Graph-conflict failures
+still abort and leave both files untouched.
 
 Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
-new `lib/src/commands/migrate.dart`, [`cli.md`](cli.md).
+[`lib/src/commands/migrate_command.dart`](../lib/src/commands/migrate_command.dart),
+[`lib/src/commands/migrate_editor.dart`](../lib/src/commands/migrate_editor.dart),
+[`lib/src/commands/caret_rewriter.dart`](../lib/src/commands/caret_rewriter.dart)
+(extracted from `upgrade_command.dart`),
+[`lib/src/model/resolver/constraint.dart`](../lib/src/model/resolver/constraint.dart),
+[`lib/src/model/resolver/resolver.dart`](../lib/src/model/resolver/resolver.dart),
+[`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart),
+[`cli.md`](cli.md), [`mods-yaml.md`](mods-yaml.md).
 
 ## Optional mods
 

@@ -12,6 +12,7 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/overrides_merger.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart' as modrinth;
+import '../model/resolver/constraint.dart';
 import '../model/resolver/resolver.dart';
 import '../model/resolver/result.dart';
 import '../version.dart';
@@ -57,6 +58,10 @@ class ResolveSyncResult {
 /// power `gitrinth upgrade`; `get` leaves them empty. The diff and the
 /// rebuilt lock still come from the *original* manifest and lock, so per-entry
 /// metadata (env/optional/channel/etc.) is preserved.
+///
+/// [manifestOverride] replaces the on-disk `mods.yaml` for resolution.
+/// `gitrinth migrate` uses this to resolve against a mutated target without
+/// first writing `mods.yaml`.
 Future<ResolveSyncResult> resolveAndSync({
   required ManifestIo io,
   required Console console,
@@ -70,10 +75,11 @@ Future<ResolveSyncResult> resolveAndSync({
   bool enforce = false,
   Set<String> freshSlugs = const {},
   Set<String> relaxConstraints = const {},
+  ModsYaml? manifestOverride,
 }) async {
   final reporter = SolveReporter(console);
 
-  final manifest = io.readModsYaml();
+  final manifest = manifestOverride ?? io.readModsYaml();
   final overrides = io.readOverrides();
   final merged = applyOverrides(manifest, overrides);
   final existingLock = io.readModsLock();
@@ -342,6 +348,14 @@ Future<ResolveSyncResult> resolveAndSync({
     'Locked $changeCount change(s); $downloaded downloaded, $hits cache hit(s).',
   );
 
+  final markerCount = _countNotFoundMarkers(merged);
+  if (markerCount > 0) {
+    console.info(
+      '$markerCount ${markerCount == 1 ? 'entry' : 'entries'} marked '
+      '$notFoundMarker — run `gitrinth migrate <target>` to retry.',
+    );
+  }
+
   return ResolveSyncResult(
     newLock: newLock,
     diff: diff,
@@ -349,6 +363,16 @@ Future<ResolveSyncResult> resolveAndSync({
     outdated: outdated,
     exitCode: exitOk,
   );
+}
+
+int _countNotFoundMarkers(ModsYaml manifest) {
+  var count = 0;
+  for (final section in Section.values) {
+    for (final entry in manifest.sectionEntries(section).values) {
+      if (isNotFoundMarker(entry.constraintRaw)) count++;
+    }
+  }
+  return count;
 }
 
 void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
@@ -359,8 +383,10 @@ void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
   for (final section in Section.values) {
     final entries = manifest.sectionEntries(section);
     final lockSection = lock.sectionFor(section);
-    for (final slug in entries.keys) {
-      if (!lockSection.containsKey(slug)) missing.add(slug);
+    for (final entry in entries.entries) {
+      // Marker entries are absent from the lock by design.
+      if (isNotFoundMarker(entry.value.constraintRaw)) continue;
+      if (!lockSection.containsKey(entry.key)) missing.add(entry.key);
     }
   }
   if (missing.isNotEmpty) {
