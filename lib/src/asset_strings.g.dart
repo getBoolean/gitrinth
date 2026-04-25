@@ -11,12 +11,12 @@ import 'dart:convert';
 
 final String gitignoreTemplate = utf8.decode(
   base64.decode(
-    'IyBDcmVhdGVkIGJ5IGBnaXRyaW50aCBjcmVhdGVgCi5naXRyaW50aF90b29sLwpidWlsZC8KKi5tcnBhY2sK',
+    'IyBDcmVhdGVkIGJ5IGBnaXRyaW50aCBjcmVhdGVgCi5naXRyaW50aF90b29sLwpidWlsZC8KKi5tcnBhY2sKKi5sb2cK',
   ),
 );
 final String modrinthIgnoreTemplate = utf8.decode(
   base64.decode(
-    'IyAubW9kcmludGhfaWdub3JlJ2QgZmlsZXMgYXJlIGV4Y2x1ZGVkIGZyb20gcHVibGlzaGluZy4KIyBGb2xsb3dzIC5naXRpZ25vcmUgc3ludGF4LgouZ2l0cmludGhfdG9vbC8KYnVpbGQvCioubXJwYWNrCg==',
+    'IyAubW9kcmludGhfaWdub3JlJ2QgZmlsZXMgYXJlIGV4Y2x1ZGVkIGZyb20gcHVibGlzaGluZy4KIyBGb2xsb3dzIC5naXRpZ25vcmUgc3ludGF4LgouZ2l0cmludGhfdG9vbC8KYnVpbGQvCioubXJwYWNrCioubG9nCg==',
   ),
 );
 final String modsYamlTemplate = utf8.decode(

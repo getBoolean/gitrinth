@@ -2,3 +2,4 @@
 .gitrinth_tool/
 build/
 *.mrpack
+*.log
