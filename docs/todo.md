@@ -24,7 +24,7 @@ Deferred MVP work:
 - [ ] [Plugin-loader support](#plugin-loader-support)
 - [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [ ] [Loose-files override support in `.mrpack`](#loose-files-override-support)
-- [ ] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
+- [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
 - [ ] [`downgrade` command](#downgrade-command)
 - [ ] [`outdated` command](#outdated-command)
@@ -236,15 +236,31 @@ Touches: archive builder, [`mods-yaml.md`](mods-yaml.md),
 
 ## `build` auto-downloads server binary
 
-[`build`](cli.md#build)'s server distribution needs the matching server
-binary for [`loader.mods`](mods-yaml.md#loader) +
-[`mc-version`](mods-yaml.md#mc-version). Fabric works today via
-`meta.fabricmc.net`; Forge and NeoForge require the user to supply the
-installer by hand. Wire up the corresponding upstream APIs so `build`
-fetches the server installer automatically.
+Shipped. [`build --env server`](cli.md#build) fetches the matching
+server binary for [`loader.mods`](mods-yaml.md#loader) +
+[`mc-version`](mods-yaml.md#mc-version) and lays out a runnable
+`build/server/` tree without user intervention:
 
-Touches: [`lib/src/commands/build.dart`](../lib/src/commands/build.dart),
-new upstream-API clients for Forge and NeoForge.
+- Fabric — `meta.fabricmc.net/v2/versions/loader/<mc>/<v>/server/jar`,
+  dropped in as `fabric-server-launch.jar`.
+- Forge — installer JAR from `maven.minecraftforge.net`, run in
+  `--installServer` mode against `build/server/`.
+- NeoForge (modern, MC ≥ 1.20.2) — installer from
+  `maven.neoforged.net/.../neoforge`, run in `--installServer` mode.
+- NeoForge (legacy, MC 1.20.1) — installer from
+  `maven.neoforged.net/.../forge` (legacy namespace).
+
+Installer JARs are cached under
+`<gitrinth-cache>/loaders/<loader>/<mc>/<v>/` so re-builds are
+network-free. A sentinel marker (`.gitrinth-installed-<loader>-<v>` in
+the build output) makes the install step idempotent. `--offline`
+refuses to run the Forge/NeoForge installers (which themselves fetch
+libraries) unless the marker already exists.
+
+Touches:
+[`lib/src/service/loader_binary_fetcher.dart`](../lib/src/service/loader_binary_fetcher.dart),
+[`lib/src/service/server_installer.dart`](../lib/src/service/server_installer.dart),
+[`lib/src/commands/build_orchestrator.dart`](../lib/src/commands/build_orchestrator.dart).
 
 ## Automatic `:stable` / `:latest` loader tag resolution
 

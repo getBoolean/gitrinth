@@ -55,6 +55,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 | [`build`](#build)   | Assemble the client and/or server distribution into `build/`. |
 | [`clean`](#clean)   | Delete generated files: `build/` and `mods.lock`.             |
 | [`pack`](#pack)     | Produce a Modrinth `.mrpack` artifact.                        |
+| [`launch`](#launch) | Build (when needed) and start the server to test the modpack. |
 
 ### Shell integration
 
@@ -74,7 +75,8 @@ detail.
 ## Offline mode
 
 [`get`](#get), [`upgrade`](#upgrade), [`add`](#add), [`remove`](#remove),
-[`build`](#build), and [`pack`](#pack) accept `--offline`. When set,
+[`build`](#build), [`pack`](#pack), and [`launch`](#launch) accept
+`--offline`. When set,
 the resolver narrows its candidate set to versions already present in
 the local cache and skips the Modrinth game-version check; for
 [`loader.mods`](mods-yaml.md#loader) tags `:stable` / `:latest`, the
@@ -355,8 +357,12 @@ or server.
 
 The server distribution includes the matching server binary for
 [`loader`](mods-yaml.md#loader) and
-[`mc-version`](mods-yaml.md#mc-version); users currently supply the
-installer by hand (see [`todo.md`](todo.md#build-auto-downloads-server-binary)).
+[`mc-version`](mods-yaml.md#mc-version), fetched and installed
+automatically from the upstream Maven repositories. Fabric drops in
+`fabric-server-launch.jar`; Forge and NeoForge run their official
+installer in `--installServer` mode against `build/server/`, so the
+output tree contains `run.bat`/`run.sh`, `libraries/`, and
+`user_jvm_args.txt` ready for [`launch server`](#launch).
 
 ```text
 gitrinth build [--env <client|server|both>] [--output <path>]
@@ -459,6 +465,77 @@ bundle non-Modrinth artifacts even with `--publishable`.
 When `pack` bundles non-Modrinth mod artifacts (default mode) it prints
 a warning enumerating each offending slug and links to
 [Modrinth's permissions guidance](https://support.modrinth.com/en/articles/8797527-obtaining-modpack-permissions).
+
+### `launch`
+
+Modpack-specific. Build (when needed) and start the modpack so you can
+test it end-to-end without leaving the CLI. Two subcommands:
+
+- [`launch server`](#launch-server) — boot the server JVM/script in
+  `build/server/` directly.
+- [`launch client`](#launch-client) — register a profile in your
+  official Minecraft Launcher pointing at `build/client/` and open it.
+
+#### `launch server`
+
+```text
+gitrinth launch server [--accept-eula] [--no-build] [--memory <size>]
+                       [--output <path>] [--offline] [-- <extra args>]
+```
+
+| Option           | Description                                                                                         |
+|------------------|-----------------------------------------------------------------------------------------------------|
+| `--accept-eula`  | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.       |
+| `--no-build`     | Skip the implicit `gitrinth build --env server`. Use when the build tree is already up to date.     |
+| `--memory`, `-m` | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.           |
+| `--output`, `-o` | Override the build output directory. Defaults to `./build`.                                         |
+| `--offline`      | Forwarded to the auto-build step. Refuses to launch if a Forge/NeoForge install would need network. |
+| `-- <args>`      | Trailing args after `--` are appended to the server JVM/script invocation (e.g. `-- --port 25566`). |
+
+`launch server` reads `mods.lock` to pick the right command per loader:
+
+- Fabric — `java -Xmx<mem> -Xms<mem> -jar fabric-server-launch.jar nogui`
+- Forge / NeoForge — `run.bat` (Windows) or `run.sh` (POSIX); the heap
+  size is written into `user_jvm_args.txt` rather than the CLI so the
+  installer's wrapper script picks it up.
+
+The Mojang EULA at <https://aka.ms/MinecraftEULA> applies — `eula.txt`
+must be `eula=true` before any vanilla server boots. `--accept-eula`
+performs that flip on your behalf; without it the JVM prints the EULA
+notice and exits, and you can re-run with the flag.
+
+#### `launch client`
+
+```text
+gitrinth launch client [--no-build] [--memory <size>] [--output <path>]
+```
+
+| Option           | Description                                                                                     |
+|------------------|-------------------------------------------------------------------------------------------------|
+| `--no-build`     | Skip the implicit `gitrinth build --env client`. Use when the build tree is already up to date. |
+| `--memory`, `-m` | JVM heap size, applied as `javaArgs` on the launcher profile. Examples: `4G`, `6G`, `8192M`.    |
+| `--output`, `-o` | Override the build output directory. Defaults to `./build`.                                     |
+
+Delegates to your locally-installed **official Minecraft Launcher**:
+
+1. Builds `build/client/` (drop with `--no-build`).
+2. Fetches the loader's client installer JAR (cached at
+   `~/.gitrinth_cache/loaders/<loader>/<mc>/<v>/`) and runs it in
+   `--installClient` mode against your `.minecraft` directory once per
+   `(loader, mc, loader-version)` triple.
+3. Upserts a `gitrinth: <slug>` profile into
+   `<dotMinecraft>/launcher_profiles.json` whose `gameDir` points at
+   `build/client/`, so mods/resourcepacks/datapacks/shaderpacks resolve
+   from the modpack and saves stay separate from the rest of your
+   launcher state.
+4. Opens the launcher; click "Play" on the `gitrinth: <slug>` profile.
+   Auth and asset/library download are handled by the launcher.
+
+Requirements: the official Minecraft Launcher must be installed.
+Override the locator with `GITRINTH_LAUNCHER` (path to the executable)
+and `GITRINTH_DOT_MINECRAFT` (path to the game directory) when running
+on a portable install or in CI. `--offline` is rejected because the
+launcher needs network on first run.
 
 ### `cache`
 

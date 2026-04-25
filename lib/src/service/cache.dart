@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
+import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 
 class GitrinthCache {
@@ -16,6 +17,19 @@ class GitrinthCache {
   String get modrinthRoot => p.join(root, 'modrinth');
   String get urlRoot => p.join(root, 'url');
   String get tmpRoot => p.join(root, 'tmp');
+  String get loadersRoot => p.join(root, 'loaders');
+
+  /// Path where a loader binary (server installer JAR, vanilla server.jar,
+  /// fabric-server-launch.jar, etc.) lives. Keyed by `(loader, mcVersion,
+  /// loaderVersion)` so the same modpack rebuilt twice never re-downloads.
+  String loaderArtifactPath({
+    required Loader loader,
+    required String mcVersion,
+    required String loaderVersion,
+    required String filename,
+  }) {
+    return p.join(loadersRoot, loader.name, mcVersion, loaderVersion, filename);
+  }
 
   /// Path where a Modrinth-sourced artifact should live.
   String modrinthPath({

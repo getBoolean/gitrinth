@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:riverpod/riverpod.dart';
 
@@ -5,7 +7,12 @@ import '../service/cache.dart';
 import '../service/cache_root.dart';
 import '../service/console.dart';
 import '../service/downloader.dart';
+import '../service/launcher_profile_injector.dart';
+import '../service/loader_binary_fetcher.dart';
+import '../service/loader_client_installer.dart';
 import '../service/loader_version_resolver.dart';
+import '../service/official_launcher_locator.dart';
+import '../service/server_installer.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_error_interceptor.dart';
 import '../service/modrinth_url.dart';
@@ -54,4 +61,30 @@ final loaderVersionResolverProvider = Provider<LoaderVersionResolver>(
     dio: ref.read(dioProvider),
     environment: ref.read(environmentProvider),
   ),
+);
+
+final loaderBinaryFetcherProvider = Provider<LoaderBinaryFetcher>(
+  (ref) => LoaderBinaryFetcher(
+    cache: ref.read(cacheProvider),
+    downloader: ref.read(downloaderProvider),
+    environment: ref.read(environmentProvider),
+  ),
+);
+
+final serverInstallerProvider = Provider<ServerInstaller>(
+  (ref) => ServerInstaller(environment: ref.read(environmentProvider)),
+);
+
+final officialLauncherLocatorProvider = Provider<OfficialLauncherLocator>(
+  (ref) =>
+      OfficialLauncherLocator(environment: ref.read(environmentProvider)),
+);
+
+final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(
+  (ref) => LoaderClientInstaller(environment: ref.read(environmentProvider)),
+);
+
+final launcherProfileInjectorFactoryProvider =
+    Provider<LauncherProfileInjector Function(Directory)>(
+  (ref) => launcherProfileInjectorFor,
 );
