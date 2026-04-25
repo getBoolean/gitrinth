@@ -365,14 +365,16 @@ output tree contains `run.bat`/`run.sh`, `libraries/`, and
 `user_jvm_args.txt` ready for [`launch server`](#launch).
 
 ```text
-gitrinth build [--env <client|server|both>] [--output <path>]
+gitrinth build [<client|server|both>] [--output <path>]
               [--clean] [--skip-download] [--no-prune]
               [--java <path>] [--no-managed-java] [--offline]
 ```
 
+The optional positional argument selects which environment to build.
+Omit it (or pass `both`) to build client and server together.
+
 | Option              | Description                                                                                            |
 |---------------------|--------------------------------------------------------------------------------------------------------|
-| `--env`             | Build only the named environment.                                                                      |
 | `--output`, `-o`    | Override the output directory. Defaults to `./build`.                                                  |
 | `--clean`           | Remove the output directory before building.                                                           |
 | `--skip-download`   | Fail rather than fetch missing artifacts.                                                              |
@@ -541,7 +543,7 @@ gitrinth launch server [--accept-eula] [--no-build] [--memory <size>]
 | Option              | Description                                                                                            |
 |---------------------|--------------------------------------------------------------------------------------------------------|
 | `--accept-eula`     | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.          |
-| `--no-build`        | Skip the implicit `gitrinth build --env server`. Use when the build tree is already up to date.        |
+| `--no-build`        | Skip the implicit `gitrinth build server`. Use when the build tree is already up to date.              |
 | `--memory`, `-m`    | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.              |
 | `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                            |
 | `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                      |
@@ -570,7 +572,7 @@ gitrinth launch client [--no-build] [--output <path>]
 
 | Option              | Description                                                                                     |
 |---------------------|-------------------------------------------------------------------------------------------------|
-| `--no-build`        | Skip the implicit `gitrinth build --env client`. Use when the build tree is already up to date. |
+| `--no-build`        | Skip the implicit `gitrinth build client`. Use when the build tree is already up to date.       |
 | `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                     |
 | `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).               |
 | `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.   |
@@ -638,7 +640,7 @@ or `:` elsewhere) — useful for portable installs and CI.
 
 #### Java runtime selection
 
-`launch server`, `launch client`, and `build --env server` all need a
+`launch server`, `launch client`, and `build server` all need a
 JVM — the server's launch script, the loader installer, and the
 Forge/NeoForge `--installServer` step. gitrinth picks one automatically
 based on the modpack's `mc-version` so you don't have to install or

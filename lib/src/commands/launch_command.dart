@@ -214,7 +214,7 @@ Future<int> runLaunchServer({
   if (!serverDir.existsSync()) {
     throw UserError(
       'server distribution not found at ${serverDir.path}. '
-      'Drop --no-build or run `gitrinth build --env server` first.',
+      'Drop --no-build or run `gitrinth build server` first.',
     );
   }
 
@@ -318,7 +318,7 @@ Map<String, String> _spawnEnvironment({
       }
       throw UserError(
         '${loader.name} server scripts not found in ${serverDir.path}; '
-        'rebuild or run `gitrinth build --env server` to populate it.',
+        'rebuild or run `gitrinth build server` to populate it.',
       );
   }
 }
@@ -539,7 +539,7 @@ Future<int> runLaunchClient({
   if (!clientDir.existsSync()) {
     throw UserError(
       'client distribution not found at ${clientDir.path}. '
-      'Drop --no-build or run `gitrinth build --env client` first.',
+      'Drop --no-build or run `gitrinth build client` first.',
     );
   }
 

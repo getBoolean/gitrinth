@@ -132,11 +132,11 @@ gitrinth remove <slug> [--dry-run]
 Assemble client and/or server distributions into `build/`.
 
 ```text
-gitrinth build [--env <client|server|both>] [--output <path>]
+gitrinth build [<client|server|both>] [--output <path>]
               [--clean] [--skip-download]
 ```
 
-- `--env <client|server|both>`
+- `<client|server|both>` (positional, optional; defaults to `both`)
 - `--output <path>`, `-o`
 - `--clean`
 - `--skip-download`

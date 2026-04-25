@@ -23,7 +23,7 @@ List<BuildEnv> targetEnvironments(String? envFlag) {
       return const [BuildEnv.client, BuildEnv.server];
     default:
       throw UsageError(
-        'invalid --env value: $envFlag (expected client, server, or both)',
+        'invalid environment "$envFlag" (expected client, server, or both)',
       );
   }
 }

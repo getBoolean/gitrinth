@@ -12,16 +12,11 @@ class BuildCommand extends GitrinthCommand with OfflineFlag {
       'Assemble client and/or server distributions into build/.';
 
   @override
-  String get invocation => 'gitrinth build [arguments]';
+  String get invocation =>
+      'gitrinth build [<client|server|both>] [arguments]';
 
   BuildCommand() {
     argParser
-      ..addOption(
-        'env',
-        allowed: ['client', 'server', 'both'],
-        valueHelp: 'client|server|both',
-        help: 'Build only the named environment.',
-      )
       ..addOption(
         'output',
         abbr: 'o',
@@ -67,13 +62,27 @@ class BuildCommand extends GitrinthCommand with OfflineFlag {
 
   @override
   Future<int> run() async {
-    if (argResults!.rest.isNotEmpty) {
-      throw UsageError('Unexpected arguments: ${argResults!.rest.join(' ')}');
+    final rest = argResults!.rest;
+    String? envArg;
+    if (rest.length > 1) {
+      throw UsageError(
+        'Expected at most one positional argument (client|server|both); '
+        'got: ${rest.join(' ')}',
+      );
+    }
+    if (rest.length == 1) {
+      final value = rest.single;
+      if (value != 'client' && value != 'server' && value != 'both') {
+        throw UsageError(
+          'Invalid environment "$value"; expected client, server, or both.',
+        );
+      }
+      envArg = value;
     }
 
     return runBuild(
       options: BuildOptions(
-        envFlag: argResults!['env'] as String?,
+        envFlag: envArg,
         outputPath: argResults!['output'] as String?,
         clean: argResults!['clean'] as bool,
         skipDownload: argResults!['skip-download'] as bool,

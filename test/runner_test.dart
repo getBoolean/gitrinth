@@ -81,7 +81,7 @@ void main() {
       test('build', () async {
         final out = await runCli(['build', '--help']);
         expect(out.exitCode, 0);
-        expect(out.stdout, contains('--env'));
+        expect(out.stdout, contains('client|server|both'));
         expect(out.stdout, contains('--output'));
         expect(out.stdout, contains('--clean'));
         expect(out.stdout, contains('--skip-download'));
