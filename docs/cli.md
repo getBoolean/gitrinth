@@ -255,12 +255,14 @@ created if missing.
 
 ```text
 gitrinth create [--loader <loader>] [--mc-version <version>] [--slug <slug>]
-                [--name <name>] [--force] <directory>
+                [--name <name>] [--force] [--offline] <directory>
 ```
 
-[`slug`](mods-yaml.md#slug) defaults to the basename of `<directory>`
-(lower-cased, `-` replaced with `_`). [`name`](mods-yaml.md#name)
-defaults to the slug.
+[`slug`](mods-yaml.md#slug) defaults to the basename of `<directory>`,
+lower-cased. [`name`](mods-yaml.md#name) defaults to the slug. The
+slug must be 3–64 characters from Modrinth's allowed set
+(`a-zA-Z0-9!@$()` `` ` `` `.+,_"-`); pass `--slug` to override the
+derived value.
 
 | Option         | Description                                                                    |
 |----------------|--------------------------------------------------------------------------------|
@@ -269,9 +271,17 @@ defaults to the slug.
 | `--slug`       | Override the derived slug.                                                     |
 | `--name`       | Override the display [`name`](mods-yaml.md#name).                              |
 | `--force`      | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`. |
+| `--offline`    | Skip the Modrinth slug-availability check.                                     |
 
 Refuses to run when `<directory>` exists and is non-empty without
 `--force`.
+
+Before scaffolding, `create` queries Modrinth to see whether the slug
+is already in use by another project. If it is, `create` prints a
+warning and proceeds anyway — you can rename later or rerun with
+`--slug`. If the request fails (no network, DNS error, etc.), `create`
+warns and proceeds without the check; pass `--offline` to skip the
+round-trip altogether.
 
 #### Example
 

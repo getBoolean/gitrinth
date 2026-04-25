@@ -11,6 +11,14 @@ class ModrinthErrorInterceptor extends Interceptor {
     final reqUri = err.requestOptions.uri;
     final status = response?.statusCode;
 
+    // The `/project/<slug>/check` route uses 404 as its documented "slug is
+    // available" success case. Pass these errors through unwrapped so callers
+    // can inspect the original status code without a UserError shroud.
+    if (reqUri.path.endsWith('/check')) {
+      handler.next(err);
+      return;
+    }
+
     // Modrinth returns 404 on `/project/<slug>` and `/project/<slug>/version`
     // when the slug doesn't exist (filter mismatches return an empty array
     // with 200). Surface the slug directly instead of the raw URL + status.

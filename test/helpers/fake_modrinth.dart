@@ -8,6 +8,8 @@ import 'package:crypto/crypto.dart';
 /// 127.0.0.1:0 (free port). Routes:
 ///   - GET /v2/project/{slug}             -> canned project json
 ///   - GET /v2/project/{slug}/version     -> list of canned versions
+///   - GET /v2/project/{slug}/check       -> 200 + `{"id": ...}` if taken,
+///                                          404 otherwise
 ///   - GET /v2/tag/game_version           -> canned MC version list
 ///   - GET /downloads/{slug}/{filename}   -> the artifact bytes
 class FakeModrinth {
@@ -15,6 +17,11 @@ class FakeModrinth {
   final Map<String, Map<String, dynamic>> projects;
   final Map<String, List<Map<String, dynamic>>> versions;
   final Map<String, Uint8List> artifacts;
+
+  /// Slugs that should report as already taken on `/v2/project/<slug>/check`,
+  /// in addition to anything in [projects]. Tests that want to assert collision
+  /// behavior without registering a full project body use this.
+  final Set<String> _takenSlugs = <String>{};
 
   /// Minecraft versions returned by `/v2/tag/game_version`. Default
   /// includes the versions used in the test fixtures so existing tests
@@ -81,6 +88,14 @@ class FakeModrinth {
   }
 
   Future<void> stop() => _server.close(force: true);
+
+  /// Marks [slug] as already taken so `/v2/project/<slug>/check` returns 200.
+  /// `registerVersion` already records into [projects], which is also treated
+  /// as taken — this is for tests that want collision behavior without a full
+  /// project fixture.
+  void markSlugTaken(String slug) {
+    _takenSlugs.add(slug);
+  }
 
   /// Adds an artifact and returns its sha512.
   String addArtifact(String slug, String filename, Uint8List bytes) {
@@ -168,7 +183,15 @@ class FakeModrinth {
         req.response.write(jsonEncode(fabricLoaderVersions));
       } else if (path.startsWith('/v2/project/')) {
         final tail = path.substring('/v2/project/'.length);
-        if (tail.endsWith('/version')) {
+        if (tail.endsWith('/check')) {
+          final slug = tail.substring(0, tail.length - '/check'.length);
+          if (_takenSlugs.contains(slug) || projects.containsKey(slug)) {
+            req.response.headers.contentType = ContentType.json;
+            req.response.write(jsonEncode({'id': 'fake-$slug'}));
+          } else {
+            req.response.statusCode = 404;
+          }
+        } else if (tail.endsWith('/version')) {
           final slug = tail.substring(0, tail.length - '/version'.length);
           lastVersionQuery[slug] = Map<String, String>.from(
             req.uri.queryParameters,

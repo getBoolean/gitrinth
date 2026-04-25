@@ -1,7 +1,9 @@
 import 'dart:io';
 
+import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 
+import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -9,7 +11,11 @@ import '../model/templates.dart';
 import '../version.dart';
 
 const List<String> _allowedLoaders = ['forge', 'fabric', 'neoforge'];
-final RegExp _slugPattern = RegExp(r'^[a-z][a-z0-9_]*$');
+
+/// Mirrors Modrinth's project-creation rule (`RE_URL_SAFE` + `length(3, 64)`)
+/// so any slug accepted locally is also accepted by Modrinth's project-create
+/// endpoint.
+final RegExp _slugPattern = RegExp(r'^[a-zA-Z0-9!@$()`.+,_"\-]{3,64}$');
 final RegExp _mcVersionPattern = RegExp(r'^\d+\.\d+(?:\.\d+)?$');
 
 class CreateCommand extends GitrinthCommand {
@@ -43,6 +49,13 @@ class CreateCommand extends GitrinthCommand {
         negatable: false,
         help:
             'Allow scaffolding into a non-empty directory; overwrites existing mods.yaml.',
+      )
+      ..addFlag(
+        'offline',
+        negatable: false,
+        help:
+            'Skip the Modrinth slug-availability check. Use when offline or to '
+            'avoid the round-trip.',
       );
   }
 
@@ -65,10 +78,12 @@ class CreateCommand extends GitrinthCommand {
     final loader = (results['loader'] as String?) ?? defaultLoader;
     final mcVersion = _resolveMcVersion(results['mc-version'] as String?);
 
-    // TODO(mvp): Modrinth slug validity check via the projectValidity endpoint.
-    console.detail(
-      'Skipping Modrinth project-validity check (deferred post-MVP).',
-    );
+    final offline = results['offline'] as bool;
+    if (offline) {
+      console.detail('Skipping Modrinth slug-availability check (--offline).');
+    } else {
+      await _warnIfSlugTaken(slug);
+    }
 
     final targetDir = Directory(directoryArg);
     final force = results['force'] as bool;
@@ -120,17 +135,37 @@ class CreateCommand extends GitrinthCommand {
   String _resolveSlug(String? override, String directoryArg) {
     final candidate =
         override ??
-        p
-            .basename(p.normalize(p.absolute(directoryArg)))
-            .toLowerCase()
-            .replaceAll('-', '_');
+        p.basename(p.normalize(p.absolute(directoryArg))).toLowerCase();
     if (!_slugPattern.hasMatch(candidate)) {
       throw ValidationError(
-        'Invalid slug "$candidate": must match ${_slugPattern.pattern}. '
-        'Pass --slug to override.',
+        'Invalid slug "$candidate": must be 3-64 characters from '
+        r'[a-zA-Z0-9!@$()`.+,_"-]. Pass --slug to override.',
       );
     }
     return candidate;
+  }
+
+  /// Hits Modrinth's `/project/<slug>/check` endpoint and emits a warning if
+  /// a project with this slug already exists. Network failures are
+  /// non-fatal — they degrade to a warning so offline scaffolding still works.
+  Future<void> _warnIfSlugTaken(String slug) async {
+    final api = read(modrinthApiProvider);
+    try {
+      final resp = await api.checkProjectValidity(slug);
+      final status = resp.response.statusCode;
+      if (status != null && status >= 200 && status < 300) {
+        console.warn(
+          'Slug "$slug" is already taken on Modrinth. You can still scaffold '
+          'and rename later, or rerun with --slug.',
+        );
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return;
+      console.warn(
+        'Could not validate slug "$slug" against Modrinth '
+        '(${e.message ?? e.type.name}). Proceeding without check.',
+      );
+    }
   }
 
   String _resolveMcVersion(String? override) {
