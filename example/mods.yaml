@@ -81,7 +81,7 @@ mods:
 resource_packs:
   faithful-32x:
     version: ^1.21.1-december-2025
-    client: required # Resource packs default to `client: optional, server: unsupported`.
+    client: optional # Resource packs default to `client: optional, server: unsupported`.
 
 data_packs:
   terralith: ^2.5.8
