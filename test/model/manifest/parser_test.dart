@@ -498,7 +498,64 @@ mods:
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.mods['distanthorizons']!.optional, isTrue);
       expect(m.mods['sodium']!.optional, isFalse);
+      // Long-form `version: beta` mirrors the short form: it sets the
+      // channel and leaves the constraint blank. The resolver would
+      // otherwise treat it as an exact pin on a sentinel `0.0.0-beta`
+      // and fail to match any real Modrinth version.
+      expect(m.mods['distanthorizons']!.constraintRaw, isNull);
+      expect(m.mods['distanthorizons']!.channel, Channel.beta);
     });
+
+    test(
+      'long-form version accepts channel tokens (release/beta/alpha)',
+      () {
+        final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc-version: 1.21.1
+mods:
+  one:
+    version: release
+    environment: client
+  two:
+    version: BETA
+  three:
+    version: '  alpha  '
+''';
+        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+        expect(m.mods['one']!.constraintRaw, isNull);
+        expect(m.mods['one']!.channel, Channel.release);
+        expect(m.mods['two']!.channel, Channel.beta);
+        expect(m.mods['three']!.channel, Channel.alpha);
+      },
+    );
+
+    test(
+      'long-form rejects declaring channel via both version: and channel:',
+      () {
+        final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc-version: 1.21.1
+mods:
+  conflicted:
+    version: beta
+    channel: alpha
+''';
+        expect(
+          () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+          throwsA(isA<ValidationError>()),
+        );
+      },
+    );
 
     test('optional defaults to false when absent', () {
       final yaml = '''

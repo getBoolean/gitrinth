@@ -1077,4 +1077,61 @@ mods:
       expect(lockText, contains('game-versions: ["1.21"]'));
     },
   );
+
+  // Regression: a long-form entry with `version:` set to a channel
+  // token (`release` / `beta` / `alpha`) used to be parsed as an exact
+  // version constraint string. parseConstraint then routed it through
+  // the best-effort fallback to a sentinel `Version("0.0.0-beta")`,
+  // and the resolver reported `no version satisfies 0.0.0-beta on
+  // channel alpha (saw N candidates)` against every real version.
+  // The schema and short-form path treat the token as a channel
+  // declaration; the long-form parser should match.
+  test(
+    'long-form `version: beta` resolves like the short form (channel beta)',
+    () async {
+      modrinth.registerVersion(
+        slug: 'distanthorizons',
+        versionNumber: '2.3.0',
+        versionType: 'release',
+      );
+      final betaId = modrinth.registerVersion(
+        slug: 'distanthorizons',
+        versionNumber: '3.0.1-b',
+        versionType: 'beta',
+      );
+
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  distanthorizons:
+    version: beta
+    optional: true
+''');
+
+      final out = await runCli(
+        ['-C', packDir.path, 'get'],
+        environment: {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        },
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final lockText = File(
+        p.join(packDir.path, 'mods.lock'),
+      ).readAsStringSync();
+      expect(lockText, contains('distanthorizons:'));
+      // Channel `beta` admits both `release` and `beta` versions; the
+      // higher version (3.0.1-b, the beta) wins under semver ordering.
+      expect(lockText, contains('version: 3.0.1-b'));
+      expect(lockText, contains('version-id: $betaId'));
+      expect(lockText, contains('optional: true'));
+    },
+  );
 }

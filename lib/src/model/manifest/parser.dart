@@ -338,13 +338,34 @@ ModEntry _parseEntry(
     source = PathEntrySource(path: path);
   }
 
+  // `version:` accepts the same union the short form does: a channel
+  // token (`release`/`beta`/`alpha`) routes to `channel` with no
+  // version constraint, anything else is the constraint string. This
+  // matches the schema's `modVersion` definition and keeps round-trips
+  // through `add` consistent.
   final versionRaw = m['version'];
-  final constraintRaw = versionRaw?.toString();
-  final channel = _parseChannelField(
+  String? constraintRaw;
+  Channel? channelFromVersion;
+  if (versionRaw != null) {
+    final asText = versionRaw.toString();
+    channelFromVersion = parseChannelToken(asText);
+    if (channelFromVersion == null) {
+      constraintRaw = asText;
+    }
+  }
+  final channelExplicit = _parseChannelField(
     m['channel'],
     filePath,
     '$sectionName/$slug',
   );
+  if (channelFromVersion != null && channelExplicit != null) {
+    throw _err(
+      '$filePath: $sectionName/$slug declares a channel via both '
+      '`version: ${versionRaw.toString().trim()}` and `channel:`. '
+      'Use only one.',
+    );
+  }
+  final channel = channelFromVersion ?? channelExplicit;
 
   Environment env = forcedEnv ?? Environment.both;
   final envRaw = m['environment'];
