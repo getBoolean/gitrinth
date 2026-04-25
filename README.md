@@ -1,22 +1,33 @@
 # gitrinth
 
-A CLI for managing Modrinth modpacks as git repositories. A modpack is
-declared in `mods.yaml`; `gitrinth` resolves entries against Modrinth, locks
-versions to `mods.lock`, assembles client/server distributions, and publishes
-the result as an `.mrpack`.
+Gitrinth is CLI for creating Modrinth modpacks. Instead of managing JARS for
+both client and server distributions, Gitrinth creates a YAML file which
+elegantly manages both and can be versioned with Git. You can add mods with
+the CLI or manually edit `mods.yaml`; it is designed to be intuitive and
+easy to read.
 
-See [`docs/mvp.md`](docs/mvp.md) for the current feature set and
-[`docs/cli.md`](docs/cli.md) for the full CLI surface.
+Gitrinth resolves the mod list to a lockfile, which locks the versions
+until you explicitly upgrade. You can launch a local server and client
+for testing, assemble it for manual distribution, and export it to a
+Modrinth modpack.
 
 ## Usage
 
-Scaffold a pack, add a mod, lock, and build:
+Getting started with the CLI:
 
 ```sh
+# Create a modpack with the template files.
+# The modpack name must be a valid Modrinth project slug (3-64 chars, URL friendly characters only)
 gitrinth create my_pack
 cd my_pack
+
+# Add mods by Modrinth slug or by a direct Modrinth URL
 gitrinth add sodium
+
+# Resolve all mods and their dependencies, creates `mods.lock` and fills the cache.
 gitrinth get
+
+# Assemble the client and server distributions under `build/` for testing or manual distribution. Ensure the correct mod versions are downloaded
 gitrinth build
 ```
 
@@ -53,6 +64,63 @@ Common commands:
 
 Run `gitrinth <command> --help` for options. Every mutating command accepts
 `--offline` to use only what's already in the cache.
+
+### Advanced usage
+
+* [CLI Reference](./docs/cli.md): All CLI commands and options
+* [mods.yaml Reference](./docs/mods-yaml.md): Full schema of the modpack definition file
+
+#### Loader support
+
+Fabric, Forge, and NeoForge are the only supported mod loaders. Specify which loader and version you want in `mods.yaml`.
+
+All shader loaders are supported: Iris, Optifine, Canvas, and Vanilla.
+
+Plugin support is not yet implemented.
+
+```yaml
+mc-version: 1.21.1
+loader:
+  # Choose from forge, fabric, or neoforge
+  # For the version, specify an exact version or use
+  # "latest"/"stable" for the latest/latest stable release.
+  mods: neoforge:stable
+
+  # Choose a shader loader (Use iris for Iris/Sodium)
+  shaders: iris
+
+  # Plugin support is coming soon
+  # plugins: sponge
+```
+
+#### Adding mods by semantic version constraints
+
+Add mods by their semantic version, which is resolved from the version's filename.
+
+```yaml
+mods:
+  # This resolves to version 3.0.9-mc1.21.1 or later releases
+  # matching the semantic version, Minecraft version, and loader.
+  appleskin: ^3.0.9
+```
+
+Later released versions such as `3.1.0` will match this constraint too, but not lower versions such as `3.0.8`. The lockfile will enforce `3.0.9` is used until you explicitly upgrade using `gitrinth upgrade`.
+
+Versions that bump the major version (e.g. `4.0.0`) will not be upgraded by default, as they may contain breaking changes. Use `gitrinth upgrade --major-versions <slug>` to allow major version bumps when upgrading.
+
+#### Pinning to a specific version
+
+Pin to an exact version by removing the caret (`^`). This is
+mostly useful for mods that don't follow semantic versioning.
+
+```yaml
+mods:
+  # This resolves to exactly version 3.0.9-mc1.21.1 and no other.
+  appleskin: 3.0.9
+
+  # You can also use the exact version name
+  appleskin: 3.0.9-mc1.21.1
+```
 
 ## Contributing
 

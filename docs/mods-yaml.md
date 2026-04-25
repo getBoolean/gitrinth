@@ -19,23 +19,23 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 [`description`](#description), [`loader`](#loader), and
 [`mc-version`](#mc-version).
 
-| Field                               | Required | Description                                                                                                                                                                    |
-|-------------------------------------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`slug`](#slug)                     | yes      | Modrinth project slug for the modpack.                                                                                                                                         |
-| [`name`](#name)                     | yes      | Human-readable display name.                                                                                                                                                   |
-| [`version`](#version)               | yes      | The semver version of the modpack.                                                                                                                                             |
-| [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                  |
-| [`project`](#project)               | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                          |
-| [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                |
-| [`loader`](#loader)                 | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                 |
-| [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                               |
-| [`tooling`](#tooling)               | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                      |
-| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled. |
-| [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                   |
-| [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                       |
-| [`shaders`](#shaders)               | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                    |
-| [`plugins`](#plugins)               | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                    |
-| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                   |
+| Field                               | Required | Description                                                                                                                                                                                                                            |
+|-------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`slug`](#slug)                     | yes      | Modrinth project slug for the modpack.                                                                                                                                                                                                 |
+| [`name`](#name)                     | yes      | Human-readable display name.                                                                                                                                                                                                           |
+| [`version`](#version)               | yes      | The semver version of the modpack.                                                                                                                                                                                                     |
+| [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                                                                          |
+| [`project`](#project)               | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                                                                                  |
+| [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                                                                        |
+| [`loader`](#loader)                 | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                                                                         |
+| [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                                                                                       |
+| [`tooling`](#tooling)               | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                                                                              |
+| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled.                                               |
+| [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                           |
+| [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                               |
+| [`shaders`](#shaders)               | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                                                                            |
+| [`plugins`](#plugins)               | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                                                                            |
+| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                                                                           |
 | [`files`](#files)                   | no       | Loose files (configs, scripts) keyed by destination path. Copied into the build tree by `build` and bundled into the appropriate `*-overrides/` root by `pack`. Optional `preserve: true` skips overwriting existing files on rebuild. |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
@@ -356,11 +356,11 @@ loader:
 
 Recognised keys:
 
-| Key                | Required                                                           | Values                                                     |
-|--------------------|--------------------------------------------------------------------|------------------------------------------------------------|
-| `loader.mods`      | **Yes.**                                                           | `forge`, `fabric`, `neoforge` (MVP).                       |
-| `loader.shaders`   | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`.                   |
-| `loader.plugins`   | Deferred — accepted by the schema, rejected by the CLI in the MVP. | `bukkit`, `folia`, `paper`, `spigot`.                      |
+| Key              | Required                                                           | Values                                   |
+|------------------|--------------------------------------------------------------------|------------------------------------------|
+| `loader.mods`    | **Yes.**                                                           | `forge`, `fabric`, `neoforge` (MVP).     |
+| `loader.shaders` | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`. |
+| `loader.plugins` | Deferred — accepted by the schema, rejected by the CLI in the MVP. | `bukkit`, `folia`, `paper`, `spigot`.    |
 
 `resource_packs` and `data_packs` each have a single valid Modrinth
 loader (`minecraft` and `datapack` respectively), so they are not
@@ -566,11 +566,11 @@ pack independently. The two fields share the same vocabulary, and the
 values pass through verbatim into the produced `.mrpack`'s per-file
 `env` block.
 
-| Value         | Meaning                                                                                                          |
-|---------------|------------------------------------------------------------------------------------------------------------------|
-| `required`    | Install the entry on this side. The launcher cannot disable it.                                                  |
-| `optional`    | Install the entry on this side, but expose a launcher-side toggle so the user can disable it.                    |
-| `unsupported` | Do not install the entry on this side at all. The build pipeline skips it and `.mrpack` records `unsupported`.   |
+| Value         | Meaning                                                                                                        |
+|---------------|----------------------------------------------------------------------------------------------------------------|
+| `required`    | Install the entry on this side. The launcher cannot disable it.                                                |
+| `optional`    | Install the entry on this side, but expose a launcher-side toggle so the user can disable it.                  |
+| `unsupported` | Do not install the entry on this side at all. The build pipeline skips it and `.mrpack` records `unsupported`. |
 
 If both sides are `unsupported`, the entry would not install anywhere
 and the parser rejects it.
@@ -615,9 +615,9 @@ output under `build/<env>/`, data packs and resource packs route into
 the `global_packs/` tree the [`globalpacks`](https://modrinth.com/mod/globalpacks)
 mod loads from:
 
-| Section          | `<side>: required`                       | `<side>: optional`                       |
-|------------------|------------------------------------------|------------------------------------------|
-| `data_packs`     | `build/<env>/global_packs/required_data/`     | `build/<env>/global_packs/optional_data/`     |
+| Section          | `<side>: required`                             | `<side>: optional`                             |
+|------------------|------------------------------------------------|------------------------------------------------|
+| `data_packs`     | `build/<env>/global_packs/required_data/`      | `build/<env>/global_packs/optional_data/`      |
 | `resource_packs` | `build/<env>/global_packs/required_resources/` | `build/<env>/global_packs/optional_resources/` |
 
 `mods/` and `shaderpacks/` keep their conventional subdirs. The
@@ -629,14 +629,14 @@ canonical locations.
 **Migration.** The previous `environment:` enum (`client | server | both`)
 and `optional: true` flag were removed. Translate as follows:
 
-| Was                                          | Becomes                                          |
-|----------------------------------------------|--------------------------------------------------|
-| (omitted)                                    | (omit `client:` / `server:`; defaults apply)     |
-| `environment: client`                        | `client: required`, `server: unsupported`        |
-| `environment: server`                        | `client: unsupported`, `server: required`        |
-| `optional: true`                             | `client: optional`, `server: optional`           |
-| `environment: client` + `optional: true`     | `client: optional`, `server: unsupported`        |
-| `environment: server` + `optional: true`     | `client: unsupported`, `server: optional`        |
+| Was                                      | Becomes                                      |
+|------------------------------------------|----------------------------------------------|
+| (omitted)                                | (omit `client:` / `server:`; defaults apply) |
+| `environment: client`                    | `client: required`, `server: unsupported`    |
+| `environment: server`                    | `client: unsupported`, `server: required`    |
+| `optional: true`                         | `client: optional`, `server: optional`       |
+| `environment: client` + `optional: true` | `client: optional`, `server: unsupported`    |
+| `environment: server` + `optional: true` | `client: unsupported`, `server: optional`    |
 
 The parser raises a clear migration error if a manifest still uses the
 old fields, so a stale `mods.yaml` will fail loud rather than silently
@@ -915,11 +915,11 @@ files:
 
 Per-entry fields:
 
-| Field      | Type    | Default    | Description                                                                                                  |
-|------------|---------|------------|--------------------------------------------------------------------------------------------------------------|
-| `path`     | string  | (required) | Source path relative to `mods.yaml`.                                                                         |
-| `client`   | enum    | `required` | Install state on the client side. `required` or `unsupported`. (`optional` is reserved.)                     |
-| `server`   | enum    | `required` | Install state on the server side. `required` or `unsupported`. (`optional` is reserved.)                     |
+| Field      | Type    | Default    | Description                                                                                                   |
+|------------|---------|------------|---------------------------------------------------------------------------------------------------------------|
+| `path`     | string  | (required) | Source path relative to `mods.yaml`.                                                                          |
+| `client`   | enum    | `required` | Install state on the client side. `required` or `unsupported`. (`optional` is reserved.)                      |
+| `server`   | enum    | `required` | Install state on the server side. `required` or `unsupported`. (`optional` is reserved.)                      |
 | `preserve` | boolean | `false`    | When `true`, [`build`](cli.md#build) does not overwrite an existing destination. First-install-only behavior. |
 
 Destination keys must be relative, normalized, non-empty paths with
