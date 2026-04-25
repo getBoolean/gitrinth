@@ -29,6 +29,7 @@ class LoaderVersionResolver {
 
   LoaderVersionResolver({
     required Dio dio,
+    Map<String, String>? environment,
     String? fabricMetaUrl,
     String? forgePromotionsUrl,
     String? forgeVersionsUrl,
@@ -37,23 +38,27 @@ class LoaderVersionResolver {
   }) : _dio = dio,
        _fabricMetaUrl =
            fabricMetaUrl ??
-           Platform.environment['GITRINTH_FABRIC_META_URL'] ??
+           (environment ?? Platform.environment)['GITRINTH_FABRIC_META_URL'] ??
            'https://meta.fabricmc.net/v2/versions/loader',
        _forgePromotionsUrl =
            forgePromotionsUrl ??
-           Platform.environment['GITRINTH_FORGE_PROMOTIONS_URL'] ??
+           (environment ??
+               Platform.environment)['GITRINTH_FORGE_PROMOTIONS_URL'] ??
            'https://files.minecraftforge.net/net/minecraftforge/forge/promotions_slim.json',
        _forgeVersionsUrl =
            forgeVersionsUrl ??
-           Platform.environment['GITRINTH_FORGE_VERSIONS_URL'] ??
+           (environment ??
+               Platform.environment)['GITRINTH_FORGE_VERSIONS_URL'] ??
            'https://files.minecraftforge.net/net/minecraftforge/forge/maven-metadata.json',
        _neoforgeVersionsUrl =
            neoforgeVersionsUrl ??
-           Platform.environment['GITRINTH_NEOFORGE_VERSIONS_URL'] ??
+           (environment ??
+               Platform.environment)['GITRINTH_NEOFORGE_VERSIONS_URL'] ??
            'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/neoforge',
        _neoforgeLegacyVersionsUrl =
            neoforgeLegacyVersionsUrl ??
-           Platform.environment['GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL'] ??
+           (environment ??
+               Platform.environment)['GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL'] ??
            'https://maven.neoforged.net/api/maven/versions/releases/net/neoforged/forge';
 
   /// Returns the concrete loader version for [loader] given [tag].

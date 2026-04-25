@@ -11,6 +11,7 @@ import '../service/modrinth_error_interceptor.dart';
 import '../service/modrinth_url.dart';
 import '../service/offline_guard_interceptor.dart';
 import '../version.dart';
+import 'env.dart';
 import 'offline_notifier.dart';
 
 final consoleProvider = Provider<Console>((ref) => const Console());
@@ -32,12 +33,15 @@ final dioProvider = Provider<Dio>((ref) {
 });
 
 final modrinthApiProvider = Provider<ModrinthApi>(
-  (ref) =>
-      ModrinthApi(ref.read(dioProvider), baseUrl: resolveModrinthBaseUrl()),
+  (ref) => ModrinthApi(
+    ref.read(dioProvider),
+    baseUrl: resolveModrinthBaseUrl(ref.read(environmentProvider)),
+  ),
 );
 
 final cacheProvider = Provider<GitrinthCache>(
-  (ref) => GitrinthCache(root: resolveCacheRoot()),
+  (ref) =>
+      GitrinthCache(root: resolveCacheRoot(ref.read(environmentProvider))),
 );
 
 final downloaderProvider = Provider<Downloader>(
@@ -46,5 +50,8 @@ final downloaderProvider = Provider<Downloader>(
 );
 
 final loaderVersionResolverProvider = Provider<LoaderVersionResolver>(
-  (ref) => LoaderVersionResolver(dio: ref.read(dioProvider)),
+  (ref) => LoaderVersionResolver(
+    dio: ref.read(dioProvider),
+    environment: ref.read(environmentProvider),
+  ),
 );

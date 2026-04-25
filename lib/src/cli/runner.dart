@@ -5,6 +5,7 @@ import 'package:args/command_runner.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../app/container.dart';
+import '../app/env.dart';
 import '../commands/add_command.dart';
 import '../commands/build_command.dart';
 import '../commands/cache_command.dart';
@@ -92,8 +93,17 @@ class GitrinthRunner extends CommandRunner<int> {
 Future<int> runGitrinth(
   List<String> arguments, {
   ProviderContainer? container,
+  Map<String, String>? environment,
 }) async {
-  final runner = GitrinthRunner(container: container);
+  final effectiveContainer =
+      container ??
+      buildContainer(
+        overrides: [
+          if (environment != null)
+            environmentProvider.overrideWithValue(environment),
+        ],
+      );
+  final runner = GitrinthRunner(container: effectiveContainer);
   try {
     return await runner.run(arguments);
   } on GitrinthException catch (e) {
