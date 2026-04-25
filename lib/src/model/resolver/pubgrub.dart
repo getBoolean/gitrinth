@@ -131,9 +131,10 @@ class PubGrubSolver {
 
     final allVersions = await _versionsFor(slug);
     if (allVersions.isEmpty) {
-      state.recordConflict(
+      state.recordSpecificFailure(
         slug,
-        'no published versions match the loader/mc-version pair',
+        'no published version of $slug matches the configured '
+        'loader/mc-version pair',
       );
       return false;
     }
@@ -160,10 +161,10 @@ class PubGrubSolver {
       }
     }
     if (candidates.isEmpty) {
-      state.recordConflict(
+      state.recordSpecificFailure(
         slug,
-        'no version satisfies $constraint on channel ${channel.name} '
-        '(saw ${allVersions.length} candidates).',
+        'no version of $slug matches $constraint on channel '
+        '${channel.name} (saw ${allVersions.length} candidates)',
       );
       return false;
     }
@@ -204,6 +205,14 @@ class PubGrubSolver {
           // floor of a transitive must declare it explicitly as a direct
           // entry.
           state.addChannel(depSlug, Channel.alpha);
+          // Record who pulled this transitive in so failure messages
+          // can narrate "every <slug> depends on <depSlug>" — backtracking
+          // restores the previous introducer if this candidate is abandoned.
+          state.recordIntroducer(
+            depSlug,
+            slug,
+            cand.modrinthVersion.versionNumber,
+          );
           if (!candEdges.contains(depSlug)) candEdges.add(depSlug);
           // versionId-pinned deps will be enforced when we recurse.
         } else if (dep.dependencyType == DependencyType.incompatible) {
@@ -215,9 +224,10 @@ class PubGrubSolver {
           // this branch fails immediately.
           if (state.decisions.containsKey(depSlug)) {
             ok = false;
-            state.recordConflict(
+            state.recordSpecificFailure(
               slug,
-              'requires ${cand.modrinthVersion.versionNumber} which is incompatible with $depSlug',
+              '$slug ${cand.modrinthVersion.versionNumber} is '
+              'incompatible with $depSlug, which is already in the modpack',
             );
             break;
           }
@@ -247,7 +257,12 @@ class PubGrubSolver {
       if (await _solveStep(state)) return true;
       state.restore(snapshot);
     }
-    state.recordConflict(slug, 'all candidate versions led to conflicts');
+    // Don't record a cascade here — the deeper specific failure for a
+    // child slug has already been captured via `recordSpecificFailure`,
+    // and the dart-pub-style chain in `failureExplanation` will narrate
+    // the parent → child relationship from the introducer trail. A
+    // bookkeeping "all candidate versions led to conflicts" line at
+    // every level only adds noise.
     return false;
   }
 }
@@ -258,16 +273,56 @@ class _Candidate {
   const _Candidate(this.parsed, this.modrinthVersion);
 }
 
+/// Records who introduced a transitive constraint on a slug. Used at
+/// failure time to walk back from the failing leaf to the user-declared
+/// root, producing a dart pub-style "Because X depends on Y..." chain.
+class _Introducer {
+  final String parentSlug;
+  final String parentVersion;
+  const _Introducer({
+    required this.parentSlug,
+    required this.parentVersion,
+  });
+}
+
+/// One specific resolver failure with the chain that led to it. Captured
+/// the moment the failure is detected so the chain reflects the
+/// then-current decision state — backtracking later won't change it.
+class _Failure {
+  final String slug;
+  final String reason;
+  final VersionConstraint slugConstraint;
+  final Channel slugChannel;
+
+  /// Innermost (slug's direct parent) → outermost (the user-declared
+  /// root that pulled slug in). Empty when [slug] is itself a user root.
+  final List<_Introducer> chain;
+
+  const _Failure({
+    required this.slug,
+    required this.reason,
+    required this.slugConstraint,
+    required this.slugChannel,
+    required this.chain,
+  });
+}
+
 class _SolverState {
   final Map<String, VersionConstraint> constraints = {};
   final Map<String, Channel> channels = {};
   final Map<String, modrinth.Version> decisions = {};
   final Set<String> incompatibleSlugs = {};
   final Map<String, List<String>> edges = {};
+  final Map<String, _Introducer> introducers = {};
   final Map<String, String> lockSuggestions;
   final Set<String> userSlugs;
   final Map<String, List<String>> unparseableVersions = {};
-  final List<String> conflicts = [];
+
+  /// Real-cause failures collected across the entire solve. Not part of
+  /// snapshot/restore — failures persist past backtracking so we still
+  /// have something to report when every branch ultimately fails.
+  /// Deduplicated by `(slug, reason)` at format time.
+  final List<_Failure> specificFailures = [];
 
   _SolverState({required this.lockSuggestions, required this.userSlugs});
 
@@ -305,17 +360,68 @@ class _SolverState {
     return rank(a) >= rank(b) ? a : b;
   }
 
-  void recordConflict(String slug, String why) {
-    conflicts.add('  - $slug: $why');
+  /// Record that [parentSlug]@[parentVersion] introduced a constraint
+  /// on [childSlug]. The most-recent introducer wins — chain walking
+  /// follows whichever decision is currently live in the search tree,
+  /// because snapshot/restore reverts entries added by an abandoned
+  /// candidate.
+  void recordIntroducer(
+    String childSlug,
+    String parentSlug,
+    String parentVersion,
+  ) {
+    introducers[childSlug] = _Introducer(
+      parentSlug: parentSlug,
+      parentVersion: parentVersion,
+    );
+  }
+
+  void recordSpecificFailure(String slug, String reason) {
+    specificFailures.add(
+      _Failure(
+        slug: slug,
+        reason: reason,
+        slugConstraint: constraints[slug] ?? VersionConstraint.any,
+        slugChannel: channels[slug] ?? Channel.alpha,
+        chain: _buildChain(slug),
+      ),
+    );
+  }
+
+  List<_Introducer> _buildChain(String slug) {
+    final hops = <_Introducer>[];
+    final visited = <String>{slug};
+    var current = slug;
+    while (true) {
+      final intro = introducers[current];
+      if (intro == null) break;
+      hops.add(intro);
+      if (!visited.add(intro.parentSlug)) break; // cycle guard
+      current = intro.parentSlug;
+    }
+    return hops;
   }
 
   String failureExplanation() {
-    final buf = StringBuffer('Resolution failed.');
-    if (conflicts.isNotEmpty) {
-      buf.writeln('\nConflicts:');
-      for (final c in conflicts.take(20)) {
-        buf.writeln(c);
+    // Dedupe (slug, reason) — the same leaf can be hit on multiple
+    // backtrack paths and we only want one paragraph per real cause.
+    final seen = <String>{};
+    final unique = <_Failure>[];
+    for (final f in specificFailures) {
+      if (seen.add('${f.slug}::${f.reason}')) unique.add(f);
+    }
+
+    final buf = StringBuffer();
+    if (unique.isEmpty) {
+      // No specific failure recorded — fall back to a bare message.
+      // Reachable only if `_solveStep` returns false for reasons we
+      // don't currently surface (defensive).
+      buf.writeln('Version solving failed.');
+    } else {
+      for (final f in unique) {
+        buf.writeln(_formatFailure(f));
       }
+      buf.writeln('Version solving failed.');
     }
     if (unparseableVersions.isNotEmpty) {
       buf.writeln(
@@ -326,7 +432,44 @@ class _SolverState {
       });
       buf.writeln('Pin an exact version in mods.yaml as a workaround.');
     }
-    return buf.toString();
+    return buf.toString().trimRight();
+  }
+
+  String _formatFailure(_Failure f) {
+    final clauses = <String>[];
+    if (f.chain.isEmpty) {
+      // [f.slug] is itself a user-declared root.
+      clauses.add(_dependsOnModpack(f.slug, f.slugConstraint));
+    } else {
+      // Outermost introducer is the user root; walk in narrative
+      // order (root → ... → slug's direct parent → slug).
+      final outermost = f.chain.last;
+      final rootConstraint =
+          constraints[outermost.parentSlug] ?? VersionConstraint.any;
+      clauses.add(_dependsOnModpack(outermost.parentSlug, rootConstraint));
+      // Intermediate hops: root → hop1 → hop2 → ... → slug.
+      // Iterate from outermost to innermost, then add the leaf hop.
+      for (var i = f.chain.length - 1; i >= 0; i--) {
+        final hop = f.chain[i];
+        final child = i == 0 ? f.slug : f.chain[i - 1].parentSlug;
+        clauses.add('every ${hop.parentSlug} depends on $child');
+      }
+    }
+    clauses.add(f.reason);
+    return 'Because ${clauses.join(', ')}.';
+  }
+
+  String _dependsOnModpack(String slug, VersionConstraint c) {
+    if (c.isAny) return 'the modpack depends on $slug';
+    return 'the modpack depends on $slug ${_formatConstraint(c)}';
+  }
+
+  /// Compact, user-facing rendering of a [VersionConstraint]. The
+  /// pub_semver `toString()` is good enough for ranges and carets;
+  /// `SemverOnlyExactConstraint` already returns a bare version.
+  String _formatConstraint(VersionConstraint c) {
+    if (c.isAny) return 'any';
+    return c.toString();
   }
 
   _Snapshot snapshot() {
@@ -336,6 +479,7 @@ class _SolverState {
       decisions: Map.of(decisions),
       incompatibleSlugs: Set.of(incompatibleSlugs),
       edges: {for (final e in edges.entries) e.key: List.of(e.value)},
+      introducers: Map.of(introducers),
     );
   }
 
@@ -355,6 +499,9 @@ class _SolverState {
     edges
       ..clear()
       ..addAll(s.edges);
+    introducers
+      ..clear()
+      ..addAll(s.introducers);
   }
 }
 
@@ -364,11 +511,13 @@ class _Snapshot {
   final Map<String, modrinth.Version> decisions;
   final Set<String> incompatibleSlugs;
   final Map<String, List<String>> edges;
+  final Map<String, _Introducer> introducers;
   _Snapshot({
     required this.constraints,
     required this.channels,
     required this.decisions,
     required this.incompatibleSlugs,
     required this.edges,
+    required this.introducers,
   });
 }

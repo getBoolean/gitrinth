@@ -551,4 +551,207 @@ void main() {
       },
     );
   });
+
+  group('failure messages (dart pub-style)', () {
+    test(
+      'direct user-root failure emits a single Because... '
+      'Version solving failed. chain',
+      () async {
+        final db = {
+          'create': [v(slug: 'create', number: '5.0.0')],
+        };
+        final solver = PubGrubSolver(
+          listVersions: (slug) async => db[slug] ?? [],
+          resolveSlugForProjectId: (id) async => null,
+        );
+        try {
+          await solver.solve([
+            RootConstraint(
+              slug: 'create',
+              constraint: VersionConstraint.parse('^6.0.0'),
+              isUserDeclared: true,
+            ),
+          ]);
+          fail('expected ValidationError');
+        } on ValidationError catch (e) {
+          final msg = e.message;
+          expect(
+            msg,
+            startsWith('Because the modpack depends on create ^6.0.0'),
+          );
+          expect(msg, contains('no version of create matches ^6.0.0'));
+          expect(msg, endsWith('Version solving failed.'));
+          // The "saw N candidates" parenthetical lands at the end of the reason.
+          expect(msg, contains('(saw 1 candidates)'));
+        }
+      },
+    );
+
+    test('transitive failure includes the parent → child chain', () async {
+      final db = {
+        'create': [
+          v(
+            slug: 'create',
+            number: '6.0.10',
+            deps: const [
+              Dependency(
+                projectId: 'flywheel',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        // Empty version list for flywheel → "no published version matches".
+        'flywheel': <modrinth.Version>[],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      try {
+        await solver.solve([
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.parse('^6.0.10'),
+            isUserDeclared: true,
+          ),
+        ]);
+        fail('expected ValidationError');
+      } on ValidationError catch (e) {
+        final msg = e.message;
+        expect(msg, contains('the modpack depends on create ^6.0.10'));
+        expect(msg, contains('every create depends on flywheel'));
+        expect(
+          msg,
+          contains(
+            'no published version of flywheel matches the configured '
+            'loader/mc-version pair',
+          ),
+        );
+        expect(msg, endsWith('Version solving failed.'));
+      }
+    });
+
+    test(
+      'no `all candidate versions led to conflicts` cascade through other '
+      'user roots',
+      () async {
+        // The original cascade scenario: one bad root (`distanthorizons`)
+        // causes the depth-first search to iterate every candidate of the
+        // alphabetically-earlier user roots before failing. Each of those
+        // roots used to land in the conflict list as
+        // "all candidate versions led to conflicts" — pure noise.
+        final db = {
+          'appleskin': [v(slug: 'appleskin', number: '3.0.9')],
+          'create': [v(slug: 'create', number: '6.0.10')],
+          'distanthorizons': [
+            v(
+              slug: 'distanthorizons',
+              number: '2.3.0',
+              versionType: 'release',
+            ),
+          ],
+        };
+        final solver = PubGrubSolver(
+          listVersions: (slug) async => db[slug] ?? [],
+          resolveSlugForProjectId: (id) async => null,
+        );
+        try {
+          await solver.solve([
+            RootConstraint(
+              slug: 'appleskin',
+              constraint: VersionConstraint.parse('^3.0.9'),
+              isUserDeclared: true,
+            ),
+            RootConstraint(
+              slug: 'create',
+              constraint: VersionConstraint.parse('^6.0.10'),
+              isUserDeclared: true,
+            ),
+            // Bad root: pin a version that doesn't exist.
+            RootConstraint(
+              slug: 'distanthorizons',
+              constraint: VersionConstraint.parse('^99.0.0'),
+              isUserDeclared: true,
+            ),
+          ]);
+          fail('expected ValidationError');
+        } on ValidationError catch (e) {
+          final msg = e.message;
+          expect(msg, isNot(contains('all candidate versions led to conflicts')));
+          // The actual broken slug is named.
+          expect(msg, contains('distanthorizons'));
+          // The healthy slugs are NOT named in any failure paragraph
+          // (their names appear nowhere in the message).
+          expect(msg, isNot(contains('appleskin')));
+          expect(msg, isNot(contains(' create ')));
+          expect(msg, endsWith('Version solving failed.'));
+        }
+      },
+    );
+
+    test(
+      'deduplicates the same leaf failure encountered on multiple '
+      'backtrack paths',
+      () async {
+        // Both create candidates require flywheel; flywheel has no
+        // satisfying version. Each backtrack revisits flywheel's
+        // failure — the message should mention it once.
+        final db = {
+          'create': [
+            v(
+              slug: 'create',
+              number: '6.0.11',
+              deps: const [
+                Dependency(
+                  projectId: 'flywheel',
+                  dependencyType: DependencyType.required,
+                ),
+              ],
+            ),
+            v(
+              slug: 'create',
+              number: '6.0.10',
+              deps: const [
+                Dependency(
+                  projectId: 'flywheel',
+                  dependencyType: DependencyType.required,
+                ),
+              ],
+            ),
+          ],
+          'flywheel': <modrinth.Version>[],
+        };
+        final solver = PubGrubSolver(
+          listVersions: (slug) async => db[slug] ?? [],
+          resolveSlugForProjectId: (id) async => id,
+        );
+        try {
+          await solver.solve([
+            RootConstraint(
+              slug: 'create',
+              constraint: VersionConstraint.any,
+              isUserDeclared: true,
+            ),
+          ]);
+          fail('expected ValidationError');
+        } on ValidationError catch (e) {
+          final msg = e.message;
+          // The flywheel reason appears exactly once even though two
+          // create candidates each tried (and failed) on it.
+          final flywheelReason =
+              'no published version of flywheel matches the configured '
+              'loader/mc-version pair';
+          final occurrences = flywheelReason.allMatches(msg).length;
+          expect(
+            occurrences,
+            1,
+            reason: 'expected exactly one mention of the flywheel failure, '
+                'got $occurrences in:\n$msg',
+          );
+          expect(msg, endsWith('Version solving failed.'));
+        }
+      },
+    );
+  });
 }
