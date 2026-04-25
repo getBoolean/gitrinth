@@ -403,11 +403,12 @@ ModsLock _buildLock(
 }
 
 /// Writes a `version.json` next to each resolved Modrinth artifact in
-/// the cache, capturing that version's `dependencies` array. The file
-/// is the on-disk source of truth for transitive-dep walking — the
-/// gitrinth analogue of pub's per-package `pubspec.yaml` cache. Best
-/// effort: a write failure logs a warn but doesn't abort the resolve,
-/// because the artifact download is the user-visible contract.
+/// the cache, capturing the full Modrinth `Version` payload — its
+/// `dependencies` array (consumed by `upgrade --unlock-transitive`) and
+/// its `files` array (consumed by `cache repair` to verify and refetch
+/// corrupt artifacts). Best effort: a write failure logs a warn but
+/// doesn't abort the resolve, because the artifact download is the
+/// user-visible contract.
 void _persistVersionMetadata(
   ResolutionResult resolution,
   GitrinthCache cache,
@@ -423,17 +424,9 @@ void _persistVersionMetadata(
     );
     try {
       Directory(p.dirname(path)).createSync(recursive: true);
-      final body = <String, dynamic>{
-        'dependencies': [
-          for (final d in r.version.dependencies)
-            <String, dynamic>{
-              'project_id': d.projectId,
-              'version_id': d.versionId,
-              'dependency_type': d.dependencyType.name,
-            },
-        ],
-      };
-      File(path).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(body));
+      File(path).writeAsStringSync(
+        const JsonEncoder.withIndent('  ').convert(r.version.toMap()),
+      );
     } on Object catch (e) {
       console.warn(
         'cache: failed to persist version metadata for ${r.slug} '

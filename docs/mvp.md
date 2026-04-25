@@ -9,9 +9,9 @@ post-MVP.
 
 Scaffolding:
 
-- [ ] `CommandRunner` with all nine MVP commands registered (eight done; `cache` pending).
+- [x] `CommandRunner` with all nine MVP commands registered.
 - [x] Global options (`-h`, `--help`, `--version`, `-C`, `-v`).
-- [ ] Exit-code mapping (`0`/`1`/`2`/`5`/`64`) via `GitrinthException` hierarchy. Code `5` lands with `cache`.
+- [x] Exit-code mapping (`0`/`1`/`2`/`5`/`64`) via `GitrinthException` hierarchy.
 
 Commands:
 
@@ -23,7 +23,7 @@ Commands:
 - [x] `build` — implemented; server-binary auto-download deferred.
 - [x] `clean` — fully implemented.
 - [x] `pack` — implemented; emits a separate client + server `.mrpack` by default (use `--combined` for a single artifact); routes url/path artifacts into `overrides/` / `client-overrides/` / `server-overrides/` by env; `--publishable` refuses url/path mods (other sections still allowed). Recommended server installer: [mrpack-install](https://github.com/nothub/mrpack-install).
-- [ ] `cache` — planned.
+- [x] `cache` — fully implemented.
 
 Supporting work:
 
@@ -180,18 +180,19 @@ gitrinth pack [--output <path>] [--combined] [--publishable]
 Inspect, clean, or repair the local cache.
 
 ```text
-gitrinth cache list [--path]
-gitrinth cache clean [--all | --older-than <duration>]
+gitrinth cache list
+gitrinth cache clean [--force]
 gitrinth cache repair
 ```
 
-- `cache list` — print cache entries with sizes; `--path` prints only
-  the cache root.
-- `cache clean` — remove cache entries. `--all` clears everything;
-  `--older-than` removes entries untouched for longer than the
-  duration (e.g. `30d`, `6h`).
-- `cache repair` — re-verify every cached file against its Modrinth
-  hash and re-download corrupt entries.
+- `cache list` — print every cached artifact as JSON (root + per-entry
+  filename, size, and on-disk location).
+- `cache clean` — delete every cached artifact. Prompts before wiping
+  unless `--force` (`-f`) is given; refuses to wipe without `--force`
+  when stdin is not a terminal.
+- `cache repair` — re-verify every cached file against its expected
+  hash. Re-downloads corrupt Modrinth entries; deletes corrupt
+  url-sourced entries (the next `gitrinth get` re-fetches them).
 
 Adds exit code `5` (cache corruption `cache repair` could not fix).
 

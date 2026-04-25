@@ -427,16 +427,16 @@ Inspect, clean, or repair the local cache — downloaded `.jar` files
 and Modrinth metadata snapshots.
 
 ```text
-gitrinth cache list [--path]
-gitrinth cache clean [--all | --older-than <duration>]
+gitrinth cache list
+gitrinth cache clean [--force]
 gitrinth cache repair
 ```
 
-| Subcommand | Description                                                                                                                                |
-|------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `list`     | Print cache entries with sizes. `--path` prints only the cache root.                                                                       |
-| `clean`    | Remove cache entries. `--all` clears everything; `--older-than` removes entries untouched for longer than the duration (e.g. `30d`, `6h`). |
-| `repair`   | Re-verify every cached file against its Modrinth hash and re-download corrupt entries.                                                     |
+| Subcommand | Description                                                                                                                                                                       |
+|------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `list`     | Print every cached artifact as JSON: cache root, plus per-artifact filename, size, and on-disk location.                                                                          |
+| `clean`    | Delete every cached artifact. Prompts for confirmation before deleting; pass `--force` (`-f`) to skip the prompt. Refuses to wipe without `--force` when stdin is not a terminal. |
+| `repair`   | Re-verify every cached file against its expected hash. Re-downloads corrupt Modrinth-sourced entries; deletes corrupt url-sourced entries (the next `gitrinth get` re-fetches).   |
 
 ### `completion`
 

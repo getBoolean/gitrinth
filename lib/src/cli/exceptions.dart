@@ -30,3 +30,10 @@ class ValidationError extends GitrinthException {
   @override
   int get exitCode => exitValidationError;
 }
+
+class CacheCorruptionError extends GitrinthException {
+  const CacheCorruptionError(super.message);
+
+  @override
+  int get exitCode => exitCacheCorruption;
+}
