@@ -45,8 +45,8 @@ mods:
   # Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
   # Caution: `url` and `path` sources make the modpack unpublishable on modrinth.
   create: ^6.0.10 # 6.0.10+mc1.21.1
-  create-aeronautics: ^1.1.0 # 1.1.0+mc1.21.1
-  sable: ^1.1.1 # 1.1.1+mc1.21.1
+  create-aeronautics: ^1.1.3 # 1.1.0+mc1.21.1
+  sable: ^1.1.3 # 1.1.1+mc1.21.1
   jei: ^19.27.0+340 # 19.27.0.340
   sodium: beta
   ferrite-core: beta
@@ -57,20 +57,20 @@ mods:
     version: beta
     optional: true # Ships as `env: optional` in the .mrpack so launchers offer a toggle.
   iris:
-    version: ^1.8.12 # 1.8.12+1.21.1-neoforge
+    version: ^1.8.12+1.21 # 1.8.12+1.21.1-neoforge
     environment: client # Restrict to client or server only. Default: both. Only needed if Modrinth metadata is mislabeled or you want a slimmer distribution.
     accepts-mc:
       - 1.21.1
   netherportalfix:
-    version: ^21.1.1 # 21.1.1+neoforge-1.21.1
+    version: ^21.1.1
     channel: beta # Restrict to a specific release channel newer than the semver version.
     environment: server
   appleskin:
-    version: ^3.0.9 # 3.0.9+mc1.21
+    version: ^3.0.9
     accepts-mc: 1.21.1 # Scalar shorthand for [1.21.1]
 
 resource_packs:
-  faithful-32x: ^1.21.1 # 1.21.1-december-2025
+  faithful-32x: ^1.21.3-june-2025
 
 data_packs:
   terralith: ^2.5.8
