@@ -7,6 +7,15 @@ part 'mods_lock.mapper.dart';
 @MappableEnum()
 enum LockedSourceKind { modrinth, url, path }
 
+/// Mirrors dart pub's lockfile `dependency` classification. `direct`
+/// is an entry the user declared in `mods.yaml`; `transitive` was
+/// pulled in by another mod's required deps. The dep-graph edges that
+/// connect them live in the artifact cache (the `version.json` sibling
+/// to each cached jar), not in `mods.lock`, matching pub's "graph in
+/// cache, not lock" architecture.
+@MappableEnum()
+enum LockedDependencyKind { direct, transitive }
+
 @MappableClass()
 class LockedFile with LockedFileMappable {
   final String name;
@@ -34,7 +43,11 @@ class LockedEntry with LockedEntryMappable {
   final LockedFile? file;
   final String? path;
   final Environment env;
-  final bool auto;
+
+  /// Whether this entry was declared by the user (`direct`) or pulled
+  /// in transitively (`transitive`). Mirrors dart pub's lockfile
+  /// classification. Replaces the older `auto: true/false` flag.
+  final LockedDependencyKind dependency;
 
   /// Minecraft versions the resolved Modrinth version was tagged for.
   /// Empty for non-Modrinth sources. Enables later detection of entries
@@ -45,12 +58,6 @@ class LockedEntry with LockedEntryMappable {
   /// `pack` can emit `env: "optional"` in `modrinth.index.json`.
   final bool optional;
 
-  /// Slugs this entry directly required at resolution time (forward edges
-  /// in the dep graph). Empty for non-Modrinth sources and for entries
-  /// whose resolved Modrinth version had no required dependencies.
-  /// Powers `gitrinth upgrade --unlock-transitive`.
-  final List<String> dependencies;
-
   const LockedEntry({
     required this.slug,
     required this.sourceKind,
@@ -60,10 +67,9 @@ class LockedEntry with LockedEntryMappable {
     this.file,
     this.path,
     this.env = Environment.both,
-    this.auto = false,
+    this.dependency = LockedDependencyKind.direct,
     this.gameVersions = const [],
     this.optional = false,
-    this.dependencies = const [],
   });
 }
 

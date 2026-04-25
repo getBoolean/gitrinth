@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:pub_semver/pub_semver.dart';
@@ -9,6 +10,7 @@ import '../cli/exit_codes.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
+import '../service/cache.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
@@ -104,7 +106,11 @@ class UpgradeCommand extends GitrinthCommand {
     }
 
     if (unlockTransitive && targets.isNotEmpty) {
-      targets = _expandTransitiveClosure(targets, io.readModsLock());
+      targets = _expandTransitiveClosure(
+        targets,
+        io.readModsLock(),
+        read(cacheProvider),
+      );
     }
 
     final relaxSet = majorVersions
@@ -256,18 +262,23 @@ class UpgradeCommand extends GitrinthCommand {
     }
   }
 
-  /// BFS over forward dep-graph edges in [lock] to compute the transitive
-  /// closure of [seeds]. Powers `--unlock-transitive`: every slug in the
-  /// returned set is fed to [resolveAndSync] as a `freshSlug`, so the
-  /// resolver picks newest-within-constraint instead of preserving the
-  /// existing pin. Cycles terminate via the visited-set; slugs missing
-  /// from the lock are reported via `console.detail` and skipped.
+  /// BFS over the dep graph to compute the transitive closure of
+  /// [seeds]. Powers `--unlock-transitive`: every slug in the returned
+  /// set is fed to [resolveAndSync] as a `freshSlug`, so the resolver
+  /// picks newest-within-constraint instead of preserving the existing
+  /// pin.
   ///
-  /// Legacy locks have no edges recorded; if every targeted slug's entry
-  /// exists in the lock with an empty dependency list, warn and return
-  /// the original [seeds] unchanged so the next get/upgrade write
-  /// populates edges.
-  Set<String> _expandTransitiveClosure(Set<String> seeds, ModsLock? lock) {
+  /// Edges are read from the artifact cache's per-version `version.json`
+  /// (mirrors dart pub's "graph in cache" architecture — see
+  /// [GitrinthCache.modrinthVersionMetadataPath]). Cold-cache entries
+  /// (a slug whose `version.json` hasn't been written yet) are reported
+  /// via `console.detail` and their children are skipped; subsequent
+  /// runs populate the cache.
+  Set<String> _expandTransitiveClosure(
+    Set<String> seeds,
+    ModsLock? lock,
+    GitrinthCache cache,
+  ) {
     if (lock == null) {
       console.info(
         'upgrade --unlock-transitive: no mods.lock found yet — '
@@ -277,21 +288,11 @@ class UpgradeCommand extends GitrinthCommand {
     }
 
     final lookup = <String, LockedEntry>{};
+    final projectIdToSlug = <String, String>{};
     for (final entry in lock.allEntries) {
       lookup[entry.key] = entry.value;
-    }
-
-    final seedsInLock = seeds.where(lookup.containsKey).toList();
-    final seedsHaveEdges = seedsInLock.any(
-      (s) => lookup[s]!.dependencies.isNotEmpty,
-    );
-    if (seedsInLock.isNotEmpty && !seedsHaveEdges) {
-      console.info(
-        'upgrade --unlock-transitive: mods.lock has no dependency edges '
-        'for the named entries (legacy lock). Run `gitrinth get` to '
-        'populate edges; falling back to unlocking only the named entries.',
-      );
-      return seeds;
+      final pid = entry.value.projectId;
+      if (pid != null) projectIdToSlug[pid] = entry.key;
     }
 
     final closure = <String>{...seeds};
@@ -305,10 +306,61 @@ class UpgradeCommand extends GitrinthCommand {
         );
         continue;
       }
-      for (final child in entry.dependencies) {
-        if (closure.add(child)) queue.add(child);
+      if (entry.sourceKind != LockedSourceKind.modrinth) continue;
+      final pid = entry.projectId;
+      final vid = entry.versionId;
+      if (pid == null || vid == null) continue;
+
+      final children = _readCachedRequiredChildren(cache, pid, vid);
+      if (children == null) {
+        console.detail(
+          "upgrade --unlock-transitive: no cached version.json for "
+          "'$slug' ($pid/$vid); skipping its transitive children. "
+          'Run `gitrinth get` to populate the cache.',
+        );
+        continue;
+      }
+      for (final childPid in children) {
+        final childSlug = projectIdToSlug[childPid];
+        if (childSlug == null) continue;
+        if (closure.add(childSlug)) queue.add(childSlug);
       }
     }
     return closure;
+  }
+
+  /// Reads the `dependencies` array out of the cached `version.json`
+  /// and returns the list of `project_id`s for entries whose
+  /// `dependency_type == "required"`. Returns null when the cache file
+  /// is missing or unparseable (cold cache); returns an empty list when
+  /// the version legitimately has no required deps.
+  List<String>? _readCachedRequiredChildren(
+    GitrinthCache cache,
+    String projectId,
+    String versionId,
+  ) {
+    final path = cache.modrinthVersionMetadataPath(
+      projectId: projectId,
+      versionId: versionId,
+    );
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final dynamic raw;
+    try {
+      raw = jsonDecode(file.readAsStringSync());
+    } on Object {
+      return null;
+    }
+    if (raw is! Map) return null;
+    final deps = raw['dependencies'];
+    if (deps is! List) return const [];
+    final out = <String>[];
+    for (final d in deps) {
+      if (d is! Map) continue;
+      if (d['dependency_type'] != 'required') continue;
+      final pid = d['project_id'];
+      if (pid is String && pid.isNotEmpty) out.add(pid);
+    }
+    return out;
   }
 }

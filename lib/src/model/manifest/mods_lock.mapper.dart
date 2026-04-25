@@ -58,6 +58,53 @@ extension LockedSourceKindMapperExtension on LockedSourceKind {
   }
 }
 
+class LockedDependencyKindMapper extends EnumMapper<LockedDependencyKind> {
+  LockedDependencyKindMapper._();
+
+  static LockedDependencyKindMapper? _instance;
+  static LockedDependencyKindMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = LockedDependencyKindMapper._());
+    }
+    return _instance!;
+  }
+
+  static LockedDependencyKind fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  LockedDependencyKind decode(dynamic value) {
+    switch (value) {
+      case r'direct':
+        return LockedDependencyKind.direct;
+      case r'transitive':
+        return LockedDependencyKind.transitive;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(LockedDependencyKind self) {
+    switch (self) {
+      case LockedDependencyKind.direct:
+        return r'direct';
+      case LockedDependencyKind.transitive:
+        return r'transitive';
+    }
+  }
+}
+
+extension LockedDependencyKindMapperExtension on LockedDependencyKind {
+  String toValue() {
+    LockedDependencyKindMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<LockedDependencyKind>(this)
+        as String;
+  }
+}
+
 class LockedFileMapper extends ClassMapperBase<LockedFile> {
   LockedFileMapper._();
 
@@ -231,6 +278,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       LockedSourceKindMapper.ensureInitialized();
       LockedFileMapper.ensureInitialized();
       EnvironmentMapper.ensureInitialized();
+      LockedDependencyKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -282,12 +330,12 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: Environment.both,
   );
-  static bool _$auto(LockedEntry v) => v.auto;
-  static const Field<LockedEntry, bool> _f$auto = Field(
-    'auto',
-    _$auto,
+  static LockedDependencyKind _$dependency(LockedEntry v) => v.dependency;
+  static const Field<LockedEntry, LockedDependencyKind> _f$dependency = Field(
+    'dependency',
+    _$dependency,
     opt: true,
-    def: false,
+    def: LockedDependencyKind.direct,
   );
   static List<String> _$gameVersions(LockedEntry v) => v.gameVersions;
   static const Field<LockedEntry, List<String>> _f$gameVersions = Field(
@@ -303,13 +351,6 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: false,
   );
-  static List<String> _$dependencies(LockedEntry v) => v.dependencies;
-  static const Field<LockedEntry, List<String>> _f$dependencies = Field(
-    'dependencies',
-    _$dependencies,
-    opt: true,
-    def: const [],
-  );
 
   @override
   final MappableFields<LockedEntry> fields = const {
@@ -321,10 +362,9 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     #file: _f$file,
     #path: _f$path,
     #env: _f$env,
-    #auto: _f$auto,
+    #dependency: _f$dependency,
     #gameVersions: _f$gameVersions,
     #optional: _f$optional,
-    #dependencies: _f$dependencies,
   };
 
   static LockedEntry _instantiate(DecodingData data) {
@@ -337,10 +377,9 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       file: data.dec(_f$file),
       path: data.dec(_f$path),
       env: data.dec(_f$env),
-      auto: data.dec(_f$auto),
+      dependency: data.dec(_f$dependency),
       gameVersions: data.dec(_f$gameVersions),
       optional: data.dec(_f$optional),
-      dependencies: data.dec(_f$dependencies),
     );
   }
 
@@ -406,7 +445,6 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   LockedFileCopyWith<$R, LockedFile, LockedFile>? get file;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get gameVersions;
-  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get dependencies;
   $R call({
     String? slug,
     LockedSourceKind? sourceKind,
@@ -416,10 +454,9 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     LockedFile? file,
     String? path,
     Environment? env,
-    bool? auto,
+    LockedDependencyKind? dependency,
     List<String>? gameVersions,
     bool? optional,
-    List<String>? dependencies,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -443,13 +480,6 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     (v) => call(gameVersions: v),
   );
   @override
-  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
-  get dependencies => ListCopyWith(
-    $value.dependencies,
-    (v, t) => ObjectCopyWith(v, $identity, t),
-    (v) => call(dependencies: v),
-  );
-  @override
   $R call({
     String? slug,
     LockedSourceKind? sourceKind,
@@ -459,10 +489,9 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     Object? file = $none,
     Object? path = $none,
     Environment? env,
-    bool? auto,
+    LockedDependencyKind? dependency,
     List<String>? gameVersions,
     bool? optional,
-    List<String>? dependencies,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -473,10 +502,9 @@ class _LockedEntryCopyWithImpl<$R, $Out>
       if (file != $none) #file: file,
       if (path != $none) #path: path,
       if (env != null) #env: env,
-      if (auto != null) #auto: auto,
+      if (dependency != null) #dependency: dependency,
       if (gameVersions != null) #gameVersions: gameVersions,
       if (optional != null) #optional: optional,
-      if (dependencies != null) #dependencies: dependencies,
     }),
   );
   @override
@@ -489,10 +517,9 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     file: data.get(#file, or: $value.file),
     path: data.get(#path, or: $value.path),
     env: data.get(#env, or: $value.env),
-    auto: data.get(#auto, or: $value.auto),
+    dependency: data.get(#dependency, or: $value.dependency),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
     optional: data.get(#optional, or: $value.optional),
-    dependencies: data.get(#dependencies, or: $value.dependencies),
   );
 
   @override

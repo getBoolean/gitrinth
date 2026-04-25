@@ -171,7 +171,7 @@ Map<String, LockedEntry> _parseLockSection(
       filePath,
     );
     final env = _parseEnv(m['env'] ?? 'both', '$sectionName/$slug', filePath);
-    final auto = m['auto'] == true;
+    final dependency = _parseLockDependencyKind(m['dependency'], m['auto']);
     final optional = m['optional'] == true;
     LockedFile? file;
     final fileRaw = m['file'];
@@ -194,10 +194,6 @@ Map<String, LockedEntry> _parseLockSection(
     final gameVersions = gameVersionsRaw is List
         ? List<String>.unmodifiable(gameVersionsRaw.map((v) => v.toString()))
         : const <String>[];
-    final dependenciesRaw = m['dependencies'];
-    final dependencies = dependenciesRaw is List
-        ? List<String>.unmodifiable(dependenciesRaw.map((v) => v.toString()))
-        : const <String>[];
     result[slug] = LockedEntry(
       slug: slug,
       sourceKind: sourceKind,
@@ -207,10 +203,9 @@ Map<String, LockedEntry> _parseLockSection(
       file: file,
       path: m['path'] as String?,
       env: env,
-      auto: auto,
+      dependency: dependency,
       gameVersions: gameVersions,
       optional: optional,
-      dependencies: dependencies,
     );
   });
   return result;
@@ -235,6 +230,23 @@ LockedSourceKind _parseLockSourceKind(
         'modrinth, url, path.',
       );
   }
+}
+
+/// Permissive — `dependency:` is the new field, `auto: true/false` is
+/// the legacy one. Either may appear; neither presence is required
+/// (default is `direct`). Lock parser stays permissive per the
+/// project's "permissive lock parser" rule.
+LockedDependencyKind _parseLockDependencyKind(
+  dynamic dependencyRaw,
+  dynamic legacyAutoRaw,
+) {
+  if (dependencyRaw is String) {
+    return dependencyRaw == 'transitive'
+        ? LockedDependencyKind.transitive
+        : LockedDependencyKind.direct;
+  }
+  if (legacyAutoRaw == true) return LockedDependencyKind.transitive;
+  return LockedDependencyKind.direct;
 }
 
 Map<String, ModEntry> _parseSection(

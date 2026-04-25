@@ -64,16 +64,13 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
     if (f.size != null) buf.writeln('      size: ${f.size}');
   }
   buf.writeln('    env: ${_envName(e.env)}');
-  if (e.auto) buf.writeln('    auto: true');
+  if (e.dependency != LockedDependencyKind.direct) {
+    buf.writeln('    dependency: ${e.dependency.name}');
+  }
   if (e.optional) buf.writeln('    optional: true');
   if (e.gameVersions.isNotEmpty) {
     final quoted = e.gameVersions.map(_str).join(', ');
     buf.writeln('    game-versions: [$quoted]');
-  }
-  if (e.dependencies.isNotEmpty) {
-    final sorted = [...e.dependencies]..sort();
-    final quoted = sorted.map(_key).join(', ');
-    buf.writeln('    dependencies: [$quoted]');
   }
 }
 

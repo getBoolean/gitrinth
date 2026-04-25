@@ -639,49 +639,10 @@ mods:
     );
   });
 
-  test(
-    '--unlock-transitive on a legacy lock (no edges) warns and falls back',
-    () async {
-      modrinth
-        ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
-        ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
-      await writeManifest('''
-slug: pack
-name: Pack
-version: 0.1.0
-description: x
-loader:
-  mods: "neoforge:21.1.50"
-mc-version: 1.21.1
-mods:
-  foo: ^1.0.0
-  bar: ^1.0.0
-''');
-      expect((await runGet()).exitCode, 0);
-
-      // Hand-strip every `dependencies:` line from the lock to simulate a
-      // legacy lock written before this MVP item landed.
-      final lockPath = p.join(packDir.path, 'mods.lock');
-      final stripped = File(lockPath)
-          .readAsStringSync()
-          .split('\n')
-          .where((l) => !l.trimLeft().startsWith('dependencies:'))
-          .join('\n');
-      File(lockPath).writeAsStringSync(stripped);
-
-      modrinth.registerVersion(slug: 'foo', versionNumber: '1.5.0');
-
-      final out = await runUpgrade(['--unlock-transitive', 'foo']);
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      expect(
-        '${out.stderr}\n${out.stdout}',
-        contains('legacy lock'),
-        reason: 'expected the fallback warning',
-      );
-      // foo still upgrades (named target was unlocked anyway).
-      expect(readLock(), contains('version: 1.5.0'));
-    },
-  );
+  // The legacy "no edges in lock → fall back" branch is gone. After
+  // moving the dep graph from the lock to the cache, the cache-cold
+  // case is the equivalent fall-through, covered separately by
+  // `'--unlock-transitive falls back to seeds when cache is cold'`.
 
   // Ported from dart-lang/pub test/upgrade/upgrade_major_versions_test.dart
   // ("upgrades only the selected package") and
@@ -796,7 +757,7 @@ mods:
     );
   });
 
-  test('--unlock-transitive terminates on cycles in the lock', () async {
+  test('--unlock-transitive terminates on cycles in the cache', () async {
     modrinth
       ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
       ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
@@ -814,20 +775,24 @@ mods:
 ''');
     expect((await runGet()).exitCode, 0);
 
-    // Hand-edit the lock to introduce a foo<->bar cycle. The resolver
-    // would not normally produce one (Modrinth deps are acyclic in
-    // practice), but a manually edited or legacy-merged lock can.
-    final lockPath = p.join(packDir.path, 'mods.lock');
-    var text = File(lockPath).readAsStringSync();
-    text = text.replaceAllMapped(
-      RegExp(r'(\n  foo:[^\n]*\n(?:    [^\n]*\n)+)'),
-      (m) => '${m[0]}    dependencies: [bar]\n',
-    );
-    text = text.replaceAllMapped(
-      RegExp(r'(\n  bar:[^\n]*\n(?:    [^\n]*\n)+)'),
-      (m) => '${m[0]}    dependencies: [foo]\n',
-    );
-    File(lockPath).writeAsStringSync(text);
+    // Overwrite the cached version.json files to inject a foo<->bar
+    // cycle. The resolver would not normally produce one (Modrinth
+    // deps are acyclic in practice), but a corrupt cache or a
+    // hand-edited file can — the closure walker must terminate.
+    void writeCachedDeps(String slug, String depProjectId) {
+      final pid = '${slug}_ID';
+      final vid = '${slug}_1_0_0';
+      final dir = Directory(
+        p.join(cacheDir.path, 'modrinth', pid, vid),
+      )..createSync(recursive: true);
+      File(p.join(dir.path, 'version.json')).writeAsStringSync(
+        '{"dependencies":[{"project_id":"$depProjectId",'
+        '"dependency_type":"required"}]}',
+      );
+    }
+
+    writeCachedDeps('foo', 'bar_ID');
+    writeCachedDeps('bar', 'foo_ID');
 
     modrinth
       ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
@@ -841,4 +806,47 @@ mods:
     expect(lock, contains('version: 1.5.0'));
     expect(lock, isNot(contains('version: 1.0.0')));
   });
+
+  test(
+    '--unlock-transitive falls back to seeds when cache is cold',
+    () async {
+      // No cached version.json for foo means no edges visible — only
+      // foo (the named seed) gets unlocked. bar (a transitive dep)
+      // stays at its locked version because the closure walker can't
+      // discover the edge.
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+        ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  foo: ^1.0.0
+  bar: ^1.0.0
+''');
+      expect((await runGet()).exitCode, 0);
+
+      // Wipe the cache so version.json is missing for both entries.
+      Directory(p.join(cacheDir.path, 'modrinth')).deleteSync(recursive: true);
+
+      modrinth
+        ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
+        ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+
+      final out = await runUpgrade(['--unlock-transitive', 'foo']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      // foo bumps because it's a named seed. bar stays put because
+      // we never walked into it (cold cache, no edges).
+      final lock = readLock();
+      // foo: ^1.0.0 satisfies 1.5.0 → bar stays since it's not in seed
+      // and no edges were discovered.
+      expect(lock, contains('version: 1.5.0')); // foo
+      expect(lock, contains('version: 1.0.0')); // bar pinned
+    },
+  );
 }

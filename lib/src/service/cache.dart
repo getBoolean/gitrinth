@@ -24,6 +24,18 @@ class GitrinthCache {
     return p.join(modrinthRoot, projectId, versionId, filename);
   }
 
+  /// Path where the resolved Modrinth `Version`'s metadata (mainly its
+  /// `dependencies` array) is persisted alongside the artifact. Mirrors
+  /// dart pub's "graph in cache, not lock" architecture — this file is
+  /// the source of truth for `gitrinth upgrade --unlock-transitive`'s
+  /// transitive-closure walk.
+  String modrinthVersionMetadataPath({
+    required String projectId,
+    required String versionId,
+  }) {
+    return p.join(modrinthRoot, projectId, versionId, 'version.json');
+  }
+
   /// Path where a url:-sourced artifact should live, keyed by sha512.
   String urlPath({required String sha512, required String filename}) {
     final lower = sha512.toLowerCase();

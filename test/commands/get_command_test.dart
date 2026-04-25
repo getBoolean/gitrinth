@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -1132,6 +1133,65 @@ mods:
       expect(lockText, contains('version: 3.0.1-b'));
       expect(lockText, contains('version-id: $betaId'));
       expect(lockText, contains('optional: true'));
+    },
+  );
+
+  test(
+    'persists per-version dependencies to the cache as version.json',
+    () async {
+      // Mirrors dart pub's "graph in cache, not lock" architecture:
+      // mods.lock no longer carries forward edges — they live next to
+      // each cached jar. `gitrinth upgrade --unlock-transitive` reads
+      // these files to walk the dep graph.
+      modrinth.registerVersion(slug: 'flywheel', versionNumber: '1.0.0');
+      modrinth.registerVersion(
+        slug: 'create',
+        versionNumber: '6.0.10',
+        requiredDeps: ['flywheel'],
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  create: ^6.0.10
+''');
+
+      final out = await runCli(
+        ['-C', packDir.path, 'get'],
+        environment: {
+          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+          'GITRINTH_CACHE': cacheDir.path,
+        },
+      );
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+
+      final metadataPath = p.join(
+        cacheDir.path,
+        'modrinth',
+        'create_ID',
+        'create_6_0_10',
+        'version.json',
+      );
+      expect(File(metadataPath).existsSync(), isTrue);
+      final body = jsonDecode(
+        File(metadataPath).readAsStringSync(),
+      ) as Map<String, dynamic>;
+      final deps = body['dependencies'] as List;
+      expect(deps, hasLength(1));
+      final dep = deps.first as Map<String, dynamic>;
+      expect(dep['project_id'], 'flywheel_ID');
+      expect(dep['dependency_type'], 'required');
+
+      // mods.lock no longer carries forward edges.
+      final lockText = File(
+        p.join(packDir.path, 'mods.lock'),
+      ).readAsStringSync();
+      expect(lockText, isNot(contains('dependencies:')));
     },
   );
 }

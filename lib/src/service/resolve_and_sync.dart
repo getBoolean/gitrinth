@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -210,6 +211,14 @@ Future<ResolveSyncResult> resolveAndSync({
     overriddenSlugs: merged.overrides.keys.toSet(),
   );
 
+  // Persist each resolved Modrinth version's dependency list to the
+  // artifact cache, sibling to the .jar. Mirrors dart pub's
+  // "graph-in-cache" architecture: `mods.lock` no longer carries
+  // forward edges; future `gitrinth upgrade --unlock-transitive`
+  // recomputes the closure from these JSON files. Failure here warns
+  // but doesn't abort — the artifact download is the contract.
+  _persistVersionMetadata(resolution, cache, console);
+
   int downloaded = 0;
   int hits = 0;
   final fetchErrors = <String>[];
@@ -345,10 +354,9 @@ ModsLock _buildLock(
         size: r.file.size,
       ),
       env: r.env,
-      auto: r.auto,
+      dependency: r.dependency,
       gameVersions: List.unmodifiable(r.version.gameVersions),
       optional: r.optional,
-      dependencies: r.dependencies,
     );
   }
   for (final section in Section.values) {
@@ -390,6 +398,47 @@ ModsLock _buildLock(
     dataPacks: byKind[Section.dataPacks]!,
     shaders: byKind[Section.shaders]!,
   );
+}
+
+/// Writes a `version.json` next to each resolved Modrinth artifact in
+/// the cache, capturing that version's `dependencies` array. The file
+/// is the on-disk source of truth for transitive-dep walking — the
+/// gitrinth analogue of pub's per-package `pubspec.yaml` cache. Best
+/// effort: a write failure logs a warn but doesn't abort the resolve,
+/// because the artifact download is the user-visible contract.
+void _persistVersionMetadata(
+  ResolutionResult resolution,
+  GitrinthCache cache,
+  Console console,
+) {
+  for (final r in resolution.entries) {
+    final pid = r.version.projectId;
+    final vid = r.version.id;
+    if (pid.isEmpty || vid.isEmpty) continue;
+    final path = cache.modrinthVersionMetadataPath(
+      projectId: pid,
+      versionId: vid,
+    );
+    try {
+      Directory(p.dirname(path)).createSync(recursive: true);
+      final body = <String, dynamic>{
+        'dependencies': [
+          for (final d in r.version.dependencies)
+            <String, dynamic>{
+              'project_id': d.projectId,
+              'version_id': d.versionId,
+              'dependency_type': d.dependencyType.name,
+            },
+        ],
+      };
+      File(path).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(body));
+    } on Object catch (e) {
+      console.warn(
+        'cache: failed to persist version metadata for ${r.slug} '
+        '(${r.version.versionNumber}): $e',
+      );
+    }
+  }
 }
 
 /// Hits `/v2/tag/game_version` and throws [ValidationError] if [mcVersion]

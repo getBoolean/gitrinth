@@ -37,18 +37,7 @@ class PubGrubResult {
   /// slug -> true if this slug was added transitively (not in roots).
   final Map<String, bool> auto;
 
-  /// slug -> direct required-dependency child slugs (forward edges in the
-  /// final dep graph). Excludes deps whose project_id could not be
-  /// resolved to a slug. Roots without required deps map to an empty
-  /// list. Used by `gitrinth upgrade --unlock-transitive` to compute
-  /// the transitive closure of named targets.
-  final Map<String, List<String>> edges;
-
-  const PubGrubResult({
-    required this.decisions,
-    required this.auto,
-    required this.edges,
-  });
+  const PubGrubResult({required this.decisions, required this.auto});
 }
 
 /// Minimal PubGrub-style resolver tuned for a single Minecraft loader+version
@@ -92,10 +81,6 @@ class PubGrubSolver {
         auto: {
           for (final slug in state.decisions.keys)
             slug: !state.userSlugs.contains(slug),
-        },
-        edges: {
-          for (final slug in state.decisions.keys)
-            slug: List<String>.unmodifiable(state.edges[slug] ?? const []),
         },
       );
     }
@@ -186,7 +171,6 @@ class PubGrubSolver {
       // Snapshot state so we can backtrack.
       final snapshot = state.snapshot();
       state.decisions[slug] = cand.modrinthVersion;
-      final candEdges = <String>[];
       var ok = true;
       for (final dep in cand.modrinthVersion.dependencies) {
         if (dep.dependencyType == DependencyType.required) {
@@ -213,7 +197,6 @@ class PubGrubSolver {
             slug,
             cand.modrinthVersion.versionNumber,
           );
-          if (!candEdges.contains(depSlug)) candEdges.add(depSlug);
           // versionId-pinned deps will be enforced when we recurse.
         } else if (dep.dependencyType == DependencyType.incompatible) {
           final depProjectId = dep.projectId;
@@ -251,9 +234,6 @@ class PubGrubSolver {
         continue;
       }
 
-      // Commit edges for this candidate before recursing — backtracking
-      // restores the snapshot so an abandoned candidate's edges vanish.
-      state.edges[slug] = candEdges;
       if (await _solveStep(state)) return true;
       state.restore(snapshot);
     }
@@ -312,7 +292,6 @@ class _SolverState {
   final Map<String, Channel> channels = {};
   final Map<String, modrinth.Version> decisions = {};
   final Set<String> incompatibleSlugs = {};
-  final Map<String, List<String>> edges = {};
   final Map<String, _Introducer> introducers = {};
   final Map<String, String> lockSuggestions;
   final Set<String> userSlugs;
@@ -478,7 +457,6 @@ class _SolverState {
       channels: Map.of(channels),
       decisions: Map.of(decisions),
       incompatibleSlugs: Set.of(incompatibleSlugs),
-      edges: {for (final e in edges.entries) e.key: List.of(e.value)},
       introducers: Map.of(introducers),
     );
   }
@@ -496,9 +474,6 @@ class _SolverState {
     incompatibleSlugs
       ..clear()
       ..addAll(s.incompatibleSlugs);
-    edges
-      ..clear()
-      ..addAll(s.edges);
     introducers
       ..clear()
       ..addAll(s.introducers);
@@ -510,14 +485,12 @@ class _Snapshot {
   final Map<String, Channel> channels;
   final Map<String, modrinth.Version> decisions;
   final Set<String> incompatibleSlugs;
-  final Map<String, List<String>> edges;
   final Map<String, _Introducer> introducers;
   _Snapshot({
     required this.constraints,
     required this.channels,
     required this.decisions,
     required this.incompatibleSlugs,
-    required this.edges,
     required this.introducers,
   });
 }

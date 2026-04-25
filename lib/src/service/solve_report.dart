@@ -77,7 +77,7 @@ bool _equalLocked(LockedEntry a, LockedEntry b) {
       a.versionId == b.versionId &&
       a.path == b.path &&
       a.env == b.env &&
-      a.auto == b.auto &&
+      a.dependency == b.dependency &&
       a.file?.name == b.file?.name &&
       a.file?.url == b.file?.url &&
       a.file?.sha512 == b.file?.sha512 &&

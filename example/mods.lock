@@ -31,7 +31,7 @@ mods:
       sha512: 433178c6c70a87dfe0b057323b3df4dfc00aca317d37634bfc53ff6dfa6cb8601e9d9fe773cb3491bbde46489d8b918f58ed1ae735357106466cfbc594334645
       size: 701108
     env: both
-    auto: true
+    dependency: transitive
     game-versions: [1.21.1]
   create:
     source: modrinth
@@ -59,7 +59,6 @@ mods:
       size: 33003314
     env: both
     game-versions: [1.21.1]
-    dependencies: [create, sable]
   distanthorizons:
     source: modrinth
     version: 3.0.2-b-1.21.1
@@ -100,7 +99,6 @@ mods:
       size: 2438548
     env: client
     game-versions: [1.21.1]
-    dependencies: [sodium]
   jei:
     source: modrinth
     version: 19.27.0.340
@@ -127,7 +125,6 @@ mods:
       size: 211972
     env: server
     game-versions: ["1.21", 1.21.1]
-    dependencies: [balm]
   sable:
     source: modrinth
     version: 1.1.3+mc1.21.1

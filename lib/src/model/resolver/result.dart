@@ -1,5 +1,6 @@
 import 'package:dart_mappable/dart_mappable.dart';
 
+import '../manifest/mods_lock.dart';
 import '../manifest/mods_yaml.dart';
 import '../modrinth/version.dart' as modrinth;
 import '../modrinth/version_file.dart';
@@ -11,26 +12,25 @@ class ResolvedEntry with ResolvedEntryMappable {
   final String slug;
   final Section section;
   final Environment env;
-  final bool auto;
+
+  /// `transitive` when the entry was pulled in by another mod's required
+  /// deps, `direct` when it appears in `mods.yaml`. Mirrors dart pub's
+  /// `dependency: "direct main" | "transitive"` lock-file classification —
+  /// the actual dep-graph edges live in the artifact cache, not here.
+  final LockedDependencyKind dependency;
+
   final modrinth.Version version;
   final VersionFile file;
   final bool optional;
-
-  /// Forward dep-graph edges: slugs this entry directly required at
-  /// resolution time. Sorted ascending. Persists to `mods.lock` so
-  /// `gitrinth upgrade --unlock-transitive` can compute the transitive
-  /// closure of named targets without a re-resolve.
-  final List<String> dependencies;
 
   const ResolvedEntry({
     required this.slug,
     required this.section,
     required this.env,
-    required this.auto,
+    required this.dependency,
     required this.version,
     required this.file,
     this.optional = false,
-    this.dependencies = const [],
   });
 }
 

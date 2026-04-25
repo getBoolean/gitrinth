@@ -87,18 +87,18 @@ class Resolver {
       final section = entryBySection[slug] ?? Section.mods;
       final env = entryByEnv[slug] ?? Environment.both;
       final optional = entryBySlug[slug]?.optional ?? false;
-      final rawEdges = result.edges[slug] ?? const <String>[];
-      final sortedEdges = List<String>.unmodifiable([...rawEdges]..sort());
+      final dependency = (result.auto[slug] ?? true)
+          ? LockedDependencyKind.transitive
+          : LockedDependencyKind.direct;
       entries.add(
         ResolvedEntry(
           slug: slug,
           section: section,
           env: env,
-          auto: result.auto[slug] ?? true,
+          dependency: dependency,
           version: v,
           file: file,
           optional: optional,
-          dependencies: sortedEdges,
         ),
       );
     }

@@ -36,7 +36,7 @@ void main() {
           sha512: '112233',
           size: 10000,
         ),
-        auto: true,
+        dependency: LockedDependencyKind.transitive,
       ),
     },
   );
@@ -58,21 +58,24 @@ void main() {
     expect(twice, once);
   });
 
-  test('auto: true is emitted, auto: false is omitted', () {
-    final out = emitModsLock(sample());
-    final flywheelBlock = out
-        .substring(out.indexOf('flywheel:'))
-        .split('\n')
-        .takeWhile(
-          (l) => l.isNotEmpty && (l.startsWith('  ') || l == 'flywheel:'),
-        )
-        .join('\n');
-    expect(flywheelBlock, contains('auto: true'));
-    final createBlock = out
-        .substring(out.indexOf('create:'), out.indexOf('flywheel:'))
-        .trim();
-    expect(createBlock, isNot(contains('auto:')));
-  });
+  test(
+    'dependency: transitive is emitted, direct (default) is omitted',
+    () {
+      final out = emitModsLock(sample());
+      final flywheelBlock = out
+          .substring(out.indexOf('flywheel:'))
+          .split('\n')
+          .takeWhile(
+            (l) => l.isNotEmpty && (l.startsWith('  ') || l == 'flywheel:'),
+          )
+          .join('\n');
+      expect(flywheelBlock, contains('dependency: transitive'));
+      final createBlock = out
+          .substring(out.indexOf('create:'), out.indexOf('flywheel:'))
+          .trim();
+      expect(createBlock, isNot(contains('dependency:')));
+    },
+  );
 
   test('game-versions round-trips through emit -> parse -> emit', () {
     const lock = ModsLock(
@@ -146,7 +149,7 @@ void main() {
     expect(out, isNot(contains('optional:')));
   });
 
-  test('dependencies round-trip through emit -> parse -> emit', () {
+  test('dependency: enum round-trips through emit -> parse -> emit', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
       loader: LoaderConfig(mods: Loader.neoforge),
@@ -159,8 +162,6 @@ void main() {
           projectId: 'CR',
           versionId: 'CRV',
           file: LockedFile(name: 'create.jar', sha512: 'aa', size: 1),
-          // Intentionally unsorted to verify the emitter sorts them.
-          dependencies: ['porting-lib', 'flywheel'],
         ),
         'flywheel': LockedEntry(
           slug: 'flywheel',
@@ -169,33 +170,24 @@ void main() {
           projectId: 'FL',
           versionId: 'FLV',
           file: LockedFile(name: 'flywheel.jar', sha512: 'bb', size: 1),
-          auto: true,
-        ),
-        'porting-lib': LockedEntry(
-          slug: 'porting-lib',
-          sourceKind: LockedSourceKind.modrinth,
-          version: '2.0.0',
-          projectId: 'PL',
-          versionId: 'PLV',
-          file: LockedFile(name: 'porting-lib.jar', sha512: 'cc', size: 1),
-          auto: true,
+          dependency: LockedDependencyKind.transitive,
         ),
       },
     );
     final once = emitModsLock(lock);
-    expect(once, contains('    dependencies: [flywheel, porting-lib]'));
     final parsed = parseModsLock(once, filePath: 'mods.lock');
-    expect(parsed.mods['create']!.dependencies, ['flywheel', 'porting-lib']);
-    expect(parsed.mods['flywheel']!.dependencies, isEmpty);
+    expect(parsed.mods['create']!.dependency, LockedDependencyKind.direct);
+    expect(
+      parsed.mods['flywheel']!.dependency,
+      LockedDependencyKind.transitive,
+    );
     expect(emitModsLock(parsed), once);
   });
 
-  test('empty dependencies list omits the field', () {
-    final out = emitModsLock(sample());
-    expect(out, isNot(contains('dependencies:')));
-  });
-
-  test('legacy lock without dependencies field parses to empty list', () {
+  test('legacy `auto: true` lockfile parses to dependency: transitive', () {
+    // Tolerate the older field name during the rename's transitional
+    // window — old locks should still load, and the next `gitrinth get`
+    // rewrites them to the new vocabulary.
     const text = '''
 gitrinth-version: 0.1.0
 loader:
@@ -218,6 +210,9 @@ data_packs: {}
 shaders: {}
 ''';
     final parsed = parseModsLock(text, filePath: 'mods.lock');
-    expect(parsed.mods['flywheel']!.dependencies, isEmpty);
+    expect(
+      parsed.mods['flywheel']!.dependency,
+      LockedDependencyKind.transitive,
+    );
   });
 }
