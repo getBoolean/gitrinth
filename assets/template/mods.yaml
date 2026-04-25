@@ -11,6 +11,7 @@ tooling:
   gitrinth: ">={{gitrinth-version}} <{{gitrinth-next-major}}"
 
 mods:
+  globalpacks: stable
 
 resource_packs:
 
