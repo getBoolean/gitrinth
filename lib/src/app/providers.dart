@@ -17,7 +17,7 @@ final dioProvider = Provider<Dio>((ref) {
   final dio = Dio()
     ..interceptors.add(ModrinthErrorInterceptor())
     ..options.headers['User-Agent'] =
-        'gitrinth/$packageVersion (+github.com/BooleanDev/modrinth_git_modpacks)';
+        'gitrinth/$packageVersion (+github.com/getBoolean/modrinth_git_modpacks)';
   ref.onDispose(dio.close);
   return dio;
 });
