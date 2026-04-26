@@ -213,6 +213,59 @@ project_overrides:
   create_incompatible: 1.1.0
 ```
 
+## Environment variables
+
+Every variable below is read by `gitrinth` and is optional unless
+noted. Test fixtures use the `*_URL` overrides to point loader /
+metadata fetches at a local fake server.
+
+### Locations & credentials
+
+| Variable                   | Used by                  | Purpose                                                                                                                                                                          |
+|----------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_CACHE`           | every command            | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                                   |
+| `GITRINTH_CONFIG`          | every command            | Override the user config file path. `--config` wins.                                                                                                                             |
+| `GITRINTH_MODRINTH_URL`    | every command            | Override the default Modrinth API base URL. Used to point at a self-hosted labrinth instance for the default host.                                                               |
+| `GITRINTH_TOKEN`           | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix). Other hosts always use the token stored via `gitrinth modrinth token add`.              |
+| `HOME` / `USERPROFILE`     | every command            | Resolves the default cache root and user config path. `USERPROFILE` is consulted on Windows; `HOME` everywhere else.                                                             |
+
+### Java runtime
+
+| Variable                   | Used by                  | Purpose                                                                                                                                                                          |
+|----------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `JAVA_HOME`                | `launch` / `build`       | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc-version`. Stale system-wide values fall through to the auto-managed JDK.           |
+| `GITRINTH_JAVA_METADATA_URL` | `launch` / `build`     | Override the Adoptium feature-releases URL template used to fetch the auto-managed JDK.                                                                                          |
+
+### Loader metadata overrides
+
+Useful for offline / mirrored / fake-test builds. All default to the
+canonical upstream URLs.
+
+| Variable                                | Replaces                                                                  |
+|-----------------------------------------|---------------------------------------------------------------------------|
+| `GITRINTH_FABRIC_META_URL`              | `https://meta.fabricmc.net/v2/versions/loader`                            |
+| `GITRINTH_FORGE_PROMOTIONS_URL`         | `https://files.minecraftforge.net/.../promotions_slim.json`               |
+| `GITRINTH_FORGE_VERSIONS_URL`           | Forge `maven-metadata.json` for concrete-tag validation.                  |
+| `GITRINTH_FORGE_INSTALLER_URL`          | Forge installer-jar URL template (`{mc}` / `{v}` placeholders).           |
+| `GITRINTH_NEOFORGE_VERSIONS_URL`        | Modern NeoForge versions endpoint (MC ≥ 1.20.2).                          |
+| `GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL` | Legacy NeoForge versions endpoint (MC 1.20.1).                            |
+| `GITRINTH_NEOFORGE_INSTALLER_URL`       | Modern NeoForge installer-jar URL template (`{v}` placeholder).           |
+| `GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL`| Legacy NeoForge installer-jar URL template (`{mc}` / `{v}` placeholders). |
+
+### Minecraft launcher discovery (`launch client`)
+
+| Variable                          | Purpose                                                                                                                            |
+|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_LAUNCHER`               | Absolute path to the Minecraft Launcher executable. Bypasses the per-OS search.                                                    |
+| `GITRINTH_LAUNCHER_SEARCH_PATHS`  | `;`-separated (Windows) or `:`-separated paths searched before the per-OS defaults.                                                |
+
+### Output / network
+
+| Variable                      | Purpose                                                                                                                                                          |
+|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `NO_COLOR`                    | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                                                  |
+| `HTTPS_PROXY` / `HTTP_PROXY`  | Standard proxy variables, honoured by every HTTP request through the shared Dio client.                                                                          |
+
 ## Contributing
 
 ### Regenerating templates and generated code

@@ -1075,16 +1075,27 @@ want a particular mod in the pack despite a declared incompatibility.
 
 ## Environment variables
 
-| Variable                      | Used by                  | Purpose                                                                                                                            |
-|-------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `GITRINTH_CACHE`              | every command            | Override the cache root.                                                                                                           |
-| `GITRINTH_CONFIG`             | every command            | Override the user config file path. `--config` wins.                                                                               |
-| `GITRINTH_MODRINTH_URL`       | every command            | Override the default Modrinth base URL.                                                                                            |
-| `GITRINTH_TOKEN`              | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix) per the Modrinth auth doc. Other hosts always use the stored token. |
-| `GITRINTH_JAVA_METADATA_URL`  | `launch` / `build`       | Override Adoptium metadata URL.                                                                                                    |
-| `JAVA_HOME`                   | `launch` / `build`       | Honored by the Java resolver if its major matches.                                                                                 |
-| `NO_COLOR`                    | every command            | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                    |
-| `HTTPS_PROXY` / `HTTP_PROXY`  | every command            | Standard proxy variables, honoured by every HTTP request.                                                                          |
+| Variable                                | Used by                  | Purpose                                                                                                                                                          |
+|-----------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_CACHE`                        | every command            | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                   |
+| `GITRINTH_CONFIG`                       | every command            | Override the user config file path. `--config` wins.                                                                                                             |
+| `GITRINTH_MODRINTH_URL`                 | every command            | Override the default Modrinth API base URL.                                                                                                                      |
+| `GITRINTH_TOKEN`                        | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix) per the Modrinth auth doc. Other hosts always use the stored token.      |
+| `HOME` / `USERPROFILE`                  | every command            | Resolves the default cache root and user config path. `USERPROFILE` on Windows; `HOME` elsewhere.                                                                |
+| `JAVA_HOME`                             | `launch` / `build`       | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc-version`.                                                          |
+| `GITRINTH_JAVA_METADATA_URL`            | `launch` / `build`       | Override Adoptium metadata URL.                                                                                                                                  |
+| `GITRINTH_FABRIC_META_URL`              | every command            | Override the fabric-meta loader-list URL.                                                                                                                        |
+| `GITRINTH_FORGE_PROMOTIONS_URL`         | every command            | Override the Forge `promotions_slim.json` URL.                                                                                                                   |
+| `GITRINTH_FORGE_VERSIONS_URL`           | every command            | Override the Forge `maven-metadata.json` URL.                                                                                                                    |
+| `GITRINTH_FORGE_INSTALLER_URL`          | `build` / `launch`       | Override the Forge installer-jar URL template (`{mc}` / `{v}` placeholders).                                                                                     |
+| `GITRINTH_NEOFORGE_VERSIONS_URL`        | every command            | Override the modern NeoForge versions endpoint (MC ≥ 1.20.2).                                                                                                    |
+| `GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL` | every command            | Override the legacy NeoForge versions endpoint (MC 1.20.1).                                                                                                      |
+| `GITRINTH_NEOFORGE_INSTALLER_URL`       | `build` / `launch`       | Override the modern NeoForge installer-jar URL template.                                                                                                         |
+| `GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL`| `build` / `launch`       | Override the legacy NeoForge installer-jar URL template.                                                                                                         |
+| `GITRINTH_LAUNCHER`                     | `launch client`          | Absolute path to the Minecraft Launcher executable; bypasses per-OS search.                                                                                      |
+| `GITRINTH_LAUNCHER_SEARCH_PATHS`        | `launch client`          | Custom search paths for the Minecraft Launcher (`;`-separated on Windows, `:`-separated elsewhere). Tried before the per-OS defaults.                            |
+| `NO_COLOR`                              | every command            | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                                                  |
+| `HTTPS_PROXY` / `HTTP_PROXY`            | every command            | Standard proxy variables, honoured by every HTTP request.                                                                                                        |
 
 ## Shell completion
 
