@@ -37,15 +37,15 @@ infrastructure it depends on are already in the tree. New readers
 should map each bridge concept onto the existing primitive before
 proposing duplicate work.
 
-| Bridge concept | Existing primitive |
-|---|---|
-| Modrinth API client with swappable host | `ModrinthApi(Dio, {baseUrl})` (retrofit-generated) — [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart) |
-| Default Modrinth base URL | `defaultModrinthBaseUrl` — [`lib/src/service/modrinth_url.dart`](../lib/src/service/modrinth_url.dart) |
-| Entry source variants | `EntrySource` sealed class with `ModrinthEntrySource`, `UrlEntrySource`, `PathEntrySource` — [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart) |
-| Per-entry `accepts-mc` and channel floor | shipped — [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart), [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml) |
-| Token storage | `UserConfig.tokens: Map<String, String>` keyed by server URL — [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart); `--config` flag and `GITRINTH_CONFIG` env wired in [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart) |
-| Rate-limit handling | `ModrinthRateLimitInterceptor` — host-scoped, applies per `baseUrl` ([`lib/src/service/modrinth_rate_limit_interceptor.dart`](../lib/src/service/modrinth_rate_limit_interceptor.dart)) |
-| Caret-on-add convention | shipped — [`add`](cli.md#add) writes `^x.y.z` |
+| Bridge concept                           | Existing primitive                                                                                                                                                                                                                                   |
+|------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Modrinth API client with swappable host  | `ModrinthApi(Dio, {baseUrl})` (retrofit-generated) — [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart)                                                                                                                     |
+| Default Modrinth base URL                | `defaultModrinthBaseUrl` — [`lib/src/service/modrinth_url.dart`](../lib/src/service/modrinth_url.dart)                                                                                                                                               |
+| Entry source variants                    | `EntrySource` sealed class with `ModrinthEntrySource`, `UrlEntrySource`, `PathEntrySource` — [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart)                                                                     |
+| Per-entry `accepts-mc` and channel floor | shipped — [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart), [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml)                                                                                 |
+| Token storage                            | `UserConfig.tokens: Map<String, String>` keyed by server URL — [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart); `--config` flag and `GITRINTH_CONFIG` env wired in [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart) |
+| Rate-limit handling                      | `ModrinthRateLimitInterceptor` — host-scoped, applies per `baseUrl` ([`lib/src/service/modrinth_rate_limit_interceptor.dart`](../lib/src/service/modrinth_rate_limit_interceptor.dart))                                                              |
+| Caret-on-add convention                  | shipped — [`add`](cli.md#add) writes `^x.y.z`                                                                                                                                                                                                        |
 
 ## Fetching mods
 
@@ -180,11 +180,11 @@ visible in the manifest.
 
 `add` CLI flags:
 
-| Flag                    | Effect                                                                                      |
-|-------------------------|---------------------------------------------------------------------------------------------|
+| Flag                    | Effect                                                                                                     |
+|-------------------------|------------------------------------------------------------------------------------------------------------|
 | `--[no-]modrinth`       | Toggle Modrinth resolution. `--no-modrinth` forces `sources: [curseforge]` even when Modrinth has the mod. |
 | `--[no-]curseforge`     | Toggle CurseForge resolution. `--no-curseforge` forces `sources: [modrinth]` even when CF has the mod.     |
-| `--allow-hash-mismatch` | Accept divergent hashes on both platforms; writes `allow-hash-mismatch: true` on the entry. |
+| `--allow-hash-mismatch` | Accept divergent hashes on both platforms; writes `allow-hash-mismatch: true` on the entry.                |
 
 `cf:<slug>` short-form sugar (`gitrinth add cf:applied-energistics-2`)
 implies `--no-modrinth` and writes a single-platform entry
@@ -653,19 +653,19 @@ Concrete work:
 
 ## Implementation touches
 
-| Path | Status | Role in bridge |
-|---|---|---|
-| [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart) | exists | Add `modrinth:` / `curseforge:` slug overrides, `sources:` (scalar or list), hash flags; grow `ModrinthEntrySource` with an optional host (or add a peer); add pack-level `modrinth-host:` to the top-level manifest model |
-| [`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart) | exists | Rename `hosted` → `modrinth-host`, drop the deferred-source guard, parse the new entry and pack-level fields |
-| [`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart) | exists | Per-source hash blocks, `not_found` markers, `discovered-via-search`, `required-by:` |
-| [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart) and [`lib/src/model/resolver/resolver.dart`](../lib/src/model/resolver/resolver.dart) | exists | Multi-source branching; today's single-source `if (entry.source is! ModrinthEntrySource)` early-out (in both files) becomes the dispatch point |
-| [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart) | exists | Already supports per-call `baseUrl`; needs a host-keyed factory so each labrinth host gets its own client + rate-limit budget |
-| `lib/src/service/curseforge_api.dart` | new | Retrofit client mirroring `ModrinthApi` shape |
-| [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart) | exists | Token lookup by host already supported via `tokens: Map<String, String>` |
-| [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart) | exists | Wire new commands |
-| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart) | exists | `cf:` short form, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags |
-| `lib/src/commands/curseforge.dart` | new | Hosts CF-specific subcommands if any survive design |
-| `lib/src/commands/token_command.dart` | new | `token add` / `list` / `remove` (also referenced from [`todo.md`](todo.md#token-command)) |
-| [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml) | exists | Rename `hosted` → `modrinth-host`; add new entry fields; add pack-level `modrinth-host:` |
-| [`docs/mods-yaml.md`](mods-yaml.md) | exists | Update `hosted:` → `modrinth-host:` in docs and examples; document new entry shape; remove "Modrinth-only" framing where it's no longer accurate |
-| [`docs/cli.md`](cli.md) | exists | `cf:` short form, new `add` flags, `token` subcommands, `--curseforge` on `pack` |
+| Path                                                                                                                                                                      | Status | Role in bridge                                                                                                                                                                                                             |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart)                                                                                       | exists | Add `modrinth:` / `curseforge:` slug overrides, `sources:` (scalar or list), hash flags; grow `ModrinthEntrySource` with an optional host (or add a peer); add pack-level `modrinth-host:` to the top-level manifest model |
+| [`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart)                                                                                             | exists | Rename `hosted` → `modrinth-host`, drop the deferred-source guard, parse the new entry and pack-level fields                                                                                                               |
+| [`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart)                                                                                       | exists | Per-source hash blocks, `not_found` markers, `discovered-via-search`, `required-by:`                                                                                                                                       |
+| [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart) and [`lib/src/model/resolver/resolver.dart`](../lib/src/model/resolver/resolver.dart) | exists | Multi-source branching; today's single-source `if (entry.source is! ModrinthEntrySource)` early-out (in both files) becomes the dispatch point                                                                             |
+| [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart)                                                                                               | exists | Already supports per-call `baseUrl`; needs a host-keyed factory so each labrinth host gets its own client + rate-limit budget                                                                                              |
+| `lib/src/service/curseforge_api.dart`                                                                                                                                     | new    | Retrofit client mirroring `ModrinthApi` shape                                                                                                                                                                              |
+| [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart)                                                                                                 | exists | Token lookup by host already supported via `tokens: Map<String, String>`                                                                                                                                                   |
+| [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart)                                                                                                                   | exists | Wire new commands                                                                                                                                                                                                          |
+| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart)                                                                                               | exists | `cf:` short form, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags                                                                                                                                  |
+| `lib/src/commands/curseforge.dart`                                                                                                                                        | new    | Hosts CF-specific subcommands if any survive design                                                                                                                                                                        |
+| `lib/src/commands/token_command.dart`                                                                                                                                     | new    | `token add` / `list` / `remove` (also referenced from [`todo.md`](todo.md#token-command))                                                                                                                                  |
+| [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml)                                                                                                     | exists | Rename `hosted` → `modrinth-host`; add new entry fields; add pack-level `modrinth-host:`                                                                                                                                   |
+| [`docs/mods-yaml.md`](mods-yaml.md)                                                                                                                                       | exists | Update `hosted:` → `modrinth-host:` in docs and examples; document new entry shape; remove "Modrinth-only" framing where it's no longer accurate                                                                           |
+| [`docs/cli.md`](cli.md)                                                                                                                                                   | exists | `cf:` short form, new `add` flags, `token` subcommands, `--curseforge` on `pack`                                                                                                                                           |
