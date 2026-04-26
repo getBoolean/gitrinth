@@ -34,7 +34,7 @@ Deferred MVP work:
 - [ ] [`login` / `logout` commands](#login--logout-commands)
 - [ ] [`token` command](#token-command)
 - [ ] [`unpack` command](#unpack-command)
-- [ ] Respect rate limits (300 per ip per minute), read rate limit headers, and implement queue/retry logic in the Modrinth API client.
+- [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
 
 ## `accepts-mc` — per-entry MC version tolerance
 
@@ -486,3 +486,26 @@ gitrinth unpack <path>             [--output <directory>] [--force] [--no-resolv
 | `--output`, `-o` | Output directory. Defaults to the current directory.                                                                                 |
 | `--force`, `-f`  | Overwrite existing files in the output directory.                                                                                    |
 | `--no-resolve`   | Skip the implicit [`get`](cli.md#get) that normally runs after unpacking.                                                            |
+
+## Modrinth API rate-limit handling
+
+Shipped. The Modrinth API caps clients at 300 requests/min/IP and
+publishes the budget on every response via `X-Ratelimit-Limit`,
+`X-Ratelimit-Remaining`, and `X-Ratelimit-Reset`. A Dio interceptor
+scoped to the configured Modrinth host reads those headers on every
+response, proactively delays outbound requests when the remaining
+budget drops below 5, and on `429` sleeps for `Retry-After` (falling
+back to `X-Ratelimit-Reset`, with a 1s floor) and retries up to 5
+times before falling through to
+[`ModrinthErrorInterceptor`](../lib/src/service/modrinth_error_interceptor.dart).
+Sleeps are clamped to `[1s, 65s]`. Long waits (≥ 2s) emit a single
+`Console.detail` line under `--verbose`; shorter waits stay silent.
+
+Other upstreams (`meta.fabricmc.net`, `files.minecraftforge.net`,
+`maven.neoforged.net`, Adoptium) flow through the same `Dio`
+unchanged — none publish `X-Ratelimit-*` headers and none document a
+per-IP cap, so the interceptor is a no-op for those hosts.
+
+Touches:
+[`lib/src/service/modrinth_rate_limit_interceptor.dart`](../lib/src/service/modrinth_rate_limit_interceptor.dart),
+[`lib/src/app/providers.dart`](../lib/src/app/providers.dart).

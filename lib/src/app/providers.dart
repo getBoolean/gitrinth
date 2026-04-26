@@ -14,6 +14,7 @@ import '../service/minecraft_launcher_locator.dart';
 import '../service/server_installer.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_error_interceptor.dart';
+import '../service/modrinth_rate_limit_interceptor.dart';
 import '../service/modrinth_url.dart';
 import '../service/offline_guard_interceptor.dart';
 import '../version.dart';
@@ -27,9 +28,17 @@ final offlineProvider = NotifierProvider<OfflineNotifier, bool>(
 );
 
 final dioProvider = Provider<Dio>((ref) {
-  final dio = Dio()
+  final dio = Dio();
+  dio
     ..interceptors.add(
       OfflineGuardInterceptor(() => ref.read(offlineProvider)),
+    )
+    ..interceptors.add(
+      ModrinthRateLimitInterceptor(
+        dio: dio,
+        modrinthBaseUrl: resolveModrinthBaseUrl(ref.read(environmentProvider)),
+        console: ref.read(consoleProvider),
+      ),
     )
     ..interceptors.add(ModrinthErrorInterceptor())
     ..options.headers['User-Agent'] =
