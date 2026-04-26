@@ -30,9 +30,10 @@ Deferred MVP work:
 - [x] [`downgrade` command](#downgrade-command)
 - [x] [`outdated` command](#outdated-command)
 - [x] [`deps` command](#deps-command)
-- [ ] [`publish` command](#publish-command)
-- [ ] [`login` / `logout` commands](#login--logout-commands)
-- [ ] [`token` command](#token-command)
+- [ ] `modrinth` scoped commands:
+  - [ ] [`publish` command](#publish-command)
+  - [ ] [`login` / `logout` commands](#login--logout-commands)
+  - [ ] [`token` command](#token-command)
 - [ ] [`unpack` command](#unpack-command)
 - [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
 
@@ -221,11 +222,11 @@ archive builder, [`mods-yaml.md`](mods-yaml.md).
 Shipped. See [Global options](cli.md#global-options) in the CLI docs.
 Three top-level flags on `gitrinth`:
 
-| Option            | Description                                                                             |
-|-------------------|-----------------------------------------------------------------------------------------|
-| `-q`, `--quiet`   | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
-| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).    |
-| `--config <path>` | Use an alternate user config file.                                                      |
+| Option                   | Description                                                                             |
+|--------------------------|-----------------------------------------------------------------------------------------|
+| `-q`, `--quiet`          | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
+| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).           |
+| `--config <path>`        | Use an alternate user config file.                                                      |
 
 `--color`/`--no-color` ships as a negatable pair (matching
 `dart pub`'s `--[no-]color`). `--quiet` and `--config` are
@@ -426,7 +427,7 @@ Upload the modpack to Modrinth (or the server declared in
 [`publish_to`](mods-yaml.md#publish_to)).
 
 ```text
-gitrinth publish [--dry-run] [--force] [--draft]
+gitrinth modrinth publish [--dry-run] [--force] [--draft]
                 [--version-type <release|beta|alpha>]
                 [--changelog <path>]
 ```
@@ -451,8 +452,8 @@ server (modrinth.com) in the user config. The token is never echoed
 and can be piped over stdin.
 
 ```text
-gitrinth login
-gitrinth logout
+gitrinth modrinth login
+gitrinth modrinth logout
 ```
 
 ## `token` command
@@ -462,9 +463,9 @@ other than modrinth.com. Use [`login` / `logout`](#login--logout-commands)
 for the default server.
 
 ```text
-gitrinth token add <server-url>
-gitrinth token list
-gitrinth token remove <server-url>
+gitrinth modrinth token add <server-url>
+gitrinth modrinth token list
+gitrinth modrinth token remove <server-url>
 ```
 
 | Subcommand | Description                                                                          |
