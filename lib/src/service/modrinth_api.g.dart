@@ -138,7 +138,7 @@ class _ModrinthApi implements ModrinthApi {
 
   @override
   Future<HttpResponse<dynamic>> getCurrentUser() async {
-    final _extra = <String, dynamic>{};
+    final _extra = <String, dynamic>{'gitrinth.auth': true};
     final queryParameters = <String, dynamic>{};
     final _headers = <String, dynamic>{};
     const Map<String, dynamic>? _data = null;

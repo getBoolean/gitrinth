@@ -50,13 +50,17 @@ Dio _buildDio({
 _RecordingAdapter _adapterOf(Dio dio) =>
     dio.httpClientAdapter as _RecordingAdapter;
 
+Options _authed([Map<String, dynamic>? extra]) => Options(
+      extra: {kModrinthAuthRequired: true, ...?extra},
+    );
+
 void main() {
   group('ModrinthAuthInterceptor.onRequest', () {
-    test('attaches stored token for the default Modrinth host', () async {
+    test('attaches stored token when the request opts into auth', () async {
       final dio = _buildDio(
         tokens: {'https://api.modrinth.com/v2': 'mrp_stored'},
       );
-      await dio.get('$_defaultBase/user');
+      await dio.get('$_defaultBase/user', options: _authed());
       final headers = _adapterOf(dio).requests.single.headers;
       expect(headers['Authorization'], equals('mrp_stored'));
       expect(
@@ -66,12 +70,54 @@ void main() {
       );
     });
 
-    test('passes through unauthenticated when no token is configured',
-        () async {
-      final dio = _buildDio(tokens: const {});
-      await dio.get('$_defaultBase/user');
+    test(
+        'does not attach Authorization to public endpoints even when a token '
+        'is configured', () async {
+      final dio = _buildDio(
+        tokens: {'https://api.modrinth.com/v2': 'mrp_stored'},
+        envToken: 'mrp_env',
+      );
+      await dio.get('$_defaultBase/project/sodium');
       final headers = _adapterOf(dio).requests.single.headers;
       expect(headers.containsKey('Authorization'), isFalse);
+    });
+
+    test('rejects auth-gated request early when no token is resolvable',
+        () async {
+      final dio = _buildDio(tokens: const {});
+      await expectLater(
+        dio.get('$_defaultBase/user', options: _authed()),
+        throwsA(
+          isA<DioException>()
+              .having((e) => e.error, 'error', isA<AuthenticationError>())
+              .having(
+                (e) => (e.error as AuthenticationError).message,
+                'message',
+                contains('gitrinth modrinth login'),
+              ),
+        ),
+      );
+      expect(
+        _adapterOf(dio).requests,
+        isEmpty,
+        reason: 'request should never reach the network without a token',
+      );
+    });
+
+    test(
+        'rejects auth-gated request to non-default host with token-add hint',
+        () async {
+      final dio = _buildDio(tokens: const {});
+      await expectLater(
+        dio.get('https://my.host/api/user', options: _authed()),
+        throwsA(
+          isA<DioException>().having(
+            (e) => (e.error as AuthenticationError).message,
+            'message',
+            contains('gitrinth modrinth token add https://my.host'),
+          ),
+        ),
+      );
     });
 
     test('GITRINTH_TOKEN overrides stored token on the default host',
@@ -80,7 +126,7 @@ void main() {
         tokens: {'https://api.modrinth.com/v2': 'mrp_stored'},
         envToken: 'mrp_env_override',
       );
-      await dio.get('$_defaultBase/project/sodium');
+      await dio.get('$_defaultBase/user', options: _authed());
       final headers = _adapterOf(dio).requests.single.headers;
       expect(headers['Authorization'], equals('mrp_env_override'));
     });
@@ -90,7 +136,7 @@ void main() {
         tokens: {'https://my.host/api': 'mrp_other'},
         envToken: 'mrp_env_override',
       );
-      await dio.get('https://my.host/api/user');
+      await dio.get('https://my.host/api/user', options: _authed());
       final headers = _adapterOf(dio).requests.single.headers;
       expect(headers['Authorization'], equals('mrp_other'));
     });
@@ -99,20 +145,40 @@ void main() {
       final dio = _buildDio(
         tokens: {'https://api.modrinth.com/v2': 'mrp_stored'},
       );
-      await dio.get('$_defaultBase/project/sodium/version');
+      await dio.get(
+        '$_defaultBase/project/sodium/version',
+        options: _authed(),
+      );
       expect(
         _adapterOf(dio).requests.single.headers['Authorization'],
         equals('mrp_stored'),
       );
     });
 
-    test('preserves an Authorization header set by the caller', () async {
+    test('preserves a caller-supplied Authorization header without the marker',
+        () async {
       final dio = _buildDio(
         tokens: {'https://api.modrinth.com/v2': 'mrp_stored'},
       );
       await dio.get(
         '$_defaultBase/user',
         options: Options(headers: {'Authorization': 'mrp_oneshot'}),
+      );
+      expect(
+        _adapterOf(dio).requests.single.headers['Authorization'],
+        equals('mrp_oneshot'),
+      );
+    });
+
+    test(
+        'preserves a caller-supplied Authorization header even when the '
+        'marker is set', () async {
+      final dio = _buildDio(
+        tokens: {'https://api.modrinth.com/v2': 'mrp_stored'},
+      );
+      await dio.get(
+        '$_defaultBase/user',
+        options: _authed()..headers = {'Authorization': 'mrp_oneshot'},
       );
       expect(
         _adapterOf(dio).requests.single.headers['Authorization'],
@@ -129,7 +195,7 @@ void main() {
         responseStatus: 401,
       );
       await expectLater(
-        dio.get('$_defaultBase/user'),
+        dio.get('$_defaultBase/user', options: _authed()),
         throwsA(
           isA<DioException>().having(
             (e) => e.error,
@@ -151,7 +217,7 @@ void main() {
         responseStatus: 401,
       );
       await expectLater(
-        dio.get('https://my.host/api/user'),
+        dio.get('https://my.host/api/user', options: _authed()),
         throwsA(
           isA<DioException>().having(
             (e) => e.error,

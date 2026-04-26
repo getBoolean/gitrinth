@@ -6,6 +6,7 @@ import 'package:retrofit/retrofit.dart';
 import '../model/modrinth/game_version.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart';
+import 'modrinth_auth_interceptor.dart';
 
 part 'modrinth_api.g.dart';
 
@@ -48,6 +49,7 @@ abstract class ModrinthApi {
   /// 401 means it isn't. Body is loosely typed — callers only need
   /// the `username` field for the post-login confirmation message.
   @GET('/user')
+  @Extra({kModrinthAuthRequired: true})
   Future<HttpResponse<dynamic>> getCurrentUser();
 }
 

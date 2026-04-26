@@ -3,8 +3,17 @@ import 'package:dio/dio.dart';
 import '../cli/exceptions.dart';
 import 'modrinth_url.dart';
 
+/// Marker key on `RequestOptions.extra` that opts a request into auth.
+/// When `extra[kModrinthAuthRequired] == true`, [ModrinthAuthInterceptor]
+/// resolves and attaches a token, and rejects the request before it
+/// leaves the client if no token is available. Public Modrinth endpoints
+/// (search, project lookup, version listing, tags) must NOT set this —
+/// otherwise they'd start sending PATs to read-only routes.
+const String kModrinthAuthRequired = 'gitrinth.auth';
+
 /// Attaches `Authorization: <token>` (no `Bearer` prefix — Modrinth's
-/// PAT format) to outbound Modrinth requests, and converts 401s into
+/// PAT format) to outbound Modrinth requests that opt in via
+/// `extra[kModrinthAuthRequired]`, and converts 401s into
 /// [AuthenticationError]. `GITRINTH_TOKEN` only applies to the default
 /// host. Stored keys are matched as a scheme+host+path-prefix.
 class ModrinthAuthInterceptor extends Interceptor {
@@ -27,11 +36,32 @@ class ModrinthAuthInterceptor extends Interceptor {
       handler.next(options);
       return;
     }
+    if (options.extra[kModrinthAuthRequired] != true) {
+      handler.next(options);
+      return;
+    }
     final token = _resolveToken(options.uri);
     if (token != null && token.isNotEmpty) {
       options.headers['Authorization'] = token;
+      handler.next(options);
+      return;
     }
-    handler.next(options);
+    final hostLabel = _hostLabel(options.uri);
+    final isDefault =
+        _matchesPrefix(_safeNormalize(defaultBaseUrl), options.uri);
+    final message = isDefault
+        ? 'No token configured for $hostLabel. '
+            'Run `gitrinth modrinth login`.'
+        : 'No token configured for $hostLabel. '
+            'Run `gitrinth modrinth token add $hostLabel`.';
+    handler.reject(
+      DioException(
+        requestOptions: options,
+        type: DioExceptionType.cancel,
+        error: AuthenticationError(message),
+        message: message,
+      ),
+    );
   }
 
   @override

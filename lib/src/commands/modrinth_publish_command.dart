@@ -13,6 +13,7 @@ import '../cli/exit_codes.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/changelog_reader.dart';
 import '../service/manifest_io.dart';
+import '../service/modrinth_auth_interceptor.dart';
 import '../service/modrinth_url.dart';
 import '../service/user_config.dart';
 
@@ -172,7 +173,10 @@ class ModrinthPublishCommand extends GitrinthCommand {
     final response = await dio.post<dynamic>(
       uploadUrl,
       data: form,
-      options: Options(contentType: 'multipart/form-data'),
+      options: Options(
+        contentType: 'multipart/form-data',
+        extra: const {kModrinthAuthRequired: true},
+      ),
     );
     final body = response.data;
     final versionId = body is Map ? body['id'] : null;
