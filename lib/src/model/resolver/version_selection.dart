@@ -4,21 +4,32 @@ import '../manifest/mods_yaml.dart';
 import '../modrinth/version.dart' as modrinth;
 import 'constraint.dart';
 
+/// Direction the resolver should pick candidates in. Mirrors dart pub's
+/// `SolveType { get, upgrade, downgrade }`. `get` and `upgrade` both
+/// pick the **newest** matching version per slug; `downgrade` picks
+/// the **oldest**. The split exists so `gitrinth downgrade` reuses the
+/// same plumbing as `get`/`upgrade` and to leave the door open for
+/// future per-type behavior.
+enum SolveType { get, upgrade, downgrade }
+
 /// Picks the highest Modrinth version that satisfies [constraint] under
 /// the stability floor implied by [channel]. Returns null when no
-/// published version qualifies.
+/// published version qualifies. When [solveType] is
+/// [SolveType.downgrade], picks the **lowest** matching version
+/// instead.
 ///
 /// Mirrors the candidate selection PubGrub performs internally
 /// ([compareModrinthSelectionOrder] sort over channel-eligible
-/// candidates, take the head). Extracted so the override-promotion
-/// step in `resolve_and_sync` can pin a `project_overrides:` entry to
-/// the same version PubGrub would pick if the slug had been declared
-/// as a normal root.
+/// candidates, take the head — or tail under downgrade). Extracted so
+/// the override-promotion step in `resolve_and_sync` can pin a
+/// `project_overrides:` entry to the same version PubGrub would pick
+/// if the slug had been declared as a normal root.
 modrinth.Version? pickHighestMatching(
   List<modrinth.Version> versions,
   VersionConstraint constraint,
-  Channel channel,
-) {
+  Channel channel, {
+  SolveType solveType = SolveType.get,
+}) {
   final allowed = allowedVersionTypes(channel);
   final candidates = <_Candidate>[];
   for (final v in versions) {
@@ -45,7 +56,9 @@ modrinth.Version? pickHighestMatching(
       b.parsed,
     ),
   );
-  return candidates.first.modrinthVersion;
+  return solveType == SolveType.downgrade
+      ? candidates.last.modrinthVersion
+      : candidates.first.modrinthVersion;
 }
 
 class _Candidate {

@@ -4,6 +4,7 @@ import '../manifest/mods_yaml.dart';
 import 'constraint.dart';
 import 'pubgrub.dart';
 import 'result.dart';
+import 'version_selection.dart';
 
 /// Resolves the merged [manifest] into a [ResolutionResult] using the supplied
 /// version-listing callback. Pure: no service/ imports.
@@ -19,7 +20,15 @@ class Resolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
 
-  Resolver({required this.listVersions, required this.resolveSlugForProjectId});
+  /// Selection direction passed through to [PubGrubSolver]. Defaults to
+  /// [SolveType.get] so existing callers keep newest-first behavior.
+  final SolveType solveType;
+
+  Resolver({
+    required this.listVersions,
+    required this.resolveSlugForProjectId,
+    this.solveType = SolveType.get,
+  });
 
   Future<ResolutionResult> resolve(
     ModsYaml manifest, {
@@ -83,6 +92,7 @@ class Resolver {
       resolveSlugForProjectId: resolveSlugForProjectId,
       lockSuggestions: pins,
       overridePins: overridePins.values.toList(),
+      solveType: solveType,
     );
     final result = await solver.solve(roots);
 

@@ -27,9 +27,9 @@ Deferred MVP work:
 - [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
 - [x] [Auto-fetch JDK matching `mc-version`](#auto-fetch-jdk-matching-mc-version)
-- [ ] [`downgrade` command](#downgrade-command)
-- [ ] [`outdated` command](#outdated-command)
-- [ ] [`deps` command](#deps-command)
+- [x] [`downgrade` command](#downgrade-command)
+- [x] [`outdated` command](#outdated-command)
+- [x] [`deps` command](#deps-command)
 - [ ] [`publish` command](#publish-command)
 - [ ] [`login` / `logout` commands](#login--logout-commands)
 - [ ] [`token` command](#token-command)
@@ -379,41 +379,34 @@ Touches:
 
 ## `downgrade` command
 
-Resolve to the **oldest** version compatible with each constraint.
-
-```text
-gitrinth downgrade [<slug>...] [--dry-run]
-```
+Shipped. See [`gitrinth downgrade`](cli.md#downgrade) in the CLI
+reference. Resolves every Modrinth-source entry (or the named
+subset) to the oldest version compatible with its constraint;
+honors the entry's `channel` floor; supports `--dry-run` and
+`--offline`. Implementation reuses the same resolver path as
+`get`/`upgrade` via a `SolveType.downgrade` enum threaded through
+`PubGrubSolver`.
 
 ## `outdated` command
 
-Report entries whose `mods.lock` version is behind the newest allowed
-by the loader/Minecraft pair. Read-only.
-
-```text
-gitrinth outdated [--json]
-```
-
-| Option   | Description                          |
-|----------|--------------------------------------|
-| `--json` | Emit a machine-readable JSON report. |
+Shipped. See [`gitrinth outdated`](cli.md#outdated) in the CLI
+reference. Reports `Current` / `Upgradable` / `Latest` columns per
+locked entry; supports `--json`, `--show-all`, `--no-transitive`,
+and `--offline`. The report-only "Resolvable" column from
+comparable tools is omitted in this version (would require a full
+re-resolve under relaxed constraints).
 
 ## `deps` command
 
-Print the resolved dependency tree. Reads `mods.lock`; falls back to
-resolving in memory if missing or stale.
-
-```text
-gitrinth deps [<slug>] [--env <client|server|both>]
-             [--style <compact|tree|list>] [--json]
-```
-
-| Option    | Description                                                     |
-|-----------|-----------------------------------------------------------------|
-| `<slug>`  | Limit output to a single entry and its transitive dependencies. |
-| `--env`   | Filter by [`environment`](mods-yaml.md#per-mod-environment).    |
-| `--style` | Output style: `compact`, `tree` (default), or `list`.           |
-| `--json`  | Emit a machine-readable report.                                 |
+Shipped. See [`gitrinth deps`](cli.md#deps) in the CLI reference.
+Walks `mods.lock` plus the cached per-version `version.json`
+sidecars to render the dependency graph in `tree` (default),
+`list`, or `compact` style. Supports `--env`, `--json`, and an
+optional positional slug. Errors out when `mods.lock` is missing
+or stale (run `gitrinth get` first); the in-memory-fallback
+behavior described in the original spec is intentionally not
+implemented — a "report" command should not silently mutate the
+cache or hit the network.
 
 ## `publish` command
 

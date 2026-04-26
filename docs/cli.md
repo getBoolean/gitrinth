@@ -32,16 +32,19 @@ Use [`--directory`](#global-options) to target a different modpack.
 
 ### Dependencies
 
-| Command               | Purpose                                                      |
-|-----------------------|--------------------------------------------------------------|
-| [`get`](#get)         | Resolve entries, write `mods.lock`, download into the cache. |
-| [`upgrade`](#upgrade) | Re-resolve to the newest version allowed by each constraint. |
-| [`migrate`](#migrate) | Re-target the pack to a new Minecraft version or loader.     |
-| [`add`](#add)         | Add an entry to a section.                                   |
-| [`remove`](#remove)   | Remove an entry.                                             |
-| [`override`](#override) | Add a sticky override to `project_overrides`.              |
-| [`pin`](#pin)         | Freeze an entry to its currently-locked version.             |
-| [`unpin`](#unpin)     | Restore a caret on a pinned entry.                           |
+| Command                   | Purpose                                                         |
+|---------------------------|-----------------------------------------------------------------|
+| [`get`](#get)             | Resolve entries, write `mods.lock`, download into the cache.    |
+| [`upgrade`](#upgrade)     | Re-resolve to the newest version allowed by each constraint.    |
+| [`downgrade`](#downgrade) | Re-resolve to the oldest version allowed by each constraint.    |
+| [`outdated`](#outdated)   | Report locked entries that are behind newer compatible versions. |
+| [`deps`](#deps)           | Print the resolved dependency tree.                             |
+| [`migrate`](#migrate)     | Re-target the pack to a new Minecraft version or loader.        |
+| [`add`](#add)             | Add an entry to a section.                                      |
+| [`remove`](#remove)       | Remove an entry.                                                |
+| [`override`](#override)   | Add a sticky override to `project_overrides`.                   |
+| [`pin`](#pin)             | Freeze an entry to its currently-locked version.                |
+| [`unpin`](#unpin)         | Restore a caret on a pinned entry.                              |
 
 ### Cache
 
@@ -152,6 +155,115 @@ entries' `mods.lock` records have no `dependencies:` lines (legacy
 lock written before this MVP item), the command warns and falls back
 to unlocking only the named entries; the next `gitrinth get` /
 `gitrinth upgrade` repopulates the edges.
+
+### `downgrade`
+
+Re-resolve to the **oldest** version allowed by each constraint,
+updating `mods.lock`. Mirrors [`upgrade`](#upgrade) in the opposite
+direction. Useful for testing minimum-supported versions or for
+reproducing a bug report against older releases. Pass slugs to
+downgrade only those entries; the remaining entries keep their
+existing locked versions.
+
+```text
+gitrinth downgrade [<slug>...] [--dry-run] [--offline]
+```
+
+| Option      | Description                                                                                            |
+|-------------|--------------------------------------------------------------------------------------------------------|
+| `--dry-run` | Print the diff without writing.                                                                        |
+| `--offline` | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache. |
+
+`downgrade` honors each entry's [`channel`](mods-yaml.md#channel)
+floor: a `release`-channel entry never downgrades through `beta`/`alpha`
+versions. It does not rewrite `mods.yaml`. Marker entries
+(`gitrinth:not-found`, `gitrinth:disabled-by-conflict`) are skipped
+with a one-line note.
+
+When run with `--offline`, gitrinth prints a warning that the cache
+may not contain the truly-oldest published version.
+
+### `outdated`
+
+Report locked entries that are behind newer compatible versions of
+the same constraint, and entries whose constraint blocks an even
+newer version. Read-only — never writes `mods.lock`.
+
+```text
+gitrinth outdated [--json] [--show-all] [--no-transitive] [--offline]
+```
+
+| Option            | Description                                                                                            |
+|-------------------|--------------------------------------------------------------------------------------------------------|
+| `--json`          | Emit a machine-readable JSON report instead of the table.                                              |
+| `--show-all`      | Include up-to-date entries in the report. Off by default.                                              |
+| `--no-transitive` | Hide entries whose `dependency:` is `transitive`. On by default (transitives shown).                   |
+| `--offline`       | Use cached versions only; do not hit the network.                                                      |
+
+The report has three columns:
+
+- **Current** — the version recorded in `mods.lock`.
+- **Upgradable** — the newest version allowed by the entry's
+  [version constraint](mods-yaml.md#version-constraints) and channel
+  floor. Equivalent to what [`upgrade`](#upgrade) would pick.
+- **Latest** — the newest version allowed by the channel floor,
+  ignoring the version constraint. Equivalent to what
+  [`upgrade --major-versions`](#upgrade) would pick (modulo
+  graph-aware resolution).
+
+Entries are grouped under `direct dependencies:` and
+`transitive dependencies:` headings. A `*` prefix marks any version
+cell that is not the row's Latest. Versions equal to the cell to
+their left render in gray (e.g. Latest equals Upgradable). On
+terminals where `NO_COLOR` is set or stdout is not a TTY, all colors
+are dropped.
+
+`url:` and `path:` entries are listed with their pinned
+path/URL — they have no version pool. `project_overrides:` entries
+are listed with `(overridden)` and the Latest column matches the
+override's pinned version.
+
+The graph-aware "Resolvable" column from comparable tools is omitted
+in this version: producing it requires a full re-resolution under
+relaxed constraints, which is too expensive for a report command.
+
+### `deps`
+
+Print the resolved dependency tree. Reads `mods.lock`. Errors out
+if the lock is missing or stale — run [`get`](#get) first to
+populate it.
+
+```text
+gitrinth deps [<slug>] [--style <compact|tree|list>]
+              [--env <client|server|both>] [--json]
+```
+
+| Option       | Description                                                                |
+|--------------|----------------------------------------------------------------------------|
+| `<slug>`     | Limit output to a single direct entry and its transitive dependencies.     |
+| `-s, --style`| Output style: `compact`, `tree` (default), or `list`.                      |
+| `--env`      | Filter by [`environment`](mods-yaml.md#per-mod-environment). Default `both`. |
+| `--json`     | Emit a machine-readable JSON report. Mutually exclusive with `--style`.    |
+
+`tree` style indents children with `├── └── │   ` connectors when
+the terminal supports unicode/ANSI; falls back to ASCII (`|--
+'-- |   `) otherwise. Slugs that appear more than once in the
+graph (typical for shared transitives) render as `<slug>...` in
+gray on second and later occurrences.
+
+`list` style flattens each direct entry's children one level deep
+under the entry; `compact` style appends a bracketed list of
+direct child slugs to each direct entry on a single line.
+
+`--env client` skips entries whose
+[`environment`](mods-yaml.md#per-mod-environment) is `unsupported`
+on the client side; `--env server` does the same for the server
+side. `both` (the default) shows everything.
+
+Cold-cache transitive children (a slug whose `version.json` sidecar
+hasn't been written yet) cannot be walked; gitrinth prints a
+trailing footer naming how many entries were skipped and recommends
+re-running [`get`](#get) once.
 
 ### `migrate`
 

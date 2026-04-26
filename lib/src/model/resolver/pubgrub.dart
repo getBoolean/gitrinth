@@ -5,6 +5,7 @@ import '../manifest/mods_yaml.dart';
 import '../modrinth/dependency.dart';
 import '../modrinth/version.dart' as modrinth;
 import 'constraint.dart';
+import 'version_selection.dart';
 
 typedef ListVersions = Future<List<modrinth.Version>> Function(String slug);
 typedef ResolveSlug = Future<String?> Function(String projectId);
@@ -86,6 +87,12 @@ class PubGrubSolver {
   final ResolveSlug resolveSlugForProjectId;
   final List<LockSuggestion> lockSuggestions;
   final List<OverridePin> overridePins;
+
+  /// Selection direction — `get`/`upgrade` pick newest, `downgrade`
+  /// picks oldest. `downgrade` also disables the lock-suggestion head
+  /// promotion below: a downgrade is meant to ignore the existing pin.
+  final SolveType solveType;
+
   final Map<String, List<modrinth.Version>> _versionCache = {};
 
   PubGrubSolver({
@@ -93,6 +100,7 @@ class PubGrubSolver {
     required this.resolveSlugForProjectId,
     this.lockSuggestions = const [],
     this.overridePins = const [],
+    this.solveType = SolveType.get,
   });
 
   Future<PubGrubResult> solve(List<RootConstraint> roots) async {
@@ -309,7 +317,6 @@ class PubGrubSolver {
       return false;
     }
 
-    // Lock-suggestion preference: if the current lock pin satisfies, try it first.
     candidates.sort(
       (a, b) => compareModrinthSelectionOrder(
         a.modrinthVersion,
@@ -318,6 +325,19 @@ class PubGrubSolver {
         b.parsed,
       ),
     );
+    if (solveType == SolveType.downgrade) {
+      // Downgrade reverses the candidate order so the oldest matching
+      // version is tried first. Lock-pin promotion still runs below:
+      // pins on slugs the user did NOT ask to downgrade (i.e. ones the
+      // resolveAndSync layer left in `lockSuggestions`) should still be
+      // honored. Slugs the user IS downgrading have their pins stripped
+      // upstream via `freshSlugs`.
+      final reversed = candidates.reversed.toList();
+      candidates
+        ..clear()
+        ..addAll(reversed);
+    }
+    // Lock-suggestion preference: if the current lock pin satisfies, try it first.
     final pin = state.lockSuggestions[slug];
     if (pin != null) {
       final pinIdx = candidates.indexWhere(

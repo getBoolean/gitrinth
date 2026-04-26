@@ -79,6 +79,7 @@ Future<ResolveSyncResult> resolveAndSync({
   Set<String> freshSlugs = const {},
   Set<String> relaxConstraints = const {},
   ModsYaml? manifestOverride,
+  SolveType solveType = SolveType.get,
 }) async {
   final reporter = SolveReporter(console);
 
@@ -242,6 +243,7 @@ Future<ResolveSyncResult> resolveAndSync({
         return null;
       }
     },
+    solveType: solveType,
   );
 
   // Promote each Modrinth-source override entry to a concrete
@@ -294,6 +296,7 @@ Future<ResolveSyncResult> resolveAndSync({
       candidates,
       parseConstraint(entry.constraintRaw),
       entry.channel ?? Channel.alpha,
+      solveType: solveType,
     );
     if (picked == null) {
       throw ValidationError(

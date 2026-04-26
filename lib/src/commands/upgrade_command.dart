@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -8,11 +7,10 @@ import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
-import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
-import '../service/cache.dart';
 import '../service/conflict_disable.dart';
+import '../service/lock_graph.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth_api.dart';
 import '../service/resolve_and_sync.dart';
@@ -168,10 +166,12 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
 
     if (unlockTransitive && targets.isNotEmpty) {
-      targets = _expandTransitiveClosure(
+      targets = walkTransitiveClosure(
         targets,
         io.readModsLock(),
         read(cacheProvider),
+        console: console,
+        verboseLabel: 'upgrade --unlock-transitive',
       );
     }
 
@@ -341,107 +341,6 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     return exitOk;
   }
 
-  /// BFS over the dep graph to compute the transitive closure of
-  /// [seeds]. Powers `--unlock-transitive`: every slug in the returned
-  /// set is fed to [resolveAndSync] as a `freshSlug`, so the resolver
-  /// picks newest-within-constraint instead of preserving the existing
-  /// pin.
-  ///
-  /// Edges are read from the artifact cache's per-version `version.json`
-  /// (mirrors dart pub's "graph in cache" architecture — see
-  /// [GitrinthCache.modrinthVersionMetadataPath]). Cold-cache entries
-  /// (a slug whose `version.json` hasn't been written yet) are reported
-  /// via `console.detail` and their children are skipped; subsequent
-  /// runs populate the cache.
-  Set<String> _expandTransitiveClosure(
-    Set<String> seeds,
-    ModsLock? lock,
-    GitrinthCache cache,
-  ) {
-    if (lock == null) {
-      console.info(
-        'upgrade --unlock-transitive: no mods.lock found yet — '
-        'falling back to unlocking only the named entries.',
-      );
-      return seeds;
-    }
-
-    final lookup = <String, LockedEntry>{};
-    final projectIdToSlug = <String, String>{};
-    for (final entry in lock.allEntries) {
-      lookup[entry.key] = entry.value;
-      final pid = entry.value.projectId;
-      if (pid != null) projectIdToSlug[pid] = entry.key;
-    }
-
-    final closure = <String>{...seeds};
-    final queue = <String>[...seeds];
-    while (queue.isNotEmpty) {
-      final slug = queue.removeLast();
-      final entry = lookup[slug];
-      if (entry == null) {
-        console.detail(
-          "upgrade --unlock-transitive: '$slug' not in mods.lock; skipping.",
-        );
-        continue;
-      }
-      if (entry.sourceKind != LockedSourceKind.modrinth) continue;
-      final pid = entry.projectId;
-      final vid = entry.versionId;
-      if (pid == null || vid == null) continue;
-
-      final children = _readCachedRequiredChildren(cache, pid, vid);
-      if (children == null) {
-        console.detail(
-          "upgrade --unlock-transitive: no cached version.json for "
-          "'$slug' ($pid/$vid); skipping its transitive children. "
-          'Run `gitrinth get` to populate the cache.',
-        );
-        continue;
-      }
-      for (final childPid in children) {
-        final childSlug = projectIdToSlug[childPid];
-        if (childSlug == null) continue;
-        if (closure.add(childSlug)) queue.add(childSlug);
-      }
-    }
-    return closure;
-  }
-
-  /// Reads the `dependencies` array out of the cached `version.json`
-  /// and returns the list of `project_id`s for entries whose
-  /// `dependency_type == "required"`. Returns null when the cache file
-  /// is missing or unparseable (cold cache); returns an empty list when
-  /// the version legitimately has no required deps.
-  List<String>? _readCachedRequiredChildren(
-    GitrinthCache cache,
-    String projectId,
-    String versionId,
-  ) {
-    final path = cache.modrinthVersionMetadataPath(
-      projectId: projectId,
-      versionId: versionId,
-    );
-    final file = File(path);
-    if (!file.existsSync()) return null;
-    final dynamic raw;
-    try {
-      raw = jsonDecode(file.readAsStringSync());
-    } on Object {
-      return null;
-    }
-    if (raw is! Map) return null;
-    final deps = raw['dependencies'];
-    if (deps is! List) return const [];
-    final out = <String>[];
-    for (final d in deps) {
-      if (d is! Map) continue;
-      if (d['dependency_type'] != 'required') continue;
-      final pid = d['project_id'];
-      if (pid is String && pid.isNotEmpty) out.add(pid);
-    }
-    return out;
-  }
 }
 
 ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {

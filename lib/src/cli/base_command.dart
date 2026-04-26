@@ -14,6 +14,6 @@ abstract class GitrinthCommand extends Command<int> {
   Console get console {
     final r = runner;
     final verbose = r is GitrinthRunner && r.verbose;
-    return Console(verbose: verbose);
+    return Console.detect(verbose: verbose);
   }
 }

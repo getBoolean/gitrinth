@@ -56,6 +56,9 @@ Common commands:
 | `gitrinth get`                      | Resolve `mods.yaml`, write `mods.lock`, fill cache.                           |
 | `gitrinth upgrade`                  | Re-resolve to the newest in-range version per entry.                          |
 | `gitrinth upgrade --major-versions` | Upgrade to newest version, even when version number implies breaking changes. |
+| `gitrinth downgrade`                | Re-resolve to the oldest in-range version per entry.                          |
+| `gitrinth outdated`                 | Report locked entries that are behind newer compatible versions.              |
+| `gitrinth deps`                     | Print the resolved dependency tree.                                           |
 | `gitrinth migrate mc <version>`     | Re-target the pack to a new Minecraft version and re-resolve every entry.     |
 | `gitrinth migrate loader <loader>`  | Switch the pack's mod loader and re-resolve every entry.                      |
 | `gitrinth build`                    | Assemble modpack distributions for client and server.                         |
