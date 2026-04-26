@@ -10,32 +10,69 @@ bridge lives there as a single checklist entry that points here.
 
 ## Status
 
-Six distinct top-level tasks. The source adapter is foundational;
-the rest depend on it but can be implemented in parallel.
+Seven distinct top-level tasks. The CF API client is the
+foundational piece for the cross-platform work; hosted Modrinth
+(labrinth) is folded in here rather than tracked separately because
+it shares the same multi-host resolver and token-store refactor —
+see [Reference architecture](#reference-architecture). Most tasks
+depend on the CF client but can be implemented in parallel; the
+hosted-Modrinth slice can land first and independently.
 
-- [ ] [Fetching mods from CurseForge](#fetching-mods-from-curseforge) — CurseForge API client, `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction, default-both resolution, `cf:<slug>` short-form sugar.
+- [ ] [Fetching mods](#fetching-mods) — CurseForge API client, `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction (scalar or list), default-both resolution, `cf:<slug>` short-form sugar, per-entry and pack-level `modrinth-host:` override.
 - [ ] [`add` command cross-platform behavior](#add-command-cross-platform-behavior) — entry-write matrix and `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags.
 - [ ] [Cross-platform hash verification](#cross-platform-hash-verification) — SHA1 comparison, older-version scan bounded by `hash-scan-depth`, `allow-hash-mismatch` per-entry override.
 - [ ] [Search fallback](#search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, `no-cross-platform-search` / `--no-search` opt-outs.
 - [ ] [Transitive dependencies and deduplication](#transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
 - [ ] [Publishing to CurseForge](#publishing-to-curseforge) — `publish_to` extension, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`.
+- [ ] [Hosted Modrinth (labrinth)](#hosted-modrinth-labrinth) — rename schema/parser `hosted:` → `modrinth-host:`, drop the deferred-source guard, thread the host through `ModrinthApi`, wire tokens via `UserConfig.tokens[host]`, accept pack-level `modrinth-host:` as a default.
 
 The [Mixing CF and Modrinth in one pack](#mixing-cf-and-modrinth-in-one-pack)
 section describes the resulting lockfile shape — it's not a task on
-its own, but a consolidated view of what the six above produce.
+its own, but a consolidated view of what the seven above produce.
 
-## Fetching mods from CurseForge
+## Reference architecture
+
+The bridge is not a greenfield design — substantial pieces of
+infrastructure it depends on are already in the tree. New readers
+should map each bridge concept onto the existing primitive before
+proposing duplicate work.
+
+| Bridge concept | Existing primitive |
+|---|---|
+| Modrinth API client with swappable host | `ModrinthApi(Dio, {baseUrl})` (retrofit-generated) — [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart) |
+| Default Modrinth base URL | `defaultModrinthBaseUrl` — [`lib/src/service/modrinth_url.dart`](../lib/src/service/modrinth_url.dart) |
+| Entry source variants | `EntrySource` sealed class with `ModrinthEntrySource`, `UrlEntrySource`, `PathEntrySource` — [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart) |
+| Per-entry `accepts-mc` and channel floor | shipped — [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart), [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml) |
+| Token storage | `UserConfig.tokens: Map<String, String>` keyed by server URL — [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart); `--config` flag and `GITRINTH_CONFIG` env wired in [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart) |
+| Rate-limit handling | `ModrinthRateLimitInterceptor` — host-scoped, applies per `baseUrl` ([`lib/src/service/modrinth_rate_limit_interceptor.dart`](../lib/src/service/modrinth_rate_limit_interceptor.dart)) |
+| Caret-on-add convention | shipped — [`add`](cli.md#add) writes `^x.y.z` |
+
+## Fetching mods
 
 Every entry resolves on **both Modrinth and CurseForge by default**.
 Most mods share a slug across platforms, so short-form stays terse
-and packs are cross-platform without ceremony:
+and packs are cross-platform without ceremony. The Modrinth side of
+that resolution can be redirected at a labrinth deployment via
+`modrinth-host:` (per-entry or pack-wide); the CurseForge side
+always targets `api.curseforge.com`.
 
 ```yaml
+# Pack-wide labrinth default — applies to every entry that doesn't
+# set its own `modrinth-host:` and resolves on the Modrinth source.
+modrinth-host: https://modrinth.example.com
+
 mods:
-  # Default: both platforms; key is the slug on each (most common)
+  # Default: resolves on both platforms; the Modrinth side targets
+  # the pack's modrinth-host (labrinth in this example).
   jei: ^19.27.0
   create: ^6.0.10+mc1.21.1
   sodium: ^0.5.13
+
+  # Per-entry host override — peers a Modrinth-protocol source on
+  # a different host than the pack default.
+  thirdparty-mod:
+    modrinth-host: https://other.example.com
+    version: ^1.0.0
 
   # Slug differs on CurseForge — override CF side only
   fabric-api:
@@ -47,9 +84,9 @@ mods:
     sources: [modrinth]
     version: ^2.3.0
 
-  # Restrict to CurseForge only (no Modrinth project exists)
+  # Equivalent scalar form for single-platform restriction
   ae2:
-    sources: [curseforge]
+    sources: curseforge
     curseforge: applied-energistics-2
     version: ^19.0.15
 
@@ -68,21 +105,56 @@ gitrinth add cf:applied-energistics-2     # CF-only
 The `mods:` map key is a local identifier and defaults to the slug
 on each platform in the resolution set. `modrinth:` and `curseforge:`
 peer fields override that platform's slug when it differs.
-`sources: [...]` explicitly restricts resolution to the listed
-platforms — use it when a mod only exists on one side, or when you
-want to pin an entry to one platform even though the other has it.
+`sources:` explicitly restricts resolution to the listed platforms —
+use it when a mod only exists on one side, or when you want to pin
+an entry to one platform even though the other has it. The schema
+accepts both a scalar (`sources: curseforge`) and a list
+(`sources: [curseforge]`) form via a `oneOf` of string-or-array; the
+parser normalizes both into a single internal `Set<SourceKind>`.
 
 If a declared-or-defaulted platform doesn't have the mod, that
 platform gets a `not_found` marker in `mods.lock` and a warning is
 emitted; the entry still succeeds as long as at least one platform
-resolves. [mods-yaml.md](mods-yaml.md) needs updating to reflect the
-relaxed key semantics.
+resolves. `mods-yaml.md` will be updated alongside this task to
+document the relaxed key semantics and the new fields.
 
 The resolver uses the same `loader` + `mc-version` filters (plus
 per-entry [`accepts-mc`](todo.md#accepts-mc--per-entry-mc-version-tolerance))
 and the same channel floor (`release`/`beta`/`alpha`) across
 platforms. Downloads hit each platform's CDN. The CF API requires a
-key, managed via [`token` add curseforge.com](todo.md#token-command).
+key, managed via [`token` add curseforge.com](todo.md#token-command);
+labrinth hosts named via `modrinth-host:` look up
+`UserConfig.tokens[<host>]` through the same store.
+
+### Host overrides
+
+`modrinth-host:` is a host override on the Modrinth source kind —
+not a third platform. A labrinth deployment speaks the Modrinth API,
+so cross-platform hash verification, search fallback, slug-table
+deduplication, and the `discovered-via-search` audit trail all work
+identically when the Modrinth side resolves against
+`https://modrinth.example.com` instead of
+`https://api.modrinth.com`. The `sources:` set therefore stays
+`{modrinth, curseforge}` regardless of host.
+
+Rules:
+
+- `modrinth-host: <url>` and `modrinth: <slug>` are **not mutually
+  exclusive** — `modrinth:` overrides the slug, `modrinth-host:`
+  overrides the host. Both peer the same Modrinth-protocol source.
+- `modrinth-host:` and `url:` / `path:` remain mutually exclusive
+  (the schema already enforced this for the legacy `hosted:`
+  spelling; the rename preserves the constraint).
+- A top-level `modrinth-host:` field on `mods.yaml` sets the default
+  Modrinth base URL for every entry that doesn't declare its own
+  `modrinth-host:`. Without it, the default stays
+  [`defaultModrinthBaseUrl`](../lib/src/service/modrinth_url.dart).
+- Authentication: when `modrinth-host:` (or the pack-level default)
+  names a non-default host, the resolver looks up
+  `UserConfig.tokens[<host>]` and attaches it as the bearer token.
+  Missing-token resolution against a non-default host is a hard
+  error pointing at `gitrinth token add <host>` — see
+  [`token`](todo.md#token-command).
 
 ## `add` command cross-platform behavior
 
@@ -119,6 +191,13 @@ implies `--curseforge-only` and writes a single-platform entry
 without querying Modrinth.
 
 ## Cross-platform hash verification
+
+The "Modrinth side" of this comparison includes labrinth: a pack
+that pairs CurseForge with `modrinth-host: https://labrinth.example`
+runs hash verification identically to a pack that uses the default
+modrinth.com host. `discovered-via-search`, scan-depth,
+`allow-hash-mismatch`, and slug-divergence handling all apply
+without modification.
 
 When an entry resolves on both platforms, gitrinth fetches each
 platform's SHA1 and compares. (SHA1 is the algorithm returned by
@@ -304,9 +383,10 @@ debugging resolver behavior.
 ### Performance
 
 Search adds at most one API call per platform per not-found slug.
-Results are cached in the gitrinth cache keyed by `(platform, query,
-loader, mc-version)` for the resolution session, so repeated
-`get`/`upgrade` runs don't re-query. To avoid search entirely at
+Results are cached in the gitrinth cache keyed by `(host, platform,
+query, loader, mc-version)` for the resolution session, so repeated
+`get`/`upgrade` runs don't re-query and labrinth queries don't
+pollute the modrinth.com cache (or vice versa). To avoid search entirely at
 scale, migrate discovered slugs into explicit `modrinth:` /
 `curseforge:` overrides in `mods.yaml`; gitrinth's notice output
 includes the exact override to paste.
@@ -323,7 +403,14 @@ drives the dedup.
 ### Slug-table index
 
 After top-level entries resolve, gitrinth builds a slug-to-entry
-index per platform:
+index per `(platform, host)` pair — not just per platform.
+`flywheel` resolved on modrinth.com and `flywheel` resolved on a
+labrinth instance are not automatically the same logical mod; they
+go through the same hash-based merge logic that already covers
+slug divergence (in practice they will hash-match and merge
+silently, but the resolver doesn't conflate them by name alone).
+For packs without `modrinth-host:` the index collapses to one entry
+per platform, matching the original shape:
 
 ```text
 modrinth_slug_to_entry = { 'create' → create, 'sodium' → sodium, ... }
@@ -513,6 +600,45 @@ being built, and also surfaces entries with `allow-hash-mismatch:
 true` because the published artifact ships only one of the two
 divergent builds.
 
+## Hosted Modrinth (labrinth)
+
+Folded in alongside the cross-platform work because the same
+multi-host resolver and token-store wiring backs both — keeping it
+on a separate roadmap would mean designing the same refactor twice.
+Independent of the rest, though: this slice does not require the CF
+API client, so it can land first.
+
+The schema field today is named `hosted:`; that name is ambiguous
+(hosted what? where?). Rename it to `modrinth-host:` so the
+protocol it speaks (the Modrinth API) is explicit and so the same
+spelling can be reused as a pack-level default. Behavior described
+under [Fetching mods → Host overrides](#host-overrides) covers the
+runtime semantics.
+
+Concrete work:
+
+- Rename `hosted` → `modrinth-host` in
+  [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
+  in the parser at
+  [`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart)
+  (today's `hosted` handling around the source-count check), and in
+  the existing `mods-yaml.md` examples.
+- Drop the parser's "hosted source is deferred" guard — the same
+  block, post-rename — and parse the field through to the model.
+- Extend `ModrinthEntrySource` with an optional host (or add a
+  peer source variant) so the resolver carries the override to the
+  `ModrinthApi` factory call.
+- Add a top-level `modrinth-host:` field to the manifest schema and
+  to the pack-level model.
+- Replace the single shared `ModrinthApi` instance with a
+  host-keyed factory; reuse the existing
+  `ModrinthRateLimitInterceptor` per host because rate-limit
+  budgets are per-IP-per-host.
+- Look up bearer tokens from `UserConfig.tokens[<host>]`. Document
+  `gitrinth token add <host>` in the
+  [`token`](todo.md#token-command) command spec — both directions
+  cross-link.
+
 ## Out of scope
 
 - Importing existing CF packs (`gitrinth curseforge import`).
@@ -527,10 +653,19 @@ divergent builds.
 
 ## Implementation touches
 
-[`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart),
-[`lib/src/service/resolver.dart`](../lib/src/service/resolver.dart),
-new `lib/src/service/curseforge_api.dart`, archive builder,
-[`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
-new `lib/src/commands/curseforge.dart`,
-[`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml),
-[`mods-yaml.md`](mods-yaml.md), [`cli.md`](cli.md).
+| Path | Status | Role in bridge |
+|---|---|---|
+| [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart) | exists | Add `modrinth:` / `curseforge:` slug overrides, `sources:` (scalar or list), hash flags; grow `ModrinthEntrySource` with an optional host (or add a peer); add pack-level `modrinth-host:` to the top-level manifest model |
+| [`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart) | exists | Rename `hosted` → `modrinth-host`, drop the deferred-source guard, parse the new entry and pack-level fields |
+| [`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart) | exists | Per-source hash blocks, `not_found` markers, `discovered-via-search`, `required-by:` |
+| [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart) and [`lib/src/model/resolver/resolver.dart`](../lib/src/model/resolver/resolver.dart) | exists | Multi-source branching; today's single-source `if (entry.source is! ModrinthEntrySource)` early-out (in both files) becomes the dispatch point |
+| [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart) | exists | Already supports per-call `baseUrl`; needs a host-keyed factory so each labrinth host gets its own client + rate-limit budget |
+| `lib/src/service/curseforge_api.dart` | new | Retrofit client mirroring `ModrinthApi` shape |
+| [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart) | exists | Token lookup by host already supported via `tokens: Map<String, String>` |
+| [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart) | exists | Wire new commands |
+| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart) | exists | `cf:` short form, `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags |
+| `lib/src/commands/curseforge.dart` | new | Hosts CF-specific subcommands if any survive design |
+| `lib/src/commands/token_command.dart` | new | `token add` / `list` / `remove` (also referenced from [`todo.md`](todo.md#token-command)) |
+| [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml) | exists | Rename `hosted` → `modrinth-host`; add new entry fields; add pack-level `modrinth-host:` |
+| [`docs/mods-yaml.md`](mods-yaml.md) | exists | Update `hosted:` → `modrinth-host:` in docs and examples; document new entry shape; remove "Modrinth-only" framing where it's no longer accurate |
+| [`docs/cli.md`](cli.md) | exists | `cf:` short form, new `add` flags, `token` subcommands, `--curseforge` on `pack` |

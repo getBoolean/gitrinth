@@ -20,7 +20,7 @@ Planned improvements:
 Deferred MVP work:
 
 - [x] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
-- [ ] [Hosted source support](#hosted-source-support)
+- [ ] [Hosted source support](curseforge-bridge.md#hosted-modrinth-labrinth)
 - [ ] [Plugin-loader support](#plugin-loader-support)
 - [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)
@@ -197,16 +197,13 @@ and a wrong server-side reading shouldn't block scaffolding.
 
 ## Hosted source support
 
-Long-form entries may declare `hosted: <url>` pointing at a
-Modrinth-compatible server; resolution and download are deferred
-pending the [`token` command](#token-command) (needed to authenticate
-against non-modrinth.com servers). Once tokens are in place, `hosted:`
-entries resolve identically to default Modrinth entries, just against
-the declared server URL.
-
-Touches: [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart),
-[`lib/src/service/resolver.dart`](../lib/src/service/resolver.dart),
-[`mods-yaml.md`](mods-yaml.md).
+Folded into [CurseForge bridge](curseforge-bridge.md#hosted-modrinth-labrinth).
+Hosted Modrinth (labrinth) is treated there as a Modrinth-host
+override (`modrinth-host: <url>`, replacing the previously
+schema-defined `hosted:` field) rather than a separate source kind,
+since both share the resolver multi-host refactor and the token
+store. The bridge doc tracks it as a separate sub-item so it can
+land independently of the CF API client.
 
 ## Plugin-loader support
 
