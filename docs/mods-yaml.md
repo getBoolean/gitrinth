@@ -19,24 +19,24 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 [`description`](#description), [`loader`](#loader), and
 [`mc-version`](#mc-version).
 
-| Field                               | Required | Description                                                                                                                                                                                                                            |
-|-------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`slug`](#slug)                     | yes      | Modrinth project slug for the modpack.                                                                                                                                                                                                 |
-| [`name`](#name)                     | yes      | Human-readable display name.                                                                                                                                                                                                           |
-| [`version`](#version)               | yes      | The semver version of the modpack.                                                                                                                                                                                                     |
-| [`description`](#description)       | yes      | Short, public-facing tagline.                                                                                                                                                                                                          |
-| [`project`](#project)               | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                                                                                  |
-| [`publish_to`](#publish_to)         | no       | Where the modpack publishes to.                                                                                                                                                                                                        |
-| [`loader`](#loader)                 | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                                                                         |
-| [`mc-version`](#mc-version)         | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                                                                                       |
-| [`tooling`](#tooling)               | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                                                                              |
-| [`mods`](#mods)                     | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled.                                               |
-| [`resource_packs`](#resource_packs) | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                           |
-| [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                               |
-| [`shaders`](#shaders)               | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                                                                            |
-| [`plugins`](#plugins)               | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                                                                            |
-| [`project_overrides`](#project_overrides) | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`, and may also be used to inject purely-transitive Modrinth project dependencies.                                       |
-| [`files`](#files)                   | no       | Loose files (configs, scripts) keyed by destination path. Copied into the build tree by `build` and bundled into the appropriate `*-overrides/` root by `pack`. Optional `preserve: true` skips overwriting existing files on rebuild. |
+| Field                                     | Required | Description                                                                                                                                                                                                                            |
+|-------------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`slug`](#slug)                           | yes      | Modrinth project slug for the modpack.                                                                                                                                                                                                 |
+| [`name`](#name)                           | yes      | Human-readable display name.                                                                                                                                                                                                           |
+| [`version`](#version)                     | yes      | The semver version of the modpack.                                                                                                                                                                                                     |
+| [`description`](#description)             | yes      | Short, public-facing tagline.                                                                                                                                                                                                          |
+| [`project`](#project)                     | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                                                                                  |
+| [`publish_to`](#publish_to)               | no       | Where the modpack publishes to.                                                                                                                                                                                                        |
+| [`loader`](#loader)                       | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                                                                         |
+| [`mc-version`](#mc-version)               | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                                                                                       |
+| [`tooling`](#tooling)                     | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                                                                              |
+| [`mods`](#mods)                           | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled.                                               |
+| [`resource_packs`](#resource_packs)       | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                           |
+| [`data_packs`](#data_packs)               | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                               |
+| [`shaders`](#shaders)                     | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                                                                            |
+| [`plugins`](#plugins)                     | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                                                                            |
+| [`project_overrides`](#project_overrides) | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`, and may also be used to inject purely-transitive Modrinth project dependencies.                                           |
+| [`files`](#files)                         | no       | Loose files (configs, scripts) keyed by destination path. Copied into the build tree by `build` and bundled into the appropriate `*-overrides/` root by `pack`. Optional `preserve: true` skips overwriting existing files on rebuild. |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
 warning so typos don't silently disable options.
@@ -730,13 +730,14 @@ entry in one step.
 #### Mod-version constraints
 
 A mod-version constraint describes which version of a mod is acceptable.
-Three forms are supported:
+Four forms are supported:
 
 | Form  | Example            | Meaning                                                                                                                                                       |
 |-------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Exact | `19.27.0.340`      | Use this version and no other. Resolution fails if it is not compatible with the environment or with another mod.                                             |
 | Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with the declared [`loader`](#loader) and [`mc-version`](#mc-version) and every other mod.           |
 | Caret | `^6.0.10+mc1.21.1` | Use the latest version that is both compatible with the environment and *compatible with* `6.0.10+mc1.21.1` (same major for `1.x.y`, same minor for `0.x.y`). |
+| Range | `">=1.0.0 <3.0.0"` | Latest version inside the half-open semver range. Bounds may combine or stand alone (`">=1.5.0"`, `"<2.0.0"`). Quote so YAML doesn't read `<` as a tag.       |
 
 The version string itself is whatever the mod author publishes — copy it
 exactly as it appears on Modrinth. `gitrinth` doesn't constrain the
@@ -750,6 +751,35 @@ matches `3.0.1-b`, every richer pre-release like `3.0.1-b-1.21.1`, and
 any later stable `3.x` release. Useful when an author publishes a
 family of betas tagged `-b-<mc>` and you want to track all of them
 without pinning to a specific Minecraft suffix.
+
+Range constraints use the relational operators `>=`, `>`, `<=`, `<`
+and may stand alone or pair up to form an intersection:
+
+```yaml
+mods:
+  appleskin: ">=1.0.0 <3.0.0"   # 1.0.0 inclusive to 3.0.0 exclusive
+  some-mod: ">=1.5.0"            # no upper bound
+  another-mod: "<2.0.0"          # no lower bound
+  picky-mod: ">1.0.0 <=2.0.0"    # strictly above 1.0.0, up to and including 2.0.0
+```
+
+Quote the value: bare `<` and `>` are special characters in YAML and
+will fail to parse without quotes. Whitespace between the operator
+and the version is tolerated, so `">=1.0.0 < 3.0.0"` is equivalent
+to `">=1.0.0 <3.0.0"`.
+
+Each bound runs through the same Modrinth-aware version parser the
+caret form uses, so unusual shapes — `r`-prefixed shaders
+(`>=r5.0.0 <r6.0.0`), four-segment numerics (`>=19.27.0.340`), tag
+metadata (`>=1.0.0+mc1.21`) — are accepted. As with caret, tag
+metadata on a bound is informational and doesn't restrict candidate
+matching.
+
+A bare lower bound (no pre-release suffix) is widened internally to
+admit Modrinth's `<mmp>-<label>` release tags — so `>=1.21.1 <2.0.0`
+admits `1.21.1-december-2025` for the same reason `^1.21.1` does.
+A strict `>` does not get this widening: `>1.0.0` excludes `1.0.0`
+itself, as expected.
 
 Blank short-form entries must still include the trailing colon:
 

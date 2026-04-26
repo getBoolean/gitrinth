@@ -153,6 +153,157 @@ void main() {
       expect(c.allows(parseModrinthVersion('19.99.0.0')), isTrue);
       expect(c.allows(parseModrinthVersion('20.0.0.0')), isFalse);
     });
+
+    group('range constraints', () {
+      test('two-sided range admits versions in [min, max)', () {
+        final c = parseConstraint('>=1.0.0 <3.0.0');
+        expect(c.allows(Version.parse('1.0.0')), isTrue);
+        expect(c.allows(Version.parse('1.5.0')), isTrue);
+        expect(c.allows(Version.parse('2.9.9')), isTrue);
+        expect(c.allows(Version.parse('0.9.9')), isFalse);
+        expect(c.allows(Version.parse('3.0.0')), isFalse);
+        expect(c.allows(Version.parse('3.0.1')), isFalse);
+      });
+
+      test('whitespace between operator and version is tolerated', () {
+        // The example mods.yaml uses `>=1.0.0 < 2.0.0` (note the space
+        // after `<`); both spellings must parse identically.
+        final tight = parseConstraint('>=1.0.0 <3.0.0');
+        final spaced = parseConstraint('>=1.0.0 < 3.0.0');
+        for (final v in const ['1.0.0', '2.5.0', '3.0.0']) {
+          expect(
+            spaced.allows(Version.parse(v)),
+            tight.allows(Version.parse(v)),
+            reason: 'whitespace tolerance for $v',
+          );
+        }
+      });
+
+      test('mixed inclusive/exclusive operators', () {
+        final c = parseConstraint('>1.0.0 <=2.0.0');
+        expect(c.allows(Version.parse('1.0.0')), isFalse);
+        expect(c.allows(Version.parse('1.0.1')), isTrue);
+        expect(c.allows(Version.parse('2.0.0')), isTrue);
+        expect(c.allows(Version.parse('2.0.1')), isFalse);
+      });
+
+      test('single-sided lower bound (>=)', () {
+        final c = parseConstraint('>=1.5.0');
+        expect(c.allows(Version.parse('1.5.0')), isTrue);
+        expect(c.allows(Version.parse('99.0.0')), isTrue);
+        expect(c.allows(Version.parse('1.4.9')), isFalse);
+      });
+
+      test('single-sided upper bound (<)', () {
+        final c = parseConstraint('<2.0.0');
+        expect(c.allows(Version.parse('1.9.9')), isTrue);
+        expect(c.allows(Version.parse('0.0.1')), isTrue);
+        expect(c.allows(Version.parse('2.0.0')), isFalse);
+      });
+
+      test(
+        'bare lower bound widens with `-0` to admit Modrinth `<mmp>-<label>` '
+        'release tags (matches caret behaviour)',
+        () {
+          final c = parseConstraint('>=1.21.1 <2.0.0');
+          expect(c.allows(parseModrinthVersion('1.21.1')), isTrue);
+          expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
+          expect(c.allows(parseModrinthVersion('1.22.0')), isTrue);
+          expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
+        },
+      );
+
+      test(
+        '> (strict) does NOT admit the boundary version itself, even with '
+        'the `-0` widening trick',
+        () {
+          // Internal regression check: widening would push `>1.0.0` down to
+          // `>1.0.0-0`, which silently re-admits `1.0.0`. The implementation
+          // applies widening only on `>=`.
+          final c = parseConstraint('>1.0.0');
+          expect(c.allows(Version.parse('1.0.0')), isFalse);
+          expect(c.allows(Version.parse('1.0.1')), isTrue);
+        },
+      );
+
+      test('user-supplied pre-release on lower bound is preserved as-is', () {
+        final c = parseConstraint('>=1.21.1-rc1 <2.0.0');
+        expect(c.allows(Version.parse('1.21.1-rc1')), isTrue);
+        expect(c.allows(Version.parse('1.21.1')), isTrue);
+        // Pre-release lower than the supplied label is excluded.
+        expect(c.allows(Version.parse('1.21.0')), isFalse);
+      });
+
+      test('range on r-prefixed shader version', () {
+        final c = parseConstraint('>=r5.0.0 <r6.0.0');
+        expect(c.allows(parseModrinthVersion('r5.0.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('r5.7.1')), isTrue);
+        expect(c.allows(parseModrinthVersion('r6.0.0')), isFalse);
+        expect(c.allows(parseModrinthVersion('r4.9.9')), isFalse);
+      });
+
+      test('range on four-segment numeric version', () {
+        // pub_semver ignores build metadata for ordering, so a range bound
+        // discriminates at the MMP level only — same loss of build-number
+        // fidelity the caret form has on 4-segment versions. To pin a
+        // specific build, use the exact-pin form.
+        final c = parseConstraint('>=19.27.0.340');
+        expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
+        expect(c.allows(parseModrinthVersion('19.27.1.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('20.0.0.0')), isTrue);
+        expect(c.allows(parseModrinthVersion('19.26.99.999')), isFalse);
+      });
+
+      test(
+        'tag metadata (+mc...) on bounds is stripped — same as caret form',
+        () {
+          // `+mc1.21` is informational tag metadata. A bound `>=1.0.0+mc1.21`
+          // should behave the same as `>=1.0.0` (not constrain the tag).
+          final tagged = parseConstraint('>=1.0.0+mc1.21 <2.0.0');
+          final bare = parseConstraint('>=1.0.0 <2.0.0');
+          for (final v in const ['1.0.0', '1.0.0+mc1.21.1', '1.5.0+mc1.21']) {
+            expect(
+              tagged.allows(Version.parse(v)),
+              bare.allows(Version.parse(v)),
+              reason: 'tag-stripped equivalence for $v',
+            );
+          }
+        },
+      );
+
+      test('rejects empty version after operator', () {
+        expect(() => parseConstraint('>='), throwsA(isA<ValidationError>()));
+        expect(
+          () => parseConstraint('>=1.0.0 <'),
+          throwsA(isA<ValidationError>()),
+        );
+      });
+
+      test('rejects reversed range (lower > upper)', () {
+        expect(
+          () => parseConstraint('>=3.0.0 <1.0.0'),
+          throwsA(isA<ValidationError>()),
+        );
+      });
+
+      test('rejects more than two bounds in one direction', () {
+        expect(
+          () => parseConstraint('>=1.0.0 <2.0.0 <3.0.0'),
+          throwsA(isA<ValidationError>()),
+        );
+        expect(
+          () => parseConstraint('>=1.0.0 >=2.0.0'),
+          throwsA(isA<ValidationError>()),
+        );
+      });
+
+      test('rejects unparseable version part', () {
+        expect(
+          () => parseConstraint('>=not-a-version'),
+          throwsA(isA<ValidationError>()),
+        );
+      });
+    });
   });
 
   group('parseModrinthVersion', () {

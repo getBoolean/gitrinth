@@ -277,8 +277,14 @@ $defs:
     description: |
       Short-form mod dependency. One of: null (latest of any
       `version_type`), a release-channel token (`release`, `beta`,
-      `alpha`) that pins the stability floor, or a version string with
-      optional `^` caret prefix (e.g. "19.27.0.340", "^6.0.10+mc1.21.1").
+      `alpha`) that pins the stability floor, or a version constraint.
+
+      Constraint forms: exact pin ("19.27.0.340"), caret
+      ("^6.0.10+mc1.21.1"), or relational range with `>=`, `>`, `<=`,
+      `<` — single bound (">=1.5.0") or two-bound intersection
+      (">=1.0.0 <3.0.0"). Quote ranges so YAML doesn't read `<` as a
+      tag.
+
       When no channel is declared (null or a version constraint), every
       `version_type` is admitted.
     anyOf:

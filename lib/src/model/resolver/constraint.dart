@@ -40,6 +40,12 @@ bool isAnyGitrinthMarker(String? raw) =>
 ///     `1.x.y`, same minor for `0.x.y`). The version part is normalized via
 ///     [parseModrinthVersion] so unusual Modrinth forms (four-segment numeric,
 ///     `r`-prefixed shaders) are accepted.
+///   - `>=x.y.z`, `>x.y.z`, `<=x.y.z`, `<x.y.z` (and intersections like
+///     `>=x.y.z <a.b.c`) → semver range. Each bound runs through
+///     [parseModrinthVersion]; bare lower bounds widen with a `-0`
+///     pre-release so Modrinth `<mmp>-<label>` release tags
+///     (`1.21.1-december-2025`) aren't excluded — same widening the caret
+///     form uses. Whitespace between operator and version is tolerated.
 ///   - `x.y.z` → exact match (`==`).
 VersionConstraint parseConstraint(String? raw) {
   if (raw == null) return VersionConstraint.any;
@@ -59,6 +65,9 @@ VersionConstraint parseConstraint(String? raw) {
     );
   }
   try {
+    if (trimmed.startsWith('<') || trimmed.startsWith('>')) {
+      return _parseRangeConstraint(trimmed);
+    }
     if (trimmed.startsWith('^')) {
       // Carets require a semver-shaped base — the lower bound and
       // upper bound are derived by bumping the version's major, which
@@ -105,6 +114,96 @@ VersionConstraint parseConstraint(String? raw) {
   } on FormatException catch (e) {
     throw ValidationError('Invalid version constraint "$raw": ${e.message}');
   }
+}
+
+final _rangeOpPattern = RegExp(r'^(>=|<=|>|<)');
+final _rangeVersionEndPattern = RegExp(r'[\s<>=]');
+
+/// Parses a relational range constraint — one or two bounds of the form
+/// `<op><version>` (op ∈ `>=`, `>`, `<=`, `<`) separated by whitespace —
+/// into a `pub_semver` [VersionRange].
+///
+/// Each bound's version part is normalised through [parseModrinthVersion],
+/// so the same Modrinth-shape inputs the caret form accepts (4-segment
+/// numerics, `r`-prefixed shaders, `<mmp>-<label>-<mc>` tagging) work
+/// here too. Tag metadata (`+mc1.21.1`) is stripped from each bound and
+/// only the numeric build-number prefix is preserved, mirroring the
+/// caret branch's handling.
+///
+/// A lower bound supplied without a pre-release is widened to `<v>-0`
+/// to admit Modrinth's `<mmp>-<label>` release tags — without this,
+/// pub_semver excludes pre-release-tagged candidates from `>=1.21.1`
+/// because semver puts pre-releases below their base. The upper bound
+/// is used as-is: `<2.0.0` means strictly below `2.0.0`, including
+/// excluding any `2.0.0-*` pre-releases (pub_semver's default).
+VersionConstraint _parseRangeConstraint(String trimmed) {
+  Version? lowerBound;
+  bool? lowerInclusive;
+  Version? upperBound;
+  bool? upperInclusive;
+
+  var remaining = trimmed;
+  while (remaining.isNotEmpty) {
+    final opMatch = _rangeOpPattern.firstMatch(remaining);
+    if (opMatch == null) {
+      throw FormatException(
+        'expected >=, <=, >, or < at "$remaining"',
+      );
+    }
+    final op = opMatch.group(0)!;
+    var afterOp = remaining.substring(opMatch.end).trimLeft();
+    final verEnd = _rangeVersionEndPattern.firstMatch(afterOp);
+    final verRaw = verEnd == null ? afterOp : afterOp.substring(0, verEnd.start);
+    if (verRaw.isEmpty) {
+      throw FormatException('expected version after "$op"');
+    }
+    final isLower = op == '>=' || op == '>';
+    final parsed = parseModrinthVersion(verRaw);
+    final numericPrefix = _numericBuildPrefix(parsed.build);
+    // Widen only `>=base` (no pre-release) → `>=base-0` so Modrinth's
+    // `<mmp>-<label>` release tags are admitted; the same trick the
+    // caret form uses. Don't widen `>` — `>1.0.0-0` would re-admit
+    // `1.0.0` itself, breaking strict-greater semantics.
+    final boundPre = parsed.preRelease.isEmpty
+        ? (op == '>=' ? '0' : null)
+        : parsed.preRelease.join('.');
+    final bound = Version(
+      parsed.major,
+      parsed.minor,
+      parsed.patch,
+      pre: boundPre,
+      build: numericPrefix.isEmpty ? null : numericPrefix.join('.'),
+    );
+    if (isLower) {
+      if (lowerBound != null) {
+        throw FormatException('multiple lower bounds');
+      }
+      lowerBound = bound;
+      lowerInclusive = op == '>=';
+    } else {
+      if (upperBound != null) {
+        throw FormatException('multiple upper bounds');
+      }
+      upperBound = bound;
+      upperInclusive = op == '<=';
+    }
+    remaining = (verEnd == null ? '' : afterOp.substring(verEnd.start))
+        .trimLeft();
+  }
+  if (lowerBound == null && upperBound == null) {
+    throw const FormatException('no range bounds');
+  }
+  if (lowerBound != null && upperBound != null && lowerBound > upperBound) {
+    throw FormatException(
+      'lower bound > upper bound (${lowerBound.toString()} > ${upperBound.toString()})',
+    );
+  }
+  return VersionRange(
+    min: lowerBound,
+    includeMin: lowerInclusive ?? false,
+    max: upperBound,
+    includeMax: upperInclusive ?? false,
+  );
 }
 
 /// Returns the leading run of purely-numeric segments in [build] —

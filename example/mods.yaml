@@ -77,6 +77,10 @@ mods:
     version: ^3.0.9
     accepts-mc: 1.21.1 # Scalar shorthand for [1.21.1]
   globalpacks: ^21.0.6
+  # Semver range constraint — quote because bare < and > would
+  # confuse the YAML parser. Pairs of bounds intersect; either side
+  # may be omitted (`">=1.5.0"`, `"<2.0.0"`).
+  trinkets: ">=3.0.0 <4.0.0"
 
 resource_packs:
   faithful-32x:
