@@ -825,6 +825,33 @@ mods:
     server: required
 ```
 
+##### `gitrinth:disabled-by-conflict` marker
+
+[`migrate`](cli.md#migrate) writes `gitrinth:disabled-by-conflict` to
+a user-declared entry's `version:` when the mod participates in an
+unsatisfiable dependency graph on the new target — for example,
+mutual incompatibility declared on the new MC version, or a required
+transitive that has no compatible version there. The entry is omitted
+from `mods.lock`, the rest of the pack still resolves, and the command
+exits 0 with a warning naming each disabled mod. The entry is
+otherwise the same shape as a `gitrinth:not-found` marker —
+[`get`](cli.md#get) skips it, `--enforce-lockfile` exempts it, and the
+nag in resolve-output prints a count.
+
+A later `migrate` (or `upgrade --major-versions`) re-attempts the
+disabled entries with their constraint relaxed to `any`. If the graph
+now resolves, the marker is rewritten to `^<resolved>`. If the same
+conflict still surfaces, `migrate` re-applies the marker and exits 0
+with a warning.
+
+```yaml
+mods:
+  conflicting_mod:
+    version: gitrinth:disabled-by-conflict
+    client: required
+    server: required
+```
+
 ### `mods`
 
 **Optional.** Every mod in the pack. Keys are [Modrinth project

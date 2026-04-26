@@ -36,8 +36,10 @@ class Resolver {
           // url:/path: sources don't take part in resolution.
           return;
         }
-        if (isNotFoundMarker(entry.constraintRaw)) {
-          // Skipped: `migrate` couldn't find a version on the current target.
+        if (isAnyGitrinthMarker(entry.constraintRaw)) {
+          // Skipped: a `gitrinth:` marker (`not-found` or
+          // `disabled-by-conflict`) takes the entry out of resolution
+          // until the user re-runs `migrate` / `upgrade --major-versions`.
           return;
         }
         // Permissive default: an entry with no explicit channel accepts

@@ -78,8 +78,22 @@ version published for the new target, its `version:` is rewritten to
 `gitrinth:not-found` and the entry is omitted from the lock. Other
 fields are preserved, [`get`](cli.md#get) and [`upgrade`](cli.md#upgrade)
 skip marker entries, and a later `migrate` that finds a compatible
-version rewrites the marker to `^<resolved>`. Graph-conflict failures
-still abort and leave both files untouched.
+version rewrites the marker to `^<resolved>`.
+
+Graph-conflict failures on `migrate` take a parallel soft-fail path:
+every user-declared mod implicated in the conflict gets a
+`gitrinth:disabled-by-conflict` marker, the shrunk pack is re-resolved
+into a fresh `mods.lock`, and the command exits 0 with a warning. A
+*cascading* conflict — disabling all conflict roots still leaves the
+graph unsatisfiable — rolls back and exits non-zero.
+
+[`upgrade --major-versions`](cli.md#upgrade) recovers existing markers
+when the conflict is resolved upstream by relaxing the marker's
+constraint to `any` and rewriting it to `^<resolved>` on success.
+[`add`](cli.md#add) refuses when the new mod and an existing user mod
+declare each other incompatible (Modrinth `dependency_type:
+incompatible`). Cross-major `version_id` pins on a shared transitive
+resolve to the higher floor.
 
 Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
 [`lib/src/commands/migrate_command.dart`](../lib/src/commands/migrate_command.dart),

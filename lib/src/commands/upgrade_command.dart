@@ -78,7 +78,11 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     for (final section in Section.values) {
       manifest.sectionEntries(section).forEach((slug, entry) {
         if (entry.source is ModrinthEntrySource) {
-          if (isNotFoundMarker(entry.constraintRaw)) {
+          // Both `gitrinth:not-found` and `gitrinth:disabled-by-conflict`
+          // are recoverable — `--major-versions` will try to bring them
+          // back to a fresh `^x.y.z` and either succeed or re-mark them
+          // via the conflict-catch below.
+          if (isAnyGitrinthMarker(entry.constraintRaw)) {
             markerByEntry[(section, slug)] = entry;
           } else {
             modrinthByEntry[(section, slug)] = entry;
@@ -146,8 +150,12 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         if (modrinthSlugs.contains(slug) || recoveredSlugs.contains(slug)) {
           targets.add(slug);
         } else if (markerSlugs.contains(slug)) {
+          final raw = markerByEntry.entries
+              .firstWhere((e) => e.key.$2 == slug)
+              .value
+              .constraintRaw;
           console.info(
-            "skipping '$slug' — still marked $notFoundMarker on the "
+            "skipping '$slug' — still marked ${raw?.trim()} on the "
             'current target.',
           );
         } else {
@@ -227,6 +235,11 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         } on FormatException {
           continue;
         }
+        // Look up the prior marker so the message names whichever one
+        // was actually being recovered.
+        final priorMarker = markerByEntry[(section, slug)]?.constraintRaw
+                ?.trim() ??
+            notFoundMarker;
         yamlText = setEntryVersion(
           yamlText,
           section: section,
@@ -234,7 +247,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
           newVersion: '^$bareResolved',
         );
         rewrites++;
-        console.info('$slug: $notFoundMarker → ^$bareResolved in mods.yaml');
+        console.info('$slug: $priorMarker → ^$bareResolved in mods.yaml');
       }
       if (rewrites > 0) io.writeModsYaml(yamlText);
     }

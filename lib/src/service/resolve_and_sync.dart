@@ -355,6 +355,14 @@ Future<ResolveSyncResult> resolveAndSync({
       '$notFoundMarker — run `gitrinth migrate <target>` to retry.',
     );
   }
+  final disabledCount = _countDisabledByConflictMarkers(merged);
+  if (disabledCount > 0) {
+    console.info(
+      '$disabledCount ${disabledCount == 1 ? 'entry' : 'entries'} marked '
+      '$disabledByConflictMarker — run `gitrinth migrate <target>` or '
+      '`gitrinth upgrade --major-versions` to retry.',
+    );
+  }
 
   return ResolveSyncResult(
     newLock: newLock,
@@ -375,6 +383,16 @@ int _countNotFoundMarkers(ModsYaml manifest) {
   return count;
 }
 
+int _countDisabledByConflictMarkers(ModsYaml manifest) {
+  var count = 0;
+  for (final section in Section.values) {
+    for (final entry in manifest.sectionEntries(section).values) {
+      if (isDisabledByConflictMarker(entry.constraintRaw)) count++;
+    }
+  }
+  return count;
+}
+
 void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
   if (lock == null) {
     throw const ValidationError('mods.lock is missing (--enforce-lockfile).');
@@ -385,7 +403,7 @@ void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
     final lockSection = lock.sectionFor(section);
     for (final entry in entries.entries) {
       // Marker entries are absent from the lock by design.
-      if (isNotFoundMarker(entry.value.constraintRaw)) continue;
+      if (isAnyGitrinthMarker(entry.value.constraintRaw)) continue;
       if (!lockSection.containsKey(entry.key)) missing.add(entry.key);
     }
   }

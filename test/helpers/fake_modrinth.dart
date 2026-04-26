@@ -225,6 +225,20 @@ class FakeModrinth {
 
   Future<void> stop() => _server.close(force: true);
 
+  /// Parses a `loaders=`/`game_versions=` query value (real Modrinth
+  /// expects a JSON array). Returns null when absent so callers can
+  /// distinguish "no filter" from "filter that matches nothing".
+  static List<String>? _decodeFilterArray(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) return decoded.cast<String>();
+    } on FormatException {
+      // Fall through: invalid JSON arrays are treated as no filter.
+    }
+    return null;
+  }
+
   /// Marks [slug] as already taken so `/v2/project/<slug>/check` returns 200.
   /// `registerVersion` already records into [projects], which is also treated
   /// as taken — this is for tests that want collision behavior without a full
@@ -255,6 +269,8 @@ class FakeModrinth {
     String loader = 'neoforge',
     String gameVersion = '1.21.1',
     List<String> requiredDeps = const [],
+    Map<String, String> requiredDepsAtVersion = const {},
+    List<String> incompatibleDeps = const [],
     String? datePublished,
   }) {
     final pid = projectId.isEmpty ? '${slug}_ID' : projectId;
@@ -277,11 +293,24 @@ class FakeModrinth {
         'project_type': 'mod',
       },
     );
+    String depVersionId(String depSlug, String depVersion) =>
+        '${depSlug}_${depVersion.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_')}';
     final deps = <Map<String, dynamic>>[
       for (final depSlug in requiredDeps)
         {
           'project_id': '${depSlug}_ID',
           'dependency_type': 'required',
+        },
+      for (final entry in requiredDepsAtVersion.entries)
+        {
+          'project_id': '${entry.key}_ID',
+          'version_id': depVersionId(entry.key, entry.value),
+          'dependency_type': 'required',
+        },
+      for (final depSlug in incompatibleDeps)
+        {
+          'project_id': '${depSlug}_ID',
+          'dependency_type': 'incompatible',
         },
     ];
     final entry = <String, dynamic>{
@@ -458,8 +487,24 @@ class FakeModrinth {
             req.response.statusCode = 404;
             req.response.write(jsonEncode({'error': 'unknown slug $slug'}));
           } else {
+            // Mirror real Modrinth's server-side filter so the resolver
+            // doesn't see candidates that wouldn't be returned in
+            // production (e.g. a 1.21.1-only version when the query
+            // asks for 1.21.4). Only applies when the caller actually
+            // sent the filter — absent params keep the full list.
+            final qp = req.uri.queryParameters;
+            final loadersFilter = _decodeFilterArray(qp['loaders']);
+            final gvFilter = _decodeFilterArray(qp['game_versions']);
+            final filtered = list.where((v) {
+              final loaders = (v['loaders'] as List?)?.cast<String>() ?? const [];
+              final gvs = (v['game_versions'] as List?)?.cast<String>() ?? const [];
+              final loaderOk = loadersFilter == null ||
+                  loaders.any(loadersFilter.contains);
+              final gvOk = gvFilter == null || gvs.any(gvFilter.contains);
+              return loaderOk && gvOk;
+            }).toList();
             req.response.headers.contentType = ContentType.json;
-            req.response.write(jsonEncode(list));
+            req.response.write(jsonEncode(filtered));
           }
         } else {
           // Modrinth's real /v2/project/{id|slug} accepts either form.

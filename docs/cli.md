@@ -128,6 +128,11 @@ gitrinth upgrade [<slug>...] [--major-versions] [--tighten]
 | `--dry-run`           | Print changes without writing.                                                                                                                               |
 | `--offline`           | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.                                                       |
 
+When `--major-versions` is set, `upgrade` auto-recovers existing
+`gitrinth:disabled-by-conflict` markers (set by an earlier `migrate`):
+the marker's constraint is relaxed to `any` for one resolution
+attempt, and a successful resolve rewrites the marker to `^<resolved>`.
+
 `--major-versions` only rewrites entries whose resolved version isn't
 already permitted by the existing constraint. `--tighten` covers the
 other case: in-major bumps where the constraint already allowed the
@@ -174,7 +179,15 @@ that finds a compatible version rewrites the marker to `^<resolved>`.
 marker entries and print a one-line count.
 
 If the resolver finds versions but the graph is unsatisfiable, `migrate`
-exits non-zero and leaves both files untouched.
+writes `gitrinth:disabled-by-conflict` into the `version:` field of
+every user-declared mod that participates in the conflict, re-resolves
+the now-shrunk pack, writes a fresh `mods.lock`, and exits 0 with a
+warning naming each disabled mod. Edit `mods.yaml` to remove the marker
+from any mod you want back, then re-run `migrate` (or `upgrade
+--major-versions`) to retry — recovered entries are rewritten to
+`^<resolved>`. If disabling the conflict roots still leaves an
+unsatisfiable graph, `migrate` rolls back, writes nothing, and exits
+non-zero.
 
 `--offline` skips the availability check; marker entries stay markers.
 
@@ -238,6 +251,12 @@ a semver-shaped base. In that case it falls back to writing the raw
 version as an exact pin. See
 [arbitrary-string version names](mods-yaml.md#arbitrary-string-version-names)
 for what that implies for subsequent `get` runs.
+
+`add` refuses when the picked version of `<slug>` and an existing
+user mod declare each other incompatible (Modrinth `dependency_type:
+incompatible`). Pin an older compatible version with
+`gitrinth add <slug>@<version>`, or remove the conflicting existing
+mod first.
 
 `--type` overrides section inference. For Modrinth sources it prints a
 warning when it contradicts the project's inferred type, then proceeds

@@ -9,6 +9,22 @@ import 'constraint.dart';
 typedef ListVersions = Future<List<modrinth.Version>> Function(String slug);
 typedef ResolveSlug = Future<String?> Function(String projectId);
 
+/// Thrown when the solver can't satisfy the graph after exhausting every
+/// candidate. Subclass of [ValidationError] so existing callers that catch
+/// the parent type still work; new callers that want to disable the
+/// conflicting entries (`gitrinth migrate`, `gitrinth upgrade --major-versions`)
+/// downcast to read [conflictingUserSlugs] — the user-declared entries
+/// implicated in any failure on the search path. Both endpoints of an
+/// incompatible-deps pair land in this set, as does the user-controllable
+/// ancestor of a deeper transitive failure.
+class UnsatisfiableGraphError extends ValidationError {
+  final Set<String> conflictingUserSlugs;
+  UnsatisfiableGraphError(
+    super.message, {
+    required this.conflictingUserSlugs,
+  });
+}
+
 /// Pure-data root constraint (no Modrinth lookups required).
 class RootConstraint {
   final String slug;
@@ -84,7 +100,66 @@ class PubGrubSolver {
         },
       );
     }
-    throw ValidationError(state.failureExplanation());
+    final message = state.failureExplanation();
+    final conflictingUserSlugs = _collectConflictingUserSlugs(state);
+    if (conflictingUserSlugs.isEmpty) {
+      // Defensive: every conflict path should reach at least one user
+      // root. If extraction comes up empty (e.g. failure recorded
+      // through an internal-only branch), fall back to the legacy
+      // hard-fail signal so callers see the same exception they used to.
+      throw ValidationError(message);
+    }
+    throw UnsatisfiableGraphError(
+      message,
+      conflictingUserSlugs: Set.unmodifiable(conflictingUserSlugs),
+    );
+  }
+
+  /// User-declared slugs implicated in any failure on the search path.
+  /// For each [_Failure], we add: (1) `slug` if it is itself a user root,
+  /// (2) the outermost introducer (the user-declared ancestor) when the
+  /// chain is non-empty, (3) the `counterpartSlug` of an incompatible-deps
+  /// conflict, and (4) every user-root that contributed a constraint to
+  /// the failed slug (so a version-pin conflict on a transitive cuts
+  /// every pinning root). Together they ensure both endpoints of any
+  /// conflict land in the disable set.
+  Set<String> _collectConflictingUserSlugs(_SolverState state) {
+    final out = <String>{};
+    for (final f in state.specificFailures) {
+      if (state.userSlugs.contains(f.slug)) {
+        out.add(f.slug);
+      }
+      if (f.chain.isNotEmpty) {
+        final root = f.chain.last.parentSlug;
+        if (state.userSlugs.contains(root)) out.add(root);
+      }
+      final cp = f.counterpartSlug;
+      if (cp != null && state.userSlugs.contains(cp)) out.add(cp);
+      final parents = state.constraintParents[f.slug];
+      if (parents != null) {
+        for (final p in parents) {
+          if (state.userSlugs.contains(p)) out.add(p);
+        }
+      }
+    }
+    return out;
+  }
+
+  /// Walks the introducer chain from [slug] up to a user-declared root.
+  /// When [slug] is itself a user root, returns it. When the chain
+  /// dead-ends in a transitive (defensive — every transitive should
+  /// trace back), returns the last reached node.
+  String _userRootAncestorOf(String slug, _SolverState state) {
+    if (state.userSlugs.contains(slug)) return slug;
+    var current = slug;
+    final visited = <String>{current};
+    while (true) {
+      final intro = state.introducers[current];
+      if (intro == null) return current;
+      if (!visited.add(intro.parentSlug)) return current;
+      current = intro.parentSlug;
+      if (state.userSlugs.contains(current)) return current;
+    }
   }
 
   Future<List<modrinth.Version>> _versionsFor(String slug) async {
@@ -179,6 +254,11 @@ class PubGrubSolver {
       final snapshot = state.snapshot();
       state.decisions[slug] = cand.modrinthVersion;
       var ok = true;
+      // The user-root ancestor of `slug` — used to attribute any
+      // constraint this candidate's deps add on a transitive back to a
+      // user-controllable disable target. Computed once per candidate
+      // because every dep below shares the same ancestor.
+      final ancestor = _userRootAncestorOf(slug, state);
       for (final dep in cand.modrinthVersion.dependencies) {
         if (dep.dependencyType == DependencyType.required) {
           final depProjectId = dep.projectId;
@@ -189,8 +269,31 @@ class PubGrubSolver {
             // The user can pin it explicitly if desired.
             continue;
           }
-          // Add an "any" constraint plus a version pin if dep.versionId given.
-          state.addConstraint(depSlug, VersionConstraint.any);
+          // A `version_id` on the dep is a lower-bound hint: Modrinth
+          // mods don't declare upper compatibility bounds, so two
+          // parents pinning across majors should resolve to the higher
+          // floor instead of conflicting.
+          var depConstraint = VersionConstraint.any;
+          final depVersionId = dep.versionId;
+          if (depVersionId != null) {
+            final depVersions = await _versionsFor(depSlug);
+            modrinth.Version? pinned;
+            for (final dv in depVersions) {
+              if (dv.id == depVersionId) {
+                pinned = dv;
+                break;
+              }
+            }
+            if (pinned != null) {
+              try {
+                final floor = parseModrinthVersion(pinned.versionNumber);
+                depConstraint = VersionRange(min: floor, includeMin: true);
+              } on FormatException {
+                // Non-semver upstream version → fall back to `any`.
+              }
+            }
+          }
+          state.addConstraint(depSlug, depConstraint, parentSlug: ancestor);
           // Transitive deps inherit the permissive default (all
           // version_types admitted). A user who wants to pin the stability
           // floor of a transitive must declare it explicitly as a direct
@@ -204,7 +307,6 @@ class PubGrubSolver {
             slug,
             cand.modrinthVersion.versionNumber,
           );
-          // versionId-pinned deps will be enforced when we recurse.
         } else if (dep.dependencyType == DependencyType.incompatible) {
           final depProjectId = dep.projectId;
           if (depProjectId == null) continue;
@@ -218,10 +320,12 @@ class PubGrubSolver {
               slug,
               '$slug ${cand.modrinthVersion.versionNumber} is '
               'incompatible with $depSlug, which is already in the modpack',
+              counterpartSlug: depSlug,
             );
             break;
           }
           state.incompatibleSlugs.add(depSlug);
+          state.incompatibleBy[depSlug] = slug;
         }
       }
       if (!ok) {
@@ -229,14 +333,29 @@ class PubGrubSolver {
         continue;
       }
       // Also check no decided slug is in the incompatible set.
-      bool anyIncompat = false;
+      String? incompatSlug;
       for (final s in state.incompatibleSlugs) {
         if (state.decisions.containsKey(s)) {
-          anyIncompat = true;
+          incompatSlug = s;
           break;
         }
       }
-      if (anyIncompat) {
+      if (incompatSlug != null) {
+        // Record both endpoints so the conflict-roots extraction can
+        // name them in `UnsatisfiableGraphError.conflictingUserSlugs`.
+        // Without this, the mutual-incompatibility scenario silently
+        // backtracks past the conflict and the throw site has no
+        // user-controllable slugs to report.
+        final markedBy = state.incompatibleBy[incompatSlug];
+        state.recordSpecificFailure(
+          incompatSlug,
+          markedBy == null
+              ? '$incompatSlug is incompatible with another mod already in '
+                    'the modpack'
+              : '$incompatSlug and $markedBy declared each other '
+                    'incompatible — they cannot coexist',
+          counterpartSlug: markedBy,
+        );
         state.restore(snapshot);
         continue;
       }
@@ -285,12 +404,20 @@ class _Failure {
   /// root that pulled slug in). Empty when [slug] is itself a user root.
   final List<_Introducer> chain;
 
+  /// The other endpoint of an incompatibility conflict, when the failure
+  /// came from an `incompatible` dep encountering an already-decided slug.
+  /// Both endpoints are user-controllable disable targets; we capture the
+  /// counterpart at record time because backtracking will pop the
+  /// already-decided slug out of `state.decisions` before the throw.
+  final String? counterpartSlug;
+
   const _Failure({
     required this.slug,
     required this.reason,
     required this.slugConstraint,
     required this.slugChannel,
     required this.chain,
+    this.counterpartSlug,
   });
 }
 
@@ -299,6 +426,19 @@ class _SolverState {
   final Map<String, Channel> channels = {};
   final Map<String, modrinth.Version> decisions = {};
   final Set<String> incompatibleSlugs = {};
+
+  /// `incompatibleBy[depSlug] = parentSlug`: the slug whose dep loop
+  /// added `depSlug` to [incompatibleSlugs]. Used at conflict-detection
+  /// time to name both endpoints of an incompatibility.
+  final Map<String, String> incompatibleBy = {};
+
+  /// `constraintParents[depSlug] = {user-root, ...}`: every user-root
+  /// that contributed any constraint on a child slug, captured at
+  /// constraint-add time by walking up the introducer chain. Persists
+  /// across backtracking — for the disable-set extraction to name every
+  /// user-root that pinned a transitive at a conflicting version, we
+  /// need the full set even after the search abandoned each branch.
+  final Map<String, Set<String>> constraintParents = {};
   final Map<String, _Introducer> introducers = {};
   final Map<String, String> lockSuggestions;
   final Set<String> userSlugs;
@@ -312,12 +452,15 @@ class _SolverState {
 
   _SolverState({required this.lockSuggestions, required this.userSlugs});
 
-  void addConstraint(String slug, VersionConstraint c) {
+  void addConstraint(String slug, VersionConstraint c, {String? parentSlug}) {
     final existing = constraints[slug];
     if (existing == null) {
       constraints[slug] = c;
     } else {
       constraints[slug] = existing.intersect(c);
+    }
+    if (parentSlug != null) {
+      constraintParents.putIfAbsent(slug, () => <String>{}).add(parentSlug);
     }
   }
 
@@ -362,7 +505,11 @@ class _SolverState {
     );
   }
 
-  void recordSpecificFailure(String slug, String reason) {
+  void recordSpecificFailure(
+    String slug,
+    String reason, {
+    String? counterpartSlug,
+  }) {
     specificFailures.add(
       _Failure(
         slug: slug,
@@ -370,6 +517,7 @@ class _SolverState {
         slugConstraint: constraints[slug] ?? VersionConstraint.any,
         slugChannel: channels[slug] ?? Channel.alpha,
         chain: _buildChain(slug),
+        counterpartSlug: counterpartSlug,
       ),
     );
   }
@@ -464,6 +612,7 @@ class _SolverState {
       channels: Map.of(channels),
       decisions: Map.of(decisions),
       incompatibleSlugs: Set.of(incompatibleSlugs),
+      incompatibleBy: Map.of(incompatibleBy),
       introducers: Map.of(introducers),
     );
   }
@@ -481,6 +630,9 @@ class _SolverState {
     incompatibleSlugs
       ..clear()
       ..addAll(s.incompatibleSlugs);
+    incompatibleBy
+      ..clear()
+      ..addAll(s.incompatibleBy);
     introducers
       ..clear()
       ..addAll(s.introducers);
@@ -492,12 +644,14 @@ class _Snapshot {
   final Map<String, Channel> channels;
   final Map<String, modrinth.Version> decisions;
   final Set<String> incompatibleSlugs;
+  final Map<String, String> incompatibleBy;
   final Map<String, _Introducer> introducers;
   _Snapshot({
     required this.constraints,
     required this.channels,
     required this.decisions,
     required this.incompatibleSlugs,
+    required this.incompatibleBy,
     required this.introducers,
   });
 }

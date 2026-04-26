@@ -1006,4 +1006,120 @@ mc-version: 1.21.1
       },
     );
   });
+
+  group('incompatibility refusal', () {
+    test(
+      'refuses to add when the picked version declares an existing user mod '
+      'as incompatible',
+      () async {
+        modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
+        // `rei` (the new mod) v1.0.0 declares `jei` as incompatible.
+        modrinth.registerVersion(
+          slug: 'rei',
+          versionNumber: '1.0.0',
+          incompatibleDeps: const ['jei'],
+        );
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  jei: ^1.0.0
+''');
+        // Lock jei first so the lock has its project ID.
+        final get = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: env(),
+        );
+        expect(get.exitCode, 0, reason: '${get.stderr}\n${get.stdout}');
+
+        final out = await runCli(
+          ['-C', packDir.path, 'add', 'rei'],
+          environment: env(),
+        );
+        expect(out.exitCode, isNot(0));
+        expect(out.stderr, contains('incompatible'));
+        expect(out.stderr, contains('jei'));
+        // Manifest unchanged.
+        final yaml = readYaml();
+        expect(yaml, isNot(contains('rei:')));
+      },
+    );
+
+    test(
+      'refuses to add when an existing user mod\'s locked version declares '
+      'the new mod as incompatible',
+      () async {
+        // `jei` (existing) v1.0.0 declares `rei` as incompatible. Reverse
+        // direction from the previous test.
+        modrinth.registerVersion(
+          slug: 'jei',
+          versionNumber: '1.0.0',
+          incompatibleDeps: const ['rei'],
+        );
+        modrinth.registerVersion(slug: 'rei', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  jei: ^1.0.0
+''');
+        final get = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: env(),
+        );
+        expect(get.exitCode, 0, reason: '${get.stderr}\n${get.stdout}');
+
+        final out = await runCli(
+          ['-C', packDir.path, 'add', 'rei'],
+          environment: env(),
+        );
+        expect(out.exitCode, isNot(0));
+        expect(out.stderr, contains('incompatible'));
+        expect(out.stderr, contains('jei'));
+        final yaml = readYaml();
+        expect(yaml, isNot(contains('rei:')));
+      },
+    );
+
+    test(
+      'compatible add still succeeds (no false positives)',
+      () async {
+        modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
+        modrinth.registerVersion(slug: 'rei', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  jei: ^1.0.0
+''');
+        final get = await runCli(
+          ['-C', packDir.path, 'get'],
+          environment: env(),
+        );
+        expect(get.exitCode, 0, reason: '${get.stderr}\n${get.stdout}');
+
+        final out = await runCli(
+          ['-C', packDir.path, 'add', 'rei'],
+          environment: env(),
+        );
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        expect(readYaml(), contains('rei:'));
+      },
+    );
+  });
 }

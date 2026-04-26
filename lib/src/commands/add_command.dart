@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -7,10 +8,13 @@ import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
+import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../model/modrinth/dependency.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
+import '../service/cache.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_project_url.dart';
@@ -241,16 +245,24 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
             'Pass `@<version>` explicitly to pin an alpha/beta.',
           );
         }
+        await _validateNoIncompatibility(
+          io: io,
+          cache: read(cacheProvider),
+          existingManifest: existingManifest,
+          newSlug: slug,
+          newProjectId: project.id,
+          pickedVersion: latest,
+        );
         if (exactFlag) {
-          effectiveConstraint = '^$latest';
+          effectiveConstraint = '^${latest.versionNumber}';
         } else if (pinFlag) {
-          effectiveConstraint = bareVersionForPin(latest);
+          effectiveConstraint = bareVersionForPin(latest.versionNumber);
         } else {
           // Default: caret on major.minor.patch. If Modrinth's version
           // isn't semver-shaped (some mods use arbitrary strings),
           // carets are meaningless — fall back to pinning the raw
           // version verbatim.
-          effectiveConstraint = _caretOrPinFallback(latest);
+          effectiveConstraint = _caretOrPinFallback(latest.versionNumber);
         }
       } else {
         // Validate the user-supplied constraint so a bad `@xyz` fails fast
@@ -383,7 +395,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     return out;
   }
 
-  Future<String?> _pickLatestReleaseVersion({
+  Future<modrinth.Version?> _pickLatestReleaseVersion({
     required ModrinthApi api,
     required String slug,
     required Section section,
@@ -407,7 +419,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       if (err is GitrinthException) throw err;
       rethrow;
     }
-    String? best;
+    modrinth.Version? best;
     dynamic bestParsed;
     for (final v in versions) {
       if ((v.versionType ?? 'release') != 'release') continue;
@@ -419,7 +431,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
         final parsed = parseModrinthVersionBestEffort(v.versionNumber);
         if (bestParsed == null || parsed > bestParsed) {
           bestParsed = parsed;
-          best = v.versionNumber;
+          best = v;
         }
       } on FormatException {
         // skip — only reached for pure-symbol inputs the fallback
@@ -454,6 +466,85 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     } on FormatException {
       return latest;
     }
+  }
+
+  Future<void> _validateNoIncompatibility({
+    required ManifestIo io,
+    required GitrinthCache cache,
+    required ModsYaml existingManifest,
+    required String newSlug,
+    required String newProjectId,
+    required modrinth.Version pickedVersion,
+  }) async {
+    final lock = io.readModsLock();
+    final pidToSlug = <String, String>{
+      if (lock != null)
+        for (final entry in lock.allEntries)
+          if (entry.value.projectId != null) entry.value.projectId!: entry.key,
+    };
+    final declaredSlugs = <String>{
+      for (final s in Section.values) ...existingManifest.sectionEntries(s).keys,
+    };
+
+    for (final dep in pickedVersion.dependencies) {
+      if (dep.dependencyType != DependencyType.incompatible) continue;
+      final pid = dep.projectId;
+      if (pid == null) continue;
+      final otherSlug = pidToSlug[pid];
+      if (otherSlug != null && declaredSlugs.contains(otherSlug)) {
+        throw UserError(
+          "Cannot add '$newSlug' — its picked version "
+          "${pickedVersion.versionNumber} declares '$otherSlug' as "
+          'incompatible. Pin an older compatible version with '
+          "`gitrinth add $newSlug@<version>`, or remove '$otherSlug' first.",
+        );
+      }
+    }
+
+    if (lock == null) return;
+    for (final entry in lock.allEntries) {
+      final locked = entry.value;
+      if (locked.sourceKind != LockedSourceKind.modrinth) continue;
+      final pid = locked.projectId;
+      final vid = locked.versionId;
+      if (pid == null || vid == null) continue;
+      final cachedDeps = _readCachedDeps(cache, pid, vid);
+      if (cachedDeps == null) continue;
+      for (final d in cachedDeps) {
+        if (d['dependency_type'] != 'incompatible') continue;
+        if (d['project_id'] == newProjectId) {
+          throw UserError(
+            "Cannot add '$newSlug' — '${entry.key}' (locked at "
+            "${locked.version ?? '?'}) declares it as incompatible. "
+            "Pin an older compatible version of '${entry.key}' first, or "
+            "remove '${entry.key}'.",
+          );
+        }
+      }
+    }
+  }
+
+  List<Map<String, dynamic>>? _readCachedDeps(
+    GitrinthCache cache,
+    String projectId,
+    String versionId,
+  ) {
+    final path = cache.modrinthVersionMetadataPath(
+      projectId: projectId,
+      versionId: versionId,
+    );
+    final file = File(path);
+    if (!file.existsSync()) return null;
+    final dynamic raw;
+    try {
+      raw = jsonDecode(file.readAsStringSync());
+    } on Object {
+      return null;
+    }
+    if (raw is! Map) return null;
+    final deps = raw['dependencies'];
+    if (deps is! List) return const [];
+    return [for (final d in deps) if (d is Map) d.cast<String, dynamic>()];
   }
 
   String? _loaderNameForSection(LoaderConfig config, Section section) {

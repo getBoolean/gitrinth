@@ -956,4 +956,60 @@ mods:
       expect(lock, contains('version: 1.0.0')); // bar pinned
     },
   );
+
+  group('disabled-by-conflict marker handling', () {
+    test(
+      '--major-versions recovers a disabled-by-conflict entry when a '
+      'compatible version is available',
+      () async {
+        modrinth
+          ..registerVersion(slug: 'a', versionNumber: '1.0.0')
+          ..registerVersion(slug: 'b', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  a: gitrinth:disabled-by-conflict
+  b: ^1.0.0
+''');
+
+        final out = await runUpgrade(['--major-versions']);
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        expect(readManifest(), isNot(contains('gitrinth:disabled-by-conflict')));
+        expect(readManifest(), contains('a: ^1.0.0'));
+        expect(readLock(), contains('a:'));
+      },
+    );
+
+    test(
+      'plain `upgrade` does NOT auto-recover disabled-by-conflict markers',
+      () async {
+        modrinth
+          ..registerVersion(slug: 'a', versionNumber: '1.0.0')
+          ..registerVersion(slug: 'b', versionNumber: '1.0.0');
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+mc-version: 1.21.1
+mods:
+  a: gitrinth:disabled-by-conflict
+  b: ^1.0.0
+''');
+
+        final out = await runUpgrade([]);
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        // Marker stays.
+        expect(readManifest(), contains('a: gitrinth:disabled-by-conflict'));
+      },
+    );
+  });
 }

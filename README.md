@@ -162,7 +162,9 @@ See the [`mods.yaml` reference](./docs/mods-yaml.md#long-form) for the full sche
 `gitrinth migrate` re-targets the pack and re-resolves every mod in one step.
 
 ```sh
-# Move the pack to a new Minecraft version.
+# Dry run first to preview the changes without writing.
+gitrinth migrate mc 1.21.4 --dry-run
+# Move the pack to the target Minecraft version.
 gitrinth migrate mc 1.21.4
 
 # Upgrade or switch to a different mod loader (optionally with a tag).
@@ -171,7 +173,7 @@ gitrinth migrate loader neoforge:21.1.50
 ```
 
 Migrating upgrades every mod/dependency to the newest compatible version
-for the new target. If a compatible version is not found, its `version:` field is
+for the new target Minecraft version/loader. If a compatible version is not found, its `version:` field is
 rewritten to `gitrinth:not-found`. A later `migrate` (or
 `upgrade --major-versions`) that finds a compatible version rewrites the
 marker back to a fresh caret version.
@@ -181,9 +183,17 @@ mods:
   abandoned_mod: gitrinth:not-found
 ```
 
-If the resolver finds versions but the dependency graph is unsatisfiable,
-`migrate` exits non-zero and leaves both `mods.yaml` and `mods.lock`
-untouched. Pass `--dry-run` to preview the diff without writing.
+If a mod (or one of its required transitives) has no
+version satisfying the new target, `migrate` marks every
+mod involved as `gitrinth:disabled-by-conflict`.
+A later `migrate` (or `upgrade --major-versions`) will
+attempt to resolve the conflict.
+
+```yaml
+mods:
+  conflicting_mod_a: gitrinth:disabled-by-conflict
+  conflicting_mod_b: gitrinth:disabled-by-conflict
+```
 
 ## Contributing
 

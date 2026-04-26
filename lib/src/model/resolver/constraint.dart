@@ -13,6 +13,25 @@ const String notFoundMarker = 'gitrinth:not-found';
 
 bool isNotFoundMarker(String? raw) => raw?.trim() == notFoundMarker;
 
+/// Sentinel written to `version:` by `gitrinth migrate` and
+/// `gitrinth upgrade --major-versions` when a user-declared mod was
+/// part of an unsatisfiable dependency graph. The mod is left out of
+/// `mods.lock` until a future `migrate` / `upgrade --major-versions`
+/// retries the resolution (with the entry's constraint relaxed to
+/// `any`) and either re-disables it or recovers it to a fresh
+/// `^<version>`.
+const String disabledByConflictMarker = 'gitrinth:disabled-by-conflict';
+
+bool isDisabledByConflictMarker(String? raw) =>
+    raw?.trim() == disabledByConflictMarker;
+
+/// True when [raw] is any of the resolver-skipped `gitrinth:` sentinels.
+/// Used at the resolver-entry filter and the enforce-lockfile exemption
+/// where the two markers' behavior is identical; per-marker nag text and
+/// parser errors stay separate.
+bool isAnyGitrinthMarker(String? raw) =>
+    isNotFoundMarker(raw) || isDisabledByConflictMarker(raw);
+
 /// Parses a `mods.yaml` version constraint into a [VersionConstraint].
 ///
 /// Forms:
@@ -30,6 +49,13 @@ VersionConstraint parseConstraint(String? raw) {
     throw ValidationError(
       "version is '$notFoundMarker' — re-run `gitrinth migrate` against a "
       'target where this mod is published, or remove the entry.',
+    );
+  }
+  if (trimmed == disabledByConflictMarker) {
+    throw ValidationError(
+      "version is '$disabledByConflictMarker' — re-run `gitrinth migrate` "
+      'or `gitrinth upgrade --major-versions` to retry the resolution, or '
+      'replace the marker with a constraint.',
     );
   }
   try {

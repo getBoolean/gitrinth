@@ -480,4 +480,56 @@ void main() {
       expect(allowedVersionTypes(Channel.alpha), {'release', 'beta', 'alpha'});
     });
   });
+
+  group('disabled-by-conflict marker', () {
+    test('marker constant has the expected literal', () {
+      expect(disabledByConflictMarker, 'gitrinth:disabled-by-conflict');
+    });
+
+    test('isDisabledByConflictMarker is whitespace-tolerant', () {
+      expect(isDisabledByConflictMarker(disabledByConflictMarker), isTrue);
+      expect(
+        isDisabledByConflictMarker('  $disabledByConflictMarker  '),
+        isTrue,
+      );
+      expect(isDisabledByConflictMarker('^1.2.3'), isFalse);
+      expect(isDisabledByConflictMarker(notFoundMarker), isFalse);
+      expect(isDisabledByConflictMarker(null), isFalse);
+      expect(isDisabledByConflictMarker(''), isFalse);
+    });
+
+    test('isAnyGitrinthMarker matches both markers, nothing else', () {
+      expect(isAnyGitrinthMarker(notFoundMarker), isTrue);
+      expect(isAnyGitrinthMarker(disabledByConflictMarker), isTrue);
+      expect(isAnyGitrinthMarker('  $disabledByConflictMarker  '), isTrue);
+      expect(isAnyGitrinthMarker('^1.2.3'), isFalse);
+      expect(isAnyGitrinthMarker('1.0.0'), isFalse);
+      expect(isAnyGitrinthMarker(null), isFalse);
+      expect(isAnyGitrinthMarker(''), isFalse);
+    });
+
+    test(
+      'parseConstraint(disabled-by-conflict) explains how to retry',
+      () {
+        // Resolver-side callers filter the marker out before parseConstraint
+        // ever sees it. This branch is the safety net for entries that
+        // somehow reach the parser (manual edit, schema-validation error
+        // path) — the message must point the user at the retry commands.
+        expect(
+          () => parseConstraint(disabledByConflictMarker),
+          throwsA(
+            isA<ValidationError>().having(
+              (e) => e.message,
+              'message',
+              allOf(
+                contains(disabledByConflictMarker),
+                contains('migrate'),
+                contains('--major-versions'),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  });
 }
