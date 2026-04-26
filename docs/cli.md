@@ -21,12 +21,15 @@ Use [`--directory`](#global-options) to target a different modpack.
 
 ## Global options
 
-| Option                     | Description                                                     |
-|----------------------------|-----------------------------------------------------------------|
-| `-h`, `--help`             | Print usage. After a command name, prints that command's usage. |
-| `--version`                | Print the `gitrinth` version and exit.                          |
-| `-v`, `--verbose`          | Emit progress and resolution detail.                            |
-| `-C`, `--directory <path>` | Run as if invoked from `<path>`.                                |
+| Option                     | Description                                                                             |
+|----------------------------|-----------------------------------------------------------------------------------------|
+| `-h`, `--help`             | Print usage. After a command name, prints that command's usage.                         |
+| `--version`                | Print the `gitrinth` version and exit.                                                  |
+| `-v`, `--verbose`          | Emit progress and resolution detail.                                                    |
+| `-q`, `--quiet`            | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
+| `--color` / `--no-color`   | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).           |
+| `--config <path>`          | Use an alternate user config file. Overrides `GITRINTH_CONFIG` and the platform default. |
+| `-C`, `--directory <path>` | Run as if invoked from `<path>`.                                                        |
 
 ## Commands
 
@@ -960,9 +963,11 @@ want a particular mod in the pack despite a declared incompatibility.
 | Variable                      | Used by                  | Purpose                                                   |
 |-------------------------------|--------------------------|-----------------------------------------------------------|
 | `GITRINTH_CACHE`              | every command            | Override the cache root.                                  |
+| `GITRINTH_CONFIG`             | every command            | Override the user config file path. `--config` wins.      |
 | `GITRINTH_MODRINTH_URL`       | every command            | Override the default Modrinth base URL.                   |
 | `GITRINTH_JAVA_METADATA_URL`  | `launch` / `build`       | Override Adoptium metadata URL.                           |
 | `JAVA_HOME`                   | `launch` / `build`       | Honored by the Java resolver if its major matches.        |
+| `NO_COLOR`                    | every command            | Disable ANSI colour. `--color` overrides; `--no-color` matches. |
 | `HTTPS_PROXY` / `HTTP_PROXY`  | every command            | Standard proxy variables, honoured by every HTTP request. |
 
 ## Shell completion

@@ -22,7 +22,7 @@ Deferred MVP work:
 - [x] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
 - [ ] [Hosted source support](curseforge-bridge.md#hosted-modrinth-labrinth)
 - [ ] [Plugin-loader support](#plugin-loader-support)
-- [ ] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
+- [x] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
 - [x] [Automatic `:stable` / `:latest` loader tag resolution](#automatic-stable--latest-loader-tag-resolution)
@@ -218,13 +218,20 @@ archive builder, [`mods-yaml.md`](mods-yaml.md).
 
 ## Deferred global options
 
-Three deferred flags on the top-level CLI:
+Shipped. See [Global options](cli.md#global-options) in the CLI docs.
+Three top-level flags on `gitrinth`:
 
 | Option            | Description                                                                             |
 |-------------------|-----------------------------------------------------------------------------------------|
 | `-q`, `--quiet`   | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
-| `--no-color`      | Disable ANSI colour. Also respected via `NO_COLOR`.                                     |
+| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).    |
 | `--config <path>` | Use an alternate user config file.                                                      |
+
+`--color`/`--no-color` ships as a negatable pair (matching
+`dart pub`'s `--[no-]color`). `--quiet` and `--config` are
+gitrinth-specific — `dart pub` uses `--verbosity` levels and has no
+config-path flag. Top-level placement matches `dart pub`'s global-flag
+shape.
 
 `--offline` shipped per-command (on every command that hits HTTP) rather
 than as a global flag, to match `dart pub`'s shape — `dart pub` exposes
@@ -236,11 +243,19 @@ than as a global flag, to match `dart pub`'s shape — `dart pub` exposes
 overview.
 
 `--config` implies a companion `GITRINTH_CONFIG` environment variable
-and a platform user-config location (where stored tokens live — see
+and a platform user-config location at `<home>/.gitrinth/config.yaml`
+(where stored tokens will live — see
 [`login` / `logout`](#login--logout-commands) and
-[`token`](#token-command)).
+[`token`](#token-command)). Resolution precedence:
+`--config` > `GITRINTH_CONFIG` > platform default. The file is created
+lazily on first write; no command reads from it yet.
 
 Touches: [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart),
+[`lib/src/service/console.dart`](../lib/src/service/console.dart),
+[`lib/src/cli/base_command.dart`](../lib/src/cli/base_command.dart),
+[`lib/src/app/runner_settings.dart`](../lib/src/app/runner_settings.dart),
+[`lib/src/app/providers.dart`](../lib/src/app/providers.dart),
+[`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart),
 [`cli.md`](cli.md).
 
 ## Loose-files override support

@@ -2,6 +2,7 @@ import 'dart:io';
 
 class Console {
   final bool verbose;
+  final bool quiet;
 
   /// When true, [bold]/[red]/[gray] wrap their argument in ANSI escape
   /// codes; when false they pass through. Default is `false` so the
@@ -10,17 +11,36 @@ class Console {
   /// the absence of `NO_COLOR`).
   final bool useAnsi;
 
-  const Console({this.verbose = false, this.useAnsi = false});
+  const Console({
+    this.verbose = false,
+    this.quiet = false,
+    this.useAnsi = false,
+  });
 
   /// Returns a [Console] whose [useAnsi] reflects the current process's
-  /// stdout terminal state and `NO_COLOR` env var. Cannot be const because
+  /// stdout terminal state and `NO_COLOR` env var. Pass [colorOverride]
+  /// (typically from `--color`/`--no-color`) to bypass auto-detection;
+  /// [environment] lets tests inject a fake env. Cannot be const because
   /// the detection itself is a runtime call.
-  factory Console.detect({bool verbose = false}) {
-    return Console(verbose: verbose, useAnsi: _detectAnsiSupport());
+  factory Console.detect({
+    bool verbose = false,
+    bool quiet = false,
+    bool? colorOverride,
+    Map<String, String>? environment,
+  }) {
+    final env = environment ?? Platform.environment;
+    return Console(
+      verbose: verbose,
+      quiet: quiet,
+      useAnsi: resolveUseAnsi(colorOverride, env),
+    );
   }
 
-  static bool _detectAnsiSupport() {
-    if (Platform.environment.containsKey('NO_COLOR')) return false;
+  /// Resolves the effective ANSI setting given an explicit user
+  /// override and the env. `null` override means auto-detect.
+  static bool resolveUseAnsi(bool? override, Map<String, String> env) {
+    if (override != null) return override;
+    if (env.containsKey('NO_COLOR')) return false;
     try {
       return stdout.hasTerminal && stdout.supportsAnsiEscapes;
     } on Object {
@@ -29,10 +49,12 @@ class Console {
   }
 
   void info(String message) {
+    if (quiet) return;
     stdout.writeln(message);
   }
 
   void detail(String message) {
+    if (quiet) return;
     if (verbose) {
       stdout.writeln(message);
     }

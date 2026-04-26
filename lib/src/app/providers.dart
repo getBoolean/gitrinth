@@ -20,8 +20,17 @@ import '../service/offline_guard_interceptor.dart';
 import '../version.dart';
 import 'env.dart';
 import 'offline_notifier.dart';
+import 'runner_settings.dart';
 
-final consoleProvider = Provider<Console>((ref) => const Console());
+final consoleProvider = Provider<Console>((ref) {
+  final settings = ref.watch(runnerSettingsProvider);
+  final env = ref.read(environmentProvider);
+  return Console(
+    verbose: settings.verbose,
+    quiet: settings.quiet,
+    useAnsi: Console.resolveUseAnsi(settings.color, env),
+  );
+});
 
 final offlineProvider = NotifierProvider<OfflineNotifier, bool>(
   OfflineNotifier.new,

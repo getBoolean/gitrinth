@@ -6,6 +6,7 @@ import 'package:riverpod/riverpod.dart';
 
 import '../app/container.dart';
 import '../app/env.dart';
+import '../app/runner_settings.dart';
 import '../commands/add_command.dart';
 import '../commands/build_command.dart';
 import '../commands/cache_command.dart';
@@ -30,6 +31,9 @@ import 'exit_codes.dart';
 
 class GitrinthRunner extends CommandRunner<int> {
   bool verbose = false;
+  bool quiet = false;
+  bool? color;
+  String? configPath;
   final ProviderContainer container;
 
   GitrinthRunner({ProviderContainer? container})
@@ -52,6 +56,24 @@ class GitrinthRunner extends CommandRunner<int> {
         abbr: 'v',
         negatable: false,
         help: 'Emit resolution detail.',
+      )
+      ..addFlag(
+        'quiet',
+        abbr: 'q',
+        negatable: false,
+        help: 'Suppress informational output; errors still print. '
+            'Mutually exclusive with --verbose.',
+      )
+      ..addFlag(
+        'color',
+        help: 'Force ANSI colour on (--color) or off (--no-color). '
+            'Defaults to auto-detection (honours NO_COLOR).',
+      )
+      ..addOption(
+        'config',
+        valueHelp: 'path',
+        help: 'Use an alternate user config file. '
+            'Overrides GITRINTH_CONFIG and the platform default.',
       );
 
     addCommand(CreateCommand());
@@ -83,6 +105,29 @@ class GitrinthRunner extends CommandRunner<int> {
   @override
   Future<int?> runCommand(ArgResults topLevelResults) async {
     verbose = topLevelResults['verbose'] as bool;
+    quiet = topLevelResults['quiet'] as bool;
+    color = topLevelResults.wasParsed('color')
+        ? topLevelResults['color'] as bool
+        : null;
+    configPath = topLevelResults['config'] as String?;
+
+    if (verbose && quiet) {
+      throw UsageException(
+        'Cannot combine --verbose and --quiet.',
+        usage,
+      );
+    }
+
+    container
+        .read(runnerSettingsProvider.notifier)
+        .set(
+          RunnerSettings(
+            verbose: verbose,
+            quiet: quiet,
+            color: color,
+            configPath: configPath,
+          ),
+        );
 
     if (topLevelResults['version'] as bool) {
       stdout.writeln('gitrinth $packageVersion');
