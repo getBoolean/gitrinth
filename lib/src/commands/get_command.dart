@@ -57,7 +57,6 @@ class GetCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: gitrinthRunner.verbose,
       offline: offline,
       dryRun: dryRun,
       enforce: enforce,

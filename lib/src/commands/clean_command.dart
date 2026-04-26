@@ -51,10 +51,10 @@ class CleanCommand extends GitrinthCommand {
     }
 
     if (removed.isEmpty) {
-      console.info('Nothing to clean.');
+      console.message('Nothing to clean.');
     } else {
       for (final path in removed) {
-        console.info('removed: $path');
+        console.message('removed: $path');
       }
     }
 

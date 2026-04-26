@@ -88,7 +88,6 @@ Future<int> runBuild({
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: options.verbose,
       offline: options.offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
@@ -125,13 +124,12 @@ Future<int> runBuild({
       projectDir: projectDir,
       skipDownload: options.skipDownload,
       noPrune: options.noPrune,
-      verbose: options.verbose,
       console: console,
     );
     final envDir = Directory(p.join(outputDir.path, envDirName(env)));
-    console.info('Wrote ${result.count} file(s) to ${envDir.path}.');
+    console.message('Wrote ${result.count} file(s) to ${envDir.path}.');
     if (result.pruned > 0) {
-      console.info('Pruned ${result.pruned} obsolete file(s).');
+      console.message('Pruned ${result.pruned} obsolete file(s).');
     }
   }
 
@@ -206,7 +204,7 @@ Future<void> _installServerBinary({
     allowManagedJava: allowManagedJava,
     verbose: verbose,
   );
-  console.info(
+  console.message(
     'Installed ${loader.name} $loaderVersion server binary into '
     '${serverDir.path}.',
   );
@@ -262,7 +260,6 @@ _AssembleResult _assembleEnv({
   required String projectDir,
   required bool skipDownload,
   required bool noPrune,
-  required bool verbose,
   required Console console,
 }) {
   final envRoot = Directory(p.join(outputDir.path, envDirName(env)));
@@ -308,7 +305,7 @@ _AssembleResult _assembleEnv({
     )) {
       pruneFile(envRoot: envRoot, relPath: relPath);
       pruned++;
-      if (verbose) console.detail('pruned $relPath');
+      console.io('pruned $relPath');
     }
   }
 

@@ -60,7 +60,7 @@ Set<String> walkTransitiveClosure(
   String verboseLabel = 'walkTransitiveClosure',
 }) {
   if (lock == null) {
-    console?.info(
+    console?.io(
       '$verboseLabel: no mods.lock found yet — '
       'falling back to the named entries.',
     );
@@ -81,7 +81,7 @@ Set<String> walkTransitiveClosure(
     final slug = queue.removeLast();
     final entry = lookup[slug];
     if (entry == null) {
-      console?.detail(
+      console?.io(
         "$verboseLabel: '$slug' not in mods.lock; skipping.",
       );
       continue;
@@ -93,7 +93,7 @@ Set<String> walkTransitiveClosure(
 
     final children = readCachedRequiredChildren(cache, pid, vid);
     if (children == null) {
-      console?.detail(
+      console?.io(
         "$verboseLabel: no cached version.json for "
         "'$slug' ($pid/$vid); skipping its transitive children. "
         'Run `gitrinth get` to populate the cache.',

@@ -138,7 +138,7 @@ class ModrinthRateLimitInterceptor extends Interceptor {
 
   void _maybeLog(Duration wait, String reason) {
     if (wait < _verboseSleepThreshold) return;
-    _console?.detail(
+    _console?.io(
       'Modrinth rate limit: $reason, waiting ~${wait.inSeconds}s before request',
     );
   }

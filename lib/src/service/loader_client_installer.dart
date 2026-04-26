@@ -85,10 +85,10 @@ class LoaderClientInstaller {
       allowManagedJava: allowManagedJava,
       offline: offline,
     );
-    _console.info(
+    _console.io(
       'Installing ${loader.name} $loaderVersion client into '
-      '${dotMinecraftDir.path} (this may take a minute; pass --verbose to '
-      'see installer output).',
+      '${dotMinecraftDir.path} (this may take a minute; pass --verbosity=io '
+      'to see installer output).',
     );
     final args = _installArgs(
       loader: loader,

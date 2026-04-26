@@ -220,19 +220,22 @@ archive builder, [`mods-yaml.md`](mods-yaml.md).
 ## Deferred global options
 
 Shipped. See [Global options](cli.md#global-options) in the CLI docs.
-Three top-level flags on `gitrinth`:
+Top-level flags on `gitrinth`:
 
-| Option                   | Description                                                                             |
-|--------------------------|-----------------------------------------------------------------------------------------|
-| `-q`, `--quiet`          | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
-| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).           |
-| `--config <path>`        | Use an alternate user config file.                                                      |
+| Option                   | Description                                                                                 |
+|--------------------------|---------------------------------------------------------------------------------------------|
+| `--verbosity <level>`    | Set the output floor (`error` / `warning` / `normal` / `io` / `solver` / `all`).            |
+| `-v`, `--verbose`        | Shorthand for `--verbosity=all`.                                                            |
+| `-q`, `--quiet`          | Shorthand for `--verbosity=warning`.                                                        |
+| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).               |
+| `--config <path>`        | Use an alternate user config file.                                                          |
 
-`--color`/`--no-color` ships as a negatable pair (matching
-`dart pub`'s `--[no-]color`). `--quiet` and `--config` are
-gitrinth-specific — `dart pub` uses `--verbosity` levels and has no
-config-path flag. Top-level placement matches `dart pub`'s global-flag
-shape.
+`--verbosity` defines a totally-ordered set of output categories;
+each call site files its message at a category and the chosen floor
+decides what prints. See
+[Verbosity levels](cli.md#verbosity-levels) for what each level adds.
+`--color`/`--no-color` ships as a negatable pair. `--config` is
+gitrinth-specific. Top-level placement matches the global-flag shape.
 
 `--offline` shipped per-command (on every command that hits HTTP) rather
 than as a global flag, to match `dart pub`'s shape — `dart pub` exposes
@@ -447,14 +450,33 @@ failure).
 
 ## `login` / `logout` commands
 
-Store and clear a Modrinth personal-access token for the default
-server (modrinth.com) in the user config. The token is never echoed
-and can be piped over stdin.
+Store and clear Modrinth credentials for the default server
+(modrinth.com) in the user config.
 
 ```text
-gitrinth modrinth login
+gitrinth modrinth login [--pat]
 gitrinth modrinth logout
 ```
+
+| Option  | Description                                                                                                                                  |
+|---------|----------------------------------------------------------------------------------------------------------------------------------------------|
+| `--pat` | Store a personal-access token instead of running the OAuth flow. The token is never echoed and can be piped over stdin. Same shape as today. |
+
+Default flow is OAuth: `login` opens the browser to Modrinth's
+authorization endpoint, listens on a loopback redirect for the
+callback, exchanges the code for an access + refresh token pair, and
+persists both (plus expiry) to the user config. Subsequent commands
+refresh transparently via the refresh token. `logout` revokes the
+refresh token server-side (best-effort) and clears the stored
+credentials.
+
+`--pat` keeps the original headless path for CI, remote shells, and
+users who'd rather paste a token. `GITRINTH_TOKEN` continues to
+override any stored credential and bypasses both flows.
+
+[`token`](#token-command) gains a parallel `--pat` flag for
+non-default servers; OAuth there depends on the target server
+exposing a compatible authorization endpoint.
 
 ## `token` command
 
@@ -512,7 +534,7 @@ back to `X-Ratelimit-Reset`, with a 1s floor) and retries up to 5
 times before falling through to
 [`ModrinthErrorInterceptor`](../lib/src/service/modrinth_error_interceptor.dart).
 Sleeps are clamped to `[1s, 65s]`. Long waits (≥ 2s) emit a single
-`Console.detail` line under `--verbose`; shorter waits stay silent.
+`Console.io` line at `--verbosity=io` and above; shorter waits stay silent.
 
 Other upstreams (`meta.fabricmc.net`, `files.minecraftforge.net`,
 `maven.neoforged.net`, Adoptium) flow through the same `Dio`

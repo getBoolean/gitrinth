@@ -102,12 +102,12 @@ class UnpinCommand extends GitrinthCommand {
     );
 
     if (dryRun) {
-      console.info("Would unpin '$slug' to $caret.");
+      console.message("Would unpin '$slug' to $caret.");
       return exitOk;
     }
 
     io.writeModsYaml(updated);
-    console.info("Unpinned '$slug' to $caret.");
+    console.message("Unpinned '$slug' to $caret.");
     return exitOk;
   }
 }

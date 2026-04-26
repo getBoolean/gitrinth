@@ -110,7 +110,7 @@ Future<ConflictDisableOutcome> resolveWithConflictAutoDisable({
       );
     }
     final names = disabledByConflict.map((s) => s.$2).toList()..sort();
-    console.info(
+    console.message(
       'disabled ${names.length} mod(s) due to dependency conflict: '
       '${names.join(", ")}. Edit mods.yaml to re-enable any you want '
       'back, then re-run.',

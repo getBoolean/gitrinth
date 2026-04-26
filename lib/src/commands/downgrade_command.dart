@@ -80,11 +80,11 @@ class DowngradeCommand extends GitrinthCommand with OfflineFlag {
         if (modrinthSlugs.contains(slug)) {
           targets.add(slug);
         } else if (markerSlugs.contains(slug)) {
-          console.info(
+          console.message(
             "skipping '$slug' — marker entry has no version to downgrade.",
           );
         } else {
-          console.detail(
+          console.io(
             "skipping '$slug' — non-Modrinth source has no version to downgrade.",
           );
         }
@@ -104,7 +104,6 @@ class DowngradeCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: gitrinthRunner.verbose,
       offline: offline,
       dryRun: dryRun,
       // Drop lock pins for every target so the resolver actually walks

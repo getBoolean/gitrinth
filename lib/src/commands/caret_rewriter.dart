@@ -40,7 +40,7 @@ void rewriteCaretConstraints({
     try {
       bareResolved = bareVersionForPin(resolvedRaw);
     } on FormatException {
-      console.info(
+      console.message(
         "skipped '$slug' rewrite — resolved version '$resolvedRaw' is not "
         'semver-shaped.',
       );
@@ -63,7 +63,7 @@ void rewriteCaretConstraints({
     if (updated == yamlText) continue;
     yamlText = updated;
     rewrites++;
-    console.info('$slug: $raw → $newConstraint in mods.yaml');
+    console.message('$slug: $raw → $newConstraint in mods.yaml');
   }
 
   if (rewrites > 0) {

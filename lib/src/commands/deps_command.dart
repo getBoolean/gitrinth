@@ -323,7 +323,7 @@ class DepsCommand extends GitrinthCommand {
     // Trim trailing newline; console.info adds one.
     final lines = rendered.trimRight().split('\n');
     for (final l in lines) {
-      console.info(l);
+      console.message(l);
     }
   }
 
@@ -351,19 +351,19 @@ class DepsCommand extends GitrinthCommand {
     ]..sort();
 
     if (directSlugs.isNotEmpty) {
-      console.info('direct dependencies:');
+      console.message('direct dependencies:');
       for (final slug in directSlugs) {
         _printListForSlug(slug, lockBySlug, children, visibleSlugs,
             sectionPrefix: true);
       }
     }
     if (transitiveSlugs.isNotEmpty) {
-      if (directSlugs.isNotEmpty) console.info('');
-      console.info('transitive dependencies:');
+      if (directSlugs.isNotEmpty) console.message('');
+      console.message('transitive dependencies:');
       for (final slug in transitiveSlugs) {
         final entry = lockBySlug[slug]!;
         final ver = entry.locked.version ?? entry.locked.path ?? '';
-        console.info('- $slug${ver.isEmpty ? '' : ' $ver'}');
+        console.message('- $slug${ver.isEmpty ? '' : ' $ver'}');
       }
     }
   }
@@ -381,7 +381,7 @@ class DepsCommand extends GitrinthCommand {
     final label = sectionPrefix
         ? '${entry.section.name}/$slug'
         : slug;
-    console.info('- $label${ver.isEmpty ? '' : ' $ver'}');
+    console.message('- $label${ver.isEmpty ? '' : ' $ver'}');
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
         .toList();
@@ -390,7 +390,7 @@ class DepsCommand extends GitrinthCommand {
       if (childEntry == null) continue;
       final childVer =
           childEntry.locked.version ?? childEntry.locked.path ?? '';
-      console.info('  - $c${childVer.isEmpty ? '' : ' $childVer'}');
+      console.message('  - $c${childVer.isEmpty ? '' : ' $childVer'}');
     }
   }
 
@@ -418,19 +418,19 @@ class DepsCommand extends GitrinthCommand {
     ]..sort();
 
     if (directSlugs.isNotEmpty) {
-      console.info('direct dependencies:');
+      console.message('direct dependencies:');
       for (final slug in directSlugs) {
         _printCompactForSlug(slug, lockBySlug, children, visibleSlugs,
             sectionPrefix: true);
       }
     }
     if (transitiveSlugs.isNotEmpty) {
-      if (directSlugs.isNotEmpty) console.info('');
-      console.info('transitive dependencies:');
+      if (directSlugs.isNotEmpty) console.message('');
+      console.message('transitive dependencies:');
       for (final slug in transitiveSlugs) {
         final entry = lockBySlug[slug]!;
         final ver = entry.locked.version ?? entry.locked.path ?? '';
-        console.info('- $slug${ver.isEmpty ? '' : ' $ver'}');
+        console.message('- $slug${ver.isEmpty ? '' : ' $ver'}');
       }
     }
   }
@@ -452,7 +452,7 @@ class DepsCommand extends GitrinthCommand {
         .where(visibleSlugs.contains)
         .toList();
     final kidsText = kids.isEmpty ? '[]' : '[${kids.join(' ')}]';
-    console.info('- $label${ver.isEmpty ? '' : ' $ver'} $kidsText');
+    console.message('- $label${ver.isEmpty ? '' : ' $ver'} $kidsText');
   }
 
   void _printJson({
@@ -494,7 +494,7 @@ class DepsCommand extends GitrinthCommand {
       'version': manifest.version,
       'packages': packages,
     };
-    console.info(const JsonEncoder.withIndent('  ').convert(out));
+    console.message(const JsonEncoder.withIndent('  ').convert(out));
   }
 
   Iterable<String> _walkClosure(

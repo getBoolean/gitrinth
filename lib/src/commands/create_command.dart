@@ -77,7 +77,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
 
     final offline = readOfflineFlag();
     if (offline) {
-      console.detail('Skipping Modrinth slug-availability check (--offline).');
+      console.io('Skipping Modrinth slug-availability check (--offline).');
     } else {
       await _warnIfSlugTaken(slug);
     }

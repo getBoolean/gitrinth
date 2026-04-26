@@ -119,7 +119,7 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
         memory: argResults!['memory'] as String,
         outputPath: argResults!['output'] as String?,
         offline: readOfflineFlag(),
-        verbose: gitrinthRunner.verbose,
+        verbose: gitrinthRunner.level.index >= LogLevel.io.index,
         extraArgs: List<String>.from(argResults!.rest),
         javaPath: argResults!['java'] as String?,
         allowManagedJava: argResults!['managed-java'] as bool,
@@ -239,7 +239,7 @@ Future<int> runLaunchServer({
     javaPath: java.path,
   );
 
-  console.info(
+  console.message(
     'Launching ${lock.loader.mods.name} server in ${serverDir.path}...',
   );
 
@@ -444,7 +444,7 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
         autoBuild: argResults!['build'] as bool,
         outputPath: argResults!['output'] as String?,
         offline: readOfflineFlag(),
-        verbose: gitrinthRunner.verbose,
+        verbose: gitrinthRunner.level.index >= LogLevel.io.index,
         javaPath: argResults!['java'] as String?,
         allowManagedJava: argResults!['managed-java'] as bool,
       ),
@@ -612,7 +612,7 @@ Future<int> runLaunchClient({
   );
 
   final launcherExe = effectiveLocator.launcherExecutable;
-  console.info(
+  console.message(
     'Opening Minecraft Launcher with workDir ${workDir.path} '
     '(artifacts symlinked from ${clientDir.path}). The profile is named '
     '"gitrinth: ${yaml.slug}"; click Play to boot the modpack.',

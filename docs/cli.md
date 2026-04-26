@@ -25,8 +25,9 @@ Use [`--directory`](#global-options) to target a different modpack.
 |----------------------------|-----------------------------------------------------------------------------------------|
 | `-h`, `--help`             | Print usage. After a command name, prints that command's usage.                         |
 | `--version`                | Print the `gitrinth` version and exit.                                                  |
-| `-v`, `--verbose`          | Emit progress and resolution detail.                                                    |
-| `-q`, `--quiet`            | Suppress informational output; errors still print. Mutually exclusive with `--verbose`. |
+| `--verbosity <level>`      | Set the output floor. One of `error`, `warning`, `normal` (default), `io`, `solver`, `all`. See [Verbosity levels](#verbosity-levels). |
+| `-v`, `--verbose`          | Shorthand for `--verbosity=all`. Mutually exclusive with `--quiet` and `--verbosity`.   |
+| `-q`, `--quiet`            | Shorthand for `--verbosity=warning`. Mutually exclusive with `--verbose` and `--verbosity`. |
 | `--color` / `--no-color`   | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).           |
 | `--config <path>`          | Use an alternate user config file. Overrides `GITRINTH_CONFIG` and the platform default. |
 | `-C`, `--directory <path>` | Run as if invoked from `<path>`.                                                        |
@@ -71,14 +72,36 @@ Use [`--directory`](#global-options) to target a different modpack.
 |-----------------------------|-----------------------------------------------------|
 | [`completion`](#completion) | Emit a shell-completion script for the given shell. |
 
+## Verbosity levels
+
+`--verbosity=<level>` sets the output floor: every category at or
+below the chosen level is printed; everything above is suppressed.
+Levels form a total order from quietest to loudest:
+
+| Level     | What prints                                                                                    |
+|-----------|------------------------------------------------------------------------------------------------|
+| `error`   | Errors only.                                                                                   |
+| `warning` | Errors and warnings.                                                                           |
+| `normal`  | Adds user-facing messages (resolution headers, diffs, summaries). Default.                     |
+| `io`      | Adds file writes, downloads, cache hits/misses, lockfile ops, and installer subprocess output. |
+| `solver`  | Adds version-resolution steps (candidate selection, conflict detection, override application). |
+| `all`     | Adds internal tracing (stack traces on failure, low-level debug).                              |
+
+`error` and `warning` go to stderr; the rest go to stdout. `-v` /
+`--verbose` is shorthand for `--verbosity=all` and `-q` / `--quiet`
+is shorthand for `--verbosity=warning`. Combining `--verbosity` with
+either shorthand exits with a usage error.
+
 ## Console output
 
 Mutating commands emit a resolution header (e.g. `Resolving 12 mods, 2
 resource packs, 1 shader...`), followed by per-entry lines prefixed
 with `+` for additions, `~` for updates, and `-` for removals. They
 finish with a summary line such as `Locked 15 entries to mods.lock.`
-or `Updated 2 entries in mods.lock.`. `--verbose` (`-v`) adds resolver
-detail.
+or `Updated 2 entries in mods.lock.`. Raise the floor with
+`--verbosity=io` to see file writes and downloads, `--verbosity=solver`
+to see resolver steps, or `-v` (`--verbosity=all`) to add stack traces
+on failure.
 
 ## Offline mode
 

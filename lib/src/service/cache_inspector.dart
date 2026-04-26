@@ -279,10 +279,10 @@ class CacheInspector {
         File(artifact.location),
         expectedSha512,
       );
-      console.detail('cache repair: ${artifact.location}: OK');
+      console.io('cache repair: ${artifact.location}: OK');
       return _ModrinthRepair.verified;
     } on UserError {
-      console.info(
+      console.io(
         'cache repair: ${artifact.location}: corrupt — re-downloading',
       );
     }
@@ -308,10 +308,10 @@ class CacheInspector {
     try {
       final bytes = File(artifact.location).readAsBytesSync();
       GitrinthCache.verifySha512(bytes, expected);
-      console.detail('cache repair: ${artifact.location}: OK');
+      console.io('cache repair: ${artifact.location}: OK');
       return _UrlRepair.verified;
     } on UserError {
-      console.info(
+      console.io(
         'cache repair: ${artifact.location}: corrupt — deleting '
         '(next `gitrinth get` will refetch from mods.lock)',
       );

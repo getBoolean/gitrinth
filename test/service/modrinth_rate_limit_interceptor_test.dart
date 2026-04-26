@@ -46,10 +46,10 @@ class _ScriptedAdapter implements HttpClientAdapter {
 class _CapturingConsole extends Console {
   final List<String> details = [];
 
-  _CapturingConsole() : super(verbose: true);
+  _CapturingConsole() : super(level: LogLevel.io);
 
   @override
-  void detail(String message) {
+  void io(String message) {
     details.add(message);
   }
 }

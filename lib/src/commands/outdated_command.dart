@@ -276,12 +276,12 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           },
       ],
     };
-    console.info(const JsonEncoder.withIndent('  ').convert(out));
+    console.message(const JsonEncoder.withIndent('  ').convert(out));
   }
 
   void _printTable(List<_Row> rows, {required bool showAll}) {
     if (rows.isEmpty) {
-      console.info('Found no outdated mods.');
+      console.message('Found no outdated mods.');
       return;
     }
 
@@ -289,16 +289,16 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         ? rows
         : rows.where((r) => !_isUpToDate(r)).toList();
     if (filtered.isEmpty) {
-      console.info('Found no outdated mods.');
+      console.message('Found no outdated mods.');
       return;
     }
 
     final c = console;
-    console.info('Showing outdated mods.');
-    console.info(
+    console.message('Showing outdated mods.');
+    console.message(
       '[${c.red('*')}] indicates versions that are not the latest available.',
     );
-    console.info('');
+    console.message('');
 
     final direct = filtered
         .where((r) => r.kind == LockedDependencyKind.direct)
@@ -329,11 +329,11 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         '${c.bold('Current'.padRight(currentWidth))}  '
         '${c.bold('Upgradable'.padRight(upgradableWidth))}  '
         '${c.bold('Latest')}';
-    console.info(header);
+    console.message(header);
 
     void printSection(String title, List<_Row> section) {
       if (section.isEmpty) return;
-      console.info(c.bold('$title:'));
+      console.message(c.bold('$title:'));
       for (final r in section) {
         final pkg = pkgLabel(r);
         final markedPkg = (r.upgradable != null && r.latest != null &&
@@ -358,14 +358,14 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             .padRight(upgradableWidth + _ansiOverhead(upgradableColored));
         final latestRaw = r.latest ?? '-';
         final latestColored = _grayIfEqual(c, latestRaw, upgradableRaw);
-        console.info(
+        console.message(
           '  $pkgPadded  $currentPadded  $upgradablePadded  $latestColored',
         );
       }
     }
 
     printSection('direct dependencies', direct);
-    if (direct.isNotEmpty && transitive.isNotEmpty) console.info('');
+    if (direct.isNotEmpty && transitive.isNotEmpty) console.message('');
     printSection('transitive dependencies', transitive);
 
     final upgradableLockedToOlder = filtered
@@ -382,10 +382,10 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             r.upgradable != r.latest)
         .length;
 
-    console.info('');
+    console.message('');
     if (upgradableLockedToOlder > 0) {
       final n = upgradableLockedToOlder;
-      console.info(
+      console.message(
         '$n ${n == 1 ? 'upgradable dependency is' : 'upgradable dependencies are'} '
         'locked (in mods.lock) to older versions.\n'
         'To update ${n == 1 ? 'it' : 'them'}, run `gitrinth upgrade`.',
@@ -393,7 +393,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     }
     if (blockedByConstraint > 0) {
       final n = blockedByConstraint;
-      console.info(
+      console.message(
         '$n ${n == 1 ? 'dependency is' : 'dependencies are'} constrained to '
         'versions that are older than a resolvable version.\n'
         'To update ${n == 1 ? 'it' : 'them'}, '

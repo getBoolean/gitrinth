@@ -72,7 +72,6 @@ Future<ResolveSyncResult> resolveAndSync({
   required GitrinthCache cache,
   required Downloader downloader,
   required LoaderVersionResolver loaderResolver,
-  required bool verbose,
   bool offline = false,
   bool dryRun = false,
   bool enforce = false,
@@ -309,8 +308,8 @@ Future<ResolveSyncResult> resolveAndSync({
     versionsPerSlug[slug] = candidates;
   }
 
-  console.info('Resolving dependencies...');
-  console.detail(
+  console.message('Resolving dependencies...');
+  console.solver(
     'Resolving with loader.mods=${loaderConfig.mods.name} mc=$mc...',
   );
   final resolution = await resolver.resolve(
@@ -322,9 +321,7 @@ Future<ResolveSyncResult> resolveAndSync({
   final newLock = _buildLock(merged, resolution, resolvedLoaderVersion);
   final diff = diffLocks(existingLock, newLock);
 
-  if (verbose) {
-    reporter.printSimpleDiff(diff, verbose: verbose);
-  }
+  reporter.printSimpleDiff(diff);
 
   if (enforce && diff.isNotEmpty) {
     throw ValidationError(
@@ -334,7 +331,7 @@ Future<ResolveSyncResult> resolveAndSync({
   }
 
   if (dryRun) {
-    reporter.printSimpleDiff(diff, verbose: verbose, force: true);
+    reporter.printSimpleDiff(diff, force: true);
     return ResolveSyncResult(
       newLock: newLock,
       diff: diff,
@@ -387,10 +384,10 @@ Future<ResolveSyncResult> resolveAndSync({
             );
             if (existed) {
               hits++;
-              console.detail('cache hit:  ${locked.slug} -> $dest');
+              console.io('cache hit:  ${locked.slug} -> $dest');
             } else {
               downloaded++;
-              console.detail('downloaded: ${locked.slug} -> $dest');
+              console.io('downloaded: ${locked.slug} -> $dest');
             }
             break;
           case LockedSourceKind.url:
@@ -456,20 +453,20 @@ Future<ResolveSyncResult> resolveAndSync({
 
   final changeCount = diff.where((d) => d.kind != DiffKind.unchanged).length;
   final outdated = countOutdated(newLock, versionsPerSlug);
-  console.detail(
+  console.io(
     'Locked $changeCount change(s); $downloaded downloaded, $hits cache hit(s).',
   );
 
   final markerCount = _countNotFoundMarkers(merged);
   if (markerCount > 0) {
-    console.info(
+    console.message(
       '$markerCount ${markerCount == 1 ? 'entry' : 'entries'} marked '
       '$notFoundMarker — run `gitrinth migrate <target>` to retry.',
     );
   }
   final disabledCount = _countDisabledByConflictMarkers(merged);
   if (disabledCount > 0) {
-    console.info(
+    console.message(
       '$disabledCount ${disabledCount == 1 ? 'entry' : 'entries'} marked '
       '$disabledByConflictMarker — run `gitrinth migrate <target>` or '
       '`gitrinth upgrade --major-versions` to retry.',

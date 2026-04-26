@@ -108,12 +108,12 @@ class PinCommand extends GitrinthCommand {
     );
 
     if (dryRun) {
-      console.info("Would pin '$slug' to $bare.");
+      console.message("Would pin '$slug' to $bare.");
       return exitOk;
     }
 
     io.writeModsYaml(updated);
-    console.info("Pinned '$slug' to $bare.");
+    console.message("Pinned '$slug' to $bare.");
     return exitOk;
   }
 }

@@ -1,8 +1,9 @@
 import 'package:riverpod/riverpod.dart';
 
+import '../service/console.dart';
+
 class RunnerSettings {
-  final bool verbose;
-  final bool quiet;
+  final LogLevel level;
 
   /// `null` means "auto" — leave colour to NO_COLOR / TTY detection.
   /// `true` forces ANSI on, `false` forces it off.
@@ -11,8 +12,7 @@ class RunnerSettings {
   final String? configPath;
 
   const RunnerSettings({
-    this.verbose = false,
-    this.quiet = false,
+    this.level = LogLevel.normal,
     this.color,
     this.configPath,
   });

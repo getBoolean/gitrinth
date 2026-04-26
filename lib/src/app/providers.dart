@@ -26,8 +26,7 @@ final consoleProvider = Provider<Console>((ref) {
   final settings = ref.watch(runnerSettingsProvider);
   final env = ref.read(environmentProvider);
   return Console(
-    verbose: settings.verbose,
-    quiet: settings.quiet,
+    level: settings.level,
     useAnsi: Console.resolveUseAnsi(settings.color, env),
   );
 });

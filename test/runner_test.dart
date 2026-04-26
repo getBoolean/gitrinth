@@ -61,12 +61,13 @@ void main() {
     });
 
     group('global options', () {
-      test('--help advertises -q, --color, --config', () async {
+      test('--help advertises -q, --color, --config, --verbosity', () async {
         final out = await runCli(['--help']);
         expect(out.exitCode, 0);
         expect(out.stdout, contains('--quiet'));
         expect(out.stdout, contains('--[no-]color'));
         expect(out.stdout, contains('--config'));
+        expect(out.stdout, contains('--verbosity'));
       });
 
       test('combining --verbose and --quiet exits 64', () async {
@@ -78,6 +79,43 @@ void main() {
       test('combining -v and -q exits 64', () async {
         final out = await runCli(['-v', '-q', 'get']);
         expect(out.exitCode, 64);
+      });
+
+      test('combining --verbosity and --verbose exits 64', () async {
+        final out = await runCli(['--verbosity=io', '-v', 'get']);
+        expect(out.exitCode, 64);
+        expect(
+          out.stderr,
+          contains('Cannot combine --verbosity with --verbose or --quiet'),
+        );
+      });
+
+      test('combining --verbosity and --quiet exits 64', () async {
+        final out = await runCli(['--verbosity=warning', '-q', 'get']);
+        expect(out.exitCode, 64);
+      });
+
+      test('--verbosity=bogus exits 64', () async {
+        final out = await runCli(['--verbosity=bogus', 'get']);
+        expect(out.exitCode, 64);
+      });
+
+      test('every documented --verbosity value parses', () async {
+        for (final level in const [
+          'error',
+          'warning',
+          'normal',
+          'io',
+          'solver',
+          'all',
+        ]) {
+          final out = await runCli(['--verbosity=$level', '--help']);
+          expect(
+            out.exitCode,
+            0,
+            reason: '--verbosity=$level should be accepted',
+          );
+        }
       });
 
       test('--config does not error on --help', () async {
@@ -143,15 +181,17 @@ void main() {
   });
 
   group('Console (driven by global flags)', () {
-    test('quiet suppresses info and detail but errors still print', () {
+    test('warning level suppresses message and io but warn/error still print',
+        () {
       final out = StringBuffer();
       final err = StringBuffer();
       _runCapturingIo(
         () {
-          const Console(quiet: true, verbose: true).info('hello');
-          const Console(quiet: true, verbose: true).detail('verbose-line');
-          const Console(quiet: true).warn('careful');
-          const Console(quiet: true).error('boom');
+          const c = Console(level: LogLevel.warning);
+          c.message('hello');
+          c.io('cache hit');
+          c.warn('careful');
+          c.error('boom');
         },
         out: out,
         err: err,
@@ -161,10 +201,10 @@ void main() {
       expect(err.toString(), contains('error: boom'));
     });
 
-    test('non-quiet info writes to stdout', () {
+    test('default level writes message to stdout', () {
       final out = StringBuffer();
       _runCapturingIo(
-        () => const Console().info('hello'),
+        () => const Console().message('hello'),
         out: out,
         err: StringBuffer(),
       );

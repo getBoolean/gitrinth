@@ -25,13 +25,13 @@ import '../commands/pin_command.dart';
 import '../commands/remove_command.dart';
 import '../commands/unpin_command.dart';
 import '../commands/upgrade_command.dart';
+import '../service/console.dart';
 import '../version.dart';
 import 'exceptions.dart';
 import 'exit_codes.dart';
 
 class GitrinthRunner extends CommandRunner<int> {
-  bool verbose = false;
-  bool quiet = false;
+  LogLevel level = LogLevel.normal;
   bool? color;
   String? configPath;
   final ProviderContainer container;
@@ -51,18 +51,39 @@ class GitrinthRunner extends CommandRunner<int> {
         valueHelp: 'path',
         help: 'Run as if invoked from <path>.',
       )
+      ..addOption(
+        'verbosity',
+        valueHelp: 'level',
+        allowed: [
+          'error',
+          'warning',
+          'normal',
+          'io',
+          'solver',
+          'all',
+        ],
+        allowedHelp: {
+          'error': 'Errors only.',
+          'warning': 'Errors and warnings.',
+          'normal': 'User-facing messages (default).',
+          'io': 'Adds file writes, downloads, and lockfile ops.',
+          'solver': 'Adds version-resolution steps.',
+          'all': 'Adds internal tracing (stack traces, debug).',
+        },
+        help: 'Set the output verbosity floor.',
+      )
       ..addFlag(
         'verbose',
         abbr: 'v',
         negatable: false,
-        help: 'Emit resolution detail.',
+        help: 'Shorthand for --verbosity=all.',
       )
       ..addFlag(
         'quiet',
         abbr: 'q',
         negatable: false,
-        help: 'Suppress informational output; errors still print. '
-            'Mutually exclusive with --verbose.',
+        help: 'Shorthand for --verbosity=warning. Mutually exclusive '
+            'with --verbose.',
       )
       ..addFlag(
         'color',
@@ -104,26 +125,48 @@ class GitrinthRunner extends CommandRunner<int> {
 
   @override
   Future<int?> runCommand(ArgResults topLevelResults) async {
-    verbose = topLevelResults['verbose'] as bool;
-    quiet = topLevelResults['quiet'] as bool;
+    final verbose = topLevelResults['verbose'] as bool;
+    final quiet = topLevelResults['quiet'] as bool;
+    final verbosityRaw = topLevelResults['verbosity'] as String?;
+
+    if (verbose && quiet) {
+      throw UsageException('Cannot combine --verbose and --quiet.', usage);
+    }
+    if (verbosityRaw != null && (verbose || quiet)) {
+      throw UsageException(
+        'Cannot combine --verbosity with --verbose or --quiet.',
+        usage,
+      );
+    }
+
+    if (verbosityRaw != null) {
+      final parsed = parseLogLevel(verbosityRaw);
+      if (parsed == null) {
+        throw UsageException(
+          'Unknown verbosity level "$verbosityRaw". '
+          'Valid levels: error, warning, normal, io, solver, all.',
+          usage,
+        );
+      }
+      level = parsed;
+    } else if (verbose) {
+      level = LogLevel.all;
+    } else if (quiet) {
+      level = LogLevel.warning;
+    } else {
+      level = LogLevel.normal;
+    }
+
     color = topLevelResults.wasParsed('color')
         ? topLevelResults['color'] as bool
         : null;
     configPath = topLevelResults['config'] as String?;
 
-    if (verbose && quiet) {
-      throw UsageException(
-        'Cannot combine --verbose and --quiet.',
-        usage,
-      );
-    }
-
     container
         .read(runnerSettingsProvider.notifier)
         .set(
           RunnerSettings(
-            verbose: verbose,
-            quiet: quiet,
+            level: level,
             color: color,
             configPath: configPath,
           ),
@@ -174,7 +217,7 @@ Future<int> runGitrinth(
     return exitUsageError;
   } catch (e, stack) {
     stderr.writeln('error: $e');
-    if (runner.verbose) {
+    if (runner.level == LogLevel.all) {
       stderr.writeln(stack);
     }
     return exitUserError;

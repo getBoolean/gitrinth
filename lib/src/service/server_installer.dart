@@ -85,9 +85,9 @@ class ServerInstaller {
           allowManagedJava: allowManagedJava,
           offline: offline,
         );
-        _console.info(
+        _console.io(
           'Installing ${loader.name} $loaderVersion server (this may take '
-          'a minute; pass --verbose to see installer output).',
+          'a minute; pass --verbosity=io to see installer output).',
         );
         final args = <String>[
           '-jar',

@@ -1,6 +1,7 @@
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/offline_flag.dart';
+import '../service/console.dart';
 import 'build_orchestrator.dart';
 
 class BuildCommand extends GitrinthCommand with OfflineFlag {
@@ -88,7 +89,7 @@ class BuildCommand extends GitrinthCommand with OfflineFlag {
         skipDownload: argResults!['skip-download'] as bool,
         noPrune: argResults!['no-prune'] as bool,
         offline: readOfflineFlag(),
-        verbose: gitrinthRunner.verbose,
+        verbose: gitrinthRunner.level.index >= LogLevel.io.index,
         javaPath: argResults!['java'] as String?,
         allowManagedJava: argResults!['managed-java'] as bool,
       ),

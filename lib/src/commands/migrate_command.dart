@@ -309,7 +309,6 @@ Future<int> _runMigrate({
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: command.gitrinthRunner.verbose,
       offline: offline,
       dryRun: dryRun,
       freshSlugs: freshSlugs,
@@ -374,7 +373,7 @@ Future<int> _runMigrate({
       try {
         bareResolved = bareVersionForPin(resolvedRaw);
       } on FormatException {
-        console.info(
+        console.message(
           "skipped '$slug' recovery rewrite — resolved version "
           "'$resolvedRaw' is not semver-shaped.",
         );
@@ -483,17 +482,17 @@ void _printSummary({
   required bool dryRun,
 }) {
   final prefix = dryRun ? '[dry-run] ' : '';
-  console.info('${prefix}Migrated to $target.');
+  console.message('${prefix}Migrated to $target.');
   if (recovered.isNotEmpty) {
-    console.info('${prefix}Recovered:');
+    console.message('${prefix}Recovered:');
     for (final (_, slug) in recovered) {
-      console.info('  - $slug');
+      console.message('  - $slug');
     }
   }
   if (lost.isNotEmpty) {
-    console.info('${prefix}Marked not-found:');
+    console.message('${prefix}Marked not-found:');
     for (final (_, slug) in lost) {
-      console.info('  - $slug');
+      console.message('  - $slug');
     }
   }
 }

@@ -312,9 +312,9 @@ class SolveReporter {
     }
 
     if (reportLines.isNotEmpty) {
-      console.info('Downloading packages...');
+      console.message('Downloading packages...');
       for (final l in reportLines) {
-        console.info(l);
+        console.message(l);
       }
     }
   }
@@ -324,7 +324,7 @@ class SolveReporter {
   /// `N package(s) have newer versions available.` hint when [outdated] > 0.
   void printSummary({required int changeCount, required int outdated}) {
     if (changeCount > 0) {
-      console.info(
+      console.message(
         Intl.plural(
           changeCount,
           one: 'Changed $changeCount dependency!',
@@ -332,10 +332,10 @@ class SolveReporter {
         ),
       );
     } else {
-      console.info('Got dependencies!');
+      console.message('Got dependencies!');
     }
     if (outdated > 0) {
-      console.info(
+      console.message(
         Intl.plural(
           outdated,
           one: '$outdated package has a newer version available.',
@@ -345,17 +345,22 @@ class SolveReporter {
     }
   }
 
-  /// Legacy one-line-per-change format used in `--dry-run` and `-v` verbose
-  /// mode. Prints `mods.lock unchanged.` when [diff] is empty. Gated on
-  /// [verbose] unless [force] is true.
-  void printSimpleDiff(
-    List<LockDiff> diff, {
-    required bool verbose,
-    bool force = false,
-  }) {
-    if (!force && !verbose) return;
+  /// Legacy one-line-per-change format used in `--dry-run` and at
+  /// `--verbosity=io` and above. Prints `mods.lock unchanged.` when
+  /// [diff] is empty. When [force] is true the lines print
+  /// unconditionally (dry-run); otherwise they go through `console.io`
+  /// so the floor decides.
+  void printSimpleDiff(List<LockDiff> diff, {bool force = false}) {
+    void emit(String line) {
+      if (force) {
+        console.message(line);
+      } else {
+        console.io(line);
+      }
+    }
+
     if (diff.isEmpty) {
-      console.info('mods.lock unchanged.');
+      emit('mods.lock unchanged.');
       return;
     }
     for (final d in diff) {
@@ -367,7 +372,7 @@ class SolveReporter {
       };
       final beforeV = d.before?.version ?? d.before?.path ?? '(none)';
       final afterV = d.after?.version ?? d.after?.path ?? '(none)';
-      console.info('$symbol ${d.section.name}/${d.slug}: $beforeV -> $afterV');
+      emit('$symbol ${d.section.name}/${d.slug}: $beforeV -> $afterV');
     }
   }
 }

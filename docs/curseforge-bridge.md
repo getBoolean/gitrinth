@@ -19,7 +19,7 @@ depend on the CF client but can be implemented in parallel; the
 hosted-Modrinth slice can land first and independently.
 
 - [ ] [Fetching mods](#fetching-mods) — CurseForge API client, `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction (scalar or list), default-both resolution, `cf:<slug>` short-form sugar, per-entry and pack-level `modrinth-host:` override.
-- [ ] [`add` command cross-platform behavior](#add-command-cross-platform-behavior) — entry-write matrix and `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags.
+- [ ] [`add` command cross-platform behavior](#add-command-cross-platform-behavior) — entry-write matrix and `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags.
 - [ ] [Cross-platform hash verification](#cross-platform-hash-verification) — SHA1 comparison, older-version scan bounded by `hash-scan-depth`, `allow-hash-mismatch` per-entry override.
 - [ ] [Search fallback](#search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, `no-cross-platform-search` / `--no-search` opt-outs.
 - [ ] [Transitive dependencies and deduplication](#transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
@@ -167,7 +167,7 @@ align:
 |-------------------------------------------------|----------------------------------------|---------------------------------------------------------------------------------------------------|
 | Both resolve, hashes match                      | Short form (`slug: ^x.y.z`)            | silent                                                                                            |
 | Both resolve, scan finds an older matching pair | Short form (`slug: ^x.y.z`)            | prints chosen version and each platform's latest                                                  |
-| Both resolve, scan exhausts without a match     | *(nothing written)*                    | fails with remediations + `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags |
+| Both resolve, scan exhausts without a match     | *(nothing written)*                    | fails with remediations + `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags |
 | Only Modrinth has the mod                       | Long form with `sources: [modrinth]`   | prints one-sided resolution                                                                       |
 | Only CurseForge has the mod                     | Long form with `sources: [curseforge]` | prints one-sided resolution                                                                       |
 | Neither platform has the mod                    | *(nothing written)*                    | fails with not-found error                                                                        |
@@ -182,12 +182,12 @@ visible in the manifest.
 
 | Flag                    | Effect                                                                                      |
 |-------------------------|---------------------------------------------------------------------------------------------|
-| `--modrinth-only`       | Force `sources: [modrinth]` even when CF has the mod.                                       |
-| `--curseforge-only`     | Force `sources: [curseforge]` even when Modrinth has the mod.                               |
+| `--[no-]modrinth`       | Toggle Modrinth resolution. `--no-modrinth` forces `sources: [curseforge]` even when Modrinth has the mod. |
+| `--[no-]curseforge`     | Toggle CurseForge resolution. `--no-curseforge` forces `sources: [modrinth]` even when CF has the mod.     |
 | `--allow-hash-mismatch` | Accept divergent hashes on both platforms; writes `allow-hash-mismatch: true` on the entry. |
 
 `cf:<slug>` short-form sugar (`gitrinth add cf:applied-energistics-2`)
-implies `--curseforge-only` and writes a single-platform entry
+implies `--no-modrinth` and writes a single-platform entry
 without querying Modrinth.
 
 ## Cross-platform hash verification
@@ -663,7 +663,7 @@ Concrete work:
 | `lib/src/service/curseforge_api.dart` | new | Retrofit client mirroring `ModrinthApi` shape |
 | [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart) | exists | Token lookup by host already supported via `tokens: Map<String, String>` |
 | [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart) | exists | Wire new commands |
-| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart) | exists | `cf:` short form, `--modrinth-only` / `--curseforge-only` / `--allow-hash-mismatch` flags |
+| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart) | exists | `cf:` short form, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags |
 | `lib/src/commands/curseforge.dart` | new | Hosts CF-specific subcommands if any survive design |
 | `lib/src/commands/token_command.dart` | new | `token add` / `list` / `remove` (also referenced from [`todo.md`](todo.md#token-command)) |
 | [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml) | exists | Rename `hosted` → `modrinth-host`; add new entry fields; add pack-level `modrinth-host:` |

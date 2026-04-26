@@ -77,8 +77,8 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
     final updated = removeEntry(yamlText, section: foundSection, slug: slug);
 
     if (dryRun) {
-      console.info('Would remove from ${sectionKeyFor(foundSection)}:');
-      console.info(_describeEntry(slug, foundEntry, foundSection));
+      console.message('Would remove from ${sectionKeyFor(foundSection)}:');
+      console.message(_describeEntry(slug, foundEntry, foundSection));
       return exitOk;
     }
 
@@ -97,7 +97,6 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: gitrinthRunner.verbose,
       offline: offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;

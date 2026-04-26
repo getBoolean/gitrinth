@@ -1,8 +1,21 @@
 import 'dart:io';
 
+/// Verbosity floors. Choosing a level prints every category at or below
+/// it: e.g. `io` prints errors, warnings, normal messages, and io. The
+/// total order is `error < warning < normal < io < solver < all`.
+enum LogLevel { error, warning, normal, io, solver, all }
+
+/// Parses a level name produced by `--verbosity=<level>`. Returns `null`
+/// for unknown values; callers raise the user-facing usage error.
+LogLevel? parseLogLevel(String value) {
+  for (final level in LogLevel.values) {
+    if (level.name == value) return level;
+  }
+  return null;
+}
+
 class Console {
-  final bool verbose;
-  final bool quiet;
+  final LogLevel level;
 
   /// When true, [bold]/[red]/[gray] wrap their argument in ANSI escape
   /// codes; when false they pass through. Default is `false` so the
@@ -11,11 +24,7 @@ class Console {
   /// the absence of `NO_COLOR`).
   final bool useAnsi;
 
-  const Console({
-    this.verbose = false,
-    this.quiet = false,
-    this.useAnsi = false,
-  });
+  const Console({this.level = LogLevel.normal, this.useAnsi = false});
 
   /// Returns a [Console] whose [useAnsi] reflects the current process's
   /// stdout terminal state and `NO_COLOR` env var. Pass [colorOverride]
@@ -23,15 +32,13 @@ class Console {
   /// [environment] lets tests inject a fake env. Cannot be const because
   /// the detection itself is a runtime call.
   factory Console.detect({
-    bool verbose = false,
-    bool quiet = false,
+    LogLevel level = LogLevel.normal,
     bool? colorOverride,
     Map<String, String>? environment,
   }) {
     final env = environment ?? Platform.environment;
     return Console(
-      verbose: verbose,
-      quiet: quiet,
+      level: level,
       useAnsi: resolveUseAnsi(colorOverride, env),
     );
   }
@@ -48,24 +55,35 @@ class Console {
     }
   }
 
-  void info(String message) {
-    if (quiet) return;
-    stdout.writeln(message);
-  }
-
-  void detail(String message) {
-    if (quiet) return;
-    if (verbose) {
-      stdout.writeln(message);
-    }
-  }
-
-  void warn(String message) {
-    stderr.writeln('warning: $message');
-  }
+  bool _enabled(LogLevel category) => level.index >= category.index;
 
   void error(String message) {
     stderr.writeln('error: $message');
+  }
+
+  void warn(String message) {
+    if (!_enabled(LogLevel.warning)) return;
+    stderr.writeln('warning: $message');
+  }
+
+  void message(String msg) {
+    if (!_enabled(LogLevel.normal)) return;
+    stdout.writeln(msg);
+  }
+
+  void io(String msg) {
+    if (!_enabled(LogLevel.io)) return;
+    stdout.writeln(msg);
+  }
+
+  void solver(String msg) {
+    if (!_enabled(LogLevel.solver)) return;
+    stdout.writeln(msg);
+  }
+
+  void trace(String msg) {
+    if (!_enabled(LogLevel.all)) return;
+    stdout.writeln(msg);
   }
 
   static const _esc = '\x1b';

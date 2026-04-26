@@ -7,10 +7,13 @@ import 'package:test/test.dart';
 
 class _CaptureConsole extends Console {
   final List<String> lines = [];
-  _CaptureConsole() : super(verbose: false);
+  _CaptureConsole() : super(level: LogLevel.io);
 
   @override
-  void info(String message) => lines.add(message);
+  void message(String msg) => lines.add(msg);
+
+  @override
+  void io(String msg) => lines.add(msg);
 }
 
 LockedEntry _modrinth(

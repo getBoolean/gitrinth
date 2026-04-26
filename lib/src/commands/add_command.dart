@@ -302,8 +302,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     );
 
     if (dryRun) {
-      console.info('Would add to ${sectionKeyFor(section)}:');
-      console.info(
+      console.message('Would add to ${sectionKeyFor(section)}:');
+      console.message(
         _describeEntry(
           slug: slug,
           shorthand: longForm == null ? writtenValue : null,
@@ -328,7 +328,6 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: gitrinthRunner.verbose,
       offline: offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;

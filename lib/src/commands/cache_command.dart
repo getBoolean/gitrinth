@@ -93,7 +93,7 @@ class CacheCleanCommand extends GitrinthCommand {
     final inspector = CacheInspector(cache);
 
     if (!Directory(cache.root).existsSync()) {
-      console.info('Cache is already empty (no cache root at ${cache.root}).');
+      console.message('Cache is already empty (no cache root at ${cache.root}).');
       return exitOk;
     }
 
@@ -115,13 +115,13 @@ class CacheCleanCommand extends GitrinthCommand {
       );
       final answer = (stdin.readLineSync() ?? '').trim().toLowerCase();
       if (answer != 'y' && answer != 'yes') {
-        console.info('Aborted.');
+        console.message('Aborted.');
         return exitOk;
       }
     }
 
     final freed = await inspector.wipe();
-    console.info(
+    console.message(
       'Cleared ${artifacts.length} '
       '${artifacts.length == 1 ? "artifact" : "artifacts"} '
       '(${_formatBytes(freed)}) from ${cache.root}.',
@@ -154,7 +154,7 @@ class CacheRepairCommand extends GitrinthCommand {
     final inspector = CacheInspector(cache);
 
     if (!Directory(cache.root).existsSync()) {
-      console.info('Cache is empty; nothing to repair.');
+      console.message('Cache is empty; nothing to repair.');
       return exitOk;
     }
 
@@ -167,7 +167,7 @@ class CacheRepairCommand extends GitrinthCommand {
       if (outcome.skippedOrphans.isNotEmpty)
         '${outcome.skippedOrphans.length} skipped',
     ];
-    console.info('Cache repair: ${parts.join(", ")}.');
+    console.message('Cache repair: ${parts.join(", ")}.');
     return exitOk;
   }
 }

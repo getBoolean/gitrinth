@@ -87,7 +87,6 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       downloader: downloader,
       loaderResolver: loaderResolver,
-      verbose: gitrinthRunner.verbose,
       offline: offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
@@ -144,7 +143,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
         projectDir: io.directory.path,
         publishable: publishable,
       );
-      console.info(_serverInstallerHint);
+      console.message(_serverInstallerHint);
     }
 
     if (!publishable && allOverridesForWarning.hasModOverrides) {
@@ -198,7 +197,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
     );
 
     for (final o in overrides.entries) {
-      console.info(
+      console.message(
         '~ ${o.slug}: ${o.sourceKind} source — packed into ${o.zipPath}',
       );
     }
@@ -218,7 +217,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       PackTarget.server => 'server',
       PackTarget.combined => 'combined',
     };
-    console.info(
+    console.message(
       'Wrote $label pack: $outputPath '
       '(${index.files.length} files, $modCount mods, '
       '$overrideCount override${overrideCount == 1 ? '' : 's'}).',
@@ -270,6 +269,6 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       buf.writeln('  - ${o.slug} (${o.sourceKind})');
     }
     buf.write('See: $_permissionsArticle');
-    console.info(buf.toString());
+    console.message(buf.toString());
   }
 }

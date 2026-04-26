@@ -119,7 +119,7 @@ class JavaRuntimeFetcher {
         dir.deleteSync(recursive: true);
       }
 
-      _console.info(
+      _console.io(
         'Downloading Temurin $feature (~190 MB) to ${dir.path}; '
         'one-time per JDK feature version.',
       );
@@ -229,7 +229,7 @@ class JavaRuntimeFetcher {
         archiveFile.deleteSync();
       } catch (_) {}
 
-      _console.info('Installed Temurin ${meta.fullVersion} to ${dir.path}.');
+      _console.io('Installed Temurin ${meta.fullVersion} to ${dir.path}.');
       return java;
     } finally {
       try {

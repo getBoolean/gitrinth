@@ -153,12 +153,12 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
               .firstWhere((e) => e.key.$2 == slug)
               .value
               .constraintRaw;
-          console.info(
+          console.message(
             "skipping '$slug' — still marked ${raw?.trim()} on the "
             'current target.',
           );
         } else {
-          console.detail(
+          console.io(
             "skipping '$slug' — non-Modrinth source has no version to upgrade.",
           );
         }
@@ -212,7 +212,6 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
           cache: cache,
           downloader: downloader,
           loaderResolver: loaderResolver,
-          verbose: gitrinthRunner.verbose,
           offline: offline,
           dryRun: dryRun,
           freshSlugs: freshSlugs,
@@ -260,7 +259,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     if (dryRun) {
       if (disabledByConflict.isNotEmpty) {
         final names = disabledByConflict.map((s) => s.$2).toList()..sort();
-        console.info(
+        console.message(
           '[dry-run] would disable ${names.length} mod(s) due to '
           'dependency conflict: ${names.join(", ")}',
         );
@@ -294,7 +293,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
           newVersion: '^$bareResolved',
         );
         rewrites++;
-        console.info('$slug: $priorMarker → ^$bareResolved in mods.yaml');
+        console.message('$slug: $priorMarker → ^$bareResolved in mods.yaml');
       }
       if (rewrites > 0) io.writeModsYaml(yamlText);
     }
