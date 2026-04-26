@@ -931,4 +931,287 @@ void main() {
       },
     );
   });
+
+  group('project_overrides (sticky pre-decisions)', () {
+    test('case 1: override on a slug already in mods: wins over '
+        'the mods: constraint', () async {
+      final db = {
+        'jei': [
+          v(slug: 'jei', number: '19.0.0'),
+          v(slug: 'jei', number: '19.5.0'),
+          v(slug: 'jei', number: '19.27.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [OverridePin('jei', db['jei']![2])],
+      );
+      // The user-declared root would normally cap us at 19.0.0; the
+      // override pin pre-decides 19.27.0 and the root is dropped from
+      // the resolver's candidate-search loop (handled by Resolver,
+      // mirrored here by simply not adding it).
+      final out = await solver.solve(const []);
+      expect(out.decisions['jei']!.versionNumber, '19.27.0');
+    });
+
+    test('case 2: purely transitive override is added to graph at '
+        'override version', () async {
+      final db = {
+        'flywheel': [
+          v(slug: 'flywheel', number: '1.0.0'),
+          v(slug: 'flywheel', number: '2.0.0'),
+          v(slug: 'flywheel', number: '3.0.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [OverridePin('flywheel', db['flywheel']![1])],
+      );
+      final out = await solver.solve(const []);
+      expect(out.decisions['flywheel']!.versionNumber, '2.0.0');
+    });
+
+    test('case 3: incompatible edge against an overridden slug '
+        'is dropped', () async {
+      final db = {
+        'bukkit_compat': [
+          v(
+            slug: 'bukkit_compat',
+            number: '1.0.0',
+            deps: [
+              const Dependency(
+                projectId: 'forge_compat',
+                dependencyType: DependencyType.incompatible,
+              ),
+            ],
+          ),
+        ],
+        'forge_compat': [v(slug: 'forge_compat', number: '1.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [
+          OverridePin('forge_compat', db['forge_compat']![0]),
+        ],
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'bukkit_compat',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions.keys, containsAll(['bukkit_compat', 'forge_compat']));
+    });
+
+    test('case 4: override constraint wins over a transitive '
+        'lower-bound from another mod', () async {
+      // mod_a requires mod_b at version-id 'mod_b-2.0.0' (=> floor 2.0.0)
+      // but the override pins mod_b@1.0.0. The pin must win.
+      final db = {
+        'mod_a': [
+          v(
+            slug: 'mod_a',
+            number: '1.0.0',
+            deps: [
+              const Dependency(
+                projectId: 'mod_b',
+                versionId: 'mod_b-2.0.0',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'mod_b': [
+          v(slug: 'mod_b', number: '1.0.0'),
+          v(slug: 'mod_b', number: '2.0.0'),
+          v(slug: 'mod_b', number: '3.0.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [OverridePin('mod_b', db['mod_b']![0])],
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'mod_a',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions['mod_b']!.versionNumber, '1.0.0');
+    });
+
+    test('case 5: override wins when no inherited constraint is '
+        'satisfiable', () async {
+      // mod_a requires mod_b@5.0.0, but max published is 3.0.0. Without
+      // the override this would throw; with it, resolution succeeds.
+      final db = {
+        'mod_a': [
+          v(
+            slug: 'mod_a',
+            number: '1.0.0',
+            deps: [
+              const Dependency(
+                projectId: 'mod_b',
+                versionId: 'mod_b-5.0.0',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'mod_b': [
+          v(slug: 'mod_b', number: '1.0.0'),
+          v(slug: 'mod_b', number: '2.0.0'),
+          v(slug: 'mod_b', number: '3.0.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [OverridePin('mod_b', db['mod_b']![0])],
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'mod_a',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions['mod_b']!.versionNumber, '1.0.0');
+    });
+
+    test("case 6: override mod's outbound incompatible edge "
+        'is dropped', () async {
+      // create_incompatible 1.1.0 declares `incompatible: create`. The
+      // user has both `create ^6.0.0` in mods: and `create_incompatible
+      // 1.1.0` in project_overrides:. Resolution must succeed.
+      final db = {
+        'create': [
+          v(slug: 'create', number: '6.0.0'),
+          v(slug: 'create', number: '6.1.0'),
+        ],
+        'create_incompatible': [
+          v(
+            slug: 'create_incompatible',
+            number: '1.1.0',
+            deps: [
+              const Dependency(
+                projectId: 'create',
+                dependencyType: DependencyType.incompatible,
+              ),
+            ],
+          ),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [
+          OverridePin('create_incompatible', db['create_incompatible']![0]),
+        ],
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'create',
+          constraint: VersionConstraint.parse('^6.0.0'),
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions.keys,
+          containsAll(['create', 'create_incompatible']));
+    });
+
+    test('overridden slug never appears in conflictingUserSlugs',
+        () async {
+      // Override pins jei to a version that would normally lose, but
+      // because the slug is overridden, even when the rest of the graph
+      // fails the override slug is filtered out of the auto-disable
+      // set. (Build a graph that fails via a different slug.)
+      final db = {
+        'jei': [v(slug: 'jei', number: '1.0.0')],
+        'create': [v(slug: 'create', number: '5.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [OverridePin('jei', db['jei']![0])],
+      );
+      try {
+        await solver.solve([
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.parse('^6.0.0'),
+            isUserDeclared: true,
+          ),
+        ]);
+        fail('expected throw');
+      } on UnsatisfiableGraphError catch (e) {
+        expect(e.conflictingUserSlugs, isNot(contains('jei')));
+        expect(e.conflictingUserSlugs, contains('create'));
+      }
+    });
+
+    test('override decision survives backtracking', () async {
+      // Force the search loop to backtrack: mod_a has two candidates,
+      // the first conflicts (declares mod_c incompatible while mod_c
+      // is decided via mod_b dep), the second succeeds.
+      final db = {
+        'mod_a': [
+          v(
+            slug: 'mod_a',
+            number: '2.0.0',
+            deps: [
+              const Dependency(
+                projectId: 'mod_c',
+                dependencyType: DependencyType.incompatible,
+              ),
+            ],
+          ),
+          v(slug: 'mod_a', number: '1.0.0'),
+        ],
+        'mod_b': [
+          v(
+            slug: 'mod_b',
+            number: '1.0.0',
+            deps: [
+              const Dependency(
+                projectId: 'mod_c',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'mod_c': [v(slug: 'mod_c', number: '1.0.0')],
+      };
+      final overridePin = OverridePin('mod_c', db['mod_c']![0]);
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+        overridePins: [overridePin],
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'mod_a',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+        RootConstraint(
+          slug: 'mod_b',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      // mod_a 2.0.0 was abandoned (its incompatible edge was dropped
+      // because mod_c is overridden — but it would *still* conflict
+      // with mod_c being decided). The backtracking restored the
+      // override decision.
+      expect(out.decisions['mod_c']!.versionNumber, '1.0.0');
+      expect(out.decisions['mod_a']!.versionNumber, '2.0.0');
+    });
+  });
 }

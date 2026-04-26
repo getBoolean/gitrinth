@@ -12,6 +12,7 @@ import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
 import '../service/cache.dart';
+import '../service/conflict_disable.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth_api.dart';
 import '../service/resolve_and_sync.dart';
@@ -199,25 +200,71 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
-    final result = await resolveAndSync(
-      io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
-      verbose: gitrinthRunner.verbose,
-      offline: offline,
-      dryRun: dryRun,
-      freshSlugs: targets,
-      relaxConstraints: relaxSet,
-      manifestOverride: manifestForResolve,
-    );
+    Future<ResolveSyncResult> doResolve({
+      required ModsYaml? manifestForResolve,
+      required Set<String> freshSlugs,
+      required Set<String> relaxConstraints,
+    }) =>
+        resolveAndSync(
+          io: io,
+          console: console,
+          api: api,
+          cache: cache,
+          downloader: downloader,
+          loaderResolver: loaderResolver,
+          verbose: gitrinthRunner.verbose,
+          offline: offline,
+          dryRun: dryRun,
+          freshSlugs: freshSlugs,
+          relaxConstraints: relaxConstraints,
+          manifestOverride: manifestForResolve,
+        );
+
+    final ResolveSyncResult result;
+    final Set<(Section, String)> disabledByConflict;
+    if (majorVersions) {
+      // --major-versions gains the same auto-disable retry path migrate
+      // uses. Plain `upgrade` keeps current single-pass behavior — an
+      // UnsatisfiableGraphError propagates verbatim to the runner.
+      final outcome = await resolveWithConflictAutoDisable(
+        manifest: manifest,
+        resolutionManifest: manifestForResolve ?? manifest,
+        targets: targets,
+        relaxSet: relaxSet,
+        console: console,
+        resolve: ({
+          required manifestForResolve,
+          required freshSlugs,
+          required relaxConstraints,
+        }) =>
+            doResolve(
+          manifestForResolve: manifestForResolve,
+          freshSlugs: freshSlugs,
+          relaxConstraints: relaxConstraints,
+        ),
+      );
+      result = outcome.result;
+      disabledByConflict = outcome.disabledByConflict;
+    } else {
+      result = await doResolve(
+        manifestForResolve: manifestForResolve,
+        freshSlugs: targets,
+        relaxConstraints: relaxSet,
+      );
+      disabledByConflict = const {};
+    }
 
     if (result.exitCode != exitOk) {
       return result.exitCode;
     }
     if (dryRun) {
+      if (disabledByConflict.isNotEmpty) {
+        final names = disabledByConflict.map((s) => s.$2).toList()..sort();
+        console.info(
+          '[dry-run] would disable ${names.length} mod(s) due to '
+          'dependency conflict: ${names.join(", ")}',
+        );
+      }
       return exitOk;
     }
 
@@ -250,6 +297,22 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         console.info('$slug: $priorMarker → ^$bareResolved in mods.yaml');
       }
       if (rewrites > 0) io.writeModsYaml(yamlText);
+    }
+
+    // Persist the auto-disable markers from the conflict-retry path
+    // (only reachable under --major-versions). Mirrors migrate's
+    // marker-rewrite loop.
+    if (disabledByConflict.isNotEmpty) {
+      var yamlText = File(io.modsYamlPath).readAsStringSync();
+      for (final (section, slug) in disabledByConflict) {
+        yamlText = setEntryVersion(
+          yamlText,
+          section: section,
+          slug: slug,
+          newVersion: disabledByConflictMarker,
+        );
+      }
+      io.writeModsYaml(yamlText);
     }
 
     if ((majorVersions || tighten) && result.newLock != null) {

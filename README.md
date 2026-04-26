@@ -195,6 +195,21 @@ mods:
   conflicting_mod_b: gitrinth:disabled-by-conflict
 ```
 
+#### Project Overrides
+
+Bypass a mod's declared incompatibilities or version constraints
+using project overrides on the dependency. This is an advanced feature that may cause instability if used incorrectly, so use with caution.
+
+```yaml
+mods:
+  create: ^6.0.0
+
+project_overrides:
+  # It declares Create is incompatible with itself.
+  # Put in overrides to bypass it
+  create_incompatible: 1.1.0
+```
+
 ## Contributing
 
 ### Regenerating templates and generated code

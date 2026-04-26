@@ -15,6 +15,7 @@ import '../commands/create_command.dart';
 import '../commands/get_command.dart';
 import '../commands/launch_command.dart';
 import '../commands/migrate_command.dart';
+import '../commands/override_command.dart';
 import '../commands/pack_command.dart';
 import '../commands/pin_command.dart';
 import '../commands/remove_command.dart';
@@ -55,6 +56,7 @@ class GitrinthRunner extends CommandRunner<int> {
     addCommand(UpgradeCommand());
     addCommand(AddCommand());
     addCommand(RemoveCommand());
+    addCommand(OverrideCommand());
     addCommand(PinCommand());
     addCommand(UnpinCommand());
     addCommand(BuildCommand());

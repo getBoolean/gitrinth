@@ -754,24 +754,74 @@ mods:
     });
   });
 
-  group('parseModsOverrides', () {
-    test('empty file returns empty overrides', () {
-      final o = parseModsOverrides('', filePath: 'mods_overrides.yaml');
-      expect(o.overrides, isEmpty);
+  group('parseProjectOverrides', () {
+    test('empty file returns empty entries', () {
+      final o =
+          parseProjectOverrides('', filePath: 'project_overrides.yaml');
+      expect(o.entries, isEmpty);
     });
 
-    test('parses overrides map with version/path/url forms', () {
+    test('parses project_overrides map with version/path/url forms', () {
       final yaml = '''
-overrides:
+project_overrides:
   jei:
     version: 19.27.0.340
   create:
     path: ./mods/create.jar
 ''';
-      final o = parseModsOverrides(yaml, filePath: 'mods_overrides.yaml');
-      expect(o.overrides.keys, containsAll(['jei', 'create']));
-      expect(o.overrides['jei']!.constraintRaw, '19.27.0.340');
-      expect(o.overrides['create']!.source, isA<PathEntrySource>());
+      final o = parseProjectOverrides(
+        yaml,
+        filePath: 'project_overrides.yaml',
+      );
+      expect(o.entries.keys, containsAll(['jei', 'create']));
+      expect(o.entries['jei']!.constraintRaw, '19.27.0.340');
+      expect(o.entries['create']!.source, isA<PathEntrySource>());
+    });
+
+    test('rejects deprecated overrides: key in standalone file', () {
+      final yaml = '''
+overrides:
+  jei:
+    version: 19.27.0.340
+''';
+      expect(
+        () => parseProjectOverrides(
+          yaml,
+          filePath: 'project_overrides.yaml',
+        ),
+        throwsA(
+          predicate(
+            (e) =>
+                e.toString().contains("'overrides:' was renamed") &&
+                e.toString().contains('project_overrides:'),
+          ),
+        ),
+      );
+    });
+
+    test('rejects deprecated overrides: key in mods.yaml', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc-version: 1.21.1
+overrides:
+  jei:
+    version: 19.27.0.340
+''';
+      expect(
+        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(
+          predicate(
+            (e) =>
+                e.toString().contains("'overrides:' was renamed") &&
+                e.toString().contains('project_overrides:'),
+          ),
+        ),
+      );
     });
   });
 

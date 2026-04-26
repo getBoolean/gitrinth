@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://gitrinth.dev/schemas/project-overrides.schema.yaml
+title: project_overrides.yaml
+description: |
+  Companion to mods.yaml holding overrides for individual Modrinth
+  project entries declared in `mods`, `resource_packs`, `data_packs`,
+  `shaders`, or `plugins`, and for purely-transitive Modrinth project
+  dependencies. Entries here win over mods.yaml's `project_overrides`
+  section on key conflicts; non-conflicting keys from both sources are
+  unioned.
+
+type: object
+additionalProperties: false
+properties:
+  project_overrides:
+    description: |
+      Map of Modrinth project slug to mod dependency (short or long
+      form). Pins a version, flips per-side install state, or
+      redirects an entry to an alternate source (`hosted`, `url`,
+      `path`). An entry here forces its version to be used regardless
+      of other mods' constraints or `incompatible:` declarations.
+      Same shape as `project_overrides` in mods.yaml.
+    oneOf:
+      - type: "null"
+      - $ref: https://gitrinth.dev/schemas/mods.schema.yaml#/$defs/modMap

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -8,64 +7,75 @@ import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
-import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
-import '../model/modrinth/dependency.dart';
 import '../model/modrinth/project.dart';
-import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
-import '../service/cache.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/section_inference.dart';
 import '../service/solve_report.dart';
 import 'add_command_editor.dart';
+import 'override_command_editor.dart';
 import 'slug_constraint_parser.dart';
 import 'version_picker.dart';
 
-class AddCommand extends GitrinthCommand with OfflineFlag {
+/// `gitrinth override <slug>[@<constraint>] [--standalone]`
+///
+/// Adds a sticky override entry to `mods.yaml`'s `project_overrides:`
+/// section, or — with `--standalone` — to the companion
+/// `project_overrides.yaml` file.
+///
+/// Override semantics differ from `add`: the resolver pins the chosen
+/// version regardless of constraints from other mods on the slug, and
+/// silently drops `incompatible:` edges that touch the slug in either
+/// direction. This is the right tool when a `gitrinth:disabled-by-conflict`
+/// marker has parked a mod you want in the pack despite a declared
+/// incompatibility — `override` bypasses the same checks `add` enforces
+/// (including the incompatibility-prevention guard).
+class OverrideCommand extends GitrinthCommand with OfflineFlag {
   @override
-  String get name => 'add';
+  String get name => 'override';
 
   @override
-  String get description => 'Add an entry to `mods.yaml`.';
+  String get description =>
+      'Add a sticky override to project_overrides in `mods.yaml`.';
 
   @override
-  String get invocation => 'gitrinth add <slug>[@<constraint>] [arguments]';
+  String get invocation =>
+      'gitrinth override <slug>[@<constraint>] [arguments]';
 
-  AddCommand() {
+  OverrideCommand() {
     argParser
       ..addOption(
         'env',
         allowed: ['client', 'server', 'both'],
         valueHelp: 'client|server|both',
-        help: 'Restrict the entry to a side.',
+        help: 'Restrict the override to a side.',
       )
       ..addOption(
         'url',
         valueHelp: 'url',
-        help:
-            'Use a url: source. Marks the pack non-publishable when added '
-            'to mods.',
+        help: 'Use a url: source for the override.',
       )
       ..addOption(
         'path',
         valueHelp: 'path',
-        help:
-            'Use a path: source. Marks the pack non-publishable when added '
-            'to mods.',
+        help: 'Use a path: source for the override.',
       )
-      ..addFlag(
-        'dry-run',
-        negatable: false,
-        help: "Report what entries would change but don't change any.",
+      ..addOption(
+        'type',
+        allowed: typeFlagValues,
+        help:
+            'Force the section used for loader filtering. Useful when '
+            'the slug is purely transitive and section inference is '
+            'wrong.',
       )
       ..addMultiOption(
         'accepts-mc',
         valueHelp: 'mc-version',
         help:
-            'Additively widen the Minecraft version filter for this entry. '
-            'Repeatable.',
+            'Additively widen the Minecraft version filter for this '
+            'override. Repeatable.',
       )
       ..addFlag(
         'exact',
@@ -79,12 +89,20 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
         negatable: false,
         help:
             'Write the resolved version as a bare semver, freezing the '
-            'entry in place.',
+            'override in place.',
       )
-      ..addOption(
-        'type',
-        allowed: typeFlagValues,
-        help: 'Override the inferred section.',
+      ..addFlag(
+        'standalone',
+        negatable: false,
+        help:
+            'Write the override to project_overrides.yaml instead of '
+            "mods.yaml's project_overrides: section. Creates the file "
+            'if it does not exist.',
+      )
+      ..addFlag(
+        'dry-run',
+        negatable: false,
+        help: "Report what would change but don't write or resolve.",
       );
     addOfflineFlag();
   }
@@ -94,7 +112,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     final rest = argResults!.rest;
     if (rest.isEmpty) {
       throw const UsageError(
-        'add requires a slug: gitrinth add <slug>[@<constraint>]',
+        'override requires a slug: gitrinth override '
+        '<slug>[@<constraint>]',
       );
     }
     if (rest.length > 1) {
@@ -110,6 +129,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     final dryRun = argResults!['dry-run'] as bool;
     final exactFlag = argResults!['exact'] as bool;
     final pinFlag = argResults!['pin'] as bool;
+    final standalone = argResults!['standalone'] as bool;
     final offline = readOfflineFlag();
     final typeOverride = sectionFromTypeFlag(argResults!['type'] as String?);
     final acceptsMc = _parseAcceptsMcFlag(
@@ -120,13 +140,13 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     }
     if (acceptsMc.isNotEmpty && (urlOpt != null || pathOpt != null)) {
       throw const UsageError(
-        '--accepts-mc applies to Modrinth-sourced entries; cannot combine '
-        'with --url or --path.',
+        '--accepts-mc applies to Modrinth-sourced overrides; cannot '
+        'combine with --url or --path.',
       );
     }
     if (exactFlag && (urlOpt != null || pathOpt != null)) {
       throw const UsageError(
-        '--exact applies to Modrinth-sourced entries; cannot combine '
+        '--exact applies to Modrinth-sourced overrides; cannot combine '
         'with --url or --path.',
       );
     }
@@ -135,8 +155,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     }
     if (pinFlag && (urlOpt != null || pathOpt != null)) {
       throw const UsageError(
-        '--pin applies to Modrinth-sourced entries; cannot combine with '
-        '--url or --path.',
+        '--pin applies to Modrinth-sourced overrides; cannot combine '
+        'with --url or --path.',
       );
     }
 
@@ -156,15 +176,22 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
 
     final io = ManifestIo();
     final existingManifest = io.readModsYaml();
+    final existingStandalone = io.readProjectOverrides();
 
-    // Duplicate check — scan every section. `dart pub add` rejects adds for
-    // already-declared packages; we mirror that.
-    for (final section in Section.values) {
-      if (existingManifest.sectionEntries(section).containsKey(slug)) {
+    // Duplicate check — refuse if the slug is already overridden in
+    // the target file.
+    if (standalone) {
+      if (existingStandalone.entries.containsKey(slug)) {
         throw UserError(
-          "'$slug' is already in mods.yaml under "
-          "'${sectionKeyFor(section)}'. "
-          'Edit the entry directly or remove it first.',
+          "'$slug' is already in project_overrides.yaml; remove it or "
+          'edit directly.',
+        );
+      }
+    } else {
+      if (existingManifest.projectOverrides.containsKey(slug)) {
+        throw UserError(
+          "'$slug' is already in project_overrides in mods.yaml; "
+          'remove it or edit directly.',
         );
       }
     }
@@ -174,11 +201,15 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     final Map<String, Object?>? longForm;
 
     if (urlOpt != null || pathOpt != null) {
-      // Local / url: source — no Modrinth round-trip.
+      // Local / url: source — no Modrinth round-trip and no version
+      // promotion. The resolver doesn't see this override; the lock
+      // builder routes it through the url/path branches.
       final filename = urlOpt ?? pathOpt!;
       if (typeOverride != null) {
         section = typeOverride;
       } else {
+        // Section is only used for the warn/info message in this
+        // branch — no listVersions call follows.
         final inferred = inferSectionFromFilename(filename);
         if (inferred == null) {
           throw ValidationError(
@@ -189,7 +220,6 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
         }
         section = inferred;
       }
-
       final long = <String, Object?>{};
       if (urlOpt != null) long['url'] = urlOpt;
       if (pathOpt != null) long['path'] = pathOpt;
@@ -197,20 +227,36 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       longForm = long;
       writtenValue = null;
     } else {
-      // Modrinth source.
-      final api = read(modrinthApiProvider);
-      final Project project;
-      try {
-        project = await api.getProject(slug);
-      } on DioException catch (e) {
-        final err = e.error;
-        if (err is GitrinthException) throw err;
-        rethrow;
+      // Modrinth source. Determine the section for loader filtering:
+      //   1. If the slug is in mods.yaml's mods/resource_packs/etc.,
+      //      use that section (purely-transitive overrides excluded).
+      //   2. Else query Modrinth for the project type.
+      //   3. --type wins if set.
+      Section? declaredSection;
+      for (final s in Section.values) {
+        if (existingManifest.sectionEntries(s).containsKey(slug)) {
+          declaredSection = s;
+          break;
+        }
       }
-      final inferredSection = inferSectionFromProject(
-        projectType: project.projectType,
-        loaders: project.loaders,
-      );
+      final api = read(modrinthApiProvider);
+      final Section inferredSection;
+      Project? project;
+      if (declaredSection != null) {
+        inferredSection = declaredSection;
+      } else {
+        try {
+          project = await api.getProject(slug);
+        } on DioException catch (e) {
+          final err = e.error;
+          if (err is GitrinthException) throw err;
+          rethrow;
+        }
+        inferredSection = inferSectionFromProject(
+          projectType: project.projectType,
+          loaders: project.loaders,
+        );
+      }
       if (typeOverride != null && typeOverride != inferredSection) {
         console.warn(
           "--type ${sectionKeyFor(typeOverride)} overrides the inferred "
@@ -221,9 +267,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
         section = inferredSection;
       }
 
-      // Resolve a default constraint (caret-pin the newest release's
-      // major.minor.patch, dropping build metadata) when the user didn't
-      // pass one. `--exact` keeps the full resolved version inside the caret.
+      // Version resolution (mirrors `add`'s no-`@constraint` path).
       final String effectiveConstraint;
       if (constraintRaw == null) {
         final latest = await pickLatestReleaseVersion(
@@ -245,31 +289,19 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
             'Pass `@<version>` explicitly to pin an alpha/beta.',
           );
         }
-        await _validateNoIncompatibility(
-          io: io,
-          cache: read(cacheProvider),
-          existingManifest: existingManifest,
-          newSlug: slug,
-          newProjectId: project.id,
-          pickedVersion: latest,
-        );
         if (exactFlag) {
           effectiveConstraint = '^${latest.versionNumber}';
         } else if (pinFlag) {
           effectiveConstraint = bareVersionForPin(latest.versionNumber);
         } else {
-          // Default: caret on major.minor.patch. If Modrinth's version
-          // isn't semver-shaped (some mods use arbitrary strings),
-          // carets are meaningless — fall back to pinning the raw
-          // version verbatim.
           effectiveConstraint = caretOrPinFallback(latest.versionNumber);
         }
       } else {
-        // Validate the user-supplied constraint so a bad `@xyz` fails fast
-        // with a single-line error before we touch mods.yaml.
+        // Validate the user-supplied constraint so a bad `@xyz` fails
+        // fast with a single-line error before we touch any file.
         final channel = parseChannelToken(constraintRaw);
         if (channel == null) {
-          parseConstraint(constraintRaw); // throws ValidationError on bad input
+          parseConstraint(constraintRaw); // throws ValidationError
         }
         effectiveConstraint = constraintRaw;
       }
@@ -280,9 +312,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
         final long = <String, Object?>{'version': effectiveConstraint};
         _writeSideFields(long, envOpt);
         if (acceptsMc.isNotEmpty) {
-          long['accepts-mc'] = acceptsMc.length == 1
-              ? acceptsMc.first
-              : acceptsMc;
+          long['accepts-mc'] =
+              acceptsMc.length == 1 ? acceptsMc.first : acceptsMc;
         }
         longForm = long;
         writtenValue = null;
@@ -292,17 +323,34 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       }
     }
 
-    final yamlText = File(io.modsYamlPath).readAsStringSync();
-    final updated = injectEntry(
-      yamlText,
-      section: section,
-      slug: slug,
-      shorthandValue: longForm == null ? writtenValue : null,
-      longForm: longForm,
-    );
+    final String updated;
+    if (standalone) {
+      final existingText = File(io.projectOverridesPath).existsSync()
+          ? File(io.projectOverridesPath).readAsStringSync()
+          : '';
+      updated = injectStandaloneOverrideEntry(
+        existingText,
+        slug: slug,
+        shorthandValue: longForm == null ? writtenValue : null,
+        longForm: longForm,
+      );
+    } else {
+      final yamlText = File(io.modsYamlPath).readAsStringSync();
+      updated = injectOverrideEntry(
+        yamlText,
+        slug: slug,
+        shorthandValue: longForm == null ? writtenValue : null,
+        longForm: longForm,
+      );
+    }
 
     if (dryRun) {
-      console.info('Would add to ${sectionKeyFor(section)}:');
+      final destFile =
+          standalone ? 'project_overrides.yaml' : 'mods.yaml';
+      console.info(
+        'Would add to project_overrides in $destFile (section: '
+        '${sectionKeyFor(section)}):',
+      );
       console.info(
         _describeEntry(
           slug: slug,
@@ -313,7 +361,11 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       return exitOk;
     }
 
-    io.writeModsYaml(updated);
+    if (standalone) {
+      io.writeProjectOverrides(updated);
+    } else {
+      io.writeModsYaml(updated);
+    }
 
     final api = read(modrinthApiProvider);
     final cache = read(cacheProvider);
@@ -338,16 +390,13 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     );
     if (offline) {
       console.warn(
-        'Entries added when offline may not resolve to the latest '
+        'Overrides applied when offline may not resolve to the latest '
         'compatible version available.',
       );
     }
     return exitOk;
   }
 
-  // Same permissive pattern the YAML parser uses for accepts-mc.
-  // Accepts releases, pre/rc, and snapshots; Modrinth validates the
-  // actual tag server-side.
   static final _acceptsMcPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._+-]*$');
 
   List<String> _parseAcceptsMcFlag(List<String> raw) {
@@ -358,8 +407,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       if (trimmed.isEmpty) continue;
       if (!_acceptsMcPattern.hasMatch(trimmed)) {
         throw UserError(
-          '--accepts-mc "$trimmed" is not a valid Minecraft version tag '
-          '(expected forms like "1.21", "1.20.1", "24w10a", or '
+          '--accepts-mc "$trimmed" is not a valid Minecraft version '
+          'tag (expected forms like "1.21", "1.20.1", "24w10a", or '
           '"1.21-pre1").',
         );
       }
@@ -368,83 +417,15 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     return out;
   }
 
-  Future<void> _validateNoIncompatibility({
-    required ManifestIo io,
-    required GitrinthCache cache,
-    required ModsYaml existingManifest,
-    required String newSlug,
-    required String newProjectId,
-    required modrinth.Version pickedVersion,
-  }) async {
-    final lock = io.readModsLock();
-    final pidToSlug = <String, String>{
-      if (lock != null)
-        for (final entry in lock.allEntries)
-          if (entry.value.projectId != null) entry.value.projectId!: entry.key,
-    };
-    final declaredSlugs = <String>{
-      for (final s in Section.values) ...existingManifest.sectionEntries(s).keys,
-    };
-
-    for (final dep in pickedVersion.dependencies) {
-      if (dep.dependencyType != DependencyType.incompatible) continue;
-      final pid = dep.projectId;
-      if (pid == null) continue;
-      final otherSlug = pidToSlug[pid];
-      if (otherSlug != null && declaredSlugs.contains(otherSlug)) {
-        throw UserError(
-          "Cannot add '$newSlug' — its picked version "
-          "${pickedVersion.versionNumber} declares '$otherSlug' as "
-          'incompatible. Pin an older compatible version with '
-          "`gitrinth add $newSlug@<version>`, or remove '$otherSlug' first.",
-        );
-      }
+  void _writeSideFields(Map<String, Object?> long, String? envOpt) {
+    if (envOpt == null || envOpt == 'both') return;
+    if (envOpt == 'client') {
+      long['client'] = 'required';
+      long['server'] = 'unsupported';
+    } else if (envOpt == 'server') {
+      long['client'] = 'unsupported';
+      long['server'] = 'required';
     }
-
-    if (lock == null) return;
-    for (final entry in lock.allEntries) {
-      final locked = entry.value;
-      if (locked.sourceKind != LockedSourceKind.modrinth) continue;
-      final pid = locked.projectId;
-      final vid = locked.versionId;
-      if (pid == null || vid == null) continue;
-      final cachedDeps = _readCachedDeps(cache, pid, vid);
-      if (cachedDeps == null) continue;
-      for (final d in cachedDeps) {
-        if (d['dependency_type'] != 'incompatible') continue;
-        if (d['project_id'] == newProjectId) {
-          throw UserError(
-            "Cannot add '$newSlug' — '${entry.key}' (locked at "
-            "${locked.version ?? '?'}) declares it as incompatible. "
-            "Pin an older compatible version of '${entry.key}' first, or "
-            "remove '${entry.key}'.",
-          );
-        }
-      }
-    }
-  }
-
-  List<Map<String, dynamic>>? _readCachedDeps(
-    GitrinthCache cache,
-    String projectId,
-    String versionId,
-  ) {
-    final path = cache.modrinthVersionMetadataPath(
-      projectId: projectId,
-      versionId: versionId,
-    );
-    final file = File(path);
-    if (!file.existsSync()) return null;
-    final dynamic raw;
-    try {
-      raw = jsonDecode(file.readAsStringSync());
-    } on Object {
-      return null;
-    }
-    if (raw is! Map) return null;
-    final deps = raw['dependencies'];
-    if (deps is! List) return const [];
-    return [for (final d in deps) if (d is Map) d.cast<String, dynamic>()];
   }
 
   String _describeEntry({
@@ -463,20 +444,5 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       if (i < entries.length - 1) buf.write('\n');
     }
     return buf.toString();
-  }
-
-  /// Translate the legacy `--env client|server|both` flag into per-side
-  /// `client:` / `server:` map entries on a long-form add. Default
-  /// (`both` or null) leaves the map untouched so the parser falls back
-  /// to per-section defaults.
-  void _writeSideFields(Map<String, Object?> long, String? envOpt) {
-    if (envOpt == null || envOpt == 'both') return;
-    if (envOpt == 'client') {
-      long['client'] = 'required';
-      long['server'] = 'unsupported';
-    } else if (envOpt == 'server') {
-      long['client'] = 'unsupported';
-      long['server'] = 'required';
-    }
   }
 }

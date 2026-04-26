@@ -4,9 +4,9 @@ import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_lock.dart';
-import '../model/manifest/mods_overrides.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/parser.dart';
+import '../model/manifest/project_overrides.dart';
 
 class ManifestIo {
   final Directory directory;
@@ -15,7 +15,8 @@ class ManifestIo {
     : directory = directory ?? Directory.current;
 
   String get modsYamlPath => p.join(directory.path, 'mods.yaml');
-  String get modsOverridesPath => p.join(directory.path, 'mods_overrides.yaml');
+  String get projectOverridesPath =>
+      p.join(directory.path, 'project_overrides.yaml');
   String get modsLockPath => p.join(directory.path, 'mods.lock');
 
   ModsYaml readModsYaml() {
@@ -29,12 +30,12 @@ class ManifestIo {
     return parseModsYaml(file.readAsStringSync(), filePath: modsYamlPath);
   }
 
-  ModsOverrides readOverrides() {
-    final file = File(modsOverridesPath);
-    if (!file.existsSync()) return const ModsOverrides();
-    return parseModsOverrides(
+  ProjectOverrides readProjectOverrides() {
+    final file = File(projectOverridesPath);
+    if (!file.existsSync()) return const ProjectOverrides();
+    return parseProjectOverrides(
       file.readAsStringSync(),
-      filePath: modsOverridesPath,
+      filePath: projectOverridesPath,
     );
   }
 
@@ -58,5 +59,13 @@ class ManifestIo {
     tempFile.writeAsStringSync(contents);
     if (yamlFile.existsSync()) yamlFile.deleteSync();
     tempFile.renameSync(yamlFile.path);
+  }
+
+  void writeProjectOverrides(String contents) {
+    final file = File(projectOverridesPath);
+    final tempFile = File('$projectOverridesPath.tmp');
+    tempFile.writeAsStringSync(contents);
+    if (file.existsSync()) file.deleteSync();
+    tempFile.renameSync(file.path);
   }
 }

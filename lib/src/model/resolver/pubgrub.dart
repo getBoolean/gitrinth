@@ -46,6 +46,22 @@ class LockSuggestion {
   const LockSuggestion(this.slug, this.versionNumber);
 }
 
+/// One sticky override decision passed to [PubGrubSolver]. Pre-seeds
+/// `state.decisions` so the solver never lists, scores, or backtracks
+/// past the chosen version.
+///
+/// Override pins are how `project_overrides:` declarations reach the
+/// resolver. Their semantics differ from [LockSuggestion]: a lock pin
+/// is a *preference* the solver may abandon if contradicted, an
+/// override pin is a *guarantee* — constraints from other mods on an
+/// overridden slug, and `incompatible:` edges that target an
+/// overridden slug or originate from one, are silently dropped.
+class OverridePin {
+  final String slug;
+  final modrinth.Version version;
+  const OverridePin(this.slug, this.version);
+}
+
 class PubGrubResult {
   /// slug -> chosen version
   final Map<String, modrinth.Version> decisions;
@@ -69,12 +85,14 @@ class PubGrubSolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
   final List<LockSuggestion> lockSuggestions;
+  final List<OverridePin> overridePins;
   final Map<String, List<modrinth.Version>> _versionCache = {};
 
   PubGrubSolver({
     required this.listVersions,
     required this.resolveSlugForProjectId,
     this.lockSuggestions = const [],
+    this.overridePins = const [],
   });
 
   Future<PubGrubResult> solve(List<RootConstraint> roots) async {
@@ -87,7 +105,64 @@ class PubGrubSolver {
           .map((r) => r.slug)
           .toSet(),
     );
+    // Phase 1: seed sticky override decisions before any constraint
+    // is added. The solver treats each pinned slug as already-decided
+    // — _solveStep skips it (no entry in `constraints`), the
+    // required-dep loop skips it, and the incompatible-dep loop drops
+    // edges in either direction.
+    for (final pin in overridePins) {
+      state.overriddenSlugs.add(pin.slug);
+      state.initialOverrideDecisions[pin.slug] = pin.version;
+      state.decisions[pin.slug] = pin.version;
+      // Treat the pinned version's own deps the same way the search
+      // loop would for a chosen candidate, with two override-specific
+      // bypasses:
+      //   - skip required deps that target another overridden slug
+      //   - drop ALL incompatible deps (the user takes responsibility
+      //     for whatever incompatibilities the override mod declares)
+      for (final dep in pin.version.dependencies) {
+        if (dep.dependencyType == DependencyType.required) {
+          final depProjectId = dep.projectId;
+          if (depProjectId == null) continue;
+          final depSlug = await resolveSlugForProjectId(depProjectId);
+          if (depSlug == null) continue;
+          if (state.overriddenSlugs.contains(depSlug)) continue;
+          var depConstraint = VersionConstraint.any;
+          final depVersionId = dep.versionId;
+          if (depVersionId != null) {
+            final depVersions = await _versionsFor(depSlug);
+            modrinth.Version? pinned;
+            for (final dv in depVersions) {
+              if (dv.id == depVersionId) {
+                pinned = dv;
+                break;
+              }
+            }
+            if (pinned != null) {
+              try {
+                final floor = parseModrinthVersion(pinned.versionNumber);
+                depConstraint = VersionRange(min: floor, includeMin: true);
+              } on FormatException {
+                // Non-semver → fall back to `any`.
+              }
+            }
+          }
+          state.addConstraint(depSlug, depConstraint, parentSlug: pin.slug);
+          state.addChannel(depSlug, Channel.alpha);
+          state.recordIntroducer(
+            depSlug,
+            pin.slug,
+            pin.version.versionNumber,
+          );
+        }
+        // DependencyType.incompatible deps from an override are
+        // silently dropped — both endpoints. See spec case 6.
+      }
+    }
     for (final r in roots) {
+      // Skip adding a root constraint for slugs the override pins
+      // already decided. They have no candidate-search to drive.
+      if (state.overriddenSlugs.contains(r.slug)) continue;
       state.addConstraint(r.slug, r.constraint);
       state.addChannel(r.slug, r.channel);
     }
@@ -142,6 +217,11 @@ class PubGrubSolver {
         }
       }
     }
+    // Override-pinned slugs are the user's deliberate choice — never
+    // propose them for the auto-disable retry. If the only remaining
+    // conflict participants are overridden, the throw site falls back
+    // to plain ValidationError; the user has to edit the override.
+    out.removeWhere(state.overriddenSlugs.contains);
     return out;
   }
 
@@ -269,6 +349,10 @@ class PubGrubSolver {
             // The user can pin it explicitly if desired.
             continue;
           }
+          // Override-pinned slugs are decided up-front; constraints
+          // from any other source on them are silently dropped (spec
+          // cases 4 and 5).
+          if (state.overriddenSlugs.contains(depSlug)) continue;
           // A `version_id` on the dep is a lower-bound hint: Modrinth
           // mods don't declare upper compatibility bounds, so two
           // parents pinning across majors should resolve to the higher
@@ -312,6 +396,12 @@ class PubGrubSolver {
           if (depProjectId == null) continue;
           final depSlug = await resolveSlugForProjectId(depProjectId);
           if (depSlug == null) continue;
+          // Spec case 3: incompatible edges that target an override
+          // slug are silently dropped. (Edges originating from an
+          // override are already dropped at solve-start in the
+          // pre-decision phase, so we only see edges from search-loop
+          // candidates here.)
+          if (state.overriddenSlugs.contains(depSlug)) continue;
           // Treat as: the slug must NOT be present. If it's already decided,
           // this branch fails immediately.
           if (state.decisions.containsKey(depSlug)) {
@@ -426,6 +516,18 @@ class _SolverState {
   final Map<String, Channel> channels = {};
   final Map<String, modrinth.Version> decisions = {};
   final Set<String> incompatibleSlugs = {};
+
+  /// Slugs decided at solve-start by an [OverridePin]. The solver
+  /// never lists candidates for them, never adds constraints to them,
+  /// and skips `incompatible:` edges that touch them in either
+  /// direction. Backtracking does not erase override decisions —
+  /// [restore] re-seats them from [initialOverrideDecisions].
+  final Set<String> overriddenSlugs = {};
+
+  /// Snapshot of override decisions taken at solve-start, used by
+  /// [restore] to re-seat them after the search loop backtracks.
+  /// Never mutated after `solve` populates it.
+  final Map<String, modrinth.Version> initialOverrideDecisions = {};
 
   /// `incompatibleBy[depSlug] = parentSlug`: the slug whose dep loop
   /// added `depSlug` to [incompatibleSlugs]. Used at conflict-detection
@@ -636,6 +738,11 @@ class _SolverState {
     introducers
       ..clear()
       ..addAll(s.introducers);
+    // Override decisions are sticky — re-seat them after every
+    // backtracking restore so the search loop can never erase them.
+    for (final entry in initialOverrideDecisions.entries) {
+      decisions[entry.key] = entry.value;
+    }
   }
 }
 

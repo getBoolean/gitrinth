@@ -71,16 +71,16 @@ void main() {
     expect(out.stderr, contains('Unexpected arguments'));
   });
 
-  test('does not delete mods.yaml or mods_overrides.yaml', () async {
+  test('does not delete mods.yaml or project_overrides.yaml', () async {
     writeFile('mods.yaml', 'slug: pack\n');
-    writeFile('mods_overrides.yaml', 'overrides:\n');
+    writeFile('project_overrides.yaml', 'project_overrides:\n');
     writeFile('mods.lock', 'gitrinth-version: 0.1.0\n');
 
     final out = await runCli(['-C', packDir.path, 'clean']);
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(File(p.join(packDir.path, 'mods.yaml')).existsSync(), isTrue);
     expect(
-      File(p.join(packDir.path, 'mods_overrides.yaml')).existsSync(),
+      File(p.join(packDir.path, 'project_overrides.yaml')).existsSync(),
       isTrue,
     );
     expect(File(p.join(packDir.path, 'mods.lock')).existsSync(), isFalse);

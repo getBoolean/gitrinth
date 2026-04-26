@@ -24,6 +24,7 @@ class Resolver {
   Future<ResolutionResult> resolve(
     ModsYaml manifest, {
     ModsLock? existingLock,
+    Map<String, OverridePin> overridePins = const {},
   }) async {
     final roots = <RootConstraint>[];
     final entryBySection = <String, Section>{};
@@ -42,6 +43,12 @@ class Resolver {
           // until the user re-runs `migrate` / `upgrade --major-versions`.
           return;
         }
+        // The lock builder still needs to file an overridden slug
+        // under the right section even though no RootConstraint is
+        // built for it (the override pin pre-decides the version).
+        entryBySection[slug] = section;
+        entryBySlug[slug] = entry;
+        if (overridePins.containsKey(slug)) return;
         // Permissive default: an entry with no explicit channel accepts
         // every Modrinth `version_type`. Users narrow to `release`/`beta`
         // only when they want a stricter stability floor.
@@ -54,12 +61,12 @@ class Resolver {
             isUserDeclared: true,
           ),
         );
-        entryBySection[slug] = section;
-        entryBySlug[slug] = entry;
       });
     }
 
-    if (roots.isEmpty) return const ResolutionResult([]);
+    if (roots.isEmpty && overridePins.isEmpty) {
+      return const ResolutionResult([]);
+    }
 
     final pins = <LockSuggestion>[];
     if (existingLock != null) {
@@ -75,6 +82,7 @@ class Resolver {
       listVersions: listVersions,
       resolveSlugForProjectId: resolveSlugForProjectId,
       lockSuggestions: pins,
+      overridePins: overridePins.values.toList(),
     );
     final result = await solver.solve(roots);
 

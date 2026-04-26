@@ -13,8 +13,10 @@ import '../model/manifest/overrides_merger.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
+import '../model/resolver/pubgrub.dart';
 import '../model/resolver/resolver.dart';
 import '../model/resolver/result.dart';
+import '../model/resolver/version_selection.dart';
 import '../version.dart';
 import 'cache.dart';
 import 'console.dart';
@@ -22,6 +24,7 @@ import 'downloader.dart';
 import 'loader_version_resolver.dart';
 import 'manifest_io.dart';
 import 'modrinth_api.dart';
+import 'section_inference.dart';
 import 'solve_report.dart';
 
 /// Result of [resolveAndSync]: exit code plus enough detail for the caller
@@ -80,8 +83,52 @@ Future<ResolveSyncResult> resolveAndSync({
   final reporter = SolveReporter(console);
 
   final manifest = manifestOverride ?? io.readModsYaml();
-  final overrides = io.readOverrides();
-  final merged = applyOverrides(manifest, overrides);
+  final projectOverrides = io.readProjectOverrides();
+  final slugCache = <String, String?>{};
+  // The slug → project_type lookup feeds two things: section
+  // inference for purely-transitive overrides (here, in
+  // applyOverrides) and reverse lookup of transitive dep project_ids
+  // (later, in the Resolver). Cache project lookups so we don't
+  // double-fetch the same slug for both purposes when the network
+  // is reachable.
+  final projectCache = <String, Project>{};
+  Future<Project> getProjectCached(String slug) async {
+    final cached = projectCache[slug];
+    if (cached != null) return cached;
+    final p = await api.getProject(slug);
+    projectCache[slug] = p;
+    return p;
+  }
+
+  final mergedResult = await applyOverrides(
+    manifest,
+    projectOverrides,
+    inferSectionForTransitive: (slug) async {
+      if (offline) {
+        // Without network, we can't infer the project type. Fall back
+        // to mods — the override author can write a `type:` hint or
+        // declare the slug under the right section explicitly to
+        // avoid this fallback.
+        return Section.mods;
+      }
+      try {
+        final proj = await getProjectCached(slug);
+        return inferSectionFromProject(
+          projectType: proj.projectType,
+          loaders: proj.loaders,
+        );
+      } on DioException catch (e) {
+        final err = e.error;
+        if (err is GitrinthException) throw err;
+        throw UserError(
+          'project_overrides: failed to look up Modrinth project '
+          '"$slug" to infer its section: ${e.message}',
+        );
+      }
+    },
+  );
+  final merged = mergedResult.manifest;
+  final overriddenSlugs = mergedResult.overriddenSlugs;
   final existingLock = io.readModsLock();
 
   if (enforce) {
@@ -96,7 +143,6 @@ Future<ResolveSyncResult> resolveAndSync({
 
   final loaderConfig = merged.loader;
   final mc = merged.mcVersion;
-  final slugCache = <String, String?>{};
 
   // One-shot mc-version validation: only call /tag/game_version when the
   // mc-version differs from what mods.lock already records. The pairing
@@ -198,6 +244,68 @@ Future<ResolveSyncResult> resolveAndSync({
     },
   );
 
+  // Promote each Modrinth-source override entry to a concrete
+  // Modrinth Version. This is the sticky pre-decision the resolver
+  // honors: the slug never enters the candidate-search loop. URL/path
+  // overrides take the lock builder's url/path branches and bypass
+  // the resolver entirely.
+  final overridePins = <String, OverridePin>{};
+  for (final e in mergedResult.overrideEntries.entries) {
+    final slug = e.key;
+    final entry = e.value;
+    if (entry.source is! ModrinthEntrySource) continue;
+    final section = slugToSection[slug] ?? Section.mods;
+    final loaderFilter = filterForSection(section);
+    final gameVersions = <String>{mc, ...entry.acceptsMc}.toList();
+    final List<modrinth.Version> candidates;
+    if (offline) {
+      final lockedProjectId = existingLock?.sectionFor(section)[slug]
+          ?.projectId;
+      if (lockedProjectId == null) {
+        throw UserError(
+          'cannot apply project_overrides for "$slug" while offline: '
+          'not present in mods.lock and never cached.',
+        );
+      }
+      candidates = cache.listCachedVersions(lockedProjectId).where((v) {
+        final loaderOk =
+            loaderFilter == null || v.loaders.any(loaderFilter.contains);
+        final mcOk = v.gameVersions.any(gameVersions.contains);
+        return loaderOk && mcOk;
+      }).toList();
+    } else {
+      try {
+        candidates = await api.listVersions(
+          slug,
+          loadersJson: loaderFilter == null
+              ? null
+              : encodeFilterArray(loaderFilter),
+          gameVersionsJson: encodeFilterArray(gameVersions),
+        );
+      } on Object catch (err) {
+        final e = (err is DioException) ? err.error : err;
+        if (e is GitrinthException) throw e;
+        throw UserError(
+          'project_overrides: failed to list versions for "$slug": $err',
+        );
+      }
+    }
+    final picked = pickHighestMatching(
+      candidates,
+      parseConstraint(entry.constraintRaw),
+      entry.channel ?? Channel.alpha,
+    );
+    if (picked == null) {
+      throw ValidationError(
+        "project_overrides: '$slug' has no published version matching "
+        "${entry.constraintRaw ?? 'any'} on ${manifest.loader.mods.name} "
+        "$mc",
+      );
+    }
+    overridePins[slug] = OverridePin(slug, picked);
+    versionsPerSlug[slug] = candidates;
+  }
+
   console.info('Resolving dependencies...');
   console.detail(
     'Resolving with loader.mods=${loaderConfig.mods.name} mc=$mc...',
@@ -205,6 +313,7 @@ Future<ResolveSyncResult> resolveAndSync({
   final resolution = await resolver.resolve(
     manifestForResolution,
     existingLock: lockForResolution,
+    overridePins: overridePins,
   );
 
   final newLock = _buildLock(merged, resolution, resolvedLoaderVersion);
@@ -239,7 +348,7 @@ Future<ResolveSyncResult> resolveAndSync({
     newLock: newLock,
     diff: diff,
     versionsPerSlug: versionsPerSlug,
-    overriddenSlugs: merged.overrides.keys.toSet(),
+    overriddenSlugs: overriddenSlugs,
   );
 
   // Persist each resolved Modrinth version's dependency list to the

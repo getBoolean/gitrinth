@@ -237,10 +237,16 @@ properties:
       - type: "null"
       - $ref: "#/$defs/modMap"
 
-  overrides:
+  project_overrides:
     description: |
-      Overrides entries in `mods`, `resource_packs`, `data_packs`,
-      `shaders`, or `plugins`.
+      Overrides for individual Modrinth project entries declared in
+      `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`,
+      and for purely-transitive Modrinth project dependencies. Keys are
+      Modrinth project slugs; values use the same mod-dependency syntax
+      as `mods`. Pinning a version, flipping per-side install state, or
+      redirecting to `url:`/`path:` are all supported. An entry here
+      forces its version to be used regardless of other mods'
+      constraints or `incompatible:` declarations.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"

@@ -35,7 +35,7 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`data_packs`](#data_packs)         | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                               |
 | [`shaders`](#shaders)               | no       | Shader packs. Same syntax as `mods`. Defaults to `client: required, server: unsupported`; `server` cannot be set otherwise.                                                                                                            |
 | [`plugins`](#plugins)               | no       | Server plugins. Same syntax as `mods`. Defaults to `client: unsupported, server: required`.                                                                                                                                            |
-| [`overrides`](#overrides)           | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`.                                                                                                                           |
+| [`project_overrides`](#project_overrides) | no       | Overrides that win over matching entries in `mods`, `resource_packs`, `data_packs`, `shaders`, or `plugins`, and may also be used to inject purely-transitive Modrinth project dependencies.                                       |
 | [`files`](#files)                   | no       | Loose files (configs, scripts) keyed by destination path. Copied into the build tree by `build` and bundled into the appropriate `*-overrides/` root by `pack`. Optional `preserve: true` skips overwriting existing files on rebuild. |
 
 Unknown top-level fields are ignored by `gitrinth`, but the CLI will emit a
@@ -101,7 +101,7 @@ shaders:
 plugins:
   luckperms: ^5.4.0
 
-overrides:
+project_overrides:
   jei:
     version: 19.27.0.340
 ```
@@ -369,8 +369,8 @@ declared under `loader`.
 `loader.mods` has three roles:
 
 - **Version resolution.** When picking the version of each entry in
-  [`mods`](#mods) and [`overrides`](#overrides) (when the override
-  targets a mod), `gitrinth` only considers published mod versions
+  [`mods`](#mods) and [`project_overrides`](#project_overrides) (when
+  the override targets a mod), `gitrinth` only considers published mod versions
   tagged with this loader. Combined with
   [`mc-version`](#mc-version), this determines which "latest"
   version satisfies a blank or caret
@@ -435,8 +435,9 @@ mod-version resolution is deterministic. Like [`loader`](#loader),
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods), [`resource_packs`](#resource_packs),
   [`data_packs`](#data_packs), [`shaders`](#shaders),
-  [`plugins`](#plugins), and [`overrides`](#overrides), `gitrinth` only
-  considers published versions tagged with this Minecraft version.
+  [`plugins`](#plugins), and [`project_overrides`](#project_overrides),
+  `gitrinth` only considers published versions tagged with this Minecraft
+  version.
   Combined with [`loader`](#loader), this is what makes blank and caret
   [mod-version constraints](#mod-version-constraints) resolve
   deterministically.
@@ -484,18 +485,18 @@ tooling:
 
 [`mods`](#mods), [`resource_packs`](#resource_packs),
 [`data_packs`](#data_packs), [`shaders`](#shaders), [`plugins`](#plugins),
-and [`overrides`](#overrides) all map a Modrinth project slug to a **mod
-dependency**. Every entry takes one of two forms — a short form (just a
-version constraint) or a long form (a map with a source, a version, and/or
-a per-mod [per-side install state](#sides-client--server)).
+and [`project_overrides`](#project_overrides) all map a Modrinth project
+slug to a **mod dependency**. Every entry takes one of two forms — a short
+form (just a version constraint) or a long form (a map with a source, a
+version, and/or a per-mod [per-side install state](#sides-client--server)).
 
 **Keys are Modrinth project slugs.** Every key under `mods`,
-`resource_packs`, `data_packs`, `shaders`, `plugins`, and `overrides` is
-the Modrinth project slug — the URL segment at
+`resource_packs`, `data_packs`, `shaders`, `plugins`, and
+`project_overrides` is the Modrinth project slug — the URL segment at
 `modrinth.com/<project-type>/<slug>` — not Modrinth's internal project
 `id`. For example, the mod at `modrinth.com/mod/jei` uses the key `jei`.
-Slugs are globally unique across project types, so `overrides` entries
-resolve unambiguously.
+Slugs are globally unique across project types, so `project_overrides`
+entries resolve unambiguously.
 
 #### Short form
 
@@ -552,8 +553,9 @@ or per-side install state in the long form.
 | `url`    | no           | Direct download URL for a `.jar`.                    |
 | `path`   | no           | Local filesystem path relative to `mods.yaml`.       |
 
-**Caution.** For [`mods`](#mods) entries (and [`overrides`](#overrides)
-targeting a mod), `url` and `path` sources produce a modpack that is
+**Caution.** For [`mods`](#mods) entries (and
+[`project_overrides`](#project_overrides) targeting a mod), `url` and
+`path` sources produce a modpack that is
 not publishable to Modrinth. `gitrinth publish` will refuse to upload
 it and will name the entries responsible. These sources are permitted
 for [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
@@ -936,22 +938,39 @@ plugins:
   worldedit: ^7.3.0
 ```
 
-### `overrides`
+### `project_overrides`
+
+> **v2 rename.** The `overrides:` section in `mods.yaml` was renamed
+> to `project_overrides:`, and `mods_overrides.yaml` was renamed to
+> `project_overrides.yaml`. Rename the file and the section header in
+> your manifests — contents are unchanged.
 
 **Optional.** Overrides for individual entries in [`mods`](#mods),
 [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
-[`shaders`](#shaders), or [`plugins`](#plugins). Keys are [Modrinth
-project slugs](#mod-dependencies); values use the same [mod
-dependency](#mod-dependencies) syntax and take precedence over any
-matching entry in those fields.
+[`shaders`](#shaders), or [`plugins`](#plugins), and an injection
+seam for purely-transitive Modrinth project dependencies. Keys are
+[Modrinth project slugs](#mod-dependencies); values use the same [mod
+dependency](#mod-dependencies) syntax.
 
-Use `overrides` to pin a version, flip the
-[per-side install state](#sides-client--server), or redirect an entry to a
-different source without editing the main list — for example when testing
-a local build or a fork.
+Entries in `project_overrides` are **sticky**: the resolver decides
+the override slug at the supplied version (or the latest matching the
+supplied constraint) before solving begins, then fits the rest of the
+graph around that decision. Constraints from other mods on an
+overridden slug are silently ignored. `incompatible:` edges that
+target an overridden slug — or that originate from an overridden
+slug's own dependency list — are silently dropped. This makes
+`project_overrides` the right tool for bypassing a
+`gitrinth:disabled-by-conflict` marker when you want a particular mod
+in the pack despite a declared incompatibility, even when that may
+lead to runtime issues.
+
+Use `project_overrides` to pin a version, flip the
+[per-side install state](#sides-client--server), or redirect an entry
+to a different source without editing the main list — for example
+when testing a local build or a fork.
 
 ```yaml
-overrides:
+project_overrides:
   # Pin a version but keep the default Modrinth source.
   jei:
     version: 19.27.0.340
@@ -961,15 +980,21 @@ overrides:
     path: ./mods/create-dev.jar
 ```
 
-Because keys are globally unique across Modrinth project types, a single
-`overrides` entry unambiguously targets one entry in `mods`,
-`resource_packs`, `data_packs`, `shaders`, or `plugins`.
+If the slug isn't already declared in any of the project sections,
+`gitrinth` queries Modrinth for the project type and adds the override
+under the matching section (`mod` → `mods`, `resourcepack` →
+`resource_packs`, `datapack` → `data_packs`, `shader` → `shaders`).
+
+Because keys are globally unique across Modrinth project types, a
+single `project_overrides` entry unambiguously targets one project
+across `mods`, `resource_packs`, `data_packs`, `shaders`, or
+`plugins`.
 
 Overrides may also live in a companion
-[`mods_overrides.yaml`](mods-overrides-yaml.md) file — an object
-with a single top-level `overrides:` key carrying the same map.
-When both are present, entries in `mods_overrides.yaml` win on
-conflicting keys and all other keys are unioned.
+[`project_overrides.yaml`](project-overrides-yaml.md) file — an
+object with a single top-level `project_overrides:` key carrying the
+same map. When both are present, entries in `project_overrides.yaml`
+win on conflicting keys and all other keys are unioned.
 
 ### `files`
 
@@ -1056,13 +1081,14 @@ real consumer-side toggle mechanism appears.
 When `gitrinth` installs or updates a modpack it:
 
 1. Reads `mods.yaml` and validates its structure against the schema.
-2. Merges [`overrides`](#overrides) with any
-   [`mods_overrides.yaml`](mods-overrides-yaml.md) (the latter wins
-   on conflicting keys), then applies the merged map on top of the
-   matching entries in [`mods`](#mods),
+2. Merges [`project_overrides`](#project_overrides) with any
+   [`project_overrides.yaml`](project-overrides-yaml.md) (the latter
+   wins on conflicting keys), then either applies the merged map on
+   top of the matching entries in [`mods`](#mods),
    [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
-   [`shaders`](#shaders), and [`plugins`](#plugins) to produce the
-   final set of dependencies.
+   [`shaders`](#shaders), and [`plugins`](#plugins), or — when an
+   override targets a slug not declared anywhere else — synthesizes a
+   new entry in the section matching the Modrinth project type.
 3. For each entry, queries Modrinth (or the override source) for every
    version whose `loader` and `mc-version` match the modpack's
    [`loader`](#loader) and [`mc-version`](#mc-version).

@@ -5,8 +5,8 @@ import '../../cli/exceptions.dart';
 import '../resolver/constraint.dart';
 import 'file_entry.dart';
 import 'mods_lock.dart';
-import 'mods_overrides.dart';
 import 'mods_yaml.dart';
+import 'project_overrides.dart';
 
 class _ParseError extends ValidationError {
   const _ParseError(super.message);
@@ -52,12 +52,22 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     filePath,
     Section.shaders,
   );
-  // Overrides patch entries in any section; default per-side state to
-  // mods-style required/required since that's the most permissive
-  // baseline. Per-side fields on the override still win when present.
-  final overrides = _parseSection(
-    map['overrides'],
-    'overrides',
+  // The legacy `overrides:` key was renamed to `project_overrides:`
+  // in v2; surface a clear migration error rather than silently
+  // ignoring the old section.
+  if (map.containsKey('overrides')) {
+    throw _err(
+      "$filePath: 'overrides:' was renamed to 'project_overrides:' "
+      "in v2. Rename the section in $filePath.",
+    );
+  }
+  // project_overrides patches entries in any section; default per-side
+  // state to mods-style required/required since that's the most
+  // permissive baseline. Per-side fields on the override still win
+  // when present.
+  final projectOverrides = _parseSection(
+    map['project_overrides'],
+    'project_overrides',
     filePath,
     Section.mods,
   );
@@ -82,7 +92,7 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     resourcePacks: resourcePacks,
     dataPacks: dataPacks,
     shaders: shaders,
-    overrides: overrides,
+    projectOverrides: projectOverrides,
     files: files,
   );
 }
@@ -229,19 +239,32 @@ SideEnv _parseFileSideEnv(
   }
 }
 
-ModsOverrides parseModsOverrides(String yamlText, {required String filePath}) {
+ProjectOverrides parseProjectOverrides(
+  String yamlText, {
+  required String filePath,
+}) {
   final raw = yamlText.trim().isEmpty ? null : loadYaml(yamlText);
-  if (raw == null) return const ModsOverrides();
+  if (raw == null) return const ProjectOverrides();
   if (raw is! YamlMap) {
     throw _err('$filePath: top-level must be a mapping.');
   }
   final map = _toPlainMap(raw);
-  final overridesRaw = map['overrides'];
-  if (overridesRaw == null) return const ModsOverrides();
-  return ModsOverrides(
-    overrides: _parseSection(
-      overridesRaw,
-      'overrides',
+  // Surface the v2 rename clearly: a standalone file still using the
+  // old key is a configuration error, not a no-op.
+  if (map.containsKey('overrides')) {
+    throw _err(
+      "$filePath: 'overrides:' was renamed to 'project_overrides:' "
+      "in v2 (and the file itself was renamed from "
+      "'mods_overrides.yaml' to 'project_overrides.yaml'). Rename "
+      "both to migrate.",
+    );
+  }
+  final entriesRaw = map['project_overrides'];
+  if (entriesRaw == null) return const ProjectOverrides();
+  return ProjectOverrides(
+    entries: _parseSection(
+      entriesRaw,
+      'project_overrides',
       filePath,
       Section.mods,
     ),

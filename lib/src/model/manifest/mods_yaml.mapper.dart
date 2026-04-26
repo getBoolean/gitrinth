@@ -1183,13 +1183,10 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     opt: true,
     def: const {},
   );
-  static Map<String, ModEntry> _$overrides(ModsYaml v) => v.overrides;
-  static const Field<ModsYaml, Map<String, ModEntry>> _f$overrides = Field(
-    'overrides',
-    _$overrides,
-    opt: true,
-    def: const {},
-  );
+  static Map<String, ModEntry> _$projectOverrides(ModsYaml v) =>
+      v.projectOverrides;
+  static const Field<ModsYaml, Map<String, ModEntry>> _f$projectOverrides =
+      Field('projectOverrides', _$projectOverrides, opt: true, def: const {});
   static Map<String, FileEntry> _$files(ModsYaml v) => v.files;
   static const Field<ModsYaml, Map<String, FileEntry>> _f$files = Field(
     'files',
@@ -1210,7 +1207,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     #resourcePacks: _f$resourcePacks,
     #dataPacks: _f$dataPacks,
     #shaders: _f$shaders,
-    #overrides: _f$overrides,
+    #projectOverrides: _f$projectOverrides,
     #files: _f$files,
   };
 
@@ -1226,7 +1223,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       resourcePacks: data.dec(_f$resourcePacks),
       dataPacks: data.dec(_f$dataPacks),
       shaders: data.dec(_f$shaders),
-      overrides: data.dec(_f$overrides),
+      projectOverrides: data.dec(_f$projectOverrides),
       files: data.dec(_f$files),
     );
   }
@@ -1298,7 +1295,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get shaders;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
-  get overrides;
+  get projectOverrides;
   MapCopyWith<
     $R,
     String,
@@ -1317,7 +1314,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
     Map<String, ModEntry>? shaders,
-    Map<String, ModEntry>? overrides,
+    Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
   });
   ModsYamlCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -1364,10 +1361,10 @@ class _ModsYamlCopyWithImpl<$R, $Out>
   );
   @override
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
-  get overrides => MapCopyWith(
-    $value.overrides,
+  get projectOverrides => MapCopyWith(
+    $value.projectOverrides,
     (v, t) => v.copyWith.$chain(t),
-    (v) => call(overrides: v),
+    (v) => call(projectOverrides: v),
   );
   @override
   MapCopyWith<
@@ -1393,7 +1390,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
     Map<String, ModEntry>? shaders,
-    Map<String, ModEntry>? overrides,
+    Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
   }) => $apply(
     FieldCopyWithData({
@@ -1407,7 +1404,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
       if (resourcePacks != null) #resourcePacks: resourcePacks,
       if (dataPacks != null) #dataPacks: dataPacks,
       if (shaders != null) #shaders: shaders,
-      if (overrides != null) #overrides: overrides,
+      if (projectOverrides != null) #projectOverrides: projectOverrides,
       if (files != null) #files: files,
     }),
   );
@@ -1423,7 +1420,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     resourcePacks: data.get(#resourcePacks, or: $value.resourcePacks),
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),
     shaders: data.get(#shaders, or: $value.shaders),
-    overrides: data.get(#overrides, or: $value.overrides),
+    projectOverrides: data.get(#projectOverrides, or: $value.projectOverrides),
     files: data.get(#files, or: $value.files),
   );
 

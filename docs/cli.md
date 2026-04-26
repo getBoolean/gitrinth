@@ -39,6 +39,7 @@ Use [`--directory`](#global-options) to target a different modpack.
 | [`migrate`](#migrate) | Re-target the pack to a new Minecraft version or loader.     |
 | [`add`](#add)         | Add an entry to a section.                                   |
 | [`remove`](#remove)   | Remove an entry.                                             |
+| [`override`](#override) | Add a sticky override to `project_overrides`.              |
 | [`pin`](#pin)         | Freeze an entry to its currently-locked version.             |
 | [`unpin`](#unpin)     | Restore a caret on a pinned entry.                           |
 
@@ -94,7 +95,7 @@ network call `create` makes.
 ### `get`
 
 Resolve every entry in `mods.yaml`, apply
-[`overrides`](mods-yaml.md#overrides), write `mods.lock`, and download
+[`project_overrides`](mods-yaml.md#project_overrides), write `mods.lock`, and download
 artifacts into the cache. Does not upgrade entries already locked to a
 satisfying version — use [`upgrade`](#upgrade) for that.
 
@@ -279,6 +280,41 @@ gitrinth remove <slug> [--dry-run] [--offline]
 
 The section is inferred from where `<slug>` currently lives in
 `mods.yaml`.
+
+### `override`
+
+Add a sticky [`project_overrides`](mods-yaml.md#project_overrides)
+entry. Override semantics differ from
+[`add`](#add): the resolver pins the chosen version regardless of
+constraints from other mods on the slug, and silently drops
+`incompatible:` edges that touch the slug in either direction. Use
+`override` to bypass a `gitrinth:disabled-by-conflict` marker when you
+want a particular mod in the pack despite a declared incompatibility.
+
+```text
+gitrinth override <slug>[@<constraint>] [arguments]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--env client\|server\|both` | Restrict the override to a side. |
+| `--url <url>` | Use a `url:` source. |
+| `--path <path>` | Use a `path:` source. |
+| `--type mod\|resourcepack\|datapack\|shader` | Force the section used for loader filtering. Useful when the slug is purely transitive and section inference is wrong. |
+| `--accepts-mc <mc-version>` | Additively widen the Minecraft version filter for this override (repeatable). |
+| `--exact` | Caret-pin including build metadata. |
+| `--pin` | Bare-version pin. |
+| `--standalone` | Write to `project_overrides.yaml` instead of `mods.yaml`. Creates the file if it doesn't exist. |
+| `--dry-run` | Report what would change without writing or resolving. |
+| `--offline` | Skip Modrinth queries; use the cache only. |
+
+With no `@<constraint>`, `override` picks the latest release matching
+loader and `mc-version`. The override version is sticky — other mods'
+constraints on the same slug are silently ignored.
+
+`override` does **not** run the incompatibility-prevention check
+[`add`](#add) applies. That's deliberate: bypassing an incompatibility
+is the most common reason to reach for an override.
 
 ### `pin`
 
@@ -487,7 +523,7 @@ overwrite-by-default behavior.
 Modpack-specific. Delete every file `gitrinth` generates from
 `mods.yaml`, so the next [`get`](#get) / [`build`](#build) /
 [`pack`](#pack) starts from a clean slate. Leaves `mods.yaml` and
-`mods_overrides.yaml` untouched (they are source-controlled inputs)
+`project_overrides.yaml` untouched (they are source-controlled inputs)
 and does not touch the shared artifact cache — use
 [`cache clean`](#cache) for that.
 
@@ -778,16 +814,24 @@ Covers subcommand names, flag names, and the enum values already
 constrained on the argparse side (`--env`, `--loader`). Re-run after
 upgrading `gitrinth` to refresh installed scripts.
 
-## Working with overrides
+## Working with project_overrides
 
-`mods.yaml` supports an [`overrides`](mods-yaml.md#overrides) section.
-Overrides are edited directly in the manifest; there is no CLI
-wrapper.
+`mods.yaml` supports a
+[`project_overrides`](mods-yaml.md#project_overrides) section. Edit it
+directly in the manifest, or use [`override`](#override) to add an
+entry from the command line.
 
 Overrides may also live in a standalone
-[`mods_overrides.yaml`](mods-overrides-yaml.md) alongside
-`mods.yaml`. Both are merged during resolution, with
-`mods_overrides.yaml` winning on conflicting keys.
+[`project_overrides.yaml`](project-overrides-yaml.md) alongside
+`mods.yaml` (`gitrinth override --standalone` writes there). Both are
+merged during resolution, with `project_overrides.yaml` winning on
+conflicting keys.
+
+A `project_overrides` entry is **sticky**: the resolver pins it to
+the supplied version (or the latest matching the supplied
+constraint), then fits the rest of the graph around that decision.
+Use it to bypass a `gitrinth:disabled-by-conflict` marker when you
+want a particular mod in the pack despite a declared incompatibility.
 
 ## Exit codes
 
@@ -862,7 +906,7 @@ gitrinth completion powershell >> $PROFILE
 | Path                              | Purpose                                                                                |
 |-----------------------------------|----------------------------------------------------------------------------------------|
 | `./mods.yaml`                     | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                     |
-| `./mods_overrides.yaml`           | Optional standalone overrides. See [`mods_overrides.yaml`](mods-overrides-yaml.md).    |
+| `./project_overrides.yaml`        | Optional standalone overrides. See [`project_overrides.yaml`](project-overrides-yaml.md). |
 | `./mods.lock`                     | Resolved versions. Commit to git.                                                      |
 | `./build/`                        | Default output directory for [`build`](#build).                                        |
 | `./build/<slug>-<version>.mrpack` | Default output path for [`pack`](#pack).                                               |
@@ -878,10 +922,10 @@ compatibility window.
 
 - [`mods.yaml` reference](mods-yaml.md) — the manifest every command
   operates on.
-- [`mods_overrides.yaml` reference](mods-overrides-yaml.md) — optional
-  standalone overrides file.
+- [`project_overrides.yaml` reference](project-overrides-yaml.md) —
+  optional standalone overrides file.
 - [`mods.schema.yaml`](../assets/schema/mods.schema.yaml) and
-  [`mods-overrides.schema.yaml`](../assets/schema/mods-overrides.schema.yaml) —
+  [`project-overrides.schema.yaml`](../assets/schema/project-overrides.schema.yaml) —
   machine-readable schemas editors can wire up for in-file validation.
 - [`todo.md`](todo.md) — planned improvements and deferred CLI surface.
 - [Modrinth API docs](https://docs.modrinth.com) — upstream service.

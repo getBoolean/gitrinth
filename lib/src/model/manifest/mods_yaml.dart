@@ -149,7 +149,7 @@ class ModsYaml with ModsYamlMappable {
   final Map<String, ModEntry> resourcePacks;
   final Map<String, ModEntry> dataPacks;
   final Map<String, ModEntry> shaders;
-  final Map<String, ModEntry> overrides;
+  final Map<String, ModEntry> projectOverrides;
 
   /// Loose file declarations from the top-level `files:` section.
   /// Keyed by destination path (relative to the build env root).
@@ -168,7 +168,7 @@ class ModsYaml with ModsYamlMappable {
     this.resourcePacks = const {},
     this.dataPacks = const {},
     this.shaders = const {},
-    this.overrides = const {},
+    this.projectOverrides = const {},
     this.files = const {},
   });
 

@@ -92,7 +92,7 @@ shaders:
 
 plugins:
 
-overrides:
+project_overrides:
   # jei:
   #   version: 19.27.0.340
   #   # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.

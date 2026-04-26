@@ -10,7 +10,7 @@ import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
-import '../model/resolver/pubgrub.dart';
+import '../service/conflict_disable.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth_api.dart';
 import '../service/resolve_and_sync.dart';
@@ -291,10 +291,18 @@ Future<int> _runMigrate({
   final downloader = command.read(downloaderProvider);
   final loaderResolver = command.read(loaderVersionResolverProvider);
 
-  ResolveSyncResult result;
-  final disabledByConflict = <(Section, String)>{};
-  try {
-    result = await resolveAndSync(
+  final outcome = await resolveWithConflictAutoDisable(
+    manifest: manifest,
+    resolutionManifest: resolutionManifest,
+    targets: targets,
+    relaxSet: relaxSet,
+    console: console,
+    resolve: ({
+      required manifestForResolve,
+      required freshSlugs,
+      required relaxConstraints,
+    }) =>
+        resolveAndSync(
       io: io,
       console: console,
       api: api,
@@ -304,67 +312,13 @@ Future<int> _runMigrate({
       verbose: command.gitrinthRunner.verbose,
       offline: offline,
       dryRun: dryRun,
-      freshSlugs: targets,
-      relaxConstraints: relaxSet,
-      manifestOverride: resolutionManifest,
-    );
-  } on UnsatisfiableGraphError catch (e) {
-    // Compute the disable set: user-declared roots in `mods.yaml`
-    // that the solver flagged as conflict participants.
-    for (final slug in e.conflictingUserSlugs) {
-      for (final section in Section.values) {
-        if (manifest.sectionEntries(section).containsKey(slug)) {
-          disabledByConflict.add((section, slug));
-          break;
-        }
-      }
-    }
-    if (disabledByConflict.isEmpty) rethrow;
-
-    // Apply the markers in-memory and re-resolve. The retry must NOT
-    // relax the disabled slugs — their `disabledByConflictMarker` has
-    // to reach the resolver-skip in `resolver.dart`, otherwise
-    // `_relaxManifestConstraints` would rewrite it back to `null`
-    // (= any) and PubGrub would re-encounter the same conflict.
-    final candidateManifest = _applyDisableMarkers(
-      resolutionManifest,
-      disabledByConflict,
-    );
-    final retryRelax = relaxSet.difference({
-      for (final s in disabledByConflict) s.$2,
-    });
-    try {
-      result = await resolveAndSync(
-        io: io,
-        console: console,
-        api: api,
-        cache: cache,
-        downloader: downloader,
-        loaderResolver: loaderResolver,
-        verbose: command.gitrinthRunner.verbose,
-        offline: offline,
-        dryRun: dryRun,
-        freshSlugs: targets,
-        relaxConstraints: retryRelax,
-        manifestOverride: candidateManifest,
-      );
-    } on UnsatisfiableGraphError catch (cascade) {
-      // Disabling all conflict roots still left an unsatisfiable graph.
-      // Roll back: nothing was written. Surface both failures.
-      throw ValidationError(
-        'Disabling ${disabledByConflict.map((s) => s.$2).join(", ")} did '
-        'not resolve the conflict — re-resolution still failed:\n'
-        '${cascade.message}\n\n'
-        'Original failure:\n${e.message}',
-      );
-    }
-    final names = disabledByConflict.map((s) => s.$2).toList()..sort();
-    console.info(
-      'disabled ${names.length} mod(s) due to dependency conflict: '
-      '${names.join(", ")}. Edit mods.yaml to re-enable any you want '
-      'back, then re-run.',
-    );
-  }
+      freshSlugs: freshSlugs,
+      relaxConstraints: relaxConstraints,
+      manifestOverride: manifestForResolve,
+    ),
+  );
+  final result = outcome.result;
+  final disabledByConflict = outcome.disabledByConflict;
 
   if (result.exitCode != exitOk) {
     return result.exitCode;
@@ -495,29 +449,6 @@ ModsYaml _applyTarget(
       shaders: manifest.loader.shaders,
       plugins: manifest.loader.plugins,
     ),
-  );
-}
-
-/// Returns [manifest] with every entry in [disabled] rewritten to carry
-/// `constraintRaw: disabledByConflictMarker`. Used by the auto-disable
-/// retry: applying the marker in-memory makes the resolver-skip filter
-/// pull these entries out of the second resolution pass.
-ModsYaml _applyDisableMarkers(
-  ModsYaml manifest,
-  Set<(Section, String)> disabled,
-) {
-  if (disabled.isEmpty) return manifest;
-  Map<String, ModEntry> mark(Section section, Map<String, ModEntry> m) => {
-    for (final e in m.entries)
-      e.key: disabled.contains((section, e.key))
-          ? e.value.copyWith(constraintRaw: disabledByConflictMarker)
-          : e.value,
-  };
-  return manifest.copyWith(
-    mods: mark(Section.mods, manifest.mods),
-    resourcePacks: mark(Section.resourcePacks, manifest.resourcePacks),
-    dataPacks: mark(Section.dataPacks, manifest.dataPacks),
-    shaders: mark(Section.shaders, manifest.shaders),
   );
 }
 
