@@ -296,27 +296,19 @@ void main() {
 
     test('PATH java is used when JAVA_HOME unset and version matches',
         () async {
-      final resolver = JavaRuntimeResolver(
-        fetcher: fetcher,
-        environment: {'PATH': ''},
-        probe: stubProber({path21Java.path: 21}),
-
-      );
       // Stage a `java.exe` (not java21.exe) on the synthetic PATH.
       final pathDir2 = Directory(p.join(tempRoot.path, 'pathreal'))
         ..createSync();
       final realJava = File(p.join(pathDir2.path, 'java.exe'))
         ..writeAsStringSync('STUB');
-      final r2 = JavaRuntimeResolver(
+      final resolver = JavaRuntimeResolver(
         fetcher: fetcher,
         environment: {'PATH': pathDir2.path},
         probe: stubProber({realJava.path: 21}),
 
       );
-      final result = await r2.resolve(mcVersion: '1.21.1');
+      final result = await resolver.resolve(mcVersion: '1.21.1');
       expect(result.path, realJava.path);
-      // Reference unused locals so analyzer is happy.
-      expect(resolver, isNotNull);
     });
 
     test(

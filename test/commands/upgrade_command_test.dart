@@ -366,8 +366,13 @@ mods:
 ''');
     expect((await runGet()).exitCode, 0);
 
-    final out = await runUpgrade(['custom']);
+    final out = await runCli(
+      ['-C', packDir.path, '--verbosity=io', 'upgrade', 'custom'],
+      environment: env,
+    );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    expect(out.stdout, contains("skipping 'custom'"));
+    expect(out.stdout, contains('non-Modrinth source'));
   });
 
   test('channel floor still respected during upgrade', () async {
@@ -582,10 +587,14 @@ mods:
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
         final lock = readLock();
         expect(lock, contains('version: 1.5.0'));
-        expect(lock, contains('version: 1.0.0'));
         expect(
           lock,
-          isNot(contains('version: 1.5.0\n    project-id: bar_ID')),
+          contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.0\.0\b')),
+          reason: 'bar must stay at 1.0.0',
+        );
+        expect(
+          lock,
+          isNot(contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0'))),
           reason: 'bar must stay at 1.0.0',
         );
       },

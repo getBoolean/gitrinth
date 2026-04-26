@@ -183,8 +183,13 @@ void main() {
     });
 
     test('no-op for missing file', () {
-      // Should not throw.
-      pruneFile(envRoot: envRoot, relPath: 'mods/never-existed.jar');
+      final before = envRoot.listSync(recursive: true).map((e) => e.path).toSet();
+      expect(
+        () => pruneFile(envRoot: envRoot, relPath: 'mods/never-existed.jar'),
+        returnsNormally,
+      );
+      final after = envRoot.listSync(recursive: true).map((e) => e.path).toSet();
+      expect(after, equals(before));
     });
   });
 }

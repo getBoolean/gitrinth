@@ -96,22 +96,19 @@ void main() {
       listVersions: (slug) async => db[slug] ?? [],
       resolveSlugForProjectId: (id) async => null,
     );
-    expect(
-      () => solver.solve([
+    try {
+      await solver.solve([
         RootConstraint(
           slug: 'create',
           constraint: VersionConstraint.parse('^6.0.0'),
           isUserDeclared: true,
         ),
-      ]),
-      throwsA(
-        isA<ValidationError>().having(
-          (e) => e.message,
-          'message',
-          contains('create'),
-        ),
-      ),
-    );
+      ]);
+      fail('expected ValidationError');
+    } on ValidationError catch (e) {
+      expect(e.message, contains('create'));
+      expect(e.message, contains('^6.0.0'));
+    }
   });
 
   test('lock suggestion is preferred when still satisfying', () async {
@@ -266,23 +263,20 @@ void main() {
           listVersions: (slug) async => db[slug] ?? [],
           resolveSlugForProjectId: (id) async => null,
         );
-        expect(
-          () => solver.solve([
+        try {
+          await solver.solve([
             RootConstraint(
               slug: 'jei',
               constraint: VersionConstraint.any,
               channel: Channel.beta,
               isUserDeclared: true,
             ),
-          ]),
-          throwsA(
-            isA<ValidationError>().having(
-              (e) => e.message,
-              'message',
-              contains('channel beta'),
-            ),
-          ),
-        );
+          ]);
+          fail('expected ValidationError');
+        } on ValidationError catch (e) {
+          expect(e.message, contains('jei'));
+          expect(e.message, contains('channel beta'));
+        }
       },
     );
 
@@ -678,16 +672,19 @@ void main() {
         listVersions: (slug) async => db[slug] ?? [],
         resolveSlugForProjectId: (id) async => null,
       );
-      expect(
-        () => solver.solve([
+      try {
+        await solver.solve([
           RootConstraint(
             slug: 'a',
             constraint: VersionConstraint.parse('^2.0.0'),
             isUserDeclared: true,
           ),
-        ]),
-        throwsA(isA<ValidationError>()),
-      );
+        ]);
+        fail('expected ValidationError');
+      } on ValidationError catch (e) {
+        expect(e, isA<ValidationError>());
+        expect(e, isA<UnsatisfiableGraphError>());
+      }
     });
 
     test(
