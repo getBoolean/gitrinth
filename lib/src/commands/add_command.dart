@@ -16,7 +16,6 @@ import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
 import '../service/cache.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
 import '../service/section_inference.dart';
 import '../service/solve_report.dart';
 import 'add_command_editor.dart';
@@ -315,21 +314,9 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
 
     io.writeModsYaml(updated);
 
-    final api = read(modrinthApiProvider);
-    final cache = read(cacheProvider);
-    final downloader = read(downloaderProvider);
-    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
-    final result = await resolveAndSync(
-      io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
-      offline: offline,
-    );
+    final result = await runResolveAndSync(io: io, offline: offline);
     if (result.exitCode != exitOk) return result.exitCode;
     reporter.printSummary(
       changeCount: result.changeCount,
@@ -382,7 +369,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
           if (entry.value.projectId != null) entry.value.projectId!: entry.key,
     };
     final declaredSlugs = <String>{
-      for (final s in Section.values) ...existingManifest.sectionEntries(s).keys,
+      for (final s in Section.values)
+        ...existingManifest.sectionEntries(s).keys,
     };
 
     for (final dep in pickedVersion.dependencies) {
@@ -443,7 +431,10 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     if (raw is! Map) return null;
     final deps = raw['dependencies'];
     if (deps is! List) return const [];
-    return [for (final d in deps) if (d is Map) d.cast<String, dynamic>()];
+    return [
+      for (final d in deps)
+        if (d is Map) d.cast<String, dynamic>(),
+    ];
   }
 
   String _describeEntry({

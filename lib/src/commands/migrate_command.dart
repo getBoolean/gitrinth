@@ -45,8 +45,7 @@ class MigrateMcCommand extends GitrinthCommand with OfflineFlag {
   String get name => 'mc';
 
   @override
-  String get description =>
-      "Bump `mc-version` and re-resolve.";
+  String get description => "Bump `mc-version` and re-resolve.";
 
   @override
   String get invocation => 'gitrinth migrate mc <version> [arguments]';
@@ -208,9 +207,7 @@ Future<int> _runMigrate({
         }
       });
     }
-    console.warn(
-      'migrate --offline: skipping availability check.',
-    );
+    console.warn('migrate --offline: skipping availability check.');
   } else {
     for (final section in Section.values) {
       final entries = manifest.sectionEntries(section);
@@ -297,24 +294,24 @@ Future<int> _runMigrate({
     targets: targets,
     relaxSet: relaxSet,
     console: console,
-    resolve: ({
-      required manifestForResolve,
-      required freshSlugs,
-      required relaxConstraints,
-    }) =>
-        resolveAndSync(
-      io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
-      offline: offline,
-      dryRun: dryRun,
-      freshSlugs: freshSlugs,
-      relaxConstraints: relaxConstraints,
-      manifestOverride: manifestForResolve,
-    ),
+    resolve:
+        ({
+          required manifestForResolve,
+          required freshSlugs,
+          required relaxConstraints,
+        }) => resolveAndSync(
+          io: io,
+          console: console,
+          api: api,
+          cache: cache,
+          downloader: downloader,
+          loaderResolver: loaderResolver,
+          offline: offline,
+          dryRun: dryRun,
+          freshSlugs: freshSlugs,
+          relaxConstraints: relaxConstraints,
+          manifestOverride: manifestForResolve,
+        ),
   );
   final result = outcome.result;
   final disabledByConflict = outcome.disabledByConflict;

@@ -21,10 +21,7 @@ Future<MergedManifest> applyOverrides(
     ...extra.entries, // standalone-file values win
   };
   if (merged.isEmpty) {
-    return MergedManifest(
-      manifest: base,
-      overrideEntries: const {},
-    );
+    return MergedManifest(manifest: base, overrideEntries: const {});
   }
 
   final mods = _applyTo(base.mods, merged);
@@ -38,10 +35,11 @@ Future<MergedManifest> applyOverrides(
   for (final e in merged.entries) {
     final slug = e.key;
     final ov = e.value;
-    final alreadyDeclared = base.mods.containsKey(slug)
-        || base.resourcePacks.containsKey(slug)
-        || base.dataPacks.containsKey(slug)
-        || base.shaders.containsKey(slug);
+    final alreadyDeclared =
+        base.mods.containsKey(slug) ||
+        base.resourcePacks.containsKey(slug) ||
+        base.dataPacks.containsKey(slug) ||
+        base.shaders.containsKey(slug);
     if (alreadyDeclared) continue;
     final section = await inferSectionForTransitive(slug);
     final synthesized = ModEntry(
@@ -84,10 +82,7 @@ Future<MergedManifest> applyOverrides(
     files: base.files,
   );
 
-  return MergedManifest(
-    manifest: mergedManifest,
-    overrideEntries: merged,
-  );
+  return MergedManifest(manifest: mergedManifest, overrideEntries: merged);
 }
 
 /// Result of [applyOverrides]: the post-merge manifest plus the
@@ -102,10 +97,7 @@ class MergedManifest {
   /// wins on conflicts).
   final Map<String, ModEntry> overrideEntries;
 
-  const MergedManifest({
-    required this.manifest,
-    required this.overrideEntries,
-  });
+  const MergedManifest({required this.manifest, required this.overrideEntries});
 
   /// `overrideEntries.keys.toSet()`. Cached on first access.
   Set<String> get overriddenSlugs => overrideEntries.keys.toSet();

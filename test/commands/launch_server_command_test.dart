@@ -110,8 +110,9 @@ void main() {
 
     test('--accept-eula writes eula.txt with eula=true', () async {
       writeLock(_lock());
-      File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-          .writeAsStringSync('FAB-LAUNCH');
+      File(
+        p.join(serverDir.path, 'fabric-server-launch.jar'),
+      ).writeAsStringSync('FAB-LAUNCH');
       final fake = _FakeRunProcess();
 
       final code = await runLaunchServer(
@@ -137,47 +138,50 @@ void main() {
       expect(eula.readAsStringSync(), 'eula=true\n');
     });
 
-    test('Fabric launch invokes java -jar fabric-server-launch.jar nogui',
-        () async {
+    test(
+      'Fabric launch invokes java -jar fabric-server-launch.jar nogui',
+      () async {
+        writeLock(_lock(loader: Loader.fabric));
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
+        final fake = _FakeRunProcess();
+
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '4G',
+            memoryMin: '4G',
+            offline: false,
+            verbose: false,
+            extraArgs: ['--port', '25566'],
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+
+        expect(fake.executable, isNotNull);
+        // Fabric runs the resolved JDK directly (not run.sh / run.bat).
+        expect(fake.executable, fakeResolver.javaPath);
+        expect(fake.args, contains('-Xmx4G'));
+        expect(fake.args, contains('-Xms4G'));
+        expect(fake.args, contains('-jar'));
+        expect(fake.args, contains('fabric-server-launch.jar'));
+        expect(fake.args, contains('nogui'));
+        expect(fake.args, containsAllInOrder(['--port', '25566']));
+        expect(fake.workingDirectory?.path, serverDir.path);
+      },
+    );
+
+    test('--java and --no-managed-java flow through to the resolver', () async {
       writeLock(_lock(loader: Loader.fabric));
-      File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-          .writeAsStringSync('FAB');
-      final fake = _FakeRunProcess();
-
-      await runLaunchServer(
-        options: const LaunchServerOptions(
-          acceptEula: false,
-          autoBuild: false,
-          memoryMax: '4G',
-          memoryMin: '4G',
-          offline: false,
-          verbose: false,
-          extraArgs: ['--port', '25566'],
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess: fake.call,
-        resolver: fakeResolver,
-      );
-
-      expect(fake.executable, isNotNull);
-      // Fabric runs the resolved JDK directly (not run.sh / run.bat).
-      expect(fake.executable, fakeResolver.javaPath);
-      expect(fake.args, contains('-Xmx4G'));
-      expect(fake.args, contains('-Xms4G'));
-      expect(fake.args, contains('-jar'));
-      expect(fake.args, contains('fabric-server-launch.jar'));
-      expect(fake.args, contains('nogui'));
-      expect(fake.args, containsAllInOrder(['--port', '25566']));
-      expect(fake.workingDirectory?.path, serverDir.path);
-    });
-
-    test('--java and --no-managed-java flow through to the resolver',
-        () async {
-      writeLock(_lock(loader: Loader.fabric));
-      File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-          .writeAsStringSync('FAB');
+      File(
+        p.join(serverDir.path, 'fabric-server-launch.jar'),
+      ).writeAsStringSync('FAB');
       await runLaunchServer(
         options: LaunchServerOptions(
           acceptEula: false,
@@ -201,36 +205,40 @@ void main() {
       expect(fakeResolver.lastMcVersion, '1.21.1');
     });
 
-    test('Fabric launch does not write eula.txt without --accept-eula',
-        () async {
-      writeLock(_lock(loader: Loader.fabric));
-      File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-          .writeAsStringSync('FAB');
-      await runLaunchServer(
-        options: const LaunchServerOptions(
-          acceptEula: false,
-          autoBuild: false,
-          memoryMax: '2G',
-          memoryMin: '2G',
-          offline: false,
-          verbose: false,
-          extraArgs: [],
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess: _FakeRunProcess().call,
-        resolver: fakeResolver,
-      );
-      expect(File(p.join(serverDir.path, 'eula.txt')).existsSync(), isFalse);
-    });
+    test(
+      'Fabric launch does not write eula.txt without --accept-eula',
+      () async {
+        writeLock(_lock(loader: Loader.fabric));
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: _FakeRunProcess().call,
+          resolver: fakeResolver,
+        );
+        expect(File(p.join(serverDir.path, 'eula.txt')).existsSync(), isFalse);
+      },
+    );
 
     test(
       'autoBuild=true delegates to doBuild with env=server before launching',
       () async {
         writeLock(_lock(loader: Loader.fabric));
-        File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-            .writeAsStringSync('FAB');
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
 
         BuildOptions? captured;
         final fake = _FakeRunProcess();
@@ -240,7 +248,7 @@ void main() {
             acceptEula: false,
             autoBuild: true,
             memoryMax: '2G',
-          memoryMin: '2G',
+            memoryMin: '2G',
             offline: false,
             verbose: false,
             extraArgs: [],
@@ -249,7 +257,7 @@ void main() {
           console: const Console(),
           io: io,
           runProcess: fake.call,
-        resolver: fakeResolver,
+          resolver: fakeResolver,
           doBuild: (opts) async {
             captured = opts;
             return 0;
@@ -262,38 +270,41 @@ void main() {
       },
     );
 
-    test('autoBuild failure short-circuits before spawning the server',
-        () async {
-      writeLock(_lock(loader: Loader.fabric));
-      var spawnCalled = false;
-      final code = await runLaunchServer(
-        options: const LaunchServerOptions(
-          acceptEula: false,
-          autoBuild: true,
-          memoryMax: '2G',
-          memoryMin: '2G',
-          offline: false,
-          verbose: false,
-          extraArgs: [],
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess: (
-          exe,
-          args, {
-          Directory? workingDirectory,
-          bool runInShell = false,
-          Map<String, String>? environment,
-        }) async {
-          spawnCalled = true;
-          return 0;
-        },
-        doBuild: (_) async => 7,
-      );
-      expect(code, 7);
-      expect(spawnCalled, isFalse);
-    });
+    test(
+      'autoBuild failure short-circuits before spawning the server',
+      () async {
+        writeLock(_lock(loader: Loader.fabric));
+        var spawnCalled = false;
+        final code = await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: true,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess:
+              (
+                exe,
+                args, {
+                Directory? workingDirectory,
+                bool runInShell = false,
+                Map<String, String>? environment,
+              }) async {
+                spawnCalled = true;
+                return 0;
+              },
+          doBuild: (_) async => 7,
+        );
+        expect(code, 7);
+        expect(spawnCalled, isFalse);
+      },
+    );
 
     test(
       'mods.lock missing surfaces a UserError pointing to gitrinth get',
@@ -304,7 +315,7 @@ void main() {
               acceptEula: false,
               autoBuild: false,
               memoryMax: '2G',
-          memoryMin: '2G',
+              memoryMin: '2G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -313,7 +324,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: _FakeRunProcess().call,
-        resolver: fakeResolver,
+            resolver: fakeResolver,
           ),
           throwsA(
             isA<UserError>().having(
@@ -337,7 +348,7 @@ void main() {
               acceptEula: false,
               autoBuild: false,
               memoryMax: '2G',
-          memoryMin: '2G',
+              memoryMin: '2G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -346,7 +357,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: _FakeRunProcess().call,
-        resolver: fakeResolver,
+            resolver: fakeResolver,
           ),
           throwsA(
             isA<UserError>().having(
@@ -363,8 +374,9 @@ void main() {
       '--memory-max only sets Xmx; Xms falls back to --memory default',
       () async {
         writeLock(_lock(loader: Loader.fabric));
-        File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-            .writeAsStringSync('FAB');
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
         final fake = _FakeRunProcess();
         await runLaunchServer(
           options: const LaunchServerOptions(
@@ -391,8 +403,9 @@ void main() {
       '--memory + --memory-max: max wins for Xmx, --memory wins for Xms',
       () async {
         writeLock(_lock(loader: Loader.fabric));
-        File(p.join(serverDir.path, 'fabric-server-launch.jar'))
-            .writeAsStringSync('FAB');
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
         final fake = _FakeRunProcess();
         await runLaunchServer(
           options: const LaunchServerOptions(
@@ -430,7 +443,7 @@ void main() {
               acceptEula: false,
               autoBuild: false,
               memoryMax: '6G',
-          memoryMin: '6G',
+              memoryMin: '6G',
               offline: false,
               verbose: false,
               extraArgs: ['--port', '25566'],
@@ -439,7 +452,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: fake.call,
-        resolver: fakeResolver,
+            resolver: fakeResolver,
           );
 
           if (Platform.isWindows) {
@@ -450,9 +463,7 @@ void main() {
           expect(fake.args!.first, endsWith('run.sh'));
           expect(fake.args, containsAllInOrder(['--port', '25566']));
           // Memory is written into user_jvm_args.txt rather than CLI flags.
-          final userArgs = File(
-            p.join(serverDir.path, 'user_jvm_args.txt'),
-          );
+          final userArgs = File(p.join(serverDir.path, 'user_jvm_args.txt'));
           expect(userArgs.existsSync(), isTrue);
           expect(userArgs.readAsStringSync(), contains('-Xmx6G'));
           expect(userArgs.readAsStringSync(), contains('-Xms6G'));
@@ -465,15 +476,16 @@ void main() {
         'on Windows, Forge launch shells out to run.bat',
         () async {
           writeLock(_lock(loader: Loader.forge));
-          File(p.join(serverDir.path, 'run.bat'))
-              .writeAsStringSync('@echo off\n');
+          File(
+            p.join(serverDir.path, 'run.bat'),
+          ).writeAsStringSync('@echo off\n');
           final fake = _FakeRunProcess();
           await runLaunchServer(
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
               memoryMax: '6G',
-          memoryMin: '6G',
+              memoryMin: '6G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -482,7 +494,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: fake.call,
-        resolver: fakeResolver,
+            resolver: fakeResolver,
           );
           expect(fake.executable, endsWith('run.bat'));
           expect(fake.runInShell, isTrue);
@@ -490,14 +502,8 @@ void main() {
           // points at its parent so the unmodified run.bat picks it up.
           expect(fake.environment, isNotNull);
           final fakeJavaBinDir = p.dirname(fakeResolver.javaPath);
-          expect(
-            fake.environment!['PATH'],
-            startsWith(fakeJavaBinDir),
-          );
-          expect(
-            fake.environment!['JAVA_HOME'],
-            p.dirname(fakeJavaBinDir),
-          );
+          expect(fake.environment!['PATH'], startsWith(fakeJavaBinDir));
+          expect(fake.environment!['JAVA_HOME'], p.dirname(fakeJavaBinDir));
         },
         skip: !Platform.isWindows ? 'Windows-only' : null,
       );
@@ -508,16 +514,18 @@ void main() {
           writeLock(_lock(loader: Loader.forge));
           // POSIX-only: Windows uses run.bat without preserving args
           if (Platform.isWindows) return;
-          File(p.join(serverDir.path, 'run.sh'))
-              .writeAsStringSync('#!/bin/sh\n');
-          File(p.join(serverDir.path, 'user_jvm_args.txt'))
-              .writeAsStringSync('-Xmx512M\n-XX:+UseG1GC\n# comment\n');
+          File(
+            p.join(serverDir.path, 'run.sh'),
+          ).writeAsStringSync('#!/bin/sh\n');
+          File(
+            p.join(serverDir.path, 'user_jvm_args.txt'),
+          ).writeAsStringSync('-Xmx512M\n-XX:+UseG1GC\n# comment\n');
           await runLaunchServer(
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
               memoryMax: '8G',
-          memoryMin: '8G',
+              memoryMin: '8G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -526,7 +534,7 @@ void main() {
             console: const Console(),
             io: io,
             runProcess: _FakeRunProcess().call,
-        resolver: fakeResolver,
+            resolver: fakeResolver,
           );
           final body = File(
             p.join(serverDir.path, 'user_jvm_args.txt'),
@@ -539,48 +547,47 @@ void main() {
         skip: Platform.isWindows ? 'POSIX-only' : null,
       );
 
-      test(
-        'missing run.sh / run.bat surfaces a clear UserError',
-        () async {
-          writeLock(_lock(loader: Loader.forge));
-          await expectLater(
-            runLaunchServer(
-              options: const LaunchServerOptions(
-                acceptEula: false,
-                autoBuild: false,
-                memoryMax: '2G',
-          memoryMin: '2G',
-                offline: false,
-                verbose: false,
-                extraArgs: [],
-              ),
-              container: container,
-              console: const Console(),
-              io: io,
-              runProcess: _FakeRunProcess().call,
-        resolver: fakeResolver,
+      test('missing run.sh / run.bat surfaces a clear UserError', () async {
+        writeLock(_lock(loader: Loader.forge));
+        await expectLater(
+          runLaunchServer(
+            options: const LaunchServerOptions(
+              acceptEula: false,
+              autoBuild: false,
+              memoryMax: '2G',
+              memoryMin: '2G',
+              offline: false,
+              verbose: false,
+              extraArgs: [],
             ),
-            throwsA(
-              isA<UserError>().having(
-                (e) => e.message,
-                'message',
-                contains('server scripts not found'),
-              ),
+            container: container,
+            console: const Console(),
+            io: io,
+            runProcess: _FakeRunProcess().call,
+            resolver: fakeResolver,
+          ),
+          throwsA(
+            isA<UserError>().having(
+              (e) => e.message,
+              'message',
+              contains('server scripts not found'),
             ),
-          );
-        },
-      );
+          ),
+        );
+      });
 
       test(
         'mismatched memoryMax/memoryMin write through to user_jvm_args.txt',
         () async {
           writeLock(_lock(loader: Loader.forge));
           if (Platform.isWindows) {
-            File(p.join(serverDir.path, 'run.bat'))
-                .writeAsStringSync('@echo off\n');
+            File(
+              p.join(serverDir.path, 'run.bat'),
+            ).writeAsStringSync('@echo off\n');
           } else {
-            File(p.join(serverDir.path, 'run.sh'))
-                .writeAsStringSync('#!/bin/sh\n');
+            File(
+              p.join(serverDir.path, 'run.sh'),
+            ).writeAsStringSync('#!/bin/sh\n');
           }
           await runLaunchServer(
             options: const LaunchServerOptions(
@@ -641,14 +648,8 @@ void main() {
     });
 
     test('invalid size literal throws UserError', () {
-      expect(
-        () => resolveJvmHeap(memory: '1.5G'),
-        throwsA(isA<UserError>()),
-      );
-      expect(
-        () => resolveJvmHeap(memory: '2GB'),
-        throwsA(isA<UserError>()),
-      );
+      expect(() => resolveJvmHeap(memory: '1.5G'), throwsA(isA<UserError>()));
+      expect(() => resolveJvmHeap(memory: '2GB'), throwsA(isA<UserError>()));
     });
 
     test('M/K/T suffixes parse correctly', () {

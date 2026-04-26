@@ -52,7 +52,8 @@ class LoaderBinaryFetcher {
                '{v}/neoforge-{v}-installer.jar',
        _neoforgeLegacyInstallerUrlTemplate =
            neoforgeLegacyInstallerUrlTemplate ??
-           (environment ?? Platform
+           (environment ??
+               Platform
                    .environment)['GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL'] ??
            'https://maven.neoforged.net/releases/net/neoforged/forge/'
                '{mc}-{v}/forge-{mc}-{v}-installer.jar',
@@ -96,10 +97,7 @@ class LoaderBinaryFetcher {
       filename: filename,
     );
     try {
-      return await _downloader.downloadTo(
-        url: url,
-        destinationPath: dest,
-      );
+      return await _downloader.downloadTo(url: url, destinationPath: dest);
     } on GitrinthException {
       rethrow;
     } on DioException catch (e) {
@@ -142,10 +140,7 @@ class LoaderBinaryFetcher {
           filename: 'fabric-installer.jar',
         );
         try {
-          return await _downloader.downloadTo(
-            url: url,
-            destinationPath: dest,
-          );
+          return await _downloader.downloadTo(url: url, destinationPath: dest);
         } on GitrinthException {
           rethrow;
         } on DioException catch (e) {
@@ -177,8 +172,10 @@ class LoaderBinaryFetcher {
               .replaceAll('{v}', loaderVersion);
           return (url, 'forge-$mcVersion-$loaderVersion-installer.jar');
         }
-        final url = _neoforgeInstallerUrlTemplate
-            .replaceAll('{v}', loaderVersion);
+        final url = _neoforgeInstallerUrlTemplate.replaceAll(
+          '{v}',
+          loaderVersion,
+        );
         return (url, 'neoforge-$loaderVersion-installer.jar');
       case Loader.fabric:
         final url = _fabricServerJarUrlTemplate

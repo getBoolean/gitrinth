@@ -774,34 +774,31 @@ void main() {
       expect(plan.entries.single.zipPath, 'client-overrides/mods/client.jar');
     });
 
-    test(
-      'shaders (server unsupported by default) land in '
-      'client-overrides/shaderpacks/',
-      () {
-        final lock = _lock(
-          shaders: {
-            'custom-shader': _path(
-              slug: 'custom-shader',
-              path: '/abs/shader.zip',
-              client: SideEnv.required,
-              server: SideEnv.unsupported,
-            ),
-          },
-        );
-        final cache = GitrinthCache(root: '/tmp/fakeroot');
-        final plan = collectOverrides(
-          lock: lock,
-          cache: cache,
-          projectDir: '/proj',
-          target: PackTarget.combined,
-        );
-        expect(
-          plan.entries.single.zipPath,
-          'client-overrides/shaderpacks/shader.zip',
-        );
-        expect(plan.hasModOverrides, isFalse);
-      },
-    );
+    test('shaders (server unsupported by default) land in '
+        'client-overrides/shaderpacks/', () {
+      final lock = _lock(
+        shaders: {
+          'custom-shader': _path(
+            slug: 'custom-shader',
+            path: '/abs/shader.zip',
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
+          ),
+        },
+      );
+      final cache = GitrinthCache(root: '/tmp/fakeroot');
+      final plan = collectOverrides(
+        lock: lock,
+        cache: cache,
+        projectDir: '/proj',
+        target: PackTarget.combined,
+      );
+      expect(
+        plan.entries.single.zipPath,
+        'client-overrides/shaderpacks/shader.zip',
+      );
+      expect(plan.hasModOverrides, isFalse);
+    });
 
     test('client target drops server-only overrides entirely', () {
       final lock = _lock(
@@ -1055,35 +1052,40 @@ void main() {
       );
     });
 
-    test('coexists with mod overrides without setting hasModOverrides on files', () {
-      final lock = ModsLock(
-        gitrinthVersion: '0.1.0',
-        loader: const LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
-        mcVersion: '1.21.1',
-        mods: {
-          'local-mod': _path(slug: 'local-mod', path: '/a/local.jar'),
-        },
-        files: const {
-          'config/options.txt': LockedFileEntry(
-            destination: 'config/options.txt',
-            sourcePath: './options.txt',
+    test(
+      'coexists with mod overrides without setting hasModOverrides on files',
+      () {
+        final lock = ModsLock(
+          gitrinthVersion: '0.1.0',
+          loader: const LoaderConfig(
+            mods: Loader.fabric,
+            modsVersion: '0.17.3',
           ),
-        },
-      );
-      final plan = collectOverrides(
-        lock: lock,
-        cache: GitrinthCache(root: '/tmp/fakeroot'),
-        projectDir: '/proj',
-        target: PackTarget.combined,
-      );
-      expect(plan.hasModOverrides, isTrue, reason: 'mod entry sets the flag');
-      // Verify both mod and files entries are in the plan, with the
-      // mod entry tagged Section.mods and the files entry tagged null.
-      final modEntry = plan.entries.firstWhere((e) => e.slug == 'local-mod');
-      final fileEntry =
-          plan.entries.firstWhere((e) => e.slug == 'config/options.txt');
-      expect(modEntry.section, Section.mods);
-      expect(fileEntry.section, isNull);
-    });
+          mcVersion: '1.21.1',
+          mods: {'local-mod': _path(slug: 'local-mod', path: '/a/local.jar')},
+          files: const {
+            'config/options.txt': LockedFileEntry(
+              destination: 'config/options.txt',
+              sourcePath: './options.txt',
+            ),
+          },
+        );
+        final plan = collectOverrides(
+          lock: lock,
+          cache: GitrinthCache(root: '/tmp/fakeroot'),
+          projectDir: '/proj',
+          target: PackTarget.combined,
+        );
+        expect(plan.hasModOverrides, isTrue, reason: 'mod entry sets the flag');
+        // Verify both mod and files entries are in the plan, with the
+        // mod entry tagged Section.mods and the files entry tagged null.
+        final modEntry = plan.entries.firstWhere((e) => e.slug == 'local-mod');
+        final fileEntry = plan.entries.firstWhere(
+          (e) => e.slug == 'config/options.txt',
+        );
+        expect(modEntry.section, Section.mods);
+        expect(fileEntry.section, isNull);
+      },
+    );
   });
 }

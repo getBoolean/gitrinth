@@ -23,9 +23,7 @@ abstract class ModrinthApi {
   /// labrinth source uses `#[get("/{id}/check")]`. The body is irrelevant —
   /// callers should inspect `HttpResponse.response.statusCode`.
   @GET('/project/{slug}/check')
-  Future<HttpResponse<dynamic>> checkProjectValidity(
-    @Path('slug') String slug,
-  );
+  Future<HttpResponse<dynamic>> checkProjectValidity(@Path('slug') String slug);
 
   /// Returns versions of [slug] filtered server-side by loader and game version.
   /// Modrinth's `loaders` and `game_versions` parameters are JSON-encoded

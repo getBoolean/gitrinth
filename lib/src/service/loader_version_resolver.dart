@@ -172,10 +172,7 @@ class LoaderVersionResolver {
   Future<String> _resolveNeoforge(String tag, String mcVersion) async {
     final parsed = _parseMcMinorPatch(mcVersion, Loader.neoforge, tag);
     final prefix = '${parsed.minor}.${parsed.patch}.';
-    final body = await _fetchJson(
-      _neoforgeVersionsUrl,
-      'maven.neoforged.net',
-    );
+    final body = await _fetchJson(_neoforgeVersionsUrl, 'maven.neoforged.net');
     final versions = _neoforgeVersionList(body);
     final isConcrete = tag != 'stable' && tag != 'latest';
 

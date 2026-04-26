@@ -77,16 +77,19 @@ mods:
 ''');
 
     // Warm the cache.
-    final warm = await runCli(
-      ['-C', packDir.path, 'get'],
-      environment: envWith(),
-    );
+    final warm = await runCli([
+      '-C',
+      packDir.path,
+      'get',
+    ], environment: envWith());
     expect(warm.exitCode, 0, reason: warm.stderr);
 
-    final out = await runCli(
-      ['-C', packDir.path, 'upgrade', '--offline'],
-      environment: envWith(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'upgrade',
+      '--offline',
+    ], environment: envWith());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(
       out.stderr,

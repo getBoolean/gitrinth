@@ -198,10 +198,7 @@ class FakeModrinth {
   /// `<mc>-latest`, values are bare build numbers.
   Map<String, dynamic> forgePromotions = {
     'homepage': 'https://files.minecraftforge.net/',
-    'promos': {
-      '1.20.1-recommended': '47.2.0',
-      '1.20.1-latest': '47.4.10',
-    },
+    'promos': {'1.20.1-recommended': '47.2.0', '1.20.1-latest': '47.4.10'},
   };
 
   /// Body served at [forgeVersionsUrl]. Shape mirrors the real
@@ -310,10 +307,7 @@ class FakeModrinth {
         '${depSlug}_${depVersion.replaceAll(RegExp(r'[^A-Za-z0-9]'), '_')}';
     final deps = <Map<String, dynamic>>[
       for (final depSlug in requiredDeps)
-        {
-          'project_id': '${depSlug}_ID',
-          'dependency_type': 'required',
-        },
+        {'project_id': '${depSlug}_ID', 'dependency_type': 'required'},
       for (final entry in requiredDepsAtVersion.entries)
         {
           'project_id': '${entry.key}_ID',
@@ -321,10 +315,7 @@ class FakeModrinth {
           'dependency_type': 'required',
         },
       for (final depSlug in incompatibleDeps)
-        {
-          'project_id': '${depSlug}_ID',
-          'dependency_type': 'incompatible',
-        },
+        {'project_id': '${depSlug}_ID', 'dependency_type': 'incompatible'},
     ];
     final entry = <String, dynamic>{
       'id': versionId,
@@ -363,10 +354,9 @@ class FakeModrinth {
           req.response.write(jsonEncode({'error': 'unauthenticated'}));
         } else {
           req.response.headers.contentType = ContentType.json;
-          req.response.write(jsonEncode({
-            'id': 'fake-user-id',
-            'username': username,
-          }));
+          req.response.write(
+            jsonEncode({'id': 'fake-user-id', 'username': username}),
+          );
         }
       } else if (path == '/v2/tag/game_version') {
         req.response.headers.contentType = ContentType.json;
@@ -524,10 +514,12 @@ class FakeModrinth {
             final loadersFilter = _decodeFilterArray(qp['loaders']);
             final gvFilter = _decodeFilterArray(qp['game_versions']);
             final filtered = list.where((v) {
-              final loaders = (v['loaders'] as List?)?.cast<String>() ?? const [];
-              final gvs = (v['game_versions'] as List?)?.cast<String>() ?? const [];
-              final loaderOk = loadersFilter == null ||
-                  loaders.any(loadersFilter.contains);
+              final loaders =
+                  (v['loaders'] as List?)?.cast<String>() ?? const [];
+              final gvs =
+                  (v['game_versions'] as List?)?.cast<String>() ?? const [];
+              final loaderOk =
+                  loadersFilter == null || loaders.any(loadersFilter.contains);
               final gvOk = gvFilter == null || gvs.any(gvFilter.contains);
               return loaderOk && gvOk;
             }).toList();

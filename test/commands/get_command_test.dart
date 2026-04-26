@@ -1051,10 +1051,11 @@ mc-version: 1.20.1
 mods:
   jei: ^1.0.0
 ''');
-        final first = await runCli(
-          ['-C', packDir.path, 'get'],
-          environment: env,
-        );
+        final first = await runCli([
+          '-C',
+          packDir.path,
+          'get',
+        ], environment: env);
         expect(first.exitCode, 0, reason: '${first.stderr}\n${first.stdout}');
 
         // User now changes the pin; we should re-validate and lock the new build.
@@ -1069,11 +1070,16 @@ mc-version: 1.20.1
 mods:
   jei: ^1.0.0
 ''');
-        final second = await runCli(
-          ['-C', packDir.path, 'get'],
-          environment: env,
+        final second = await runCli([
+          '-C',
+          packDir.path,
+          'get',
+        ], environment: env);
+        expect(
+          second.exitCode,
+          0,
+          reason: '${second.stderr}\n${second.stdout}',
         );
-        expect(second.exitCode, 0, reason: '${second.stderr}\n${second.stdout}');
         final lockText = File(
           p.join(packDir.path, 'mods.lock'),
         ).readAsStringSync();
@@ -1108,7 +1114,11 @@ mods:
   sodium: ^0.6.0
 ''');
         // Warm up cache + lock with the original pin.
-        final warm = await runCli(['-C', packDir.path, 'get'], environment: env);
+        final warm = await runCli([
+          '-C',
+          packDir.path,
+          'get',
+        ], environment: env);
         expect(warm.exitCode, 0, reason: '${warm.stderr}\n${warm.stdout}');
 
         // Change pin, run offline. We should not hit fabric-meta, the new pin
@@ -1125,10 +1135,12 @@ mods:
   sodium: ^0.6.0
 ''');
         final hits = modrinth.requestCounts['/fabric/v2/versions/loader'] ?? 0;
-        final out = await runCli(
-          ['-C', packDir.path, 'get', '--offline'],
-          environment: env,
-        );
+        final out = await runCli([
+          '-C',
+          packDir.path,
+          'get',
+          '--offline',
+        ], environment: env);
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
         expect(modrinth.requestCounts['/fabric/v2/versions/loader'], hits);
         expect(out.stderr, contains('unvalidated loader pin'));
@@ -1263,19 +1275,17 @@ mods:
     },
   );
 
-  test(
-    'lock omits accepts-mc when the user did not set it',
-    () async {
-      modrinth.registerVersion(
-        slug: 'appleskin',
-        versionNumber: '3.0.9',
-        gameVersion: '1.21.1',
-      );
-      (modrinth.versions['appleskin']!.first['game_versions'] as List)
-        ..clear()
-        ..addAll(<String>['1.21', '1.21.1', '1.21.2']);
+  test('lock omits accepts-mc when the user did not set it', () async {
+    modrinth.registerVersion(
+      slug: 'appleskin',
+      versionNumber: '3.0.9',
+      gameVersion: '1.21.1',
+    );
+    (modrinth.versions['appleskin']!.first['game_versions'] as List)
+      ..clear()
+      ..addAll(<String>['1.21', '1.21.1', '1.21.2']);
 
-      await writeManifest('''
+    await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -1287,21 +1297,18 @@ mods:
   appleskin: ^3.0.9
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'get'],
-        environment: {
-          'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
-          'GITRINTH_CACHE': cacheDir.path,
-        },
-      );
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final out = await runCli(
+      ['-C', packDir.path, 'get'],
+      environment: {
+        'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
+        'GITRINTH_CACHE': cacheDir.path,
+      },
+    );
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
-      final lockText = File(
-        p.join(packDir.path, 'mods.lock'),
-      ).readAsStringSync();
-      expect(lockText, isNot(contains('accepts-mc:')));
-    },
-  );
+    final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
+    expect(lockText, isNot(contains('accepts-mc:')));
+  });
 
   // Regression: a long-form entry with `version:` set to a channel
   // token (`release` / `beta` / `alpha`) used to be parsed as an exact
@@ -1404,9 +1411,9 @@ mods:
         'version.json',
       );
       expect(File(metadataPath).existsSync(), isTrue);
-      final body = jsonDecode(
-        File(metadataPath).readAsStringSync(),
-      ) as Map<String, dynamic>;
+      final body =
+          jsonDecode(File(metadataPath).readAsStringSync())
+              as Map<String, dynamic>;
       final deps = body['dependencies'] as List;
       expect(deps, hasLength(1));
       final dep = deps.first as Map<String, dynamic>;

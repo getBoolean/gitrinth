@@ -60,9 +60,7 @@ final modrinthAuthInterceptorProvider = Provider<ModrinthAuthInterceptor>((
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio();
   dio
-    ..interceptors.add(
-      OfflineGuardInterceptor(() => ref.read(offlineProvider)),
-    )
+    ..interceptors.add(OfflineGuardInterceptor(() => ref.read(offlineProvider)))
     ..interceptors.add(ref.read(modrinthAuthInterceptorProvider))
     ..interceptors.add(
       ModrinthRateLimitInterceptor(
@@ -86,8 +84,10 @@ final modrinthApiProvider = Provider<ModrinthApi>(
 );
 
 final cacheProvider = Provider<GitrinthCache>(
-  (ref) =>
-      GitrinthCache(root: resolveCacheRoot(ref.read(environmentProvider))),
+  (ref) => GitrinthCache(
+    root: resolveCacheRoot(ref.read(environmentProvider)),
+    console: ref.read(consoleProvider),
+  ),
 );
 
 final downloaderProvider = Provider<Downloader>(
@@ -136,8 +136,7 @@ final serverInstallerProvider = Provider<ServerInstaller>(
 );
 
 final minecraftLauncherLocatorProvider = Provider<MinecraftLauncherLocator>(
-  (ref) =>
-      MinecraftLauncherLocator(environment: ref.read(environmentProvider)),
+  (ref) => MinecraftLauncherLocator(environment: ref.read(environmentProvider)),
 );
 
 final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(

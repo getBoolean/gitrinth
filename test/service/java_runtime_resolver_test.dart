@@ -81,7 +81,6 @@ void main() {
         fetcher: fetcher,
         environment: const {},
         probe: stubProber({path21Java.path: 21}),
-
       );
       final result = await resolver.resolve(
         mcVersion: '1.21.1',
@@ -97,13 +96,9 @@ void main() {
           fetcher: fetcher,
           environment: const {},
           probe: stubProber({path17Java.path: 17}),
-
         );
         await expectLater(
-          resolver.resolve(
-            mcVersion: '1.21.1',
-            explicitPath: path17Java.path,
-          ),
+          resolver.resolve(mcVersion: '1.21.1', explicitPath: path17Java.path),
           throwsA(
             isA<UserError>().having(
               (e) => e.message,
@@ -126,7 +121,6 @@ void main() {
         fetcher: fetcher,
         environment: const {},
         probe: stubProber({binary.path: 21}),
-
       );
       final result = await resolver.resolve(
         mcVersion: '1.21.1',
@@ -135,13 +129,11 @@ void main() {
       expect(result.path, binary.path);
     });
 
-    test('--java to nonexistent path -> UserError "no such file"',
-        () async {
+    test('--java to nonexistent path -> UserError "no such file"', () async {
       final resolver = JavaRuntimeResolver(
         fetcher: fetcher,
         environment: const {},
         probe: stubProber(const {}),
-
       );
       await expectLater(
         resolver.resolve(
@@ -169,7 +161,6 @@ void main() {
           fetcher: fetcher,
           environment: {'JAVA_HOME': jdkHome.path},
           probe: stubProber({binary.path: 21}),
-
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
         expect(result.path, binary.path);
@@ -180,8 +171,7 @@ void main() {
       'JAVA_HOME mismatch with managed allowed: soft-falls through to '
       'auto-fetch (so a stale system JAVA_HOME does not block the user)',
       () async {
-        final jdkHome = Directory(p.join(tempRoot.path, 'jh17a'))
-          ..createSync();
+        final jdkHome = Directory(p.join(tempRoot.path, 'jh17a'))..createSync();
         Directory(p.join(jdkHome.path, 'bin')).createSync();
         final binary = File(p.join(jdkHome.path, 'bin', 'java.exe'))
           ..writeAsStringSync('STUB');
@@ -217,36 +207,32 @@ void main() {
       },
     );
 
-    test(
-      'JAVA_HOME mismatch + --no-managed-java + nothing else satisfies -> '
-      'UserError mentions JAVA_HOME and the version mismatch',
-      () async {
-        final jdkHome = Directory(p.join(tempRoot.path, 'jh17b'))
-          ..createSync();
-        Directory(p.join(jdkHome.path, 'bin')).createSync();
-        final binary = File(p.join(jdkHome.path, 'bin', 'java.exe'))
-          ..writeAsStringSync('STUB');
-        final resolver = JavaRuntimeResolver(
-          fetcher: fetcher,
-          environment: {'JAVA_HOME': jdkHome.path, 'PATH': ''},
-          probe: stubProber({binary.path: 17}),
-        );
-        await expectLater(
-          resolver.resolve(mcVersion: '1.21.1', allowManaged: false),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              allOf(
-                contains('--no-managed-java'),
-                contains('JAVA_HOME'),
-                contains('JDK 17'),
-              ),
+    test('JAVA_HOME mismatch + --no-managed-java + nothing else satisfies -> '
+        'UserError mentions JAVA_HOME and the version mismatch', () async {
+      final jdkHome = Directory(p.join(tempRoot.path, 'jh17b'))..createSync();
+      Directory(p.join(jdkHome.path, 'bin')).createSync();
+      final binary = File(p.join(jdkHome.path, 'bin', 'java.exe'))
+        ..writeAsStringSync('STUB');
+      final resolver = JavaRuntimeResolver(
+        fetcher: fetcher,
+        environment: {'JAVA_HOME': jdkHome.path, 'PATH': ''},
+        probe: stubProber({binary.path: 17}),
+      );
+      await expectLater(
+        resolver.resolve(mcVersion: '1.21.1', allowManaged: false),
+        throwsA(
+          isA<UserError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('--no-managed-java'),
+              contains('JAVA_HOME'),
+              contains('JDK 17'),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     test(
       'cached gitrinth Temurin is used ahead of PATH when JAVA_HOME is unset',
@@ -281,7 +267,6 @@ void main() {
             pathProbed = true;
             return 17; // would mismatch if reached
           },
-
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
         expect(result.path, contains('runtimes'));
@@ -294,22 +279,23 @@ void main() {
       },
     );
 
-    test('PATH java is used when JAVA_HOME unset and version matches',
-        () async {
-      // Stage a `java.exe` (not java21.exe) on the synthetic PATH.
-      final pathDir2 = Directory(p.join(tempRoot.path, 'pathreal'))
-        ..createSync();
-      final realJava = File(p.join(pathDir2.path, 'java.exe'))
-        ..writeAsStringSync('STUB');
-      final resolver = JavaRuntimeResolver(
-        fetcher: fetcher,
-        environment: {'PATH': pathDir2.path},
-        probe: stubProber({realJava.path: 21}),
-
-      );
-      final result = await resolver.resolve(mcVersion: '1.21.1');
-      expect(result.path, realJava.path);
-    });
+    test(
+      'PATH java is used when JAVA_HOME unset and version matches',
+      () async {
+        // Stage a `java.exe` (not java21.exe) on the synthetic PATH.
+        final pathDir2 = Directory(p.join(tempRoot.path, 'pathreal'))
+          ..createSync();
+        final realJava = File(p.join(pathDir2.path, 'java.exe'))
+          ..writeAsStringSync('STUB');
+        final resolver = JavaRuntimeResolver(
+          fetcher: fetcher,
+          environment: {'PATH': pathDir2.path},
+          probe: stubProber({realJava.path: 21}),
+        );
+        final result = await resolver.resolve(mcVersion: '1.21.1');
+        expect(result.path, realJava.path);
+      },
+    );
 
     test(
       'PATH java with wrong version + online -> falls through to fetcher',
@@ -343,36 +329,37 @@ void main() {
           fetcher: fetcher,
           environment: {'PATH': pathDir2.path},
           probe: stubProber({java17.path: 17}),
-
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
         expect(result.path, contains('runtimes'));
       },
     );
 
-    test('--offline + nothing satisfies -> UserError mentions --offline',
-        () async {
-      offline = true;
-      final pathDir2 = Directory(p.join(tempRoot.path, 'path17b'))..createSync();
-      final java17 = File(p.join(pathDir2.path, 'java.exe'))
-        ..writeAsStringSync('STUB');
-      final resolver = JavaRuntimeResolver(
-        fetcher: fetcher,
-        environment: {'PATH': pathDir2.path},
-        probe: stubProber({java17.path: 17}),
-
-      );
-      await expectLater(
-        resolver.resolve(mcVersion: '1.21.1', offline: true),
-        throwsA(
-          isA<UserError>().having(
-            (e) => e.message,
-            'message',
-            contains('--offline'),
+    test(
+      '--offline + nothing satisfies -> UserError mentions --offline',
+      () async {
+        offline = true;
+        final pathDir2 = Directory(p.join(tempRoot.path, 'path17b'))
+          ..createSync();
+        final java17 = File(p.join(pathDir2.path, 'java.exe'))
+          ..writeAsStringSync('STUB');
+        final resolver = JavaRuntimeResolver(
+          fetcher: fetcher,
+          environment: {'PATH': pathDir2.path},
+          probe: stubProber({java17.path: 17}),
+        );
+        await expectLater(
+          resolver.resolve(mcVersion: '1.21.1', offline: true),
+          throwsA(
+            isA<UserError>().having(
+              (e) => e.message,
+              'message',
+              contains('--offline'),
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
 
     test(
       '--no-managed-java + nothing satisfies -> UserError mentions --java',
@@ -385,13 +372,9 @@ void main() {
           fetcher: fetcher,
           environment: {'PATH': pathDir2.path},
           probe: stubProber({java17.path: 17}),
-
         );
         await expectLater(
-          resolver.resolve(
-            mcVersion: '1.21.1',
-            allowManaged: false,
-          ),
+          resolver.resolve(mcVersion: '1.21.1', allowManaged: false),
           throwsA(
             isA<UserError>().having(
               (e) => e.message,
@@ -437,7 +420,6 @@ void main() {
           probes++;
           return 21;
         },
-
       );
       await resolver.probeMajorVersion(path21Java.path);
       await resolver.probeMajorVersion(path21Java.path);

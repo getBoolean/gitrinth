@@ -377,59 +377,55 @@ void main() {
     );
   });
 
-
   group('candidate ordering', () {
-    test(
-      'date-encoded resource pack labels: newest by date_published wins '
-      'over higher-MMP older release',
-      () async {
-        // Faithful 32x ships its versions as `<max-mc>-<release-label>`
-        // (e.g. `1.21.1-december-2025`). The leading `1.21.x` is the
-        // highest-supported MC version, NOT a newer pack release —
-        // `1.21.3-june-2025` was published *before* `1.21.1-december-2025`
-        // even though its parsed semver is "higher." Sort must follow
-        // `date_published` so upgrade picks the December release.
-        final db = {
-          'faithful-32x': [
-            v(
-              slug: 'faithful-32x',
-              number: '1.21.1-november-2024',
-              datePublished: '2024-11-15T00:00:00Z',
-            ),
-            v(
-              slug: 'faithful-32x',
-              number: '1.21.1-april-2025',
-              datePublished: '2025-04-15T00:00:00Z',
-            ),
-            v(
-              slug: 'faithful-32x',
-              number: '1.21.3-june-2025',
-              datePublished: '2025-06-15T00:00:00Z',
-            ),
-            v(
-              slug: 'faithful-32x',
-              number: '1.21.1-december-2025',
-              datePublished: '2025-12-15T00:00:00Z',
-            ),
-          ],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => null,
-        );
-        final out = await solver.solve([
-          RootConstraint(
+    test('date-encoded resource pack labels: newest by date_published wins '
+        'over higher-MMP older release', () async {
+      // Faithful 32x ships its versions as `<max-mc>-<release-label>`
+      // (e.g. `1.21.1-december-2025`). The leading `1.21.x` is the
+      // highest-supported MC version, NOT a newer pack release —
+      // `1.21.3-june-2025` was published *before* `1.21.1-december-2025`
+      // even though its parsed semver is "higher." Sort must follow
+      // `date_published` so upgrade picks the December release.
+      final db = {
+        'faithful-32x': [
+          v(
             slug: 'faithful-32x',
-            constraint: VersionConstraint.any,
-            isUserDeclared: true,
+            number: '1.21.1-november-2024',
+            datePublished: '2024-11-15T00:00:00Z',
           ),
-        ]);
-        expect(
-          out.decisions['faithful-32x']!.versionNumber,
-          '1.21.1-december-2025',
-        );
-      },
-    );
+          v(
+            slug: 'faithful-32x',
+            number: '1.21.1-april-2025',
+            datePublished: '2025-04-15T00:00:00Z',
+          ),
+          v(
+            slug: 'faithful-32x',
+            number: '1.21.3-june-2025',
+            datePublished: '2025-06-15T00:00:00Z',
+          ),
+          v(
+            slug: 'faithful-32x',
+            number: '1.21.1-december-2025',
+            datePublished: '2025-12-15T00:00:00Z',
+          ),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => null,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'faithful-32x',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(
+        out.decisions['faithful-32x']!.versionNumber,
+        '1.21.1-december-2025',
+      );
+    });
 
     test('null date_published falls back to parsed semver desc', () async {
       // Existing-callers contract: when Modrinth doesn't return a
@@ -459,39 +455,33 @@ void main() {
   });
 
   group('failure messages (dart pub-style)', () {
-    test(
-      'direct user-root failure emits a single Because... '
-      'Version solving failed. chain',
-      () async {
-        final db = {
-          'create': [v(slug: 'create', number: '5.0.0')],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => null,
-        );
-        try {
-          await solver.solve([
-            RootConstraint(
-              slug: 'create',
-              constraint: VersionConstraint.parse('^6.0.0'),
-              isUserDeclared: true,
-            ),
-          ]);
-          fail('expected ValidationError');
-        } on ValidationError catch (e) {
-          final msg = e.message;
-          expect(
-            msg,
-            startsWith('Because the modpack depends on create ^6.0.0'),
-          );
-          expect(msg, contains('no version of create matches ^6.0.0'));
-          expect(msg, endsWith('Version solving failed.'));
-          // The "saw N candidates" parenthetical lands at the end of the reason.
-          expect(msg, contains('(saw 1 candidates)'));
-        }
-      },
-    );
+    test('direct user-root failure emits a single Because... '
+        'Version solving failed. chain', () async {
+      final db = {
+        'create': [v(slug: 'create', number: '5.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => null,
+      );
+      try {
+        await solver.solve([
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.parse('^6.0.0'),
+            isUserDeclared: true,
+          ),
+        ]);
+        fail('expected ValidationError');
+      } on ValidationError catch (e) {
+        final msg = e.message;
+        expect(msg, startsWith('Because the modpack depends on create ^6.0.0'));
+        expect(msg, contains('no version of create matches ^6.0.0'));
+        expect(msg, endsWith('Version solving failed.'));
+        // The "saw N candidates" parenthetical lands at the end of the reason.
+        expect(msg, contains('(saw 1 candidates)'));
+      }
+    });
 
     test('transitive failure includes the parent → child chain', () async {
       final db = {
@@ -538,127 +528,118 @@ void main() {
       }
     });
 
-    test(
-      'no `all candidate versions led to conflicts` cascade through other '
-      'user roots',
-      () async {
-        // The original cascade scenario: one bad root (`distanthorizons`)
-        // causes the depth-first search to iterate every candidate of the
-        // alphabetically-earlier user roots before failing. Each of those
-        // roots used to land in the conflict list as
-        // "all candidate versions led to conflicts" — pure noise.
-        final db = {
-          'appleskin': [v(slug: 'appleskin', number: '3.0.9')],
-          'create': [v(slug: 'create', number: '6.0.10')],
-          'distanthorizons': [
-            v(
-              slug: 'distanthorizons',
-              number: '2.3.0',
-              versionType: 'release',
-            ),
-          ],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => null,
-        );
-        try {
-          await solver.solve([
-            RootConstraint(
-              slug: 'appleskin',
-              constraint: VersionConstraint.parse('^3.0.9'),
-              isUserDeclared: true,
-            ),
-            RootConstraint(
-              slug: 'create',
-              constraint: VersionConstraint.parse('^6.0.10'),
-              isUserDeclared: true,
-            ),
-            // Bad root: pin a version that doesn't exist.
-            RootConstraint(
-              slug: 'distanthorizons',
-              constraint: VersionConstraint.parse('^99.0.0'),
-              isUserDeclared: true,
-            ),
-          ]);
-          fail('expected ValidationError');
-        } on ValidationError catch (e) {
-          final msg = e.message;
-          expect(msg, isNot(contains('all candidate versions led to conflicts')));
-          // The actual broken slug is named.
-          expect(msg, contains('distanthorizons'));
-          // The healthy slugs are NOT named in any failure paragraph
-          // (their names appear nowhere in the message).
-          expect(msg, isNot(contains('appleskin')));
-          expect(msg, isNot(contains(' create ')));
-          expect(msg, endsWith('Version solving failed.'));
-        }
-      },
-    );
+    test('no `all candidate versions led to conflicts` cascade through other '
+        'user roots', () async {
+      // The original cascade scenario: one bad root (`distanthorizons`)
+      // causes the depth-first search to iterate every candidate of the
+      // alphabetically-earlier user roots before failing. Each of those
+      // roots used to land in the conflict list as
+      // "all candidate versions led to conflicts" — pure noise.
+      final db = {
+        'appleskin': [v(slug: 'appleskin', number: '3.0.9')],
+        'create': [v(slug: 'create', number: '6.0.10')],
+        'distanthorizons': [
+          v(slug: 'distanthorizons', number: '2.3.0', versionType: 'release'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => null,
+      );
+      try {
+        await solver.solve([
+          RootConstraint(
+            slug: 'appleskin',
+            constraint: VersionConstraint.parse('^3.0.9'),
+            isUserDeclared: true,
+          ),
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.parse('^6.0.10'),
+            isUserDeclared: true,
+          ),
+          // Bad root: pin a version that doesn't exist.
+          RootConstraint(
+            slug: 'distanthorizons',
+            constraint: VersionConstraint.parse('^99.0.0'),
+            isUserDeclared: true,
+          ),
+        ]);
+        fail('expected ValidationError');
+      } on ValidationError catch (e) {
+        final msg = e.message;
+        expect(msg, isNot(contains('all candidate versions led to conflicts')));
+        // The actual broken slug is named.
+        expect(msg, contains('distanthorizons'));
+        // The healthy slugs are NOT named in any failure paragraph
+        // (their names appear nowhere in the message).
+        expect(msg, isNot(contains('appleskin')));
+        expect(msg, isNot(contains(' create ')));
+        expect(msg, endsWith('Version solving failed.'));
+      }
+    });
 
-    test(
-      'deduplicates the same leaf failure encountered on multiple '
-      'backtrack paths',
-      () async {
-        // Both create candidates require flywheel; flywheel has no
-        // satisfying version. Each backtrack revisits flywheel's
-        // failure — the message should mention it once.
-        final db = {
-          'create': [
-            v(
-              slug: 'create',
-              number: '6.0.11',
-              deps: const [
-                Dependency(
-                  projectId: 'flywheel',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-            v(
-              slug: 'create',
-              number: '6.0.10',
-              deps: const [
-                Dependency(
-                  projectId: 'flywheel',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-          ],
-          'flywheel': <modrinth.Version>[],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => id,
+    test('deduplicates the same leaf failure encountered on multiple '
+        'backtrack paths', () async {
+      // Both create candidates require flywheel; flywheel has no
+      // satisfying version. Each backtrack revisits flywheel's
+      // failure — the message should mention it once.
+      final db = {
+        'create': [
+          v(
+            slug: 'create',
+            number: '6.0.11',
+            deps: const [
+              Dependency(
+                projectId: 'flywheel',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+          v(
+            slug: 'create',
+            number: '6.0.10',
+            deps: const [
+              Dependency(
+                projectId: 'flywheel',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'flywheel': <modrinth.Version>[],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      try {
+        await solver.solve([
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.any,
+            isUserDeclared: true,
+          ),
+        ]);
+        fail('expected ValidationError');
+      } on ValidationError catch (e) {
+        final msg = e.message;
+        // The flywheel reason appears exactly once even though two
+        // create candidates each tried (and failed) on it.
+        final flywheelReason =
+            'no published version of flywheel matches the configured '
+            'loader/mc-version pair';
+        final occurrences = flywheelReason.allMatches(msg).length;
+        expect(
+          occurrences,
+          1,
+          reason:
+              'expected exactly one mention of the flywheel failure, '
+              'got $occurrences in:\n$msg',
         );
-        try {
-          await solver.solve([
-            RootConstraint(
-              slug: 'create',
-              constraint: VersionConstraint.any,
-              isUserDeclared: true,
-            ),
-          ]);
-          fail('expected ValidationError');
-        } on ValidationError catch (e) {
-          final msg = e.message;
-          // The flywheel reason appears exactly once even though two
-          // create candidates each tried (and failed) on it.
-          final flywheelReason =
-              'no published version of flywheel matches the configured '
-              'loader/mc-version pair';
-          final occurrences = flywheelReason.allMatches(msg).length;
-          expect(
-            occurrences,
-            1,
-            reason: 'expected exactly one mention of the flywheel failure, '
-                'got $occurrences in:\n$msg',
-          );
-          expect(msg, endsWith('Version solving failed.'));
-        }
-      },
-    );
+        expect(msg, endsWith('Version solving failed.'));
+      }
+    });
   });
 
   group('UnsatisfiableGraphError', () {
@@ -687,55 +668,151 @@ void main() {
       }
     });
 
-    test(
-      'two user roots pin a shared transitive at the same major resolve '
-      'cleanly to the highest in-range version (caret semantics, not '
-      'exact pin)',
-      () async {
-        // a pins shared 1.2.0 → ^1.2.0 → [1.2.0, 2.0.0).
-        // b pins shared 1.5.0 → ^1.5.0 → [1.5.0, 2.0.0).
-        // Intersection ^1.5.0 admits 1.5.0 and 1.7.0; PubGrub picks
-        // 1.7.0 (newest in range). If we treated version_id as an
-        // exact pin instead, this combination would conflict on every
-        // patch release — too aggressive.
-        final db = {
-          'a': [
-            v(
-              slug: 'a',
-              number: '1.0.0',
-              deps: const [
-                Dependency(
-                  projectId: 'shared',
-                  versionId: 'shared-1.2.0',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-          ],
-          'b': [
-            v(
-              slug: 'b',
-              number: '1.0.0',
-              deps: const [
-                Dependency(
-                  projectId: 'shared',
-                  versionId: 'shared-1.5.0',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-          ],
-          'shared': [
-            v(slug: 'shared', number: '1.2.0'),
-            v(slug: 'shared', number: '1.5.0'),
-            v(slug: 'shared', number: '1.7.0'),
-          ],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => id,
-        );
-        final out = await solver.solve([
+    test('two user roots pin a shared transitive at the same major resolve '
+        'cleanly to the highest in-range version (caret semantics, not '
+        'exact pin)', () async {
+      // a pins shared 1.2.0 → ^1.2.0 → [1.2.0, 2.0.0).
+      // b pins shared 1.5.0 → ^1.5.0 → [1.5.0, 2.0.0).
+      // Intersection ^1.5.0 admits 1.5.0 and 1.7.0; PubGrub picks
+      // 1.7.0 (newest in range). If we treated version_id as an
+      // exact pin instead, this combination would conflict on every
+      // patch release — too aggressive.
+      final db = {
+        'a': [
+          v(
+            slug: 'a',
+            number: '1.0.0',
+            deps: const [
+              Dependency(
+                projectId: 'shared',
+                versionId: 'shared-1.2.0',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'b': [
+          v(
+            slug: 'b',
+            number: '1.0.0',
+            deps: const [
+              Dependency(
+                projectId: 'shared',
+                versionId: 'shared-1.5.0',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'shared': [
+          v(slug: 'shared', number: '1.2.0'),
+          v(slug: 'shared', number: '1.5.0'),
+          v(slug: 'shared', number: '1.7.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'a',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+        RootConstraint(
+          slug: 'b',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions['shared']!.versionNumber, '1.7.0');
+    });
+
+    test('two user roots pin a shared transitive at cross-major versionIds: '
+        'resolve to the higher floor (>= semantics, no upper bound)', () async {
+      // a → shared >=1.0.0; b → shared >=2.0.0; intersection >=2.0.0.
+      final db = {
+        'a': [
+          v(
+            slug: 'a',
+            number: '1.0.0',
+            deps: const [
+              Dependency(
+                projectId: 'shared',
+                versionId: 'shared-1.0.0',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'b': [
+          v(
+            slug: 'b',
+            number: '1.0.0',
+            deps: const [
+              Dependency(
+                projectId: 'shared',
+                versionId: 'shared-2.0.0',
+                dependencyType: DependencyType.required,
+              ),
+            ],
+          ),
+        ],
+        'shared': [
+          v(slug: 'shared', number: '1.0.0'),
+          v(slug: 'shared', number: '2.0.0'),
+        ],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      final out = await solver.solve([
+        RootConstraint(
+          slug: 'a',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+        RootConstraint(
+          slug: 'b',
+          constraint: VersionConstraint.any,
+          isUserDeclared: true,
+        ),
+      ]);
+      expect(out.decisions['shared']!.versionNumber, '2.0.0');
+    });
+
+    test('mutual incompatible deps: both user-root slugs land in '
+        'conflictingUserSlugs', () async {
+      // `a` declares `b` as incompatible. The solver decides `a` first
+      // (alphabetical user-root tie-break), then tries to decide `b` —
+      // by which point `a` is already in `decisions`, so the
+      // incompat-already-decided branch fires and records `b` as the
+      // failing slug with `a` as its counterpart. Both must end up in
+      // conflictingUserSlugs so the auto-disable cuts both endpoints
+      // and lets the user pick which to keep.
+      final db = {
+        'a': [
+          v(
+            slug: 'a',
+            number: '1.0.0',
+            deps: const [
+              Dependency(
+                projectId: 'b',
+                dependencyType: DependencyType.incompatible,
+              ),
+            ],
+          ),
+        ],
+        'b': [v(slug: 'b', number: '1.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      try {
+        await solver.solve([
           RootConstraint(
             slug: 'a',
             constraint: VersionConstraint.any,
@@ -747,186 +824,75 @@ void main() {
             isUserDeclared: true,
           ),
         ]);
-        expect(out.decisions['shared']!.versionNumber, '1.7.0');
-      },
-    );
+        fail('expected UnsatisfiableGraphError');
+      } on UnsatisfiableGraphError catch (e) {
+        expect(e.conflictingUserSlugs, containsAll(['a', 'b']));
+      }
+    });
 
-    test(
-      'two user roots pin a shared transitive at cross-major versionIds: '
-      'resolve to the higher floor (>= semantics, no upper bound)',
-      () async {
-        // a → shared >=1.0.0; b → shared >=2.0.0; intersection >=2.0.0.
-        final db = {
-          'a': [
-            v(
-              slug: 'a',
-              number: '1.0.0',
-              deps: const [
-                Dependency(
-                  projectId: 'shared',
-                  versionId: 'shared-1.0.0',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-          ],
-          'b': [
-            v(
-              slug: 'b',
-              number: '1.0.0',
-              deps: const [
-                Dependency(
-                  projectId: 'shared',
-                  versionId: 'shared-2.0.0',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-          ],
-          'shared': [
-            v(slug: 'shared', number: '1.0.0'),
-            v(slug: 'shared', number: '2.0.0'),
-          ],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => id,
-        );
-        final out = await solver.solve([
-          RootConstraint(
-            slug: 'a',
-            constraint: VersionConstraint.any,
-            isUserDeclared: true,
+    test('transitive failure attributes the conflict to the user-declared '
+        'ancestor', () async {
+      // User declares `create`. Resolver pulls in `flywheel` transitively;
+      // `flywheel` has no published version. The user-controllable
+      // disable target is `create` (the ancestor), since the user can
+      // not directly act on `flywheel`'s entry — it isn't in mods.yaml.
+      final db = {
+        'create': [
+          v(
+            slug: 'create',
+            number: '6.0.10',
+            deps: const [
+              Dependency(
+                projectId: 'flywheel',
+                dependencyType: DependencyType.required,
+              ),
+            ],
           ),
+        ],
+        'flywheel': <modrinth.Version>[],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => id,
+      );
+      try {
+        await solver.solve([
           RootConstraint(
-            slug: 'b',
-            constraint: VersionConstraint.any,
+            slug: 'create',
+            constraint: VersionConstraint.parse('^6.0.10'),
             isUserDeclared: true,
           ),
         ]);
-        expect(out.decisions['shared']!.versionNumber, '2.0.0');
-      },
-    );
+        fail('expected UnsatisfiableGraphError');
+      } on UnsatisfiableGraphError catch (e) {
+        expect(e.conflictingUserSlugs, contains('create'));
+        // flywheel is not user-declared → must NOT appear.
+        expect(e.conflictingUserSlugs, isNot(contains('flywheel')));
+      }
+    });
 
-    test(
-      'mutual incompatible deps: both user-root slugs land in '
-      'conflictingUserSlugs',
-      () async {
-        // `a` declares `b` as incompatible. The solver decides `a` first
-        // (alphabetical user-root tie-break), then tries to decide `b` —
-        // by which point `a` is already in `decisions`, so the
-        // incompat-already-decided branch fires and records `b` as the
-        // failing slug with `a` as its counterpart. Both must end up in
-        // conflictingUserSlugs so the auto-disable cuts both endpoints
-        // and lets the user pick which to keep.
-        final db = {
-          'a': [
-            v(
-              slug: 'a',
-              number: '1.0.0',
-              deps: const [
-                Dependency(
-                  projectId: 'b',
-                  dependencyType: DependencyType.incompatible,
-                ),
-              ],
-            ),
-          ],
-          'b': [v(slug: 'b', number: '1.0.0')],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => id,
-        );
-        try {
-          await solver.solve([
-            RootConstraint(
-              slug: 'a',
-              constraint: VersionConstraint.any,
-              isUserDeclared: true,
-            ),
-            RootConstraint(
-              slug: 'b',
-              constraint: VersionConstraint.any,
-              isUserDeclared: true,
-            ),
-          ]);
-          fail('expected UnsatisfiableGraphError');
-        } on UnsatisfiableGraphError catch (e) {
-          expect(e.conflictingUserSlugs, containsAll(['a', 'b']));
-        }
-      },
-    );
-
-    test(
-      'transitive failure attributes the conflict to the user-declared '
-      'ancestor',
-      () async {
-        // User declares `create`. Resolver pulls in `flywheel` transitively;
-        // `flywheel` has no published version. The user-controllable
-        // disable target is `create` (the ancestor), since the user can
-        // not directly act on `flywheel`'s entry — it isn't in mods.yaml.
-        final db = {
-          'create': [
-            v(
-              slug: 'create',
-              number: '6.0.10',
-              deps: const [
-                Dependency(
-                  projectId: 'flywheel',
-                  dependencyType: DependencyType.required,
-                ),
-              ],
-            ),
-          ],
-          'flywheel': <modrinth.Version>[],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => id,
-        );
-        try {
-          await solver.solve([
-            RootConstraint(
-              slug: 'create',
-              constraint: VersionConstraint.parse('^6.0.10'),
-              isUserDeclared: true,
-            ),
-          ]);
-          fail('expected UnsatisfiableGraphError');
-        } on UnsatisfiableGraphError catch (e) {
-          expect(e.conflictingUserSlugs, contains('create'));
-          // flywheel is not user-declared → must NOT appear.
-          expect(e.conflictingUserSlugs, isNot(contains('flywheel')));
-        }
-      },
-    );
-
-    test(
-      'direct user-root with no matching versions throws '
-      'UnsatisfiableGraphError naming the user root',
-      () async {
-        final db = {
-          'create': [v(slug: 'create', number: '5.0.0')],
-        };
-        final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
-          resolveSlugForProjectId: (id) async => null,
-        );
-        try {
-          await solver.solve([
-            RootConstraint(
-              slug: 'create',
-              constraint: VersionConstraint.parse('^6.0.0'),
-              isUserDeclared: true,
-            ),
-          ]);
-          fail('expected UnsatisfiableGraphError');
-        } on UnsatisfiableGraphError catch (e) {
-          expect(e.conflictingUserSlugs, {'create'});
-        }
-      },
-    );
+    test('direct user-root with no matching versions throws '
+        'UnsatisfiableGraphError naming the user root', () async {
+      final db = {
+        'create': [v(slug: 'create', number: '5.0.0')],
+      };
+      final solver = PubGrubSolver(
+        listVersions: (slug) async => db[slug] ?? [],
+        resolveSlugForProjectId: (id) async => null,
+      );
+      try {
+        await solver.solve([
+          RootConstraint(
+            slug: 'create',
+            constraint: VersionConstraint.parse('^6.0.0'),
+            isUserDeclared: true,
+          ),
+        ]);
+        fail('expected UnsatisfiableGraphError');
+      } on UnsatisfiableGraphError catch (e) {
+        expect(e.conflictingUserSlugs, {'create'});
+      }
+    });
   });
 
   group('project_overrides (sticky pre-decisions)', () {
@@ -990,9 +956,7 @@ void main() {
       final solver = PubGrubSolver(
         listVersions: (slug) async => db[slug] ?? [],
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [
-          OverridePin('forge_compat', db['forge_compat']![0]),
-        ],
+        overridePins: [OverridePin('forge_compat', db['forge_compat']![0])],
       );
       final out = await solver.solve([
         RootConstraint(
@@ -1001,7 +965,10 @@ void main() {
           isUserDeclared: true,
         ),
       ]);
-      expect(out.decisions.keys, containsAll(['bukkit_compat', 'forge_compat']));
+      expect(
+        out.decisions.keys,
+        containsAll(['bukkit_compat', 'forge_compat']),
+      );
     });
 
     test('case 4: override constraint wins over a transitive '
@@ -1119,12 +1086,13 @@ void main() {
           isUserDeclared: true,
         ),
       ]);
-      expect(out.decisions.keys,
-          containsAll(['create', 'create_incompatible']));
+      expect(
+        out.decisions.keys,
+        containsAll(['create', 'create_incompatible']),
+      );
     });
 
-    test('overridden slug never appears in conflictingUserSlugs',
-        () async {
+    test('overridden slug never appears in conflictingUserSlugs', () async {
       // Override pins jei to a version that would normally lose, but
       // because the slug is overridden, even when the rest of the graph
       // fails the override slug is filtered out of the auto-disable

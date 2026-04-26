@@ -9,7 +9,7 @@ mixin OfflineFlag on GitrinthCommand {
       help:
           helpOverride ??
           'Use cached versions only; do not hit the network. '
-          'Resolution narrows to versions already in the cache.',
+              'Resolution narrows to versions already in the cache.',
     );
   }
 

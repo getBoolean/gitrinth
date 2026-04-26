@@ -105,9 +105,11 @@ mods:
     expect(lock, isNot(contains('version: 2.7.3')));
   });
 
-  test('caret constraint respected by default (does not cross major)', () async {
-    modrinth.registerVersion(slug: 'a', versionNumber: '6.0.10');
-    await writeManifest('''
+  test(
+    'caret constraint respected by default (does not cross major)',
+    () async {
+      modrinth.registerVersion(slug: 'a', versionNumber: '6.0.10');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -118,18 +120,19 @@ mc-version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
-    expect((await runGet()).exitCode, 0);
+      expect((await runGet()).exitCode, 0);
 
-    modrinth
-      ..registerVersion(slug: 'a', versionNumber: '6.5.2')
-      ..registerVersion(slug: 'a', versionNumber: '7.0.0');
+      modrinth
+        ..registerVersion(slug: 'a', versionNumber: '6.5.2')
+        ..registerVersion(slug: 'a', versionNumber: '7.0.0');
 
-    final out = await runUpgrade([]);
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    final lock = readLock();
-    expect(lock, contains('version: 6.5.2'));
-    expect(lock, isNot(contains('version: 7.0.0')));
-  });
+      final out = await runUpgrade([]);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final lock = readLock();
+      expect(lock, contains('version: 6.5.2'));
+      expect(lock, isNot(contains('version: 7.0.0')));
+    },
+  );
 
   test('--major-versions crosses caret and rewrites mods.yaml', () async {
     modrinth.registerVersion(slug: 'a', versionNumber: '6.0.10');
@@ -154,11 +157,13 @@ mods:
     expect(readManifest(), contains('a: ^7.1.0'));
   });
 
-  test('--major-versions skips entries already allowed by constraint', () async {
-    modrinth
-      ..registerVersion(slug: 'a', versionNumber: '6.0.10')
-      ..registerVersion(slug: 'a', versionNumber: '6.5.2');
-    await writeManifest('''
+  test(
+    '--major-versions skips entries already allowed by constraint',
+    () async {
+      modrinth
+        ..registerVersion(slug: 'a', versionNumber: '6.0.10')
+        ..registerVersion(slug: 'a', versionNumber: '6.5.2');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -169,14 +174,15 @@ mc-version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
-    expect((await runGet()).exitCode, 0);
+      expect((await runGet()).exitCode, 0);
 
-    final out = await runUpgrade(['--major-versions']);
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    expect(readLock(), contains('version: 6.5.2'));
-    // resolved 6.5.2 still allowed by ^6.0.10 → no rewrite.
-    expect(readManifest(), contains('a: ^6.0.10'));
-  });
+      final out = await runUpgrade(['--major-versions']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      expect(readLock(), contains('version: 6.5.2'));
+      // resolved 6.5.2 still allowed by ^6.0.10 → no rewrite.
+      expect(readManifest(), contains('a: ^6.0.10'));
+    },
+  );
 
   test('--tighten rewrites caret base after in-major bump', () async {
     modrinth.registerVersion(slug: 'a', versionNumber: '6.0.10');
@@ -255,11 +261,13 @@ mods:
     expect(readLock(), contains('version: 1.5.0'));
   });
 
-  test('--major-versions --tighten: combined cross + in-major rewrites', () async {
-    modrinth
-      ..registerVersion(slug: 'a', versionNumber: '6.0.10')
-      ..registerVersion(slug: 'b', versionNumber: '1.0.0');
-    await writeManifest('''
+  test(
+    '--major-versions --tighten: combined cross + in-major rewrites',
+    () async {
+      modrinth
+        ..registerVersion(slug: 'a', versionNumber: '6.0.10')
+        ..registerVersion(slug: 'b', versionNumber: '1.0.0');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -271,23 +279,25 @@ mods:
   a: ^6.0.10
   b: ^1.0.0
 ''');
-    expect((await runGet()).exitCode, 0);
+      expect((await runGet()).exitCode, 0);
 
-    modrinth
-      ..registerVersion(slug: 'a', versionNumber: '7.1.0') // crosses caret
-      ..registerVersion(slug: 'b', versionNumber: '1.4.0'); // in-major
+      modrinth
+        ..registerVersion(slug: 'a', versionNumber: '7.1.0') // crosses caret
+        ..registerVersion(slug: 'b', versionNumber: '1.4.0'); // in-major
 
-    final out = await runUpgrade(['--major-versions', '--tighten']);
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    final yaml = readManifest();
-    expect(yaml, contains('a: ^7.1.0'));
-    expect(yaml, contains('b: ^1.4.0'));
-  });
+      final out = await runUpgrade(['--major-versions', '--tighten']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final yaml = readManifest();
+      expect(yaml, contains('a: ^7.1.0'));
+      expect(yaml, contains('b: ^1.4.0'));
+    },
+  );
 
-  test('--dry-run returns exit 2 and writes nothing when changes occur',
-      () async {
-    modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
-    await writeManifest('''
+  test(
+    '--dry-run returns exit 2 and writes nothing when changes occur',
+    () async {
+      modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -298,17 +308,22 @@ mc-version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
-    expect((await runGet()).exitCode, 0);
+      expect((await runGet()).exitCode, 0);
 
-    modrinth.registerVersion(slug: 'a', versionNumber: '1.5.0');
-    final lockBefore = readLock();
-    final yamlBefore = readManifest();
+      modrinth.registerVersion(slug: 'a', versionNumber: '1.5.0');
+      final lockBefore = readLock();
+      final yamlBefore = readManifest();
 
-    final out = await runUpgrade(['--major-versions', '--tighten', '--dry-run']);
-    expect(out.exitCode, 2, reason: '${out.stderr}\n${out.stdout}');
-    expect(readLock(), lockBefore);
-    expect(readManifest(), yamlBefore);
-  });
+      final out = await runUpgrade([
+        '--major-versions',
+        '--tighten',
+        '--dry-run',
+      ]);
+      expect(out.exitCode, 2, reason: '${out.stderr}\n${out.stdout}');
+      expect(readLock(), lockBefore);
+      expect(readManifest(), yamlBefore);
+    },
+  );
 
   test('--dry-run returns exit 0 when no changes would occur', () async {
     modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
@@ -366,10 +381,13 @@ mods:
 ''');
     expect((await runGet()).exitCode, 0);
 
-    final out = await runCli(
-      ['-C', packDir.path, '--verbosity=io', 'upgrade', 'custom'],
-      environment: env,
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      '--verbosity=io',
+      'upgrade',
+      'custom',
+    ], environment: env);
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(out.stdout, contains("skipping 'custom'"));
     expect(out.stdout, contains('non-Modrinth source'));
@@ -442,37 +460,35 @@ mods:
     expect(lock, contains('server: optional'));
   });
 
-  test(
-    '`^1.21.1` (bare MMP) admits `1.21.1-<label>` releases and resolves '
-    'to the newest by date_published',
-    () async {
-      // Direct repro of the user-reported regression: with constraint
-      // `^1.21.1` the resolver was picking `1.21.3-june-2025` because
-      // standard semver carets exclude pre-release-suffixed versions of
-      // the same MMP, leaving only the higher-MMP june release inside
-      // the range. The Modrinth-aware caret admits the labelled
-      // releases, and the date_published sort then picks december over
-      // both april and june.
-      modrinth
-        ..registerVersion(
-          slug: 'faithful-32x',
-          versionNumber: '1.21.1-april-2025',
-          loader: 'minecraft',
-          datePublished: '2025-04-15T00:00:00Z',
-        )
-        ..registerVersion(
-          slug: 'faithful-32x',
-          versionNumber: '1.21.3-june-2025',
-          loader: 'minecraft',
-          datePublished: '2025-06-15T00:00:00Z',
-        )
-        ..registerVersion(
-          slug: 'faithful-32x',
-          versionNumber: '1.21.1-december-2025',
-          loader: 'minecraft',
-          datePublished: '2025-12-15T00:00:00Z',
-        );
-      await writeManifest('''
+  test('`^1.21.1` (bare MMP) admits `1.21.1-<label>` releases and resolves '
+      'to the newest by date_published', () async {
+    // Direct repro of the user-reported regression: with constraint
+    // `^1.21.1` the resolver was picking `1.21.3-june-2025` because
+    // standard semver carets exclude pre-release-suffixed versions of
+    // the same MMP, leaving only the higher-MMP june release inside
+    // the range. The Modrinth-aware caret admits the labelled
+    // releases, and the date_published sort then picks december over
+    // both april and june.
+    modrinth
+      ..registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.1-april-2025',
+        loader: 'minecraft',
+        datePublished: '2025-04-15T00:00:00Z',
+      )
+      ..registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.3-june-2025',
+        loader: 'minecraft',
+        datePublished: '2025-06-15T00:00:00Z',
+      )
+      ..registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.1-december-2025',
+        loader: 'minecraft',
+        datePublished: '2025-12-15T00:00:00Z',
+      );
+    await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -484,39 +500,36 @@ mods:
 resource_packs:
   faithful-32x: ^1.21.1
 ''');
-      final out = await runGet();
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      final lock = readLock();
-      expect(lock, contains('version: 1.21.1-december-2025'));
-      expect(lock, isNot(contains('version: 1.21.3-june-2025')));
-      expect(lock, isNot(contains('version: 1.21.1-april-2025')));
-    },
-  );
+    final out = await runGet();
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final lock = readLock();
+    expect(lock, contains('version: 1.21.1-december-2025'));
+    expect(lock, isNot(contains('version: 1.21.3-june-2025')));
+    expect(lock, isNot(contains('version: 1.21.1-april-2025')));
+  });
 
-  test(
-    'resource pack with date-encoded labels: upgrade picks newest by '
-    'date_published, not highest MMP',
-    () async {
-      // Faithful 32x ships versions named `<max-mc>-<release-label>`
-      // — the leading `1.21.x` is the highest-supported MC, not a
-      // version of the pack. With pure semver-desc sort, `1.21.3-june-2025`
-      // would beat `1.21.1-december-2025` even though june was published
-      // six months *before* december. This test guards against that
-      // regression end-to-end.
-      modrinth
-        ..registerVersion(
-          slug: 'faithful-32x',
-          versionNumber: '1.21.1-april-2025',
-          loader: 'minecraft',
-          datePublished: '2025-04-15T00:00:00Z',
-        )
-        ..registerVersion(
-          slug: 'faithful-32x',
-          versionNumber: '1.21.3-june-2025',
-          loader: 'minecraft',
-          datePublished: '2025-06-15T00:00:00Z',
-        );
-      await writeManifest('''
+  test('resource pack with date-encoded labels: upgrade picks newest by '
+      'date_published, not highest MMP', () async {
+    // Faithful 32x ships versions named `<max-mc>-<release-label>`
+    // — the leading `1.21.x` is the highest-supported MC, not a
+    // version of the pack. With pure semver-desc sort, `1.21.3-june-2025`
+    // would beat `1.21.1-december-2025` even though june was published
+    // six months *before* december. This test guards against that
+    // regression end-to-end.
+    modrinth
+      ..registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.1-april-2025',
+        loader: 'minecraft',
+        datePublished: '2025-04-15T00:00:00Z',
+      )
+      ..registerVersion(
+        slug: 'faithful-32x',
+        versionNumber: '1.21.3-june-2025',
+        loader: 'minecraft',
+        datePublished: '2025-06-15T00:00:00Z',
+      );
+    await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -528,24 +541,23 @@ mods:
 resource_packs:
   faithful-32x: ^1.21.1-april-2025
 ''');
-      expect((await runGet()).exitCode, 0);
+    expect((await runGet()).exitCode, 0);
 
-      // Newer release lands later, with a higher publish date and a
-      // *lower* leading MMP than the june-2025 entry. Upgrade must pick it.
-      modrinth.registerVersion(
-        slug: 'faithful-32x',
-        versionNumber: '1.21.1-december-2025',
-        loader: 'minecraft',
-        datePublished: '2025-12-15T00:00:00Z',
-      );
+    // Newer release lands later, with a higher publish date and a
+    // *lower* leading MMP than the june-2025 entry. Upgrade must pick it.
+    modrinth.registerVersion(
+      slug: 'faithful-32x',
+      versionNumber: '1.21.1-december-2025',
+      loader: 'minecraft',
+      datePublished: '2025-12-15T00:00:00Z',
+    );
 
-      final out = await runUpgrade([]);
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      final lock = readLock();
-      expect(lock, contains('version: 1.21.1-december-2025'));
-      expect(lock, isNot(contains('version: 1.21.3-june-2025')));
-    },
-  );
+    final out = await runUpgrade([]);
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    final lock = readLock();
+    expect(lock, contains('version: 1.21.1-december-2025'));
+    expect(lock, isNot(contains('version: 1.21.3-june-2025')));
+  });
 
   // The four cases below mirror dart-lang/pub's
   // test/upgrade/upgrade_transitive_test.dart, ported to gitrinth's
@@ -594,7 +606,9 @@ mods:
         );
         expect(
           lock,
-          isNot(contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0'))),
+          isNot(
+            contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0')),
+          ),
           reason: 'bar must stay at 1.0.0',
         );
       },
@@ -849,10 +863,7 @@ mods:
         modrinth
           ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
           ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
-        expect(
-          (await runUpgrade(['--tighten', 'foo'])).exitCode,
-          0,
-        );
+        expect((await runUpgrade(['--tighten', 'foo'])).exitCode, 0);
         expect(readManifest(), contains('foo: ^1.5.0'));
         expect(readManifest(), contains('bar: ^1.0.0'));
 
@@ -860,11 +871,7 @@ mods:
           ..registerVersion(slug: 'foo', versionNumber: '2.0.0')
           ..registerVersion(slug: 'bar', versionNumber: '2.0.0');
 
-        final out = await runUpgrade([
-          '--tighten',
-          'bar',
-          '--major-versions',
-        ]);
+        final out = await runUpgrade(['--tighten', 'bar', '--major-versions']);
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
         final yaml = readManifest();
         expect(yaml, contains('foo: ^1.5.0'));
@@ -898,9 +905,8 @@ mods:
     void writeCachedDeps(String slug, String depProjectId) {
       final pid = '${slug}_ID';
       final vid = '${slug}_1_0_0';
-      final dir = Directory(
-        p.join(cacheDir.path, 'modrinth', pid, vid),
-      )..createSync(recursive: true);
+      final dir = Directory(p.join(cacheDir.path, 'modrinth', pid, vid))
+        ..createSync(recursive: true);
       File(p.join(dir.path, 'version.json')).writeAsStringSync(
         '{"dependencies":[{"project_id":"$depProjectId",'
         '"dependency_type":"required"}]}',
@@ -923,17 +929,15 @@ mods:
     expect(lock, isNot(contains('version: 1.0.0')));
   });
 
-  test(
-    '--unlock-transitive falls back to seeds when cache is cold',
-    () async {
-      // No cached version.json for foo means no edges visible — only
-      // foo (the named seed) gets unlocked. bar (a transitive dep)
-      // stays at its locked version because the closure walker can't
-      // discover the edge.
-      modrinth
-        ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
-        ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
-      await writeManifest('''
+  test('--unlock-transitive falls back to seeds when cache is cold', () async {
+    // No cached version.json for foo means no edges visible — only
+    // foo (the named seed) gets unlocked. bar (a transitive dep)
+    // stays at its locked version because the closure walker can't
+    // discover the edge.
+    modrinth
+      ..registerVersion(slug: 'foo', versionNumber: '1.0.0')
+      ..registerVersion(slug: 'bar', versionNumber: '1.0.0');
+    await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -945,36 +949,33 @@ mods:
   foo: ^1.0.0
   bar: ^1.0.0
 ''');
-      expect((await runGet()).exitCode, 0);
+    expect((await runGet()).exitCode, 0);
 
-      // Wipe the cache so version.json is missing for both entries.
-      Directory(p.join(cacheDir.path, 'modrinth')).deleteSync(recursive: true);
+    // Wipe the cache so version.json is missing for both entries.
+    Directory(p.join(cacheDir.path, 'modrinth')).deleteSync(recursive: true);
 
-      modrinth
-        ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
-        ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
+    modrinth
+      ..registerVersion(slug: 'foo', versionNumber: '1.5.0')
+      ..registerVersion(slug: 'bar', versionNumber: '1.5.0');
 
-      final out = await runUpgrade(['--unlock-transitive', 'foo']);
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      // foo bumps because it's a named seed. bar stays put because
-      // we never walked into it (cold cache, no edges).
-      final lock = readLock();
-      // foo: ^1.0.0 satisfies 1.5.0 → bar stays since it's not in seed
-      // and no edges were discovered.
-      expect(lock, contains('version: 1.5.0')); // foo
-      expect(lock, contains('version: 1.0.0')); // bar pinned
-    },
-  );
+    final out = await runUpgrade(['--unlock-transitive', 'foo']);
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    // foo bumps because it's a named seed. bar stays put because
+    // we never walked into it (cold cache, no edges).
+    final lock = readLock();
+    // foo: ^1.0.0 satisfies 1.5.0 → bar stays since it's not in seed
+    // and no edges were discovered.
+    expect(lock, contains('version: 1.5.0')); // foo
+    expect(lock, contains('version: 1.0.0')); // bar pinned
+  });
 
   group('disabled-by-conflict marker handling', () {
-    test(
-      '--major-versions recovers a disabled-by-conflict entry when a '
-      'compatible version is available',
-      () async {
-        modrinth
-          ..registerVersion(slug: 'a', versionNumber: '1.0.0')
-          ..registerVersion(slug: 'b', versionNumber: '1.0.0');
-        await writeManifest('''
+    test('--major-versions recovers a disabled-by-conflict entry when a '
+        'compatible version is available', () async {
+      modrinth
+        ..registerVersion(slug: 'a', versionNumber: '1.0.0')
+        ..registerVersion(slug: 'b', versionNumber: '1.0.0');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -987,13 +988,12 @@ mods:
   b: ^1.0.0
 ''');
 
-        final out = await runUpgrade(['--major-versions']);
-        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-        expect(readManifest(), isNot(contains('gitrinth:disabled-by-conflict')));
-        expect(readManifest(), contains('a: ^1.0.0'));
-        expect(readLock(), contains('a:'));
-      },
-    );
+      final out = await runUpgrade(['--major-versions']);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      expect(readManifest(), isNot(contains('gitrinth:disabled-by-conflict')));
+      expect(readManifest(), contains('a: ^1.0.0'));
+      expect(readLock(), contains('a:'));
+    });
 
     test(
       'plain `upgrade` does NOT auto-recover disabled-by-conflict markers',

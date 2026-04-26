@@ -135,7 +135,7 @@ class JavaRuntimeFetcher {
       final tmpArchivePath = p.join(
         _cache.tmpRoot,
         'jdk-temurin-$feature-$osKey-$archKey-'
-            '${DateTime.now().microsecondsSinceEpoch}$ext',
+        '${DateTime.now().microsecondsSinceEpoch}$ext',
       );
       final File archiveFile;
       try {
@@ -167,7 +167,7 @@ class JavaRuntimeFetcher {
         p.join(
           _cache.tmpRoot,
           'extract-temurin-$feature-$osKey-$archKey-'
-              '${DateTime.now().microsecondsSinceEpoch}',
+          '${DateTime.now().microsecondsSinceEpoch}',
         ),
       )..createSync(recursive: true);
       try {
@@ -394,9 +394,7 @@ class JavaRuntimeFetcher {
         try {
           out.closeSync();
         } catch (_) {}
-        throw UserError(
-          'failed extracting ${entry.name} from JDK archive: $e',
-        );
+        throw UserError('failed extracting ${entry.name} from JDK archive: $e');
       }
       out.closeSync();
     }
@@ -426,9 +424,7 @@ class JavaRuntimeFetcher {
     if (!dir.existsSync()) return false;
     for (final entity in dir.listSync()) {
       if (entity is File &&
-          p.basename(entity.path).startsWith(
-            '.gitrinth-installed-temurin-',
-          )) {
+          p.basename(entity.path).startsWith('.gitrinth-installed-temurin-')) {
         return true;
       }
     }

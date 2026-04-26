@@ -439,11 +439,9 @@ mods:
       expect(m.mods['jei']!.server, SideEnv.required);
     });
 
-    test(
-      'per-section defaults: resource_packs default to client optional, '
-      'server unsupported',
-      () {
-        final yaml = '''
+    test('per-section defaults: resource_packs default to client optional, '
+        'server unsupported', () {
+      final yaml = '''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -454,11 +452,10 @@ mc-version: 1.21.1
 resource_packs:
   faithful: ^1.0
 ''';
-        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-        expect(m.resourcePacks['faithful']!.client, SideEnv.optional);
-        expect(m.resourcePacks['faithful']!.server, SideEnv.unsupported);
-      },
-    );
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.resourcePacks['faithful']!.client, SideEnv.optional);
+      expect(m.resourcePacks['faithful']!.server, SideEnv.unsupported);
+    });
 
     test('per-section defaults: data_packs default to required/required', () {
       final yaml = '''
@@ -477,11 +474,9 @@ data_packs:
       expect(m.dataPacks['terralith']!.server, SideEnv.required);
     });
 
-    test(
-      'per-section defaults: shaders default to client required, '
-      'server unsupported',
-      () {
-        final yaml = '''
+    test('per-section defaults: shaders default to client required, '
+        'server unsupported', () {
+      final yaml = '''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -493,11 +488,10 @@ mc-version: 1.21.1
 shaders:
   comp: r5.7.1
 ''';
-        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-        expect(m.shaders['comp']!.client, SideEnv.required);
-        expect(m.shaders['comp']!.server, SideEnv.unsupported);
-      },
-    );
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.shaders['comp']!.client, SideEnv.required);
+      expect(m.shaders['comp']!.server, SideEnv.unsupported);
+    });
 
     test('accepts-mc parses into a deduped List<String>', () {
       final yaml = '''
@@ -681,10 +675,8 @@ mods:
       expect(m.mods['distanthorizons']!.channel, Channel.beta);
     });
 
-    test(
-      'long-form version accepts channel tokens (release/beta/alpha)',
-      () {
-        final yaml = '''
+    test('long-form version accepts channel tokens (release/beta/alpha)', () {
+      final yaml = '''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -702,13 +694,12 @@ mods:
   three:
     version: '  alpha  '
 ''';
-        final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-        expect(m.mods['one']!.constraintRaw, isNull);
-        expect(m.mods['one']!.channel, Channel.release);
-        expect(m.mods['two']!.channel, Channel.beta);
-        expect(m.mods['three']!.channel, Channel.alpha);
-      },
-    );
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.mods['one']!.constraintRaw, isNull);
+      expect(m.mods['one']!.channel, Channel.release);
+      expect(m.mods['two']!.channel, Channel.beta);
+      expect(m.mods['three']!.channel, Channel.alpha);
+    });
 
     test(
       'long-form rejects declaring channel via both version: and channel:',
@@ -756,8 +747,7 @@ mods:
 
   group('parseProjectOverrides', () {
     test('empty file returns empty entries', () {
-      final o =
-          parseProjectOverrides('', filePath: 'project_overrides.yaml');
+      final o = parseProjectOverrides('', filePath: 'project_overrides.yaml');
       expect(o.entries, isEmpty);
     });
 
@@ -769,10 +759,7 @@ project_overrides:
   create:
     path: ./mods/create.jar
 ''';
-      final o = parseProjectOverrides(
-        yaml,
-        filePath: 'project_overrides.yaml',
-      );
+      final o = parseProjectOverrides(yaml, filePath: 'project_overrides.yaml');
       expect(o.entries.keys, containsAll(['jei', 'create']));
       expect(o.entries['jei']!.constraintRaw, '19.27.0.340');
       expect(o.entries['create']!.source, isA<PathEntrySource>());
@@ -785,10 +772,7 @@ overrides:
     version: 19.27.0.340
 ''';
       expect(
-        () => parseProjectOverrides(
-          yaml,
-          filePath: 'project_overrides.yaml',
-        ),
+        () => parseProjectOverrides(yaml, filePath: 'project_overrides.yaml'),
         throwsA(
           predicate(
             (e) =>

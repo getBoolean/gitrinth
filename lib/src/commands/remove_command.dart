@@ -1,13 +1,11 @@
 import 'dart:io';
 
-import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
 import 'add_command_editor.dart';
 import 'remove_command_editor.dart';
@@ -84,21 +82,9 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
 
     io.writeModsYaml(updated);
 
-    final api = read(modrinthApiProvider);
-    final cache = read(cacheProvider);
-    final downloader = read(downloaderProvider);
-    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
-    final result = await resolveAndSync(
-      io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
-      offline: offline,
-    );
+    final result = await runResolveAndSync(io: io, offline: offline);
     if (result.exitCode != exitOk) return result.exitCode;
     reporter.printSummary(
       changeCount: result.changeCount,

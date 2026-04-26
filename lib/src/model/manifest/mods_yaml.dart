@@ -40,10 +40,7 @@ enum Section { mods, resourcePacks, dataPacks, shaders }
 /// defaults to installed on both sides.
 ({SideEnv client, SideEnv server}) defaultSidesFor(Section section) =>
     switch (section) {
-      Section.mods => (
-        client: SideEnv.required,
-        server: SideEnv.required,
-      ),
+      Section.mods => (client: SideEnv.required, server: SideEnv.required),
       Section.shaders => (
         client: SideEnv.required,
         server: SideEnv.unsupported,
@@ -52,10 +49,7 @@ enum Section { mods, resourcePacks, dataPacks, shaders }
         client: SideEnv.optional,
         server: SideEnv.unsupported,
       ),
-      Section.dataPacks => (
-        client: SideEnv.required,
-        server: SideEnv.required,
-      ),
+      Section.dataPacks => (client: SideEnv.required, server: SideEnv.required),
     };
 
 @MappableEnum()

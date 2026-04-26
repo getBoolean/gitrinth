@@ -33,11 +33,12 @@ class ConflictDisableOutcome {
 /// [resolveWithConflictAutoDisable]. Lets each call site (`migrate`,
 /// `upgrade --major-versions`) supply its own pre-built `freshSlugs`
 /// and `relaxConstraints` while sharing the auto-disable retry path.
-typedef ResolveCall = Future<ResolveSyncResult> Function({
-  required ModsYaml manifestForResolve,
-  required Set<String> freshSlugs,
-  required Set<String> relaxConstraints,
-});
+typedef ResolveCall =
+    Future<ResolveSyncResult> Function({
+      required ModsYaml manifestForResolve,
+      required Set<String> freshSlugs,
+      required Set<String> relaxConstraints,
+    });
 
 /// Wraps [resolve] with the auto-disable retry path. On
 /// [UnsatisfiableGraphError], computes the disable set from
@@ -132,16 +133,12 @@ ModsYaml applyDisableMarkers(
   Set<(Section, String)> disabled,
 ) {
   if (disabled.isEmpty) return manifest;
-  Map<String, ModEntry> mark(
-    Section section,
-    Map<String, ModEntry> m,
-  ) =>
-      {
-        for (final e in m.entries)
-          e.key: disabled.contains((section, e.key))
-              ? e.value.copyWith(constraintRaw: disabledByConflictMarker)
-              : e.value,
-      };
+  Map<String, ModEntry> mark(Section section, Map<String, ModEntry> m) => {
+    for (final e in m.entries)
+      e.key: disabled.contains((section, e.key))
+          ? e.value.copyWith(constraintRaw: disabledByConflictMarker)
+          : e.value,
+  };
   return manifest.copyWith(
     mods: mark(Section.mods, manifest.mods),
     resourcePacks: mark(Section.resourcePacks, manifest.resourcePacks),

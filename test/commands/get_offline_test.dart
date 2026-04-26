@@ -69,11 +69,9 @@ void main() {
     ];
   }
 
-  test(
-    'get --offline against a warm cache succeeds without network',
-    () async {
-      seedJei();
-      await writeManifest('''
+  test('get --offline against a warm cache succeeds without network', () async {
+    seedJei();
+    await writeManifest('''
 slug: testpack
 name: TestPack
 version: 0.1.0
@@ -85,26 +83,28 @@ mods:
   jei: ^1.0.0
 ''');
 
-      // Warm the cache with a normal `get`.
-      final warm = await runCli(
-        ['-C', packDir.path, 'get'],
-        environment: envWith(),
-      );
-      expect(warm.exitCode, 0, reason: warm.stderr);
+    // Warm the cache with a normal `get`.
+    final warm = await runCli([
+      '-C',
+      packDir.path,
+      'get',
+    ], environment: envWith());
+    expect(warm.exitCode, 0, reason: warm.stderr);
 
-      // Capture the env now — baseUrl reads `_server.port`, which throws
-      // once the server is closed.
-      final stoppedEnv = envWith();
-      await modrinth.stop();
+    // Capture the env now — baseUrl reads `_server.port`, which throws
+    // once the server is closed.
+    final stoppedEnv = envWith();
+    await modrinth.stop();
 
-      final out = await runCli(
-        ['-C', packDir.path, 'get', '--offline'],
-        environment: stoppedEnv,
-      );
-      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      expect(out.stderr, isNot(contains('while offline')));
-    },
-  );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'get',
+      '--offline',
+    ], environment: stoppedEnv);
+    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+    expect(out.stderr, isNot(contains('while offline')));
+  });
 
   test(
     'get --offline against a cold cache fails with the canonical hint',
@@ -123,10 +123,12 @@ mods:
   jei: ^1.0.0
 ''');
 
-      final out = await runCli(
-        ['-C', packDir.path, 'get', '--offline'],
-        environment: envWith(),
-      );
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'get',
+        '--offline',
+      ], environment: envWith());
       expect(out.exitCode, isNot(0));
       expect(
         out.stderr,

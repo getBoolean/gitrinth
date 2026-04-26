@@ -203,4 +203,3 @@ class LoaderClientInstaller {
     return File(Platform.isWindows ? 'java.exe' : 'java');
   }
 }
-

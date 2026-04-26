@@ -57,24 +57,21 @@ void main() {
     expect(twice, once);
   });
 
-  test(
-    'dependency: transitive is emitted, direct (default) is omitted',
-    () {
-      final out = emitModsLock(sample());
-      final flywheelBlock = out
-          .substring(out.indexOf('flywheel:'))
-          .split('\n')
-          .takeWhile(
-            (l) => l.isNotEmpty && (l.startsWith('  ') || l == 'flywheel:'),
-          )
-          .join('\n');
-      expect(flywheelBlock, contains('dependency: transitive'));
-      final createBlock = out
-          .substring(out.indexOf('create:'), out.indexOf('flywheel:'))
-          .trim();
-      expect(createBlock, isNot(contains('dependency:')));
-    },
-  );
+  test('dependency: transitive is emitted, direct (default) is omitted', () {
+    final out = emitModsLock(sample());
+    final flywheelBlock = out
+        .substring(out.indexOf('flywheel:'))
+        .split('\n')
+        .takeWhile(
+          (l) => l.isNotEmpty && (l.startsWith('  ') || l == 'flywheel:'),
+        )
+        .join('\n');
+    expect(flywheelBlock, contains('dependency: transitive'));
+    final createBlock = out
+        .substring(out.indexOf('create:'), out.indexOf('flywheel:'))
+        .trim();
+    expect(createBlock, isNot(contains('dependency:')));
+  });
 
   test('game-versions round-trips through emit -> parse -> emit', () {
     const lock = ModsLock(

@@ -89,12 +89,12 @@ void main() {
       'loaders': <String>['fabric'],
       'game_versions': <String>['1.21.1'],
     };
-    File(cache.modrinthVersionMetadataPath(
-      projectId: projectId,
-      versionId: versionId,
-    )).writeAsStringSync(
-      const JsonEncoder.withIndent('  ').convert(version),
-    );
+    File(
+      cache.modrinthVersionMetadataPath(
+        projectId: projectId,
+        versionId: versionId,
+      ),
+    ).writeAsStringSync(const JsonEncoder.withIndent('  ').convert(version));
   }
 
   void seedUrl({
@@ -107,7 +107,9 @@ void main() {
     File(destPath).writeAsBytesSync(utf8.encode(body));
   }
 
-  Downloader buildDownloader(Map<String, ({int status, List<int> bytes})> responses) {
+  Downloader buildDownloader(
+    Map<String, ({int status, List<int> bytes})> responses,
+  ) {
     final dio = Dio()..httpClientAdapter = _StaticAdapter(responses);
     return Downloader(dio: dio, cache: cache);
   }
@@ -169,99 +171,107 @@ void main() {
       expect(outcome.stillCorrupt, isEmpty);
     });
 
-    test('re-downloads a corrupt modrinth file from version.json url',
-        () async {
-      const url = 'https://example.invalid/mod.jar';
-      const goodBody = 'good content';
-      final goodSha = sha512Hex(utf8.encode(goodBody));
+    test(
+      're-downloads a corrupt modrinth file from version.json url',
+      () async {
+        const url = 'https://example.invalid/mod.jar';
+        const goodBody = 'good content';
+        final goodSha = sha512Hex(utf8.encode(goodBody));
 
-      // Seed a corrupt jar (wrong bytes) but a version.json declaring
-      // the *good* sha. The downloader will be asked to fetch from
-      // [url] and will return [goodBody] from the fake adapter.
-      seedModrinth(
-        projectId: 'P',
-        versionId: 'V',
-        filename: 'mod.jar',
-        body: 'TAMPERED',
-        url: url,
-        declaredSha512: goodSha,
-      );
-      // Sanity: version.json declares goodSha, not the tampered body's hash.
-      expect(
-        File(cache.modrinthVersionMetadataPath(projectId: 'P', versionId: 'V'))
-            .readAsStringSync(),
-        contains(goodSha),
-      );
+        // Seed a corrupt jar (wrong bytes) but a version.json declaring
+        // the *good* sha. The downloader will be asked to fetch from
+        // [url] and will return [goodBody] from the fake adapter.
+        seedModrinth(
+          projectId: 'P',
+          versionId: 'V',
+          filename: 'mod.jar',
+          body: 'TAMPERED',
+          url: url,
+          declaredSha512: goodSha,
+        );
+        // Sanity: version.json declares goodSha, not the tampered body's hash.
+        expect(
+          File(
+            cache.modrinthVersionMetadataPath(projectId: 'P', versionId: 'V'),
+          ).readAsStringSync(),
+          contains(goodSha),
+        );
 
-      final downloader = buildDownloader({
-        url: (status: 200, bytes: utf8.encode(goodBody)),
-      });
-      final inspector = CacheInspector(cache);
-      final outcome = await inspector.repair(
-        downloader,
-        console: const Console(),
-      );
+        final downloader = buildDownloader({
+          url: (status: 200, bytes: utf8.encode(goodBody)),
+        });
+        final inspector = CacheInspector(cache);
+        final outcome = await inspector.repair(
+          downloader,
+          console: const Console(),
+        );
 
-      expect(outcome.redownloaded, 1);
-      expect(outcome.verified, 0);
-      expect(outcome.stillCorrupt, isEmpty);
-      // The on-disk file is now the good content.
-      final destPath = cache.modrinthPath(
-        projectId: 'P',
-        versionId: 'V',
-        filename: 'mod.jar',
-      );
-      expect(File(destPath).readAsStringSync(), goodBody);
-    });
+        expect(outcome.redownloaded, 1);
+        expect(outcome.verified, 0);
+        expect(outcome.stillCorrupt, isEmpty);
+        // The on-disk file is now the good content.
+        final destPath = cache.modrinthPath(
+          projectId: 'P',
+          versionId: 'V',
+          filename: 'mod.jar',
+        );
+        expect(File(destPath).readAsStringSync(), goodBody);
+      },
+    );
 
-    test('throws CacheCorruptionError when re-download still mismatches',
-        () async {
-      const url = 'https://example.invalid/mod.jar';
-      final declaredSha = sha512Hex(utf8.encode('expected'));
-      seedModrinth(
-        projectId: 'P',
-        versionId: 'V',
-        filename: 'mod.jar',
-        body: 'TAMPERED',
-        url: url,
-        declaredSha512: declaredSha,
-      );
-      // The fake server returns wrong bytes too — sha512 will mismatch
-      // both before and after re-download.
-      final downloader = buildDownloader({
-        url: (status: 200, bytes: utf8.encode('still wrong')),
-      });
-      final inspector = CacheInspector(cache);
-      await expectLater(
-        inspector.repair(downloader, console: const Console()),
-        throwsA(isA<CacheCorruptionError>()),
-      );
-    });
+    test(
+      'throws CacheCorruptionError when re-download still mismatches',
+      () async {
+        const url = 'https://example.invalid/mod.jar';
+        final declaredSha = sha512Hex(utf8.encode('expected'));
+        seedModrinth(
+          projectId: 'P',
+          versionId: 'V',
+          filename: 'mod.jar',
+          body: 'TAMPERED',
+          url: url,
+          declaredSha512: declaredSha,
+        );
+        // The fake server returns wrong bytes too — sha512 will mismatch
+        // both before and after re-download.
+        final downloader = buildDownloader({
+          url: (status: 200, bytes: utf8.encode('still wrong')),
+        });
+        final inspector = CacheInspector(cache);
+        await expectLater(
+          inspector.repair(downloader, console: const Console()),
+          throwsA(isA<CacheCorruptionError>()),
+        );
+      },
+    );
 
-    test('deletes a corrupt url-cached file and prunes empty parents',
-        () async {
-      final expected = sha512Hex(utf8.encode('original'));
-      seedUrl(
-        expectedSha512: expected,
-        filename: 'mod.jar',
-        body: 'TAMPERED',
-      );
-      final downloader = buildDownloader({});
-      final inspector = CacheInspector(cache);
-      final outcome = await inspector.repair(
-        downloader,
-        console: const Console(),
-      );
-      expect(outcome.deleted, 1);
-      expect(outcome.verified, 0);
-      final filePath = cache.urlPath(sha512: expected, filename: 'mod.jar');
-      expect(File(filePath).existsSync(), isFalse);
-      expect(
-        Directory(p.join(cache.urlRoot, expected.substring(0, 2)))
-            .existsSync(),
-        isFalse,
-      );
-    });
+    test(
+      'deletes a corrupt url-cached file and prunes empty parents',
+      () async {
+        final expected = sha512Hex(utf8.encode('original'));
+        seedUrl(
+          expectedSha512: expected,
+          filename: 'mod.jar',
+          body: 'TAMPERED',
+        );
+        final downloader = buildDownloader({});
+        final inspector = CacheInspector(cache);
+        final outcome = await inspector.repair(
+          downloader,
+          console: const Console(),
+        );
+        expect(outcome.deleted, 1);
+        expect(outcome.verified, 0);
+        final filePath = cache.urlPath(sha512: expected, filename: 'mod.jar');
+        expect(File(filePath).existsSync(), isFalse);
+        expect(
+          Directory(
+            p.join(cache.urlRoot, expected.substring(0, 2)),
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
 
     test('skips modrinth jar with missing version.json (orphan)', () async {
       final dir = Directory(p.join(cache.modrinthRoot, 'P', 'V'))
@@ -283,8 +293,9 @@ void main() {
       final dir = Directory(p.join(cache.modrinthRoot, 'P', 'V'))
         ..createSync(recursive: true);
       File(p.join(dir.path, 'jar.jar')).writeAsStringSync('garbage');
-      File(p.join(dir.path, 'version.json'))
-          .writeAsStringSync('{"dependencies":[]}'); // old-format
+      File(
+        p.join(dir.path, 'version.json'),
+      ).writeAsStringSync('{"dependencies":[]}'); // old-format
       final downloader = buildDownloader({});
       final inspector = CacheInspector(cache);
       final outcome = await inspector.repair(

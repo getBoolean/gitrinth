@@ -31,37 +31,48 @@ void main() {
   });
 
   group('gitrinth modrinth token add', () {
-    test('stores a token via --token after /user validation succeeds',
-        () async {
-      fake.registerToken('mrp_other', username: 'bob');
+    test(
+      'stores a token via --token after /user validation succeeds',
+      () async {
+        fake.registerToken('mrp_other', username: 'bob');
 
-      final result = await runCli(
-        ['modrinth', 'token', 'add', fake.baseUrl, '--token', 'mrp_other'],
-        environment: env,
-      );
+        final result = await runCli([
+          'modrinth',
+          'token',
+          'add',
+          fake.baseUrl,
+          '--token',
+          'mrp_other',
+        ], environment: env);
 
-      expect(result.exitCode, equals(exitOk));
-      expect(result.stdout, contains('Stored token'));
-      expect(result.stdout, contains('bob'));
+        expect(result.exitCode, equals(exitOk));
+        expect(result.stdout, contains('Stored token'));
+        expect(result.stdout, contains('bob'));
 
-      final cfg = UserConfigStore(configPath).read();
-      expect(cfg.tokenFor(fake.baseUrl), equals('mrp_other'));
-    });
+        final cfg = UserConfigStore(configPath).read();
+        expect(cfg.tokenFor(fake.baseUrl), equals('mrp_other'));
+      },
+    );
 
     test('rejects invalid token with auth-failure exit code', () async {
-      final result = await runCli(
-        ['modrinth', 'token', 'add', fake.baseUrl, '--token', 'mrp_bad'],
-        environment: env,
-      );
+      final result = await runCli([
+        'modrinth',
+        'token',
+        'add',
+        fake.baseUrl,
+        '--token',
+        'mrp_bad',
+      ], environment: env);
       expect(result.exitCode, equals(exitAuthenticationFailure));
       expect(File(configPath).existsSync(), isFalse);
     });
 
     test('errors when <server-url> is missing', () async {
-      final result = await runCli(
-        ['modrinth', 'token', 'add'],
-        environment: env,
-      );
+      final result = await runCli([
+        'modrinth',
+        'token',
+        'add',
+      ], environment: env);
       expect(result.exitCode, equals(exitUsageError));
     });
   });
@@ -72,8 +83,11 @@ void main() {
         const UserConfig().withToken(fake.baseUrl, 'mrp_abcdefghijklmnop'),
       );
 
-      final result = await runCli(['modrinth', 'token', 'list'],
-          environment: env);
+      final result = await runCli([
+        'modrinth',
+        'token',
+        'list',
+      ], environment: env);
 
       expect(result.exitCode, equals(exitOk));
       expect(result.stdout, contains('mrp_'));
@@ -82,9 +96,9 @@ void main() {
     });
 
     test('flags GITRINTH_TOKEN override when set', () async {
-      UserConfigStore(configPath).write(
-        const UserConfig().withToken(fake.baseUrl, 'mrp_storedabcdef'),
-      );
+      UserConfigStore(
+        configPath,
+      ).write(const UserConfig().withToken(fake.baseUrl, 'mrp_storedabcdef'));
 
       final result = await runCli(
         ['modrinth', 'token', 'list'],
@@ -96,8 +110,11 @@ void main() {
     });
 
     test('reports gracefully on an empty config', () async {
-      final result = await runCli(['modrinth', 'token', 'list'],
-          environment: env);
+      final result = await runCli([
+        'modrinth',
+        'token',
+        'list',
+      ], environment: env);
       expect(result.exitCode, equals(exitOk));
       expect(result.stdout, contains('no stored tokens'));
     });
@@ -105,24 +122,28 @@ void main() {
 
   group('gitrinth modrinth token remove', () {
     test('removes a stored token', () async {
-      UserConfigStore(configPath).write(
-        const UserConfig().withToken(fake.baseUrl, 'mrp_other'),
-      );
+      UserConfigStore(
+        configPath,
+      ).write(const UserConfig().withToken(fake.baseUrl, 'mrp_other'));
 
-      final result = await runCli(
-        ['modrinth', 'token', 'remove', fake.baseUrl],
-        environment: env,
-      );
+      final result = await runCli([
+        'modrinth',
+        'token',
+        'remove',
+        fake.baseUrl,
+      ], environment: env);
 
       expect(result.exitCode, equals(exitOk));
       expect(UserConfigStore(configPath).read().tokens, isEmpty);
     });
 
     test('errors when no entry exists', () async {
-      final result = await runCli(
-        ['modrinth', 'token', 'remove', fake.baseUrl],
-        environment: env,
-      );
+      final result = await runCli([
+        'modrinth',
+        'token',
+        'remove',
+        fake.baseUrl,
+      ], environment: env);
       expect(result.exitCode, equals(exitUserError));
       expect(result.stderr, contains('No stored token'));
     });

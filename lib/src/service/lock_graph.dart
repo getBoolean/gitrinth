@@ -81,9 +81,7 @@ Set<String> walkTransitiveClosure(
     final slug = queue.removeLast();
     final entry = lookup[slug];
     if (entry == null) {
-      console?.io(
-        "$verboseLabel: '$slug' not in mods.lock; skipping.",
-      );
+      console?.io("$verboseLabel: '$slug' not in mods.lock; skipping.");
       continue;
     }
     if (entry.sourceKind != LockedSourceKind.modrinth) continue;

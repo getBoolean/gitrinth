@@ -2,6 +2,7 @@ import 'package:yaml/yaml.dart';
 import 'package:yaml_edit/yaml_edit.dart';
 
 import '../cli/exceptions.dart';
+import '../util/yaml_root.dart';
 
 /// On-disk YAML key for the `project_overrides` section, in both
 /// `mods.yaml` and the standalone `project_overrides.yaml`.
@@ -69,31 +70,16 @@ String _injectOverride({
       throw const UserError('mods.yaml is empty; cannot edit.');
     }
     final editor = YamlEditor('')
-      ..update(
-        [],
-        <String, Object?>{
-          projectOverridesKey: <String, Object?>{
-            slug: longForm ?? shorthandValue,
-          },
+      ..update([], <String, Object?>{
+        projectOverridesKey: <String, Object?>{
+          slug: longForm ?? shorthandValue,
         },
-      );
+      });
     return editor.toString();
   }
 
   final editor = YamlEditor(yamlText);
-  final YamlNode root;
-  try {
-    root = editor.parseAt([]);
-  } on Object {
-    throw const UserError(
-      'project_overrides target file is not valid YAML; cannot edit.',
-    );
-  }
-  if (root is! YamlMap) {
-    throw const UserError(
-      'project_overrides target file: top-level must be a mapping.',
-    );
-  }
+  final root = parseYamlRoot(editor, filename: 'project_overrides target file');
 
   final sectionNode = root.nodes[projectOverridesKey];
   if (sectionNode == null) {
@@ -121,9 +107,6 @@ String _injectOverride({
       'directly.',
     );
   }
-  editor.update(
-    [projectOverridesKey, slug],
-    longForm ?? shorthandValue,
-  );
+  editor.update([projectOverridesKey, slug], longForm ?? shorthandValue);
   return editor.toString();
 }

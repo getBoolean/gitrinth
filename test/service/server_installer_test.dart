@@ -26,10 +26,17 @@ void main() {
     test('Fabric installs by copying the launch JAR into outputDir', () async {
       final calls = <List<String>>[];
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          calls.add([exe, ...args]);
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              calls.add([exe, ...args]);
+              return 0;
+            },
       );
       await installer.installServer(
         loader: Loader.fabric,
@@ -46,40 +53,56 @@ void main() {
       expect(calls, isEmpty, reason: 'fabric path must not invoke java');
     });
 
-    test('Forge invokes java with --installServer pointing at outputDir',
-        () async {
-      final calls = <List<String>>[];
-      final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          calls.add([exe, ...args]);
-          return 0;
-        },
-      );
-      await installer.installServer(
-        loader: Loader.forge,
-        mcVersion: '1.21.1',
-        loaderVersion: '52.1.5',
-        outputDir: outputDir,
-        installerOrServerJar: fakeInstaller,
-        offline: false,
-      );
+    test(
+      'Forge invokes java with --installServer pointing at outputDir',
+      () async {
+        final calls = <List<String>>[];
+        final installer = ServerInstaller(
+          runProcess:
+              (
+                exe,
+                args, {
+                workingDirectory,
+                runInShell = false,
+                environment,
+              }) async {
+                calls.add([exe, ...args]);
+                return 0;
+              },
+        );
+        await installer.installServer(
+          loader: Loader.forge,
+          mcVersion: '1.21.1',
+          loaderVersion: '52.1.5',
+          outputDir: outputDir,
+          installerOrServerJar: fakeInstaller,
+          offline: false,
+        );
 
-      expect(calls, hasLength(1));
-      final call = calls.single;
-      expect(call.first.toLowerCase(), contains('java'));
-      expect(call, contains('-jar'));
-      expect(call, contains(fakeInstaller.path));
-      expect(call, contains('--installServer'));
-      expect(call, contains(outputDir.path));
-    });
+        expect(calls, hasLength(1));
+        final call = calls.single;
+        expect(call.first.toLowerCase(), contains('java'));
+        expect(call, contains('-jar'));
+        expect(call, contains(fakeInstaller.path));
+        expect(call, contains('--installServer'));
+        expect(call, contains(outputDir.path));
+      },
+    );
 
     test('NeoForge invokes java with --installServer', () async {
       final calls = <List<String>>[];
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          calls.add([exe, ...args]);
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              calls.add([exe, ...args]);
+              return 0;
+            },
       );
       await installer.installServer(
         loader: Loader.neoforge,
@@ -96,10 +119,17 @@ void main() {
     test('writes a sentinel marker so the second call is a no-op', () async {
       var callCount = 0;
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          callCount++;
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              callCount++;
+              return 0;
+            },
       );
       await installer.installServer(
         loader: Loader.forge,
@@ -123,8 +153,14 @@ void main() {
 
     test('non-zero installer exit code is surfaced as UserError', () async {
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async =>
-            1,
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async => 1,
       );
       await expectLater(
         installer.installServer(
@@ -156,10 +192,17 @@ void main() {
     test('offline + no marker refuses to run the installer', () async {
       var called = false;
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          called = true;
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              called = true;
+              return 0;
+            },
       );
       await expectLater(
         installer.installServer(
@@ -184,14 +227,22 @@ void main() {
     test('offline + existing marker is a no-op', () async {
       // Pre-write the marker as if a prior online install succeeded.
       outputDir.createSync(recursive: true);
-      File(p.join(outputDir.path, '.gitrinth-installed-forge-52.1.5'))
-          .writeAsStringSync('prior');
+      File(
+        p.join(outputDir.path, '.gitrinth-installed-forge-52.1.5'),
+      ).writeAsStringSync('prior');
       var called = false;
       final installer = ServerInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          called = true;
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              called = true;
+              return 0;
+            },
       );
       await installer.installServer(
         loader: Loader.forge,

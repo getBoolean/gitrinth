@@ -3,6 +3,7 @@ import 'package:yaml_edit/yaml_edit.dart';
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../util/yaml_root.dart';
 
 /// Returns the YAML key used for [section] in `mods.yaml` — the parsed
 /// [Section] enum values use camelCase, but on-disk the manifest uses
@@ -74,15 +75,7 @@ String injectEntry(
   final editor = YamlEditor(yamlText);
   final sectionKey = sectionKeyFor(section);
 
-  final YamlNode root;
-  try {
-    root = editor.parseAt([]);
-  } on Object {
-    throw const UserError('mods.yaml is not valid YAML; cannot edit.');
-  }
-  if (root is! YamlMap) {
-    throw const UserError('mods.yaml top-level must be a mapping.');
-  }
+  final root = parseYamlRoot(editor, filename: 'mods.yaml');
 
   final sectionNode = root.nodes[sectionKey];
   if (sectionNode == null) {

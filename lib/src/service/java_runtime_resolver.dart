@@ -121,9 +121,7 @@ class JavaRuntimeResolver {
         }
         return pathJava;
       }
-      tried.add(
-        'PATH `java` at ${pathJava.path} (JDK ${major ?? "unknown"})',
-      );
+      tried.add('PATH `java` at ${pathJava.path} (JDK ${major ?? "unknown"})');
     } else {
       tried.add('PATH (no `java` found)');
     }
@@ -168,9 +166,7 @@ class JavaRuntimeResolver {
   File _binaryUnderJdkHome(String jdkHome) {
     final binName = _isWindows ? 'java.exe' : 'java';
     // macOS: <home>/Contents/Home/bin/java when pointed at the bundle root.
-    final macHome = File(
-      p.join(jdkHome, 'Contents', 'Home', 'bin', binName),
-    );
+    final macHome = File(p.join(jdkHome, 'Contents', 'Home', 'bin', binName));
     if (macHome.existsSync()) return macHome;
     return File(p.join(jdkHome, 'bin', binName));
   }

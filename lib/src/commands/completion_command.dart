@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:args/args.dart';
 
 import '../cli/base_command.dart';
@@ -51,7 +49,7 @@ class CompletionCommand extends GitrinthCommand {
           'Expected bash, zsh, fish, or powershell.',
         );
     }
-    stdout.write(script);
+    console.raw(script);
     return exitOk;
   }
 }

@@ -59,62 +59,65 @@ const String _modrinthBase = 'https://api.modrinth.com/v2';
 _ScriptedResponse _ok({
   Map<String, List<String>> headers = const {},
   String body = '{}',
-}) =>
-    (status: 200, headers: headers, bytes: utf8.encode(body));
+}) => (status: 200, headers: headers, bytes: utf8.encode(body));
 
 _ScriptedResponse _rateLimited({
   Map<String, List<String>> headers = const {},
   String body = '{"error":"rate limited"}',
-}) =>
-    (status: 429, headers: headers, bytes: utf8.encode(body));
+}) => (status: 429, headers: headers, bytes: utf8.encode(body));
 
 void main() {
   group('ModrinthRateLimitInterceptor', () {
-    test(
-      'onResponse updates the budget — subsequent request throttles when '
-      'remaining < floor',
-      () async {
-        final adapter = _ScriptedAdapter([
-          _ok(headers: {
+    test('onResponse updates the budget — subsequent request throttles when '
+        'remaining < floor', () async {
+      final adapter = _ScriptedAdapter([
+        _ok(
+          headers: {
             'x-ratelimit-remaining': ['2'],
             'x-ratelimit-reset': ['10'],
-          }),
-          _ok(),
-        ]);
-        final dio = Dio()..httpClientAdapter = adapter;
-        final sleeps = <Duration>[];
-        final frozenNow = DateTime.utc(2026, 1, 1, 12);
-        dio.interceptors.add(ModrinthRateLimitInterceptor(
-          dio: dio,
-          modrinthBaseUrl: _modrinthBase,
-          sleep: (d) async => sleeps.add(d),
-          now: () => frozenNow,
-        ));
-
-        await dio.get<dynamic>('$_modrinthBase/tag/game_version');
-        await dio.get<dynamic>('$_modrinthBase/tag/game_version');
-
-        expect(sleeps, hasLength(1));
-        expect(sleeps.single, const Duration(seconds: 10));
-      },
-    );
-
-    test('onResponse is a no-op for non-Modrinth hosts', () async {
-      final adapter = _ScriptedAdapter([
-        _ok(headers: {
-          'x-ratelimit-remaining': ['0'],
-          'x-ratelimit-reset': ['30'],
-        }),
+          },
+        ),
         _ok(),
       ]);
       final dio = Dio()..httpClientAdapter = adapter;
       final sleeps = <Duration>[];
-      dio.interceptors.add(ModrinthRateLimitInterceptor(
-        dio: dio,
-        modrinthBaseUrl: _modrinthBase,
-        sleep: (d) async => sleeps.add(d),
-        now: () => DateTime.utc(2026),
-      ));
+      final frozenNow = DateTime.utc(2026, 1, 1, 12);
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
+          dio: dio,
+          modrinthBaseUrl: _modrinthBase,
+          sleep: (d) async => sleeps.add(d),
+          now: () => frozenNow,
+        ),
+      );
+
+      await dio.get<dynamic>('$_modrinthBase/tag/game_version');
+      await dio.get<dynamic>('$_modrinthBase/tag/game_version');
+
+      expect(sleeps, hasLength(1));
+      expect(sleeps.single, const Duration(seconds: 10));
+    });
+
+    test('onResponse is a no-op for non-Modrinth hosts', () async {
+      final adapter = _ScriptedAdapter([
+        _ok(
+          headers: {
+            'x-ratelimit-remaining': ['0'],
+            'x-ratelimit-reset': ['30'],
+          },
+        ),
+        _ok(),
+      ]);
+      final dio = Dio()..httpClientAdapter = adapter;
+      final sleeps = <Duration>[];
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
+          dio: dio,
+          modrinthBaseUrl: _modrinthBase,
+          sleep: (d) async => sleeps.add(d),
+          now: () => DateTime.utc(2026),
+        ),
+      );
 
       await dio.get<dynamic>('https://meta.fabricmc.net/v2/versions/loader');
       await dio.get<dynamic>('$_modrinthBase/tag/game_version');
@@ -126,20 +129,24 @@ void main() {
       'onRequest does not throttle when remaining stays at or above floor',
       () async {
         final adapter = _ScriptedAdapter([
-          _ok(headers: {
-            'x-ratelimit-remaining': ['5'],
-            'x-ratelimit-reset': ['30'],
-          }),
+          _ok(
+            headers: {
+              'x-ratelimit-remaining': ['5'],
+              'x-ratelimit-reset': ['30'],
+            },
+          ),
           _ok(),
         ]);
         final dio = Dio()..httpClientAdapter = adapter;
         final sleeps = <Duration>[];
-        dio.interceptors.add(ModrinthRateLimitInterceptor(
-          dio: dio,
-          modrinthBaseUrl: _modrinthBase,
-          sleep: (d) async => sleeps.add(d),
-          now: () => DateTime.utc(2026),
-        ));
+        dio.interceptors.add(
+          ModrinthRateLimitInterceptor(
+            dio: dio,
+            modrinthBaseUrl: _modrinthBase,
+            sleep: (d) async => sleeps.add(d),
+            now: () => DateTime.utc(2026),
+          ),
+        );
 
         await dio.get<dynamic>('$_modrinthBase/tag/game_version');
         await dio.get<dynamic>('$_modrinthBase/tag/game_version');
@@ -152,22 +159,27 @@ void main() {
       '429 with X-Ratelimit-Reset: 0 triggers minSleep then succeeds on retry',
       () async {
         final adapter = _ScriptedAdapter([
-          _rateLimited(headers: {
-            'x-ratelimit-reset': ['0'],
-          }),
+          _rateLimited(
+            headers: {
+              'x-ratelimit-reset': ['0'],
+            },
+          ),
           _ok(body: '{"ok":true}'),
         ]);
         final dio = Dio()..httpClientAdapter = adapter;
         final sleeps = <Duration>[];
-        dio.interceptors.add(ModrinthRateLimitInterceptor(
-          dio: dio,
-          modrinthBaseUrl: _modrinthBase,
-          sleep: (d) async => sleeps.add(d),
-          now: () => DateTime.utc(2026),
-        ));
+        dio.interceptors.add(
+          ModrinthRateLimitInterceptor(
+            dio: dio,
+            modrinthBaseUrl: _modrinthBase,
+            sleep: (d) async => sleeps.add(d),
+            now: () => DateTime.utc(2026),
+          ),
+        );
 
-        final response =
-            await dio.get<dynamic>('$_modrinthBase/tag/game_version');
+        final response = await dio.get<dynamic>(
+          '$_modrinthBase/tag/game_version',
+        );
 
         expect(response.statusCode, 200);
         expect(sleeps, [const Duration(seconds: 1)]);
@@ -175,46 +187,51 @@ void main() {
       },
     );
 
-    test(
-      'Retry-After header is preferred over X-Ratelimit-Reset',
-      () async {
-        final adapter = _ScriptedAdapter([
-          _rateLimited(headers: {
+    test('Retry-After header is preferred over X-Ratelimit-Reset', () async {
+      final adapter = _ScriptedAdapter([
+        _rateLimited(
+          headers: {
             'retry-after': ['7'],
             'x-ratelimit-reset': ['30'],
-          }),
-          _ok(),
-        ]);
-        final dio = Dio()..httpClientAdapter = adapter;
-        final sleeps = <Duration>[];
-        dio.interceptors.add(ModrinthRateLimitInterceptor(
+          },
+        ),
+        _ok(),
+      ]);
+      final dio = Dio()..httpClientAdapter = adapter;
+      final sleeps = <Duration>[];
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
           dio: dio,
           modrinthBaseUrl: _modrinthBase,
           sleep: (d) async => sleeps.add(d),
           now: () => DateTime.utc(2026),
-        ));
+        ),
+      );
 
-        await dio.get<dynamic>('$_modrinthBase/tag/game_version');
+      await dio.get<dynamic>('$_modrinthBase/tag/game_version');
 
-        expect(sleeps, [const Duration(seconds: 7)]);
-      },
-    );
+      expect(sleeps, [const Duration(seconds: 7)]);
+    });
 
     test('429 retries exhaust at maxRetries and surface the error', () async {
       final adapter = _ScriptedAdapter([
         for (var i = 0; i < 6; i++)
-          _rateLimited(headers: {
-            'x-ratelimit-reset': ['0'],
-          }),
+          _rateLimited(
+            headers: {
+              'x-ratelimit-reset': ['0'],
+            },
+          ),
       ]);
       final dio = Dio()..httpClientAdapter = adapter;
       final sleeps = <Duration>[];
-      dio.interceptors.add(ModrinthRateLimitInterceptor(
-        dio: dio,
-        modrinthBaseUrl: _modrinthBase,
-        sleep: (d) async => sleeps.add(d),
-        now: () => DateTime.utc(2026),
-      ));
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
+          dio: dio,
+          modrinthBaseUrl: _modrinthBase,
+          sleep: (d) async => sleeps.add(d),
+          now: () => DateTime.utc(2026),
+        ),
+      );
 
       await expectLater(
         dio.get<dynamic>('$_modrinthBase/tag/game_version'),
@@ -233,20 +250,24 @@ void main() {
 
     test('Console.detail fires when sleep >= verbose threshold', () async {
       final adapter = _ScriptedAdapter([
-        _rateLimited(headers: {
-          'x-ratelimit-reset': ['3'],
-        }),
+        _rateLimited(
+          headers: {
+            'x-ratelimit-reset': ['3'],
+          },
+        ),
         _ok(),
       ]);
       final dio = Dio()..httpClientAdapter = adapter;
       final console = _CapturingConsole();
-      dio.interceptors.add(ModrinthRateLimitInterceptor(
-        dio: dio,
-        modrinthBaseUrl: _modrinthBase,
-        console: console,
-        sleep: (_) async {},
-        now: () => DateTime.utc(2026),
-      ));
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
+          dio: dio,
+          modrinthBaseUrl: _modrinthBase,
+          console: console,
+          sleep: (_) async {},
+          now: () => DateTime.utc(2026),
+        ),
+      );
 
       await dio.get<dynamic>('$_modrinthBase/tag/game_version');
 
@@ -257,41 +278,48 @@ void main() {
 
     test('Console.detail does NOT fire for sleeps below threshold', () async {
       final adapter = _ScriptedAdapter([
-        _rateLimited(headers: {
-          'x-ratelimit-reset': ['1'],
-        }),
+        _rateLimited(
+          headers: {
+            'x-ratelimit-reset': ['1'],
+          },
+        ),
         _ok(),
       ]);
       final dio = Dio()..httpClientAdapter = adapter;
       final console = _CapturingConsole();
-      dio.interceptors.add(ModrinthRateLimitInterceptor(
-        dio: dio,
-        modrinthBaseUrl: _modrinthBase,
-        console: console,
-        sleep: (_) async {},
-        now: () => DateTime.utc(2026),
-      ));
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
+          dio: dio,
+          modrinthBaseUrl: _modrinthBase,
+          console: console,
+          sleep: (_) async {},
+          now: () => DateTime.utc(2026),
+        ),
+      );
 
       await dio.get<dynamic>('$_modrinthBase/tag/game_version');
 
       expect(console.details, isEmpty);
     });
 
-    test('429 from a non-Modrinth host is passed through unchanged',
-        () async {
+    test('429 from a non-Modrinth host is passed through unchanged', () async {
       final adapter = _ScriptedAdapter([
-        _rateLimited(headers: {
-          'x-ratelimit-reset': ['10'],
-        }),
+        _rateLimited(
+          headers: {
+            'x-ratelimit-reset': ['10'],
+          },
+        ),
       ]);
       final dio = Dio()..httpClientAdapter = adapter;
       final sleeps = <Duration>[];
-      dio.interceptors.add(ModrinthRateLimitInterceptor(
-        dio: dio,
-        modrinthBaseUrl: _modrinthBase,
-        sleep: (d) async => sleeps.add(d),
-        now: () => DateTime.utc(2026),
-      ));
+      dio.interceptors.add(
+        ModrinthRateLimitInterceptor(
+          dio: dio,
+          modrinthBaseUrl: _modrinthBase,
+          sleep: (d) async => sleeps.add(d),
+          now: () => DateTime.utc(2026),
+        ),
+      );
 
       await expectLater(
         dio.get<dynamic>('https://meta.fabricmc.net/v2/versions/loader'),

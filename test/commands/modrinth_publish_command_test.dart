@@ -47,8 +47,9 @@ void main() {
 
   void writePack({String version = '1.0.0'}) {
     final out = Directory(p.join(packDir.path, 'build'))..createSync();
-    File(p.join(out.path, 'testpack-$version.mrpack'))
-        .writeAsBytesSync(List<int>.filled(64, 0xab));
+    File(
+      p.join(out.path, 'testpack-$version.mrpack'),
+    ).writeAsBytesSync(List<int>.filled(64, 0xab));
   }
 
   group('gitrinth modrinth publish', () {
@@ -76,14 +77,16 @@ void main() {
       expect(result.stdout, contains('"version_type": "beta"'));
     });
 
-    test('errors with auth-failure exit when no token is configured',
-        () async {
+    test('errors with auth-failure exit when no token is configured', () async {
       writeManifest();
       writePack();
-      final result = await runCli(
-        ['-C', packDir.path, 'modrinth', 'publish', '--dry-run'],
-        environment: env,
-      );
+      final result = await runCli([
+        '-C',
+        packDir.path,
+        'modrinth',
+        'publish',
+        '--dry-run',
+      ], environment: env);
       expect(result.exitCode, equals(exitAuthenticationFailure));
       expect(result.stderr, contains('No token configured'));
     });

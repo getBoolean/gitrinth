@@ -37,10 +37,7 @@ class Console {
     Map<String, String>? environment,
   }) {
     final env = environment ?? Platform.environment;
-    return Console(
-      level: level,
-      useAnsi: resolveUseAnsi(colorOverride, env),
-    );
+    return Console(level: level, useAnsi: resolveUseAnsi(colorOverride, env));
   }
 
   /// Resolves the effective ANSI setting given an explicit user
@@ -85,6 +82,11 @@ class Console {
     if (!_enabled(LogLevel.all)) return;
     stdout.writeln(msg);
   }
+
+  /// Always writes to stdout — bypasses verbosity and ANSI. Use for
+  /// machine-readable output (JSON, completion scripts) that must not be
+  /// suppressed by --quiet or styled by --color.
+  void raw(String message) => stdout.writeln(message);
 
   static const _esc = '\x1b';
   String bold(String s) => useAnsi ? '$_esc[1m$s$_esc[22m' : s;

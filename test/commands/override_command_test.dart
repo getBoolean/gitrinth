@@ -37,9 +37,8 @@ void main() {
   String readYaml() =>
       File(p.join(packDir.path, 'mods.yaml')).readAsStringSync();
 
-  String readStandalone() => File(
-    p.join(packDir.path, 'project_overrides.yaml'),
-  ).readAsStringSync();
+  String readStandalone() =>
+      File(p.join(packDir.path, 'project_overrides.yaml')).readAsStringSync();
 
   Future<void> baseManifest() => writeManifest('''
 slug: pack
@@ -67,10 +66,12 @@ mods:
     );
     await baseManifest();
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'jei@19.27.0'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'jei@19.27.0',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     final yaml = readYaml();
@@ -96,10 +97,13 @@ mods:
     );
     await baseManifest();
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'jei@19.27.0', '--standalone'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'jei@19.27.0',
+      '--standalone',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     expect(
@@ -132,10 +136,13 @@ project_overrides:
     version: 6.0.0
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'jei@19.0.0', '--standalone'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'jei@19.0.0',
+      '--standalone',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     final standalone = readStandalone();
@@ -163,10 +170,12 @@ project_overrides:
     );
     await baseManifest();
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'jei'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'jei',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     final yaml = readYaml();
@@ -195,10 +204,12 @@ project_overrides:
     version: 19.0.0
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'jei@19.0.0'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'jei@19.0.0',
+    ], environment: env());
     expect(out.exitCode, isNot(0));
     expect(
       '${out.stderr}\n${out.stdout}',
@@ -214,10 +225,13 @@ project_overrides:
     );
     await baseManifest();
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'jei@19.27.0', '--dry-run'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'jei@19.27.0',
+      '--dry-run',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     expect(out.stdout, contains('Would add'));
     expect(out.stdout, contains('jei'));
@@ -225,10 +239,7 @@ project_overrides:
     // mods.yaml unchanged.
     expect(readYaml(), isNot(contains('project_overrides:')));
     // No lock written.
-    expect(
-      File(p.join(packDir.path, 'mods.lock')).existsSync(),
-      isFalse,
-    );
+    expect(File(p.join(packDir.path, 'mods.lock')).existsSync(), isFalse);
   });
 
   test('override does not run the incompatibility-prevention check '
@@ -267,10 +278,12 @@ mods:
   mod_a: ^1.0.0
 ''');
 
-    final out = await runCli(
-      ['-C', packDir.path, 'override', 'mod_a@2.0.0'],
-      environment: env(),
-    );
+    final out = await runCli([
+      '-C',
+      packDir.path,
+      'override',
+      'mod_a@2.0.0',
+    ], environment: env());
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final yaml = readYaml();
     expect(yaml, contains('mod_a: 2.0.0'));

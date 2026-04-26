@@ -295,15 +295,14 @@ class CacheInspector {
       );
       return _ModrinthRepair.redownloaded;
     } on Object catch (e) {
-      console.error('cache repair: ${artifact.location}: re-download failed: $e');
+      console.error(
+        'cache repair: ${artifact.location}: re-download failed: $e',
+      );
       return _ModrinthRepair.stillCorrupt;
     }
   }
 
-  _UrlRepair _repairUrl(
-    CachedArtifact artifact, {
-    required Console console,
-  }) {
+  _UrlRepair _repairUrl(CachedArtifact artifact, {required Console console}) {
     final expected = artifact.sha512!;
     try {
       final bytes = File(artifact.location).readAsBytesSync();

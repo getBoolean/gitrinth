@@ -143,7 +143,13 @@ String? newerAvailableThan(
   }
   if (best == null || bestParsed == null) return null;
   if (best.versionNumber == chosenRaw) return null;
-  if (compareModrinthSelectionOrder(best, bestParsed, chosenForCompare, chosenParsed) >= 0) {
+  if (compareModrinthSelectionOrder(
+        best,
+        bestParsed,
+        chosenForCompare,
+        chosenParsed,
+      ) >=
+      0) {
     return null;
   }
   return best.versionNumber;

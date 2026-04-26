@@ -48,7 +48,8 @@ void rewriteCaretConstraints({
     }
 
     final crossed =
-        majorVersions && relaxSet.contains(slug) &&
+        majorVersions &&
+        relaxSet.contains(slug) &&
         !_constraintAllows(raw, resolvedRaw);
     final tightened = tighten && _bareCaretBase(raw) != bareResolved;
     if (!crossed && !tightened) continue;

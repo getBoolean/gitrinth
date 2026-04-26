@@ -110,10 +110,7 @@ void main() {
           'mods/keep.jar': LedgerModSource(section: 'mods', slug: 'keep'),
         },
       );
-      final obsolete = obsoletePaths(
-        prior: prior,
-        desired: {'mods/keep.jar'},
-      );
+      final obsolete = obsoletePaths(prior: prior, desired: {'mods/keep.jar'});
       expect(obsolete, {'mods/old.jar'});
     });
 
@@ -133,10 +130,7 @@ void main() {
             preserve: false,
             sourcePath: 'irrelevant',
           ),
-          'mods/dropped.jar': LedgerModSource(
-            section: 'mods',
-            slug: 'dropped',
-          ),
+          'mods/dropped.jar': LedgerModSource(section: 'mods', slug: 'dropped'),
         },
       );
       final obsolete = obsoletePaths(prior: prior, desired: const {});
@@ -183,12 +177,18 @@ void main() {
     });
 
     test('no-op for missing file', () {
-      final before = envRoot.listSync(recursive: true).map((e) => e.path).toSet();
+      final before = envRoot
+          .listSync(recursive: true)
+          .map((e) => e.path)
+          .toSet();
       expect(
         () => pruneFile(envRoot: envRoot, relPath: 'mods/never-existed.jar'),
         returnsNormally,
       );
-      final after = envRoot.listSync(recursive: true).map((e) => e.path).toSet();
+      final after = envRoot
+          .listSync(recursive: true)
+          .map((e) => e.path)
+          .toSet();
       expect(after, equals(before));
     });
   });

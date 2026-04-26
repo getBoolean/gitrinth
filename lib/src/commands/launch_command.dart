@@ -125,11 +125,7 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
     final memory = argResults!['memory'] as String;
     final memoryMax = argResults!['memory-max'] as String?;
     final memoryMin = argResults!['memory-min'] as String?;
-    resolveJvmHeap(
-      memory: memory,
-      memoryMax: memoryMax,
-      memoryMin: memoryMin,
-    );
+    resolveJvmHeap(memory: memory, memoryMax: memoryMax, memoryMin: memoryMin);
     return runLaunchServer(
       options: LaunchServerOptions(
         acceptEula: argResults!['accept-eula'] as bool,
@@ -362,11 +358,7 @@ void _writeUserJvmArgs(
       keep.add(raw);
     }
   }
-  final out = <String>[
-    ...keep,
-    '-Xmx$memoryMax',
-    '-Xms$memoryMin',
-  ];
+  final out = <String>[...keep, '-Xmx$memoryMax', '-Xms$memoryMin'];
   file.writeAsStringSync('${out.join('\n')}\n');
 }
 
@@ -621,9 +613,8 @@ Future<int> runLaunchClient({
   // symlinked back to build/client/<section> — the source of truth for
   // those files stays in the pack tree.
   final yaml = manifestIo.readModsYaml();
-  final workDir = Directory(
-    effectiveCache.launcherWorkDir(slug: yaml.slug),
-  )..createSync(recursive: true);
+  final workDir = Directory(effectiveCache.launcherWorkDir(slug: yaml.slug))
+    ..createSync(recursive: true);
 
   // Each entry is a list of path segments so it composes correctly with
   // the platform's directory separator (Windows mklink rejects forward
@@ -689,8 +680,8 @@ Future<int> runLaunchClient({
     '"gitrinth: ${yaml.slug}"; click Play to boot the modpack.',
   );
 
-  return effectiveRunProcess(
-    launcherExe.path,
-    ['--workDir', workDir.absolute.path],
-  );
+  return effectiveRunProcess(launcherExe.path, [
+    '--workDir',
+    workDir.absolute.path,
+  ]);
 }

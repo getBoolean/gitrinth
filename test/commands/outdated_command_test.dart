@@ -63,16 +63,14 @@ mods:
     expect(out.stdout, contains('a'));
     expect(out.stdout, contains('1.0.0'));
     expect(out.stdout, contains('1.5.0'));
-    expect(
-      out.stdout,
-      contains('upgradable dependency'),
-    );
+    expect(out.stdout, contains('upgradable dependency'));
   });
 
-  test('reports out-of-constraint major as latest but not upgradable',
-      () async {
-    modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
-    await writeManifest('''
+  test(
+    'reports out-of-constraint major as latest but not upgradable',
+    () async {
+      modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
+      await writeManifest('''
 slug: pack
 name: Pack
 version: 0.1.0
@@ -83,23 +81,20 @@ mc-version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
-    expect((await runGet()).exitCode, 0);
+      expect((await runGet()).exitCode, 0);
 
-    modrinth.registerVersion(slug: 'a', versionNumber: '2.0.0');
+      modrinth.registerVersion(slug: 'a', versionNumber: '2.0.0');
 
-    final out = await runOutdated([]);
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-    // 1.0.0 is the only in-constraint version, so Upgradable == Current.
-    // Latest = 2.0.0 (major bump). Should suggest --major-versions.
-    expect(out.stdout, contains('2.0.0'));
-    expect(
-      out.stdout,
-      contains('--major-versions'),
-    );
-  });
+      final out = await runOutdated([]);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      // 1.0.0 is the only in-constraint version, so Upgradable == Current.
+      // Latest = 2.0.0 (major bump). Should suggest --major-versions.
+      expect(out.stdout, contains('2.0.0'));
+      expect(out.stdout, contains('--major-versions'));
+    },
+  );
 
-  test('clean lock with nothing newer says "Found no outdated mods"',
-      () async {
+  test('clean lock with nothing newer says "Found no outdated mods"', () async {
     modrinth.registerVersion(slug: 'a', versionNumber: '1.0.0');
     await writeManifest('''
 slug: pack
@@ -139,8 +134,8 @@ mods:
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final decoded = jsonDecode(out.stdout) as Map<String, dynamic>;
     final packages = decoded['packages'] as List;
-    final entry = packages.firstWhere((e) => e['slug'] == 'a')
-        as Map<String, dynamic>;
+    final entry =
+        packages.firstWhere((e) => e['slug'] == 'a') as Map<String, dynamic>;
     expect(entry['current']['version'], '1.0.0');
     expect(entry['upgradable']['version'], '1.5.0');
     expect(entry['latest']['version'], '1.5.0');

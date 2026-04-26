@@ -56,7 +56,7 @@ class CacheListCommand extends GitrinthCommand {
       'root': cache.root,
       'artifacts': [for (final a in artifacts) a.toJson()],
     };
-    stdout.writeln(const JsonEncoder.withIndent('  ').convert(body));
+    console.raw(const JsonEncoder.withIndent('  ').convert(body));
     return exitOk;
   }
 }
@@ -93,7 +93,9 @@ class CacheCleanCommand extends GitrinthCommand {
     final inspector = CacheInspector(cache);
 
     if (!Directory(cache.root).existsSync()) {
-      console.message('Cache is already empty (no cache root at ${cache.root}).');
+      console.message(
+        'Cache is already empty (no cache root at ${cache.root}).',
+      );
       return exitOk;
     }
 

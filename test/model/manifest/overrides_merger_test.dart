@@ -92,32 +92,34 @@ void main() {
     );
   });
 
-  test('transitive override slug gets section from inferSectionForTransitive',
-      () async {
-    final m = base();
-    Future<Section> infer(String slug) async {
-      if (slug == 'terralith') return Section.dataPacks;
-      return Section.mods;
-    }
+  test(
+    'transitive override slug gets section from inferSectionForTransitive',
+    () async {
+      final m = base();
+      Future<Section> infer(String slug) async {
+        if (slug == 'terralith') return Section.dataPacks;
+        return Section.mods;
+      }
 
-    final extra = ProjectOverrides(
-      entries: {
-        'terralith': const ModEntry(
-          slug: 'terralith',
-          constraintRaw: '^2.5.0',
-        ),
-      },
-    );
-    final out = await applyOverrides(
-      m,
-      extra,
-      inferSectionForTransitive: infer,
-    );
-    expect(out.manifest.dataPacks['terralith'], isNotNull);
-    expect(out.manifest.dataPacks['terralith']!.constraintRaw, '^2.5.0');
-    expect(out.manifest.mods.containsKey('terralith'), isFalse);
-    expect(out.overriddenSlugs, {'terralith'});
-  });
+      final extra = ProjectOverrides(
+        entries: {
+          'terralith': const ModEntry(
+            slug: 'terralith',
+            constraintRaw: '^2.5.0',
+          ),
+        },
+      );
+      final out = await applyOverrides(
+        m,
+        extra,
+        inferSectionForTransitive: infer,
+      );
+      expect(out.manifest.dataPacks['terralith'], isNotNull);
+      expect(out.manifest.dataPacks['terralith']!.constraintRaw, '^2.5.0');
+      expect(out.manifest.mods.containsKey('terralith'), isFalse);
+      expect(out.overriddenSlugs, {'terralith'});
+    },
+  );
 
   test('merger does not call inferSectionForTransitive for slugs already in '
       'some section', () async {

@@ -90,10 +90,7 @@ class ModrinthRateLimitInterceptor extends Interceptor {
     _budget = null;
 
     final retryOptions = err.requestOptions.copyWith(
-      extra: {
-        ...err.requestOptions.extra,
-        _retryCountKey: retries + 1,
-      },
+      extra: {...err.requestOptions.extra, _retryCountKey: retries + 1},
     );
 
     try {

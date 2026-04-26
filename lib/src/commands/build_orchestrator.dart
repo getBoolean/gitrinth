@@ -91,10 +91,9 @@ Future<int> runBuild({
       offline: options.offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
-    SolveReporter(console).printSummary(
-      changeCount: result.changeCount,
-      outdated: result.outdated,
-    );
+    SolveReporter(
+      console,
+    ).printSummary(changeCount: result.changeCount, outdated: result.outdated);
     lock = result.newLock ?? manifestIo.readModsLock();
     if (lock == null) {
       throw const UserError(
@@ -349,8 +348,9 @@ _AssembleResult _assembleEnv({
 
       final destDir = dirCache.putIfAbsent(
         subdir,
-        () => Directory(p.join(envRoot.path, subdir))
-          ..createSync(recursive: true),
+        () =>
+            Directory(p.join(envRoot.path, subdir))
+              ..createSync(recursive: true),
       );
 
       final destName = destFilenameFor(entry);
@@ -405,8 +405,7 @@ _AssembleResult _assembleEnv({
     // existing file. User edits to configs/scripts survive rebuilds.
     // Removing the entry from `files:` still prunes it via the prune
     // pass — preserve is not sticky.
-    final preserveSkipped =
-        entry.preserve && File(destPath).existsSync();
+    final preserveSkipped = entry.preserve && File(destPath).existsSync();
     if (!preserveSkipped) {
       // Unmanaged-collision warning, same reasoning as the mod loop:
       // overwrite to match packwiz-installer behavior, but surface a

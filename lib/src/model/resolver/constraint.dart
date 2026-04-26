@@ -146,14 +146,14 @@ VersionConstraint _parseRangeConstraint(String trimmed) {
   while (remaining.isNotEmpty) {
     final opMatch = _rangeOpPattern.firstMatch(remaining);
     if (opMatch == null) {
-      throw FormatException(
-        'expected >=, <=, >, or < at "$remaining"',
-      );
+      throw FormatException('expected >=, <=, >, or < at "$remaining"');
     }
     final op = opMatch.group(0)!;
     var afterOp = remaining.substring(opMatch.end).trimLeft();
     final verEnd = _rangeVersionEndPattern.firstMatch(afterOp);
-    final verRaw = verEnd == null ? afterOp : afterOp.substring(0, verEnd.start);
+    final verRaw = verEnd == null
+        ? afterOp
+        : afterOp.substring(0, verEnd.start);
     if (verRaw.isEmpty) {
       throw FormatException('expected version after "$op"');
     }
@@ -284,9 +284,7 @@ Version parseModrinthVersion(String raw) {
     // Convert hyphens in the tail to dots so every token is a valid build
     // identifier (semver build metadata is `[A-Za-z0-9-]`, dot-separated).
     final tail = mt[5]!.replaceAll('-', '.');
-    return Version.parse(
-      '${mt[1]}.${mt[2]}.${mt[3]}+${mt[4]}.$tail',
-    );
+    return Version.parse('${mt[1]}.${mt[2]}.${mt[3]}+${mt[4]}.$tail');
   }
   throw FormatException('cannot parse version "$raw"');
 }

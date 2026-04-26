@@ -43,7 +43,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       ..addFlag(
         'transitive',
         defaultsTo: true,
-        help: 'Include transitive dependencies in the report. '
+        help:
+            'Include transitive dependencies in the report. '
             'Pass --no-transitive to suppress.',
       );
     addOfflineFlag();
@@ -121,8 +122,9 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     required bool isOverridden,
   }) async {
     final currentVersion = locked.version ?? locked.path ?? '';
-    final marker =
-        manifestEntry == null ? null : _markerOf(manifestEntry.constraintRaw);
+    final marker = manifestEntry == null
+        ? null
+        : _markerOf(manifestEntry.constraintRaw);
     if (locked.sourceKind != LockedSourceKind.modrinth) {
       return _Row(
         slug: slug,
@@ -173,8 +175,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         );
       }
       versions = cache.listCachedVersions(pid).where((v) {
-        final loaderOk = loaderFilter == null ||
-            v.loaders.any(loaderFilter.contains);
+        final loaderOk =
+            loaderFilter == null || v.loaders.any(loaderFilter.contains);
         final mcOk = v.gameVersions.any(gameVersions.contains);
         return loaderOk && mcOk;
       }).toList();
@@ -268,15 +270,16 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             'kind': r.kind.name,
             'source': r.sourceKind.name,
             'current': r.current.isEmpty ? null : {'version': r.current},
-            'upgradable':
-                r.upgradable == null ? null : {'version': r.upgradable},
+            'upgradable': r.upgradable == null
+                ? null
+                : {'version': r.upgradable},
             'latest': r.latest == null ? null : {'version': r.latest},
             'isOverridden': r.isOverridden,
             'marker': r.marker,
           },
       ],
     };
-    console.message(const JsonEncoder.withIndent('  ').convert(out));
+    console.raw(const JsonEncoder.withIndent('  ').convert(out));
   }
 
   void _printTable(List<_Row> rows, {required bool showAll}) {
@@ -325,7 +328,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     ].reduce((a, b) => a > b ? a : b);
     // Latest column is rightmost; no trailing pad needed.
 
-    final header = '${c.bold('Package'.padRight(slugWidth))}  '
+    final header =
+        '${c.bold('Package'.padRight(slugWidth))}  '
         '${c.bold('Current'.padRight(currentWidth))}  '
         '${c.bold('Upgradable'.padRight(upgradableWidth))}  '
         '${c.bold('Latest')}';
@@ -336,26 +340,33 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       console.message(c.bold('$title:'));
       for (final r in section) {
         final pkg = pkgLabel(r);
-        final markedPkg = (r.upgradable != null && r.latest != null &&
+        final markedPkg =
+            (r.upgradable != null &&
+                r.latest != null &&
                 _parsedNotEqual(r.current, r.latest!))
             ? '${c.red('*')} $pkg'
             : '  $pkg';
         // Pad the visible content to slugWidth (account for the 2-char
         // "* " prefix already present).
-        final pkgPadded = markedPkg.padRight(slugWidth + _ansiOverhead(markedPkg));
+        final pkgPadded = markedPkg.padRight(
+          slugWidth + _ansiOverhead(markedPkg),
+        );
         final currentText = r.current;
-        final currentColored = (r.upgradable != null &&
+        final currentColored =
+            (r.upgradable != null &&
                 _parsedNotEqual(currentText, r.latest ?? currentText))
             ? c.red(currentText)
             : currentText;
-        final currentPadded = currentColored
-            .padRight(currentWidth + _ansiOverhead(currentColored));
+        final currentPadded = currentColored.padRight(
+          currentWidth + _ansiOverhead(currentColored),
+        );
         final upgradableRaw = r.upgradable ?? '-';
         final upgradableColored = _grayIfEqual(c, upgradableRaw, currentText);
-        final upgradablePadded = (upgradableColored.contains('\x1b')
-                ? upgradableColored
-                : upgradableColored)
-            .padRight(upgradableWidth + _ansiOverhead(upgradableColored));
+        final upgradablePadded =
+            (upgradableColored.contains('\x1b')
+                    ? upgradableColored
+                    : upgradableColored)
+                .padRight(upgradableWidth + _ansiOverhead(upgradableColored));
         final latestRaw = r.latest ?? '-';
         final latestColored = _grayIfEqual(c, latestRaw, upgradableRaw);
         console.message(
@@ -369,17 +380,21 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     printSection('transitive dependencies', transitive);
 
     final upgradableLockedToOlder = filtered
-        .where((r) =>
-            r.upgradable != null &&
-            r.current.isNotEmpty &&
-            r.upgradable != r.current)
+        .where(
+          (r) =>
+              r.upgradable != null &&
+              r.current.isNotEmpty &&
+              r.upgradable != r.current,
+        )
         .length;
     final blockedByConstraint = filtered
-        .where((r) =>
-            r.upgradable != null &&
-            r.latest != null &&
-            r.upgradable == r.current &&
-            r.upgradable != r.latest)
+        .where(
+          (r) =>
+              r.upgradable != null &&
+              r.latest != null &&
+              r.upgradable == r.current &&
+              r.upgradable != r.latest,
+        )
         .length;
 
     console.message('');

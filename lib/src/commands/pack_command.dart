@@ -14,7 +14,6 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/mrpack_index.dart';
 import '../service/cache.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
 import 'pack_assembler.dart';
 
@@ -72,23 +71,12 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
     final offline = readOfflineFlag();
 
     final io = ManifestIo();
-    final api = read(modrinthApiProvider);
     final cache = read(cacheProvider);
-    final downloader = read(downloaderProvider);
-    final loaderResolver = read(loaderVersionResolverProvider);
 
     // Refresh the lock + cache so url/path artifact bytes are present
     // and the loader/mc-version are up to date — same entry point build
     // uses.
-    final result = await resolveAndSync(
-      io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
-      offline: offline,
-    );
+    final result = await runResolveAndSync(io: io, offline: offline);
     if (result.exitCode != exitOk) return result.exitCode;
     SolveReporter(
       console,

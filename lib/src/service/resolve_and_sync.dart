@@ -1,3 +1,5 @@
+library;
+
 import 'dart:convert';
 import 'dart:io';
 
@@ -26,6 +28,21 @@ import 'manifest_io.dart';
 import 'modrinth_api.dart';
 import 'section_inference.dart';
 import 'solve_report.dart';
+
+part 'lock_builder.dart';
+
+/// Returns true when [v] is admissible under both filters used during
+/// resolve: the caller's loader filter (`null` means "any loader is OK"
+/// — used for resource_packs / data_packs) and the game-version set.
+bool _matchesLoaderAndMc(
+  modrinth.Version v,
+  List<String>? loaderFilter,
+  List<String> gameVersions,
+) {
+  final loaderOk = loaderFilter == null || v.loaders.any(loaderFilter.contains);
+  final mcOk = v.gameVersions.any(gameVersions.contains);
+  return loaderOk && mcOk;
+}
 
 /// Result of [resolveAndSync]: exit code plus enough detail for the caller
 /// to print its own `Got dependencies!` / `Changed N…` summary.
@@ -164,6 +181,7 @@ Future<ResolveSyncResult> resolveAndSync({
     mcVersion: mc,
     existingLock: existingLock,
     offline: offline,
+    console: console,
   );
 
   final slugToSection = <String, Section>{};
@@ -196,7 +214,8 @@ Future<ResolveSyncResult> resolveAndSync({
       final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
 
       if (offline) {
-        final lockedProjectId = existingLock?.sectionFor(section)[slug]
+        final lockedProjectId = existingLock
+            ?.sectionFor(section)[slug]
             ?.projectId;
         if (lockedProjectId == null) {
           throw UserError(
@@ -205,12 +224,10 @@ Future<ResolveSyncResult> resolveAndSync({
             '`gitrinth get` once with the network available.',
           );
         }
-        final cached = cache.listCachedVersions(lockedProjectId).where((v) {
-          final loaderOk =
-              loaderFilter == null || v.loaders.any(loaderFilter.contains);
-          final mcOk = v.gameVersions.any(gameVersions.contains);
-          return loaderOk && mcOk;
-        }).toList();
+        final cached = cache
+            .listCachedVersions(lockedProjectId)
+            .where((v) => _matchesLoaderAndMc(v, loaderFilter, gameVersions))
+            .toList();
         versionsPerSlug[slug] = cached;
         return cached;
       }
@@ -260,7 +277,8 @@ Future<ResolveSyncResult> resolveAndSync({
     final gameVersions = <String>{mc, ...entry.acceptsMc}.toList();
     final List<modrinth.Version> candidates;
     if (offline) {
-      final lockedProjectId = existingLock?.sectionFor(section)[slug]
+      final lockedProjectId = existingLock
+          ?.sectionFor(section)[slug]
           ?.projectId;
       if (lockedProjectId == null) {
         throw UserError(
@@ -268,12 +286,10 @@ Future<ResolveSyncResult> resolveAndSync({
           'not present in mods.lock and never cached.',
         );
       }
-      candidates = cache.listCachedVersions(lockedProjectId).where((v) {
-        final loaderOk =
-            loaderFilter == null || v.loaders.any(loaderFilter.contains);
-        final mcOk = v.gameVersions.any(gameVersions.contains);
-        return loaderOk && mcOk;
-      }).toList();
+      candidates = cache
+          .listCachedVersions(lockedProjectId)
+          .where((v) => _matchesLoaderAndMc(v, loaderFilter, gameVersions))
+          .toList();
     } else {
       try {
         candidates = await api.listVersions(
@@ -434,8 +450,7 @@ Future<ResolveSyncResult> resolveAndSync({
     final resolved = p.isAbsolute(entry.sourcePath)
         ? entry.sourcePath
         : p.normalize(p.join(io.directory.path, entry.sourcePath));
-    if (FileSystemEntity.typeSync(resolved) ==
-        FileSystemEntityType.notFound) {
+    if (FileSystemEntity.typeSync(resolved) == FileSystemEntityType.notFound) {
       fetchErrors.add(
         'files: entry "${entry.destination}" points to a missing source: '
         '${entry.sourcePath} (looked in $resolved)',
@@ -524,126 +539,6 @@ void _checkUserEntriesPresentInLock(ModsYaml manifest, ModsLock? lock) {
   }
 }
 
-ModsLock _buildLock(
-  ModsYaml manifest,
-  ResolutionResult resolution,
-  String resolvedLoaderVersion,
-) {
-  final byKind = <Section, Map<String, LockedEntry>>{
-    for (final s in Section.values) s: <String, LockedEntry>{},
-  };
-  for (final r in resolution.entries) {
-    final entry = manifest.sectionEntries(r.section)[r.slug];
-    byKind[r.section]![r.slug] = LockedEntry(
-      slug: r.slug,
-      sourceKind: LockedSourceKind.modrinth,
-      version: r.version.versionNumber,
-      projectId: r.version.projectId,
-      versionId: r.version.id,
-      file: LockedFile(
-        name: r.file.filename,
-        url: r.file.url,
-        sha1: r.file.hashes['sha1'],
-        sha512: r.file.sha512,
-        size: r.file.size,
-      ),
-      client: r.client,
-      server: r.server,
-      dependency: r.dependency,
-      gameVersions: List.unmodifiable(r.version.gameVersions),
-      acceptsMc: List.unmodifiable(entry?.acceptsMc ?? const <String>[]),
-    );
-  }
-  for (final section in Section.values) {
-    final entries = manifest.sectionEntries(section);
-    entries.forEach((slug, entry) {
-      final src = entry.source;
-      if (src is UrlEntrySource) {
-        byKind[section]![slug] = LockedEntry(
-          slug: slug,
-          sourceKind: LockedSourceKind.url,
-          file: LockedFile(name: _filenameFromUrl(src.url), url: src.url),
-          client: entry.client,
-          server: entry.server,
-        );
-      } else if (src is PathEntrySource) {
-        byKind[section]![slug] = LockedEntry(
-          slug: slug,
-          sourceKind: LockedSourceKind.path,
-          path: src.path,
-          client: entry.client,
-          server: entry.server,
-        );
-      }
-    });
-  }
-  // Bake the resolved concrete loader version into the lock's LoaderConfig.
-  final lockedLoader = LoaderConfig(
-    mods: manifest.loader.mods,
-    modsVersion: resolvedLoaderVersion,
-    shaders: manifest.loader.shaders,
-    plugins: manifest.loader.plugins,
-  );
-  // Forward `files:` entries verbatim. `files:` is manifest-only — no
-  // pubgrub resolution, no Modrinth round-trip — so the lock entry is
-  // a 1:1 mirror of the FileEntry. Source-existence is verified later
-  // in the artifact-fetch loop (mirrors `path:` mod entries).
-  final lockedFiles = <String, LockedFileEntry>{
-    for (final e in manifest.files.entries)
-      e.key: LockedFileEntry(
-        destination: e.value.destination,
-        sourcePath: e.value.sourcePath,
-        client: e.value.client,
-        server: e.value.server,
-        preserve: e.value.preserve,
-      ),
-  };
-  return ModsLock(
-    gitrinthVersion: packageVersion,
-    loader: lockedLoader,
-    mcVersion: manifest.mcVersion,
-    mods: byKind[Section.mods]!,
-    resourcePacks: byKind[Section.resourcePacks]!,
-    dataPacks: byKind[Section.dataPacks]!,
-    shaders: byKind[Section.shaders]!,
-    files: lockedFiles,
-  );
-}
-
-/// Writes a `version.json` next to each resolved Modrinth artifact in
-/// the cache, capturing the full Modrinth `Version` payload — its
-/// `dependencies` array (consumed by `upgrade --unlock-transitive`) and
-/// its `files` array (consumed by `cache repair` to verify and refetch
-/// corrupt artifacts). Best effort: a write failure logs a warn but
-/// doesn't abort the resolve, because the artifact download is the
-/// user-visible contract.
-void _persistVersionMetadata(
-  ResolutionResult resolution,
-  GitrinthCache cache,
-  Console console,
-) {
-  for (final r in resolution.entries) {
-    final pid = r.version.projectId;
-    final vid = r.version.id;
-    if (pid.isEmpty || vid.isEmpty) continue;
-    final path = cache.modrinthVersionMetadataPath(
-      projectId: pid,
-      versionId: vid,
-    );
-    try {
-      Directory(p.dirname(path)).createSync(recursive: true);
-      File(path).writeAsStringSync(
-        const JsonEncoder.withIndent('  ').convert(r.version.toMap()),
-      );
-    } on Object catch (e) {
-      console.warn(
-        'cache: failed to persist version metadata for ${r.slug} '
-        '(${r.version.versionNumber}): $e',
-      );
-    }
-  }
-}
-
 /// Hits `/v2/tag/game_version` and throws [ValidationError] if [mcVersion]
 /// is not in the list. Called only on first lock or when the user changed
 /// `mc-version` in `mods.yaml`.
@@ -686,6 +581,7 @@ Future<String> _resolveLoaderVersion({
   required String mcVersion,
   required ModsLock? existingLock,
   required bool offline,
+  required Console console,
 }) async {
   final tag = loaderConfig.modsVersion;
   final lockedSameLoader = existingLock?.loader.mods == loaderConfig.mods;
@@ -696,8 +592,8 @@ Future<String> _resolveLoaderVersion({
   }
   if (tagIsConcrete && offline) {
     if (lockedSameLoader && lockedVersion != null && lockedVersion != tag) {
-      stderr.writeln(
-        'warning: using unvalidated loader pin `${loaderConfig.mods.name}:'
+      console.warn(
+        'using unvalidated loader pin `${loaderConfig.mods.name}:'
         '$tag` while offline (mods.lock had `$lockedVersion`).',
       );
     }
@@ -758,10 +654,4 @@ ModsYaml _relaxManifestConstraints(ModsYaml merged, Set<String> relax) {
     dataPacks: relaxSection(merged.dataPacks),
     shaders: relaxSection(merged.shaders),
   );
-}
-
-String _filenameFromUrl(String url) {
-  final uri = Uri.parse(url);
-  if (uri.pathSegments.isEmpty) return 'artifact.jar';
-  return uri.pathSegments.last;
 }

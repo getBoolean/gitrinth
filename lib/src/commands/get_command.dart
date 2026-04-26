@@ -1,9 +1,7 @@
-import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
 import '../service/solve_report.dart';
 
 class GetCommand extends GitrinthCommand with OfflineFlag {
@@ -43,20 +41,11 @@ class GetCommand extends GitrinthCommand with OfflineFlag {
     final enforce = results['enforce-lockfile'] as bool;
     final offline = readOfflineFlag();
 
-    final api = read(modrinthApiProvider);
-    final cache = read(cacheProvider);
-    final downloader = read(downloaderProvider);
-    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
     final io = ManifestIo();
-    final result = await resolveAndSync(
+    final result = await runResolveAndSync(
       io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
       offline: offline,
       dryRun: dryRun,
       enforce: enforce,

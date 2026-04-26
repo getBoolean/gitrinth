@@ -96,23 +96,20 @@ void main() {
         );
       });
 
-      test(
-        'concrete forge tag validates via maven-metadata.json '
-        'and skips promotions',
-        () async {
-          final v = await resolver.resolve(
-            loader: Loader.forge,
-            tag: '47.2.0',
-            mcVersion: '1.20.1',
-          );
-          expect(v, '47.2.0');
-          expect(
-            modrinth.requestCounts['/forge/maven-metadata.json'] ?? 0,
-            greaterThan(0),
-          );
-          expect(modrinth.requestCounts['/forge/promotions_slim.json'] ?? 0, 0);
-        },
-      );
+      test('concrete forge tag validates via maven-metadata.json '
+          'and skips promotions', () async {
+        final v = await resolver.resolve(
+          loader: Loader.forge,
+          tag: '47.2.0',
+          mcVersion: '1.20.1',
+        );
+        expect(v, '47.2.0');
+        expect(
+          modrinth.requestCounts['/forge/maven-metadata.json'] ?? 0,
+          greaterThan(0),
+        );
+        expect(modrinth.requestCounts['/forge/promotions_slim.json'] ?? 0, 0);
+      });
 
       test('concrete forge tag errors when build is unknown', () async {
         await expectLater(
@@ -154,18 +151,21 @@ void main() {
     });
 
     group('NeoForge modern', () {
-      test('neoforge:stable picks newest non-beta with matching prefix', () async {
-        modrinth.neoforgeVersionsBody = {
-          'isSnapshot': false,
-          'versions': ['21.4.50', '21.4.99', '21.4.100-beta'],
-        };
-        final v = await resolver.resolve(
-          loader: Loader.neoforge,
-          tag: 'stable',
-          mcVersion: '1.21.4',
-        );
-        expect(v, '21.4.99');
-      });
+      test(
+        'neoforge:stable picks newest non-beta with matching prefix',
+        () async {
+          modrinth.neoforgeVersionsBody = {
+            'isSnapshot': false,
+            'versions': ['21.4.50', '21.4.99', '21.4.100-beta'],
+          };
+          final v = await resolver.resolve(
+            loader: Loader.neoforge,
+            tag: 'stable',
+            mcVersion: '1.21.4',
+          );
+          expect(v, '21.4.99');
+        },
+      );
 
       test('neoforge:latest picks newest including -beta', () async {
         modrinth.neoforgeVersionsBody = {
@@ -193,47 +193,53 @@ void main() {
         expect(v, '21.0.42');
       });
 
-      test('neoforge:stable errors when only -beta builds match the MC', () async {
-        modrinth.neoforgeVersionsBody = {
-          'isSnapshot': false,
-          'versions': ['21.5.1-beta', '21.5.2-beta'],
-        };
-        await expectLater(
-          resolver.resolve(
-            loader: Loader.neoforge,
-            tag: 'stable',
-            mcVersion: '1.21.5',
-          ),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              contains('no stable NeoForge build for Minecraft 1.21.5'),
+      test(
+        'neoforge:stable errors when only -beta builds match the MC',
+        () async {
+          modrinth.neoforgeVersionsBody = {
+            'isSnapshot': false,
+            'versions': ['21.5.1-beta', '21.5.2-beta'],
+          };
+          await expectLater(
+            resolver.resolve(
+              loader: Loader.neoforge,
+              tag: 'stable',
+              mcVersion: '1.21.5',
             ),
-          ),
-        );
-      });
+            throwsA(
+              isA<UserError>().having(
+                (e) => e.message,
+                'message',
+                contains('no stable NeoForge build for Minecraft 1.21.5'),
+              ),
+            ),
+          );
+        },
+      );
 
-      test('neoforge:stable errors when no version matches MC prefix', () async {
-        modrinth.neoforgeVersionsBody = {
-          'isSnapshot': false,
-          'versions': ['20.4.167', '21.1.228'],
-        };
-        await expectLater(
-          resolver.resolve(
-            loader: Loader.neoforge,
-            tag: 'stable',
-            mcVersion: '1.21.4',
-          ),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              contains('no NeoForge build for Minecraft 1.21.4'),
+      test(
+        'neoforge:stable errors when no version matches MC prefix',
+        () async {
+          modrinth.neoforgeVersionsBody = {
+            'isSnapshot': false,
+            'versions': ['20.4.167', '21.1.228'],
+          };
+          await expectLater(
+            resolver.resolve(
+              loader: Loader.neoforge,
+              tag: 'stable',
+              mcVersion: '1.21.4',
             ),
-          ),
-        );
-      });
+            throwsA(
+              isA<UserError>().having(
+                (e) => e.message,
+                'message',
+                contains('no NeoForge build for Minecraft 1.21.4'),
+              ),
+            ),
+          );
+        },
+      );
 
       test('concrete neoforge tag with valid prefix succeeds', () async {
         final v = await resolver.resolve(
@@ -261,16 +267,19 @@ void main() {
         );
       });
 
-      test('concrete neoforge tag errors when version is not in upstream list', () async {
-        await expectLater(
-          resolver.resolve(
-            loader: Loader.neoforge,
-            tag: '21.1.999',
-            mcVersion: '1.21.1',
-          ),
-          throwsA(isA<UserError>()),
-        );
-      });
+      test(
+        'concrete neoforge tag errors when version is not in upstream list',
+        () async {
+          await expectLater(
+            resolver.resolve(
+              loader: Loader.neoforge,
+              tag: '21.1.999',
+              mcVersion: '1.21.1',
+            ),
+            throwsA(isA<UserError>()),
+          );
+        },
+      );
     });
 
     group('NeoForge legacy (MC 1.20.1)', () {
@@ -305,29 +314,35 @@ void main() {
         expect(v, '47.1.107-beta');
       });
 
-      test('concrete legacy neoforge tag validates against legacy list', () async {
-        final v = await resolver.resolve(
-          loader: Loader.neoforge,
-          tag: '47.1.106',
-          mcVersion: '1.20.1',
-        );
-        expect(v, '47.1.106');
-        expect(
-          modrinth.requestCounts['/neoforge-legacy/versions'] ?? 0,
-          greaterThan(0),
-        );
-      });
-
-      test('concrete legacy neoforge tag errors when not in legacy list', () async {
-        await expectLater(
-          resolver.resolve(
+      test(
+        'concrete legacy neoforge tag validates against legacy list',
+        () async {
+          final v = await resolver.resolve(
             loader: Loader.neoforge,
-            tag: '47.1.999',
+            tag: '47.1.106',
             mcVersion: '1.20.1',
-          ),
-          throwsA(isA<UserError>()),
-        );
-      });
+          );
+          expect(v, '47.1.106');
+          expect(
+            modrinth.requestCounts['/neoforge-legacy/versions'] ?? 0,
+            greaterThan(0),
+          );
+        },
+      );
+
+      test(
+        'concrete legacy neoforge tag errors when not in legacy list',
+        () async {
+          await expectLater(
+            resolver.resolve(
+              loader: Loader.neoforge,
+              tag: '47.1.999',
+              mcVersion: '1.20.1',
+            ),
+            throwsA(isA<UserError>()),
+          );
+        },
+      );
     });
 
     group('Fabric', () {

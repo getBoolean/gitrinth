@@ -8,11 +8,14 @@ import 'package:path/path.dart' as p;
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
+import 'console.dart';
 
 class GitrinthCache {
   final String root;
+  final Console _console;
 
-  GitrinthCache({required this.root});
+  GitrinthCache({required this.root, Console? console})
+    : _console = console ?? const Console();
 
   String get modrinthRoot => p.join(root, 'modrinth');
   String get urlRoot => p.join(root, 'url');
@@ -30,12 +33,7 @@ class GitrinthCache {
     required String osKey,
     required String archKey,
   }) {
-    return p.join(
-      runtimesRoot,
-      vendor,
-      feature.toString(),
-      '$osKey-$archKey',
-    );
+    return p.join(runtimesRoot, vendor, feature.toString(), '$osKey-$archKey');
   }
 
   /// Per-pack launcher work directory used by `gitrinth launch client`.
@@ -99,9 +97,7 @@ class GitrinthCache {
         if (raw is! Map<String, dynamic>) continue;
         yield modrinth.VersionMapper.fromMap(raw);
       } on Object catch (e) {
-        stderr.writeln(
-          'warning: cache: skipping malformed ${sidecar.path}: $e',
-        );
+        _console.warn('cache: skipping malformed ${sidecar.path}: $e');
       }
     }
   }

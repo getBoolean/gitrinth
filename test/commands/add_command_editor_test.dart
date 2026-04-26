@@ -63,28 +63,30 @@ data_packs:
       expect(after, contains('terralith: ^2.5.8'));
     });
 
-    test('emits long-form with version + per-side state when longForm is set',
-        () {
-      final before = '''
+    test(
+      'emits long-form with version + per-side state when longForm is set',
+      () {
+        final before = '''
 slug: pack
 mods:
   jei: ^1.0.0
 ''';
-      final after = injectEntry(
-        before,
-        section: Section.mods,
-        slug: 'iris',
-        longForm: const {
-          'version': '^1.8.12',
-          'client': 'required',
-          'server': 'unsupported',
-        },
-      );
-      expect(after, contains('iris:'));
-      expect(after, contains('version: ^1.8.12'));
-      expect(after, contains('client: required'));
-      expect(after, contains('server: unsupported'));
-    });
+        final after = injectEntry(
+          before,
+          section: Section.mods,
+          slug: 'iris',
+          longForm: const {
+            'version': '^1.8.12',
+            'client': 'required',
+            'server': 'unsupported',
+          },
+        );
+        expect(after, contains('iris:'));
+        expect(after, contains('version: ^1.8.12'));
+        expect(after, contains('client: required'));
+        expect(after, contains('server: unsupported'));
+      },
+    );
 
     test('emits long-form with only `url:` (no version key)', () {
       final before = '''

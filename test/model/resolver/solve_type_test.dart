@@ -77,34 +77,31 @@ void main() {
     expect(out.decisions['create']!.versionNumber, '6.0.10');
   });
 
-  test(
-    'SolveType.downgrade still honors a non-target lock pin',
-    () async {
-      // A pin on a slug the caller did NOT pass through `freshSlugs`
-      // sticks around — `gitrinth downgrade <subset>` relies on this so
-      // the un-named entries keep their existing pinned versions.
-      final db = {
-        'create': [
-          v(slug: 'create', number: '6.0.10'),
-          v(slug: 'create', number: '6.0.11'),
-        ],
-      };
-      final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
-        resolveSlugForProjectId: (_) async => null,
-        lockSuggestions: const [LockSuggestion('create', '6.0.11')],
-        solveType: SolveType.downgrade,
-      );
-      final out = await solver.solve([
-        RootConstraint(
-          slug: 'create',
-          constraint: VersionConstraint.parse('^6.0.10'),
-          isUserDeclared: true,
-        ),
-      ]);
-      expect(out.decisions['create']!.versionNumber, '6.0.11');
-    },
-  );
+  test('SolveType.downgrade still honors a non-target lock pin', () async {
+    // A pin on a slug the caller did NOT pass through `freshSlugs`
+    // sticks around — `gitrinth downgrade <subset>` relies on this so
+    // the un-named entries keep their existing pinned versions.
+    final db = {
+      'create': [
+        v(slug: 'create', number: '6.0.10'),
+        v(slug: 'create', number: '6.0.11'),
+      ],
+    };
+    final solver = PubGrubSolver(
+      listVersions: (slug) async => db[slug] ?? [],
+      resolveSlugForProjectId: (_) async => null,
+      lockSuggestions: const [LockSuggestion('create', '6.0.11')],
+      solveType: SolveType.downgrade,
+    );
+    final out = await solver.solve([
+      RootConstraint(
+        slug: 'create',
+        constraint: VersionConstraint.parse('^6.0.10'),
+        isUserDeclared: true,
+      ),
+    ]);
+    expect(out.decisions['create']!.versionNumber, '6.0.11');
+  });
 
   test('pickHighestMatching honors SolveType.downgrade', () {
     final versions = [

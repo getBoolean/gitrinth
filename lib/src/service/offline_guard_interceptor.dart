@@ -8,10 +8,7 @@ class OfflineGuardInterceptor extends Interceptor {
   OfflineGuardInterceptor(this.isOffline);
 
   @override
-  void onRequest(
-    RequestOptions options,
-    RequestInterceptorHandler handler,
-  ) {
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (!isOffline()) {
       handler.next(options);
       return;

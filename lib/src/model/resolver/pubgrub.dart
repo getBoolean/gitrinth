@@ -20,10 +20,7 @@ typedef ResolveSlug = Future<String?> Function(String projectId);
 /// ancestor of a deeper transitive failure.
 class UnsatisfiableGraphError extends ValidationError {
   final Set<String> conflictingUserSlugs;
-  UnsatisfiableGraphError(
-    super.message, {
-    required this.conflictingUserSlugs,
-  });
+  UnsatisfiableGraphError(super.message, {required this.conflictingUserSlugs});
 }
 
 /// Pure-data root constraint (no Modrinth lookups required).
@@ -157,11 +154,7 @@ class PubGrubSolver {
           }
           state.addConstraint(depSlug, depConstraint, parentSlug: pin.slug);
           state.addChannel(depSlug, Channel.alpha);
-          state.recordIntroducer(
-            depSlug,
-            pin.slug,
-            pin.version.versionNumber,
-          );
+          state.recordIntroducer(depSlug, pin.slug, pin.version.versionNumber);
         }
         // DependencyType.incompatible deps from an override are
         // silently dropped — both endpoints. See spec case 6.
@@ -495,10 +488,7 @@ class _Candidate {
 class _Introducer {
   final String parentSlug;
   final String parentVersion;
-  const _Introducer({
-    required this.parentSlug,
-    required this.parentVersion,
-  });
+  const _Introducer({required this.parentSlug, required this.parentVersion});
 }
 
 /// One specific resolver failure with the chain that led to it. Captured

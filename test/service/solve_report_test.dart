@@ -398,56 +398,38 @@ void main() {
       expect(result, '19.27.0.341');
     });
 
-    test(
-      'date-encoded labels: nothing newer when chosen has the latest '
-      'date_published, even if another candidate parses to a higher MMP',
-      () {
-        // Faithful 32x: `1.21.3-june-2025` parses to a "higher" semver
-        // than `1.21.1-december-2025`, but december was published *after*
-        // june. The "(X available)" hint must mirror what `upgrade` would
-        // actually pick — and upgrade picks by date.
-        final result = newerAvailableThan('1.21.1-december-2025', [
-          _mrVersion(
-            '1.21.1-april-2025',
-            datePublished: '2025-04-15T00:00:00Z',
-          ),
-          _mrVersion(
-            '1.21.3-june-2025',
-            datePublished: '2025-06-15T00:00:00Z',
-          ),
-          _mrVersion(
-            '1.21.1-december-2025',
-            datePublished: '2025-12-15T00:00:00Z',
-          ),
-        ]);
-        expect(result, isNull);
-      },
-    );
+    test('date-encoded labels: nothing newer when chosen has the latest '
+        'date_published, even if another candidate parses to a higher MMP', () {
+      // Faithful 32x: `1.21.3-june-2025` parses to a "higher" semver
+      // than `1.21.1-december-2025`, but december was published *after*
+      // june. The "(X available)" hint must mirror what `upgrade` would
+      // actually pick — and upgrade picks by date.
+      final result = newerAvailableThan('1.21.1-december-2025', [
+        _mrVersion('1.21.1-april-2025', datePublished: '2025-04-15T00:00:00Z'),
+        _mrVersion('1.21.3-june-2025', datePublished: '2025-06-15T00:00:00Z'),
+        _mrVersion(
+          '1.21.1-december-2025',
+          datePublished: '2025-12-15T00:00:00Z',
+        ),
+      ]);
+      expect(result, isNull);
+    });
 
-    test(
-      'date-encoded labels: surfaces the most recently published label '
-      'when chosen is older',
-      () {
-        // Same fixtures, but the user is currently on the april release.
-        // The hint must point at december, NOT at june (whose parsed MMP
-        // is "higher" but whose publish date is older).
-        final result = newerAvailableThan('1.21.1-april-2025', [
-          _mrVersion(
-            '1.21.1-april-2025',
-            datePublished: '2025-04-15T00:00:00Z',
-          ),
-          _mrVersion(
-            '1.21.3-june-2025',
-            datePublished: '2025-06-15T00:00:00Z',
-          ),
-          _mrVersion(
-            '1.21.1-december-2025',
-            datePublished: '2025-12-15T00:00:00Z',
-          ),
-        ]);
-        expect(result, '1.21.1-december-2025');
-      },
-    );
+    test('date-encoded labels: surfaces the most recently published label '
+        'when chosen is older', () {
+      // Same fixtures, but the user is currently on the april release.
+      // The hint must point at december, NOT at june (whose parsed MMP
+      // is "higher" but whose publish date is older).
+      final result = newerAvailableThan('1.21.1-april-2025', [
+        _mrVersion('1.21.1-april-2025', datePublished: '2025-04-15T00:00:00Z'),
+        _mrVersion('1.21.3-june-2025', datePublished: '2025-06-15T00:00:00Z'),
+        _mrVersion(
+          '1.21.1-december-2025',
+          datePublished: '2025-12-15T00:00:00Z',
+        ),
+      ]);
+      expect(result, '1.21.1-december-2025');
+    });
   });
 
   group('countOutdated', () {

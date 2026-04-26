@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 
 import '../app/env.dart';
@@ -52,7 +50,8 @@ class ModrinthLoginCommand extends GitrinthCommand {
     argParser.addOption(
       'token',
       valueHelp: 'pat',
-      help: 'Pass the personal access token directly (headless / CI). '
+      help:
+          'Pass the personal access token directly (headless / CI). '
           'Falls back to a hidden stdin prompt when omitted.',
     );
   }
@@ -169,7 +168,8 @@ class ModrinthTokenAddCommand extends GitrinthCommand {
     argParser.addOption(
       'token',
       valueHelp: 'pat',
-      help: 'Pass the personal access token directly (headless / CI). '
+      help:
+          'Pass the personal access token directly (headless / CI). '
           'Falls back to a hidden stdin prompt when omitted.',
     );
   }
@@ -200,8 +200,11 @@ class ModrinthTokenAddCommand extends GitrinthCommand {
       token = piped;
     }
 
-    final username =
-        await _validateTokenAgainstUserEndpoint(read(dioProvider), key, token);
+    final username = await _validateTokenAgainstUserEndpoint(
+      read(dioProvider),
+      key,
+      token,
+    );
 
     final store = read(userConfigStoreProvider);
     store.write(store.read().withToken(key, token));
@@ -233,9 +236,11 @@ class ModrinthTokenListCommand extends GitrinthCommand {
 
     final cfg = read(userConfigStoreProvider).read();
     if (cfg.tokens.isEmpty) {
-      stdout.writeln(envOverride
-          ? '(no stored tokens; GITRINTH_TOKEN override active for $defaultKey)'
-          : '(no stored tokens)');
+      console.message(
+        envOverride
+            ? '(no stored tokens; GITRINTH_TOKEN override active for $defaultKey)'
+            : '(no stored tokens)',
+      );
       return exitOk;
     }
     final keys = cfg.tokens.keys.toList()..sort();
@@ -244,10 +249,10 @@ class ModrinthTokenListCommand extends GitrinthCommand {
       final suffix = (envOverride && key == defaultKey)
           ? ' (GITRINTH_TOKEN override)'
           : '';
-      stdout.writeln('$key  $masked$suffix');
+      console.message('$key  $masked$suffix');
     }
     if (envOverride && !cfg.tokens.containsKey(defaultKey)) {
-      stdout.writeln('$defaultKey  <env>  (GITRINTH_TOKEN override)');
+      console.message('$defaultKey  <env>  (GITRINTH_TOKEN override)');
     }
     return exitOk;
   }

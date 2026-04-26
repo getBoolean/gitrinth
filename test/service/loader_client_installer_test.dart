@@ -28,10 +28,17 @@ void main() {
       () async {
         final calls = <List<String>>[];
         final ci = LoaderClientInstaller(
-          runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-            calls.add([exe, ...args]);
-            return 0;
-          },
+          runProcess:
+              (
+                exe,
+                args, {
+                workingDirectory,
+                runInShell = false,
+                environment,
+              }) async {
+                calls.add([exe, ...args]);
+                return 0;
+              },
         );
 
         final id = await ci.installClient(
@@ -70,10 +77,17 @@ void main() {
     test('Forge runs --installClient and returns its profile id', () async {
       final calls = <List<String>>[];
       final ci = LoaderClientInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          calls.add([exe, ...args]);
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              calls.add([exe, ...args]);
+              return 0;
+            },
       );
 
       final id = await ci.installClient(
@@ -95,7 +109,13 @@ void main() {
       () async {
         final ci = LoaderClientInstaller(
           runProcess:
-              (exe, args, {workingDirectory, runInShell = false, environment}) async => 0,
+              (
+                exe,
+                args, {
+                workingDirectory,
+                runInShell = false,
+                environment,
+              }) async => 0,
         );
         final id = await ci.installClient(
           loader: Loader.neoforge,
@@ -114,15 +134,23 @@ void main() {
       final versionDir = Directory(
         p.join(dotMc.path, 'versions', 'fabric-loader-0.17.3-1.21.1'),
       )..createSync(recursive: true);
-      File(p.join(versionDir.path, 'fabric-loader-0.17.3-1.21.1.json'))
-          .writeAsStringSync('{}');
+      File(
+        p.join(versionDir.path, 'fabric-loader-0.17.3-1.21.1.json'),
+      ).writeAsStringSync('{}');
 
       var called = false;
       final ci = LoaderClientInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          called = true;
-          return 0;
-        },
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async {
+              called = true;
+              return 0;
+            },
       );
 
       final id = await ci.installClient(
@@ -140,7 +168,13 @@ void main() {
     test('non-zero installer exit becomes UserError', () async {
       final ci = LoaderClientInstaller(
         runProcess:
-            (exe, args, {workingDirectory, runInShell = false, environment}) async => 2,
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async => 2,
       );
       await expectLater(
         ci.installClient(
@@ -161,33 +195,42 @@ void main() {
       );
     });
 
-    test('offline + missing version JSON refuses to run the installer',
-        () async {
-      var called = false;
-      final ci = LoaderClientInstaller(
-        runProcess: (exe, args, {workingDirectory, runInShell = false, environment}) async {
-          called = true;
-          return 0;
-        },
-      );
-      await expectLater(
-        ci.installClient(
-          loader: Loader.fabric,
-          mcVersion: '1.21.1',
-          loaderVersion: '0.17.3',
-          dotMinecraftDir: dotMc,
-          installerJar: installer,
-          offline: true,
-        ),
-        throwsA(
-          isA<UserError>().having(
-            (e) => e.message,
-            'message',
-            contains('offline'),
+    test(
+      'offline + missing version JSON refuses to run the installer',
+      () async {
+        var called = false;
+        final ci = LoaderClientInstaller(
+          runProcess:
+              (
+                exe,
+                args, {
+                workingDirectory,
+                runInShell = false,
+                environment,
+              }) async {
+                called = true;
+                return 0;
+              },
+        );
+        await expectLater(
+          ci.installClient(
+            loader: Loader.fabric,
+            mcVersion: '1.21.1',
+            loaderVersion: '0.17.3',
+            dotMinecraftDir: dotMc,
+            installerJar: installer,
+            offline: true,
           ),
-        ),
-      );
-      expect(called, isFalse);
-    });
+          throwsA(
+            isA<UserError>().having(
+              (e) => e.message,
+              'message',
+              contains('offline'),
+            ),
+          ),
+        );
+        expect(called, isFalse);
+      },
+    );
   });
 }

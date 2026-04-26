@@ -33,7 +33,8 @@ class ModrinthPublishCommand extends GitrinthCommand {
       ..addFlag(
         'dry-run',
         negatable: false,
-        help: 'Assemble the payload, hash the artifact, and print the JSON '
+        help:
+            'Assemble the payload, hash the artifact, and print the JSON '
             'without uploading.',
       )
       ..addFlag(
@@ -45,26 +46,30 @@ class ModrinthPublishCommand extends GitrinthCommand {
       ..addFlag(
         'draft',
         negatable: false,
-        help: 'Upload as a draft (Modrinth `status: draft`) instead of '
+        help:
+            'Upload as a draft (Modrinth `status: draft`) instead of '
             'publicly listed.',
       )
       ..addOption(
         'version-type',
         valueHelp: 'release|beta|alpha',
         allowed: ['release', 'beta', 'alpha'],
-        help: 'Modrinth version channel. Defaults to `beta` when '
+        help:
+            'Modrinth version channel. Defaults to `beta` when '
             '`mods.yaml.version` carries a pre-release suffix, else `release`.',
       )
       ..addOption(
         'changelog',
         valueHelp: 'path',
-        help: 'Path to a Markdown changelog. Defaults to the matching '
+        help:
+            'Path to a Markdown changelog. Defaults to the matching '
             'section of CHANGELOG.md when present.',
       )
       ..addOption(
         'pack',
         valueHelp: 'path',
-        help: 'Path to the .mrpack to upload. Defaults to '
+        help:
+            'Path to the .mrpack to upload. Defaults to '
             'build/<slug>-<version>.mrpack.',
       );
   }
@@ -110,7 +115,8 @@ class ModrinthPublishCommand extends GitrinthCommand {
     final sha512Hex = sha512.convert(bytes).toString();
 
     final versionType =
-        (argResults!['version-type'] as String?) ?? _defaultVersionType(yaml.version);
+        (argResults!['version-type'] as String?) ??
+        _defaultVersionType(yaml.version);
     final draft = argResults!['draft'] as bool;
     final changelog = _resolveChangelog(yaml: yaml, projectDir: io.directory);
 
@@ -145,9 +151,7 @@ class ModrinthPublishCommand extends GitrinthCommand {
           'terminal. Re-run with -f / --force.',
         );
       }
-      stdout.write(
-        'Publish ${yaml.slug} v${yaml.version} to $baseUrl? [y/N] ',
-      );
+      stdout.write('Publish ${yaml.slug} v${yaml.version} to $baseUrl? [y/N] ');
       final answer = (stdin.readLineSync() ?? '').trim().toLowerCase();
       if (answer != 'y' && answer != 'yes') {
         console.message('Aborted.');
@@ -209,7 +213,8 @@ class ModrinthPublishCommand extends GitrinthCommand {
   }
 
   File _resolvePackPath({required ModsYaml yaml}) {
-    final raw = (argResults!['pack'] as String?) ??
+    final raw =
+        (argResults!['pack'] as String?) ??
         p.join('build', '${yaml.slug}-${yaml.version}.mrpack');
     return File(p.normalize(p.absolute(raw)));
   }

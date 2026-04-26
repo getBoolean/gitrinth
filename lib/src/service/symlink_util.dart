@@ -35,10 +35,13 @@ Future<void> ensureDirSymlink({
 
   if (Platform.isWindows) {
     final runner = runProcess ?? _defaultRunProcess;
-    final exit = await runner(
-      'cmd',
-      ['/c', 'mklink', '/J', linkPath, normalizedTarget],
-    );
+    final exit = await runner('cmd', [
+      '/c',
+      'mklink',
+      '/J',
+      linkPath,
+      normalizedTarget,
+    ]);
     if (exit != 0) {
       throw UserError(
         'mklink /J failed (exit $exit) while creating junction '

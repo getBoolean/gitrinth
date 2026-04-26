@@ -28,10 +28,7 @@ class ModrinthAuthInterceptor extends Interceptor {
   });
 
   @override
-  void onRequest(
-    RequestOptions options,
-    RequestInterceptorHandler handler,
-  ) {
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (options.headers.containsKey('Authorization')) {
       handler.next(options);
       return;
@@ -47,13 +44,15 @@ class ModrinthAuthInterceptor extends Interceptor {
       return;
     }
     final hostLabel = _hostLabel(options.uri);
-    final isDefault =
-        _matchesPrefix(_safeNormalize(defaultBaseUrl), options.uri);
+    final isDefault = _matchesPrefix(
+      _safeNormalize(defaultBaseUrl),
+      options.uri,
+    );
     final message = isDefault
         ? 'No token configured for $hostLabel. '
-            'Run `gitrinth modrinth login`.'
+              'Run `gitrinth modrinth login`.'
         : 'No token configured for $hostLabel. '
-            'Run `gitrinth modrinth token add $hostLabel`.';
+              'Run `gitrinth modrinth token add $hostLabel`.';
     handler.reject(
       DioException(
         requestOptions: options,
@@ -71,13 +70,15 @@ class ModrinthAuthInterceptor extends Interceptor {
       return;
     }
     final hostLabel = _hostLabel(err.requestOptions.uri);
-    final isDefault =
-        _matchesPrefix(_safeNormalize(defaultBaseUrl), err.requestOptions.uri);
+    final isDefault = _matchesPrefix(
+      _safeNormalize(defaultBaseUrl),
+      err.requestOptions.uri,
+    );
     final message = isDefault
         ? 'Modrinth rejected the stored credentials for $hostLabel. '
-            'Re-run `gitrinth modrinth login`.'
+              'Re-run `gitrinth modrinth login`.'
         : 'Modrinth rejected the stored credentials for $hostLabel. '
-            'Re-run `gitrinth modrinth token add $hostLabel`.';
+              'Re-run `gitrinth modrinth token add $hostLabel`.';
     handler.reject(
       DioException(
         requestOptions: err.requestOptions,
@@ -114,8 +115,9 @@ class ModrinthAuthInterceptor extends Interceptor {
     if (stored.host.toLowerCase() != requestUri.host.toLowerCase()) {
       return false;
     }
-    final storedPort =
-        stored.hasPort ? stored.port : _defaultPort(stored.scheme);
+    final storedPort = stored.hasPort
+        ? stored.port
+        : _defaultPort(stored.scheme);
     final reqPort = requestUri.hasPort
         ? requestUri.port
         : _defaultPort(requestUri.scheme);

@@ -32,9 +32,7 @@ Uint8List buildFakeJdkZip({
         binaryContents.codeUnits,
       ),
     )
-    ..addFile(
-      ArchiveFile('$top/release', 0, const <int>[]),
-    );
+    ..addFile(ArchiveFile('$top/release', 0, const <int>[]));
   final encoded = ZipEncoder().encode(archive);
   return Uint8List.fromList(encoded);
 }
@@ -80,18 +78,12 @@ void main() {
       };
       for (final entry in cases.entries) {
         test('${entry.key} -> JDK ${entry.value}', () {
-          expect(
-            JavaRuntimeFetcher.requiredFeatureFor(entry.key),
-            entry.value,
-          );
+          expect(JavaRuntimeFetcher.requiredFeatureFor(entry.key), entry.value);
         });
       }
 
       test('malformed input defaults to highest known (25)', () {
-        expect(
-          JavaRuntimeFetcher.requiredFeatureFor('not-a-version'),
-          25,
-        );
+        expect(JavaRuntimeFetcher.requiredFeatureFor('not-a-version'), 25);
       });
     });
 
@@ -138,10 +130,12 @@ void main() {
         String? linkOverride,
       }) {
         final key = '$feature-$os-$arch';
-        final binaryKey = '$feature-$os-$arch'
+        final binaryKey =
+            '$feature-$os-$arch'
             '${os == 'windows' ? '.zip' : '.tar.gz'}';
         fake.adoptiumBinaryBytes[binaryKey] = bytes;
-        final link = linkOverride ?? '${fake.adoptiumBinaryUrlPrefix}$binaryKey';
+        final link =
+            linkOverride ?? '${fake.adoptiumBinaryUrlPrefix}$binaryKey';
         fake.adoptiumMetadata[key] = [
           {
             'release_name': 'jdk-$fullVersion',
@@ -166,47 +160,42 @@ void main() {
         ];
       }
 
-      test(
-        'happy path: empty cache -> downloads, extracts, caches, returns '
-        'bin/java',
-        () async {
-          final zipBytes = buildFakeJdkZip(
-            top: 'jdk-21.0.5+11',
-            binaryName: 'java.exe',
-          );
-          registerFeature(
-            feature: 21,
-            os: 'windows',
-            arch: 'x64',
-            fullVersion: '21.0.5+11',
-            bytes: zipBytes,
-          );
-          final fetcher = JavaRuntimeFetcher(
-            cache: cache,
-            downloader: downloader,
-            metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
+      test('happy path: empty cache -> downloads, extracts, caches, returns '
+          'bin/java', () async {
+        final zipBytes = buildFakeJdkZip(
+          top: 'jdk-21.0.5+11',
+          binaryName: 'java.exe',
+        );
+        registerFeature(
+          feature: 21,
+          os: 'windows',
+          arch: 'x64',
+          fullVersion: '21.0.5+11',
+          bytes: zipBytes,
+        );
+        final fetcher = JavaRuntimeFetcher(
+          cache: cache,
+          downloader: downloader,
+          metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
+        );
 
+        final java = await fetcher.ensureRuntime(21);
 
-          );
-
-          final java = await fetcher.ensureRuntime(21);
-
-          final expectedDir = p.join(
-            tempCacheRoot.path,
-            'runtimes',
-            'temurin',
-            '21',
-            'windows-x64',
-          );
-          expect(java.existsSync(), isTrue);
-          expect(p.isWithin(expectedDir, java.path), isTrue);
-          expect(java.path, endsWith('java.exe'));
-          final marker = File(
-            p.join(expectedDir, '.gitrinth-installed-temurin-21.0.5+11'),
-          );
-          expect(marker.existsSync(), isTrue);
-        },
-      );
+        final expectedDir = p.join(
+          tempCacheRoot.path,
+          'runtimes',
+          'temurin',
+          '21',
+          'windows-x64',
+        );
+        expect(java.existsSync(), isTrue);
+        expect(p.isWithin(expectedDir, java.path), isTrue);
+        expect(java.path, endsWith('java.exe'));
+        final marker = File(
+          p.join(expectedDir, '.gitrinth-installed-temurin-21.0.5+11'),
+        );
+        expect(marker.existsSync(), isTrue);
+      });
 
       test('idempotence: second call performs zero HTTP', () async {
         final zipBytes = buildFakeJdkZip(
@@ -224,8 +213,6 @@ void main() {
           cache: cache,
           downloader: downloader,
           metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
-
-
         );
 
         final first = await fetcher.ensureRuntime(21);
@@ -240,64 +227,63 @@ void main() {
         final hitsAfterSecond =
             (fake.requestCounts[metadataKey] ?? 0) +
             (fake.requestCounts[binaryKey] ?? 0);
-        expect(hitsAfterSecond, hitsAfterFirst,
-            reason: 'second call must be cache-only, no new HTTP');
+        expect(
+          hitsAfterSecond,
+          hitsAfterFirst,
+          reason: 'second call must be cache-only, no new HTTP',
+        );
         expect(first.path, second.path);
       });
 
-      test(
-        'sentinel-without-binary recovery: re-downloads cleanly',
-        () async {
-          // Pre-write a sentinel into the target dir without a java binary.
-          final dir = Directory(
-            p.join(
-              tempCacheRoot.path,
-              'runtimes',
-              'temurin',
-              '21',
-              'windows-x64',
-            ),
-          )..createSync(recursive: true);
-          File(p.join(dir.path, '.gitrinth-installed-temurin-21.0.0+1'))
-              .writeAsStringSync('{}');
+      test('sentinel-without-binary recovery: re-downloads cleanly', () async {
+        // Pre-write a sentinel into the target dir without a java binary.
+        final dir = Directory(
+          p.join(
+            tempCacheRoot.path,
+            'runtimes',
+            'temurin',
+            '21',
+            'windows-x64',
+          ),
+        )..createSync(recursive: true);
+        File(
+          p.join(dir.path, '.gitrinth-installed-temurin-21.0.0+1'),
+        ).writeAsStringSync('{}');
 
-          final zipBytes = buildFakeJdkZip(
-            top: 'jdk-21-fresh',
-            binaryName: 'java.exe',
-          );
-          registerFeature(
-            feature: 21,
-            os: 'windows',
-            arch: 'x64',
-            fullVersion: '21.0.5+11',
-            bytes: zipBytes,
-          );
-          final fetcher = JavaRuntimeFetcher(
-            cache: cache,
-            downloader: downloader,
-            metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
+        final zipBytes = buildFakeJdkZip(
+          top: 'jdk-21-fresh',
+          binaryName: 'java.exe',
+        );
+        registerFeature(
+          feature: 21,
+          os: 'windows',
+          arch: 'x64',
+          fullVersion: '21.0.5+11',
+          bytes: zipBytes,
+        );
+        final fetcher = JavaRuntimeFetcher(
+          cache: cache,
+          downloader: downloader,
+          metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
+        );
 
-
-          );
-
-          final java = await fetcher.ensureRuntime(21);
-          expect(java.existsSync(), isTrue);
-          // The stale sentinel was removed and a new one matches the
-          // fresh fullVersion suffix.
-          expect(
-            File(
-              p.join(dir.path, '.gitrinth-installed-temurin-21.0.5+11'),
-            ).existsSync(),
-            isTrue,
-          );
-          expect(
-            File(
-              p.join(dir.path, '.gitrinth-installed-temurin-21.0.0+1'),
-            ).existsSync(),
-            isFalse,
-          );
-        },
-      );
+        final java = await fetcher.ensureRuntime(21);
+        expect(java.existsSync(), isTrue);
+        // The stale sentinel was removed and a new one matches the
+        // fresh fullVersion suffix.
+        expect(
+          File(
+            p.join(dir.path, '.gitrinth-installed-temurin-21.0.5+11'),
+          ).existsSync(),
+          isTrue,
+        );
+        expect(
+          File(
+            p.join(dir.path, '.gitrinth-installed-temurin-21.0.0+1'),
+          ).existsSync(),
+          isFalse,
+        );
+      });
 
       test('macOS layout: locates Contents/Home/bin/java', () async {
         debugHostPlatformOverride = const HostPlatform(
@@ -354,8 +340,6 @@ void main() {
           cache: cache,
           downloader: downloader,
           metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
-
-
         );
 
         await expectLater(
@@ -384,35 +368,33 @@ void main() {
         }
       });
 
-      test('offline + nothing cached -> UserError from offline guard',
-          () async {
-        offline = true;
-        final fetcher = JavaRuntimeFetcher(
-          cache: cache,
-          downloader: downloader,
-          metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
-
-
-        );
-        await expectLater(
-          fetcher.ensureRuntime(21),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              contains('offline'),
+      test(
+        'offline + nothing cached -> UserError from offline guard',
+        () async {
+          offline = true;
+          final fetcher = JavaRuntimeFetcher(
+            cache: cache,
+            downloader: downloader,
+            metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
+          );
+          await expectLater(
+            fetcher.ensureRuntime(21),
+            throwsA(
+              isA<UserError>().having(
+                (e) => e.message,
+                'message',
+                contains('offline'),
+              ),
             ),
-          ),
-        );
-      });
+          );
+        },
+      );
 
       test('cachedRuntime returns null when nothing cached', () {
         final fetcher = JavaRuntimeFetcher(
           cache: cache,
           downloader: downloader,
           metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
-
-
         );
         expect(fetcher.cachedRuntime(21), isNull);
       });
@@ -433,8 +415,6 @@ void main() {
           cache: cache,
           downloader: downloader,
           metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
-
-
         );
         await fetcher.ensureRuntime(21);
         final cached = fetcher.cachedRuntime(21);

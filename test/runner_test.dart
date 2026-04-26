@@ -181,25 +181,27 @@ void main() {
   });
 
   group('Console (driven by global flags)', () {
-    test('warning level suppresses message and io but warn/error still print',
-        () {
-      final out = StringBuffer();
-      final err = StringBuffer();
-      _runCapturingIo(
-        () {
-          const c = Console(level: LogLevel.warning);
-          c.message('hello');
-          c.io('cache hit');
-          c.warn('careful');
-          c.error('boom');
-        },
-        out: out,
-        err: err,
-      );
-      expect(out.toString(), isEmpty);
-      expect(err.toString(), contains('warning: careful'));
-      expect(err.toString(), contains('error: boom'));
-    });
+    test(
+      'warning level suppresses message and io but warn/error still print',
+      () {
+        final out = StringBuffer();
+        final err = StringBuffer();
+        _runCapturingIo(
+          () {
+            const c = Console(level: LogLevel.warning);
+            c.message('hello');
+            c.io('cache hit');
+            c.warn('careful');
+            c.error('boom');
+          },
+          out: out,
+          err: err,
+        );
+        expect(out.toString(), isEmpty);
+        expect(err.toString(), contains('warning: careful'));
+        expect(err.toString(), contains('error: boom'));
+      },
+    );
 
     test('default level writes message to stdout', () {
       final out = StringBuffer();

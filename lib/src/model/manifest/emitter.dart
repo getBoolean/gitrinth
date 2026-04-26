@@ -100,7 +100,6 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
 
 String _sourceKindName(LockedSourceKind k) => k.name;
 
-
 String _key(String slug) {
   if (_needsQuotes(slug)) return _str(slug);
   return slug;

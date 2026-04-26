@@ -51,9 +51,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
         help:
             'Allow scaffolding into a non-empty directory; overwrites existing mods.yaml.',
       );
-    addOfflineFlag(
-      helpOverride: 'Skip the Modrinth slug-availability check.',
-    );
+    addOfflineFlag(helpOverride: 'Skip the Modrinth slug-availability check.');
   }
 
   @override
@@ -121,9 +119,9 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
       ),
     ];
 
-    stdout.writeln('Created $slug in ${targetDir.path}');
+    console.message('Created $slug in ${targetDir.path}');
     for (final path in written) {
-      stdout.writeln('  + $path');
+      console.message('  + $path');
     }
 
     return exitOk;

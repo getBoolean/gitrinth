@@ -82,9 +82,11 @@ void main() {
 
         final locator = MinecraftLauncherLocator(
           environment: {
-            'GITRINTH_LAUNCHER_SEARCH_PATHS': [c1, c2Path, c3].join(
-              Platform.pathSeparator == '\\' ? ';' : ':',
-            ),
+            'GITRINTH_LAUNCHER_SEARCH_PATHS': [
+              c1,
+              c2Path,
+              c3,
+            ].join(Platform.pathSeparator == '\\' ? ';' : ':'),
           },
         );
 

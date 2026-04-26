@@ -3,6 +3,7 @@ import 'package:yaml_edit/yaml_edit.dart';
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../util/yaml_root.dart';
 import 'add_command_editor.dart';
 
 /// Updates a top-level scalar at [path] (e.g. `['mc-version']`,
@@ -13,15 +14,7 @@ String updateTopLevelScalar(
   required String newValue,
 }) {
   final editor = YamlEditor(yamlText);
-  final YamlNode root;
-  try {
-    root = editor.parseAt([]);
-  } on Object {
-    throw const UserError('mods.yaml is not valid YAML; cannot edit.');
-  }
-  if (root is! YamlMap) {
-    throw const UserError('mods.yaml top-level must be a mapping.');
-  }
+  parseYamlRoot(editor, filename: 'mods.yaml');
   editor.update(path, newValue);
   return editor.toString();
 }

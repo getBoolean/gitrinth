@@ -30,9 +30,8 @@ Future<CapturedOutput> runCli(
         () => runGitrinth(args, environment: environment),
         stdout: () => outBuf,
         stderr: () => errBuf,
-        stdin: () => stdinInput == null
-            ? _NoTerminalStdin()
-            : _PipedStdin(stdinInput),
+        stdin: () =>
+            stdinInput == null ? _NoTerminalStdin() : _PipedStdin(stdinInput),
         getCurrentDirectory: () => Directory(cwd),
         setCurrentDirectory: (path) {
           cwd = Directory(path).absolute.path;

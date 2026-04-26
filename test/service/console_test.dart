@@ -10,16 +10,8 @@ void main() {
     // Each entry: (level, expected stdout categories, expected stderr
     // categories). Categories are the method names — `error` and `warn`
     // route to stderr, the rest to stdout.
-    const cases = <({
-      LogLevel level,
-      Set<String> stdout,
-      Set<String> stderr,
-    })>[
-      (
-        level: LogLevel.error,
-        stdout: <String>{},
-        stderr: <String>{'error'},
-      ),
+    const cases = <({LogLevel level, Set<String> stdout, Set<String> stderr})>[
+      (level: LogLevel.error, stdout: <String>{}, stderr: <String>{'error'}),
       (
         level: LogLevel.warning,
         stdout: <String>{},
@@ -108,7 +100,11 @@ void main() {
         err: err,
       );
       expect(out.toString(), isEmpty, reason: 'no stdout at $level');
-      expect(err.toString(), contains('error: boom'), reason: 'stderr at $level');
+      expect(
+        err.toString(),
+        contains('error: boom'),
+        reason: 'stderr at $level',
+      );
     }
   });
 }

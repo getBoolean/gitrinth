@@ -31,14 +31,15 @@ void main() {
   });
 
   group('gitrinth modrinth login', () {
-    test('stores token via --token after /user validation succeeds',
-        () async {
+    test('stores token via --token after /user validation succeeds', () async {
       fake.registerToken('mrp_good', username: 'alice');
 
-      final result = await runCli(
-        ['modrinth', 'login', '--token', 'mrp_good'],
-        environment: env,
-      );
+      final result = await runCli([
+        'modrinth',
+        'login',
+        '--token',
+        'mrp_good',
+      ], environment: env);
 
       expect(result.exitCode, equals(exitOk));
       expect(result.stdout, contains('Logged in to ${fake.baseUrl} as alice.'));
@@ -63,15 +64,20 @@ void main() {
     });
 
     test('rejects an invalid token with exit code 4', () async {
-      final result = await runCli(
-        ['modrinth', 'login', '--token', 'mrp_bad'],
-        environment: env,
-      );
+      final result = await runCli([
+        'modrinth',
+        'login',
+        '--token',
+        'mrp_bad',
+      ], environment: env);
 
       expect(result.exitCode, equals(exitAuthenticationFailure));
       expect(result.stderr, contains('rejected'));
-      expect(File(configPath).existsSync(), isFalse,
-          reason: 'failed login must not persist a token');
+      expect(
+        File(configPath).existsSync(),
+        isFalse,
+        reason: 'failed login must not persist a token',
+      );
     });
 
     test('warns when GITRINTH_TOKEN is set', () async {
@@ -99,9 +105,9 @@ void main() {
 
   group('gitrinth modrinth logout', () {
     test('removes a stored token', () async {
-      UserConfigStore(configPath).write(
-        const UserConfig().withToken(fake.baseUrl, 'mrp_good'),
-      );
+      UserConfigStore(
+        configPath,
+      ).write(const UserConfig().withToken(fake.baseUrl, 'mrp_good'));
 
       final result = await runCli(['modrinth', 'logout'], environment: env);
 

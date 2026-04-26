@@ -13,8 +13,7 @@ class BuildCommand extends GitrinthCommand with OfflineFlag {
       'Assemble client and/or server distributions into build/.';
 
   @override
-  String get invocation =>
-      'gitrinth build [<client|server|both>] [arguments]';
+  String get invocation => 'gitrinth build [<client|server|both>] [arguments]';
 
   BuildCommand() {
     argParser

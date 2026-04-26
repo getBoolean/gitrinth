@@ -17,10 +17,10 @@ import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
 ModsLock _lock({Loader loader = Loader.fabric}) => ModsLock(
-      gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: loader, modsVersion: '0.17.3'),
-      mcVersion: '1.21.1',
-    );
+  gitrinthVersion: '0.1.0',
+  loader: LoaderConfig(mods: loader, modsVersion: '0.17.3'),
+  mcVersion: '1.21.1',
+);
 
 class _FakeFetcher implements LoaderBinaryFetcher {
   final File jar;
@@ -158,18 +158,83 @@ void main() {
       },
     );
 
-    test(
-      'happy path: installs into cache workdir and symlinks artifact dirs '
-      'back to build/client',
-      () async {
-        final spawnCalls = <List<String>>[];
-        final fakeFetcher = _FakeFetcher(installerJar);
-        final fakeInstaller = _FakeClientInstaller(
-          'fabric-loader-0.17.3-1.21.1',
-        );
-        final locator = _FakeLocator(launcherExecutable: launcherExe);
+    test('happy path: installs into cache workdir and symlinks artifact dirs '
+        'back to build/client', () async {
+      final spawnCalls = <List<String>>[];
+      final fakeFetcher = _FakeFetcher(installerJar);
+      final fakeInstaller = _FakeClientInstaller('fabric-loader-0.17.3-1.21.1');
+      final locator = _FakeLocator(launcherExecutable: launcherExe);
 
-        final code = await runLaunchClient(
+      final code = await runLaunchClient(
+        options: const LaunchClientOptions(
+          autoBuild: false,
+          offline: false,
+          verbose: false,
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess:
+            (
+              exe,
+              args, {
+              Directory? workingDirectory,
+              bool runInShell = false,
+              Map<String, String>? environment,
+            }) async {
+              spawnCalls.add([exe, ...args]);
+              return 0;
+            },
+        fetcher: fakeFetcher,
+        clientInstaller: fakeInstaller,
+        locator: locator,
+        cache: cache,
+      );
+
+      final expectedWorkDir = p.join(cacheRoot.path, 'launchers', 'pack');
+
+      expect(code, 0);
+      expect(fakeFetcher.called, isTrue);
+      expect(fakeInstaller.called, isTrue);
+      expect(
+        fakeInstaller.lastDotMinecraftDir?.path,
+        expectedWorkDir,
+        reason: 'loader installer must target the cache workdir',
+      );
+
+      expect(spawnCalls, hasLength(1));
+      final call = spawnCalls.single;
+      expect(call.first, launcherExe.path);
+      expect(call, contains('--workDir'));
+      expect(call.last, Directory(expectedWorkDir).absolute.path);
+
+      for (final relPath in const [
+        'mods',
+        'config',
+        'shaderpacks',
+        'global_packs/required_data',
+        'global_packs/optional_data',
+        'global_packs/required_resources',
+        'global_packs/optional_resources',
+      ]) {
+        final linkPath = p.join(expectedWorkDir, relPath);
+        final link = Link(linkPath);
+        expect(
+          link.existsSync(),
+          isTrue,
+          reason: 'expected symlink at $linkPath',
+        );
+        expect(
+          p.normalize(p.absolute(link.targetSync())),
+          p.normalize(p.absolute(p.join(clientDir.path, relPath))),
+        );
+      }
+    });
+
+    test(
+      're-running is idempotent: existing symlinks are kept, no errors',
+      () async {
+        Future<int> runOnce() => runLaunchClient(
           options: const LaunchClientOptions(
             autoBuild: false,
             offline: false,
@@ -178,89 +243,19 @@ void main() {
           container: container,
           console: const Console(),
           io: io,
-          runProcess: (
-            exe,
-            args, {
-            Directory? workingDirectory,
-            bool runInShell = false,
-          Map<String, String>? environment,
-          }) async {
-            spawnCalls.add([exe, ...args]);
-            return 0;
-          },
-          fetcher: fakeFetcher,
-          clientInstaller: fakeInstaller,
-          locator: locator,
-          cache: cache,
-        );
-
-        final expectedWorkDir = p.join(cacheRoot.path, 'launchers', 'pack');
-
-        expect(code, 0);
-        expect(fakeFetcher.called, isTrue);
-        expect(fakeInstaller.called, isTrue);
-        expect(
-          fakeInstaller.lastDotMinecraftDir?.path,
-          expectedWorkDir,
-          reason: 'loader installer must target the cache workdir',
-        );
-
-        expect(spawnCalls, hasLength(1));
-        final call = spawnCalls.single;
-        expect(call.first, launcherExe.path);
-        expect(call, contains('--workDir'));
-        expect(call.last, Directory(expectedWorkDir).absolute.path);
-
-        for (final relPath in const [
-          'mods',
-          'config',
-          'shaderpacks',
-          'global_packs/required_data',
-          'global_packs/optional_data',
-          'global_packs/required_resources',
-          'global_packs/optional_resources',
-        ]) {
-          final linkPath = p.join(expectedWorkDir, relPath);
-          final link = Link(linkPath);
-          expect(
-            link.existsSync(),
-            isTrue,
-            reason: 'expected symlink at $linkPath',
-          );
-          expect(
-            p.normalize(p.absolute(link.targetSync())),
-            p.normalize(p.absolute(p.join(clientDir.path, relPath))),
-          );
-        }
-      },
-    );
-
-    test(
-      're-running is idempotent: existing symlinks are kept, no errors',
-      () async {
-        Future<int> runOnce() => runLaunchClient(
-              options: const LaunchClientOptions(
-                autoBuild: false,
-                offline: false,
-                verbose: false,
-              ),
-              container: container,
-              console: const Console(),
-              io: io,
-              runProcess: (
+          runProcess:
+              (
                 exe,
                 args, {
                 Directory? workingDirectory,
                 bool runInShell = false,
-          Map<String, String>? environment,
+                Map<String, String>? environment,
               }) async => 0,
-              fetcher: _FakeFetcher(installerJar),
-              clientInstaller: _FakeClientInstaller(
-                'fabric-loader-0.17.3-1.21.1',
-              ),
-              locator: _FakeLocator(launcherExecutable: launcherExe),
-              cache: cache,
-            );
+          fetcher: _FakeFetcher(installerJar),
+          clientInstaller: _FakeClientInstaller('fabric-loader-0.17.3-1.21.1'),
+          locator: _FakeLocator(launcherExecutable: launcherExe),
+          cache: cache,
+        );
 
         expect(await runOnce(), 0);
         expect(await runOnce(), 0);
@@ -289,13 +284,14 @@ void main() {
           container: container,
           console: const Console(),
           io: io,
-          runProcess: (
-            exe,
-            args, {
-            Directory? workingDirectory,
-            bool runInShell = false,
-          Map<String, String>? environment,
-          }) async => 0,
+          runProcess:
+              (
+                exe,
+                args, {
+                Directory? workingDirectory,
+                bool runInShell = false,
+                Map<String, String>? environment,
+              }) async => 0,
           fetcher: _FakeFetcher(installerJar),
           clientInstaller: _FakeClientInstaller('fabric-loader-0.17.3-1.21.1'),
           locator: _FakeLocator(launcherExecutable: launcherExe),
@@ -310,78 +306,79 @@ void main() {
       },
     );
 
-    test('autoBuild failure short-circuits before fetching the installer',
-        () async {
-      var fetched = false;
-      final code = await runLaunchClient(
-        options: const LaunchClientOptions(
-          autoBuild: true,
-          offline: false,
-          verbose: false,
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess: (
-          exe,
-          args, {
-          Directory? workingDirectory,
-          bool runInShell = false,
-          Map<String, String>? environment,
-        }) async => 0,
-        fetcher: _CountingFetcher(installerJar, () => fetched = true),
-        clientInstaller: _FakeClientInstaller('id'),
-        locator: _FakeLocator(launcherExecutable: launcherExe),
-        cache: cache,
-        doBuild: (_) async => 9,
-      );
-      expect(code, 9);
-      expect(fetched, isFalse);
-    });
-
     test(
-      'missing build/client when --no-build surfaces a clear UserError '
-      'and leaves cache workdir untouched',
+      'autoBuild failure short-circuits before fetching the installer',
       () async {
-        clientDir.deleteSync(recursive: true);
-        await expectLater(
-          runLaunchClient(
-            options: const LaunchClientOptions(
-              autoBuild: false,
-              offline: false,
-              verbose: false,
-            ),
-            container: container,
-            console: const Console(),
-            io: io,
-            runProcess: (
-              exe,
-              args, {
-              Directory? workingDirectory,
-              bool runInShell = false,
-          Map<String, String>? environment,
-            }) async => 0,
-            fetcher: _FakeFetcher(installerJar),
-            clientInstaller: _FakeClientInstaller('id'),
-            locator: _FakeLocator(launcherExecutable: launcherExe),
-            cache: cache,
+        var fetched = false;
+        final code = await runLaunchClient(
+          options: const LaunchClientOptions(
+            autoBuild: true,
+            offline: false,
+            verbose: false,
           ),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              contains('client distribution not found'),
-            ),
-          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess:
+              (
+                exe,
+                args, {
+                Directory? workingDirectory,
+                bool runInShell = false,
+                Map<String, String>? environment,
+              }) async => 0,
+          fetcher: _CountingFetcher(installerJar, () => fetched = true),
+          clientInstaller: _FakeClientInstaller('id'),
+          locator: _FakeLocator(launcherExecutable: launcherExe),
+          cache: cache,
+          doBuild: (_) async => 9,
         );
-        expect(
-          Directory(p.join(cacheRoot.path, 'launchers', 'pack')).existsSync(),
-          isFalse,
-          reason:
-              'cache workdir should not be created if build/client is missing',
-        );
+        expect(code, 9);
+        expect(fetched, isFalse);
       },
     );
+
+    test('missing build/client when --no-build surfaces a clear UserError '
+        'and leaves cache workdir untouched', () async {
+      clientDir.deleteSync(recursive: true);
+      await expectLater(
+        runLaunchClient(
+          options: const LaunchClientOptions(
+            autoBuild: false,
+            offline: false,
+            verbose: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess:
+              (
+                exe,
+                args, {
+                Directory? workingDirectory,
+                bool runInShell = false,
+                Map<String, String>? environment,
+              }) async => 0,
+          fetcher: _FakeFetcher(installerJar),
+          clientInstaller: _FakeClientInstaller('id'),
+          locator: _FakeLocator(launcherExecutable: launcherExe),
+          cache: cache,
+        ),
+        throwsA(
+          isA<UserError>().having(
+            (e) => e.message,
+            'message',
+            contains('client distribution not found'),
+          ),
+        ),
+      );
+      expect(
+        Directory(p.join(cacheRoot.path, 'launchers', 'pack')).existsSync(),
+        isFalse,
+        reason:
+            'cache workdir should not be created if build/client is missing',
+      );
+    });
   });
 }
 

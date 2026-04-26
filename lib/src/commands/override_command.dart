@@ -11,7 +11,6 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/project.dart';
 import '../model/resolver/constraint.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
 import '../service/section_inference.dart';
 import '../service/solve_report.dart';
 import 'add_command_editor.dart';
@@ -312,8 +311,9 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
         final long = <String, Object?>{'version': effectiveConstraint};
         _writeSideFields(long, envOpt);
         if (acceptsMc.isNotEmpty) {
-          long['accepts-mc'] =
-              acceptsMc.length == 1 ? acceptsMc.first : acceptsMc;
+          long['accepts-mc'] = acceptsMc.length == 1
+              ? acceptsMc.first
+              : acceptsMc;
         }
         longForm = long;
         writtenValue = null;
@@ -345,8 +345,7 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
     }
 
     if (dryRun) {
-      final destFile =
-          standalone ? 'project_overrides.yaml' : 'mods.yaml';
+      final destFile = standalone ? 'project_overrides.yaml' : 'mods.yaml';
       console.message(
         'Would add to project_overrides in $destFile (section: '
         '${sectionKeyFor(section)}):',
@@ -367,21 +366,9 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
       io.writeModsYaml(updated);
     }
 
-    final api = read(modrinthApiProvider);
-    final cache = read(cacheProvider);
-    final downloader = read(downloaderProvider);
-    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
-    final result = await resolveAndSync(
-      io: io,
-      console: console,
-      api: api,
-      cache: cache,
-      downloader: downloader,
-      loaderResolver: loaderResolver,
-      offline: offline,
-    );
+    final result = await runResolveAndSync(io: io, offline: offline);
     if (result.exitCode != exitOk) return result.exitCode;
     reporter.printSummary(
       changeCount: result.changeCount,

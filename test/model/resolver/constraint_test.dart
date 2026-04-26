@@ -20,28 +20,25 @@ void main() {
       expect(c.allows(Version.parse('5.9.0')), isFalse);
     });
 
-    test(
-      'caret on bare MMP admits <mmp>-<label> Modrinth release tags',
-      () {
-        // Modrinth uses `<mmp>-<label>` as a release label (Faithful 32x:
-        // `1.21.1-december-2025`). Standard semver puts pre-release
-        // versions BELOW their base, which would make `^1.21.1` skip
-        // every `1.21.1-*` and pick a higher-MMP candidate even when its
-        // publish date is older. The Modrinth-aware caret admits these.
-        final c = parseConstraint('^1.21.1');
-        expect(c.allows(parseModrinthVersion('1.21.1')), isTrue);
-        expect(c.allows(parseModrinthVersion('1.21.1-april-2025')), isTrue);
-        expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
-        // Higher-MMP labels still admitted (under the caret ceiling).
-        expect(c.allows(parseModrinthVersion('1.21.3-june-2025')), isTrue);
-        expect(c.allows(parseModrinthVersion('1.22.0')), isTrue);
-        // Major bump still excluded.
-        expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
-        expect(c.allows(parseModrinthVersion('2.0.0-pre')), isFalse);
-        // Earlier major still excluded.
-        expect(c.allows(parseModrinthVersion('1.20.4')), isFalse);
-      },
-    );
+    test('caret on bare MMP admits <mmp>-<label> Modrinth release tags', () {
+      // Modrinth uses `<mmp>-<label>` as a release label (Faithful 32x:
+      // `1.21.1-december-2025`). Standard semver puts pre-release
+      // versions BELOW their base, which would make `^1.21.1` skip
+      // every `1.21.1-*` and pick a higher-MMP candidate even when its
+      // publish date is older. The Modrinth-aware caret admits these.
+      final c = parseConstraint('^1.21.1');
+      expect(c.allows(parseModrinthVersion('1.21.1')), isTrue);
+      expect(c.allows(parseModrinthVersion('1.21.1-april-2025')), isTrue);
+      expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
+      // Higher-MMP labels still admitted (under the caret ceiling).
+      expect(c.allows(parseModrinthVersion('1.21.3-june-2025')), isTrue);
+      expect(c.allows(parseModrinthVersion('1.22.0')), isTrue);
+      // Major bump still excluded.
+      expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
+      expect(c.allows(parseModrinthVersion('2.0.0-pre')), isFalse);
+      // Earlier major still excluded.
+      expect(c.allows(parseModrinthVersion('1.20.4')), isFalse);
+    });
 
     test('caret on 0.x.y -> compatibleWith same minor', () {
       final c = parseConstraint('^0.5.2');
@@ -112,23 +109,20 @@ void main() {
       },
     );
 
-    test(
-      'exact pin on an arbitrary string works (matches itself)',
-      () {
-        // Some Modrinth mods publish non-semver version strings. An
-        // exact pin has a well-defined meaning against them — match
-        // iff the raw string is the same. No ValidationError.
-        final c = parseConstraint('completely-arbitrary-name');
-        expect(
-          c.allows(parseModrinthVersionBestEffort('completely-arbitrary-name')),
-          isTrue,
-        );
-        expect(
-          c.allows(parseModrinthVersionBestEffort('different-name')),
-          isFalse,
-        );
-      },
-    );
+    test('exact pin on an arbitrary string works (matches itself)', () {
+      // Some Modrinth mods publish non-semver version strings. An
+      // exact pin has a well-defined meaning against them — match
+      // iff the raw string is the same. No ValidationError.
+      final c = parseConstraint('completely-arbitrary-name');
+      expect(
+        c.allows(parseModrinthVersionBestEffort('completely-arbitrary-name')),
+        isTrue,
+      );
+      expect(
+        c.allows(parseModrinthVersionBestEffort('different-name')),
+        isFalse,
+      );
+    });
 
     test('caret on an unparseable base raises ValidationError', () {
       // Carets derive their upper bound by bumping major — that's
@@ -207,24 +201,24 @@ void main() {
         () {
           final c = parseConstraint('>=1.21.1 <2.0.0');
           expect(c.allows(parseModrinthVersion('1.21.1')), isTrue);
-          expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
+          expect(
+            c.allows(parseModrinthVersion('1.21.1-december-2025')),
+            isTrue,
+          );
           expect(c.allows(parseModrinthVersion('1.22.0')), isTrue);
           expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
         },
       );
 
-      test(
-        '> (strict) does NOT admit the boundary version itself, even with '
-        'the `-0` widening trick',
-        () {
-          // Internal regression check: widening would push `>1.0.0` down to
-          // `>1.0.0-0`, which silently re-admits `1.0.0`. The implementation
-          // applies widening only on `>=`.
-          final c = parseConstraint('>1.0.0');
-          expect(c.allows(Version.parse('1.0.0')), isFalse);
-          expect(c.allows(Version.parse('1.0.1')), isTrue);
-        },
-      );
+      test('> (strict) does NOT admit the boundary version itself, even with '
+          'the `-0` widening trick', () {
+        // Internal regression check: widening would push `>1.0.0` down to
+        // `>1.0.0-0`, which silently re-admits `1.0.0`. The implementation
+        // applies widening only on `>=`.
+        final c = parseConstraint('>1.0.0');
+        expect(c.allows(Version.parse('1.0.0')), isFalse);
+        expect(c.allows(Version.parse('1.0.1')), isTrue);
+      });
 
       test('user-supplied pre-release on lower bound is preserved as-is', () {
         final c = parseConstraint('>=1.21.1-rc1 <2.0.0');
@@ -387,17 +381,16 @@ void main() {
       expect(a == b, isFalse);
     });
 
-    test('throws only when sanitisation leaves nothing (pure-symbol input)',
-        () {
-      expect(
-        () => parseModrinthVersionBestEffort('!!!'),
-        throwsFormatException,
-      );
-      expect(
-        () => parseModrinthVersionBestEffort(''),
-        throwsFormatException,
-      );
-    });
+    test(
+      'throws only when sanitisation leaves nothing (pure-symbol input)',
+      () {
+        expect(
+          () => parseModrinthVersionBestEffort('!!!'),
+          throwsFormatException,
+        );
+        expect(() => parseModrinthVersionBestEffort(''), throwsFormatException);
+      },
+    );
   });
 
   group('parseChannelToken', () {
@@ -659,28 +652,25 @@ void main() {
       expect(isAnyGitrinthMarker(''), isFalse);
     });
 
-    test(
-      'parseConstraint(disabled-by-conflict) explains how to retry',
-      () {
-        // Resolver-side callers filter the marker out before parseConstraint
-        // ever sees it. This branch is the safety net for entries that
-        // somehow reach the parser (manual edit, schema-validation error
-        // path) — the message must point the user at the retry commands.
-        expect(
-          () => parseConstraint(disabledByConflictMarker),
-          throwsA(
-            isA<ValidationError>().having(
-              (e) => e.message,
-              'message',
-              allOf(
-                contains(disabledByConflictMarker),
-                contains('migrate'),
-                contains('--major-versions'),
-              ),
+    test('parseConstraint(disabled-by-conflict) explains how to retry', () {
+      // Resolver-side callers filter the marker out before parseConstraint
+      // ever sees it. This branch is the safety net for entries that
+      // somehow reach the parser (manual edit, schema-validation error
+      // path) — the message must point the user at the retry commands.
+      expect(
+        () => parseConstraint(disabledByConflictMarker),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains(disabledByConflictMarker),
+              contains('migrate'),
+              contains('--major-versions'),
             ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
   });
 }

@@ -86,10 +86,7 @@ void main() {
         buildSubdirFor(Section.shaders, BuildEnv.client, shader),
         'shaderpacks',
       );
-      expect(
-        buildSubdirFor(Section.shaders, BuildEnv.server, shader),
-        isNull,
-      );
+      expect(buildSubdirFor(Section.shaders, BuildEnv.server, shader), isNull);
     });
 
     test('mods with both sides required ship to mods/ on both envs', () {

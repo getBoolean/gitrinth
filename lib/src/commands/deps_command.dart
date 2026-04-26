@@ -59,9 +59,7 @@ class DepsCommand extends GitrinthCommand {
     final io = ManifestIo();
     final lock = io.readModsLock();
     if (lock == null) {
-      throw UserError(
-        'mods.lock is missing; run `gitrinth get` and retry.',
-      );
+      throw UserError('mods.lock is missing; run `gitrinth get` and retry.');
     }
     final manifest = io.readModsYaml();
     _checkLockFreshness(manifest, lock);
@@ -118,9 +116,7 @@ class DepsCommand extends GitrinthCommand {
     if (targetSlug != null) {
       final entry = lockBySlug[targetSlug];
       if (entry == null) {
-        throw UsageError(
-          "no entry '$targetSlug' in mods.lock.",
-        );
+        throw UsageError("no entry '$targetSlug' in mods.lock.");
       }
       if (entry.locked.dependency != LockedDependencyKind.direct) {
         throw UsageError(
@@ -216,6 +212,7 @@ class DepsCommand extends GitrinthCommand {
           return true;
       }
     }
+
     return {
       for (final entry in lockBySlug.entries)
         if (keep(entry.value.locked)) entry.key,
@@ -240,19 +237,19 @@ class DepsCommand extends GitrinthCommand {
     String label(String slug, {bool prefixSection = false}) {
       final entry = lockBySlug[slug]!;
       final ver = entry.locked.version ?? entry.locked.path ?? '';
-      final prefix = prefixSection
-          ? '${entry.section.name}/'
-          : '';
-      return ver.isEmpty
-          ? '$prefix$slug'
-          : '$prefix$slug $ver';
+      final prefix = prefixSection ? '${entry.section.name}/' : '';
+      return ver.isEmpty ? '$prefix$slug' : '$prefix$slug $ver';
     }
 
     final seen = <String>{};
-    Map<String, Map<String, dynamic>> walk(String slug,
-        {required bool prefixSection}) {
+    Map<String, Map<String, dynamic>> walk(
+      String slug, {
+      required bool prefixSection,
+    }) {
       if (!seen.add(slug)) {
-        return {console.gray('$slug...'): const <String, Map<String, dynamic>>{}};
+        return {
+          console.gray('$slug...'): const <String, Map<String, dynamic>>{},
+        };
       }
       final out = <String, Map<String, dynamic>>{};
       final kids = children[slug] ?? const [];
@@ -353,8 +350,13 @@ class DepsCommand extends GitrinthCommand {
     if (directSlugs.isNotEmpty) {
       console.message('direct dependencies:');
       for (final slug in directSlugs) {
-        _printListForSlug(slug, lockBySlug, children, visibleSlugs,
-            sectionPrefix: true);
+        _printListForSlug(
+          slug,
+          lockBySlug,
+          children,
+          visibleSlugs,
+          sectionPrefix: true,
+        );
       }
     }
     if (transitiveSlugs.isNotEmpty) {
@@ -378,9 +380,7 @@ class DepsCommand extends GitrinthCommand {
     final entry = lockBySlug[slug];
     if (entry == null) return;
     final ver = entry.locked.version ?? entry.locked.path ?? '';
-    final label = sectionPrefix
-        ? '${entry.section.name}/$slug'
-        : slug;
+    final label = sectionPrefix ? '${entry.section.name}/$slug' : slug;
     console.message('- $label${ver.isEmpty ? '' : ' $ver'}');
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
@@ -420,8 +420,13 @@ class DepsCommand extends GitrinthCommand {
     if (directSlugs.isNotEmpty) {
       console.message('direct dependencies:');
       for (final slug in directSlugs) {
-        _printCompactForSlug(slug, lockBySlug, children, visibleSlugs,
-            sectionPrefix: true);
+        _printCompactForSlug(
+          slug,
+          lockBySlug,
+          children,
+          visibleSlugs,
+          sectionPrefix: true,
+        );
       }
     }
     if (transitiveSlugs.isNotEmpty) {
@@ -445,9 +450,7 @@ class DepsCommand extends GitrinthCommand {
     final entry = lockBySlug[slug];
     if (entry == null) return;
     final ver = entry.locked.version ?? entry.locked.path ?? '';
-    final label = sectionPrefix
-        ? '${entry.section.name}/$slug'
-        : slug;
+    final label = sectionPrefix ? '${entry.section.name}/$slug' : slug;
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
         .toList();
@@ -494,7 +497,7 @@ class DepsCommand extends GitrinthCommand {
       'version': manifest.version,
       'packages': packages,
     };
-    console.message(const JsonEncoder.withIndent('  ').convert(out));
+    console.raw(const JsonEncoder.withIndent('  ').convert(out));
   }
 
   Iterable<String> _walkClosure(

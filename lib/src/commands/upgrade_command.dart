@@ -47,7 +47,8 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       ..addFlag(
         'unlock-transitive',
         negatable: false,
-        help: 'Also upgrades the transitive dependencies of the listed '
+        help:
+            'Also upgrades the transitive dependencies of the listed '
             'entries.',
       )
       ..addFlag(
@@ -182,8 +183,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       if (majorVersions)
         for (final entry in modrinthByEntry.entries)
           if (targets.contains(entry.key.$2) &&
-              (entry.value.constraintRaw?.trimLeft().startsWith('^') ??
-                  false))
+              (entry.value.constraintRaw?.trimLeft().startsWith('^') ?? false))
             entry.key.$2,
     };
 
@@ -195,29 +195,20 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         ? null
         : _stripSlugs(manifest, unrecoverableMarkers);
 
-    final cache = read(cacheProvider);
-    final downloader = read(downloaderProvider);
-    final loaderResolver = read(loaderVersionResolverProvider);
     final reporter = SolveReporter(console);
 
     Future<ResolveSyncResult> doResolve({
       required ModsYaml? manifestForResolve,
       required Set<String> freshSlugs,
       required Set<String> relaxConstraints,
-    }) =>
-        resolveAndSync(
-          io: io,
-          console: console,
-          api: api,
-          cache: cache,
-          downloader: downloader,
-          loaderResolver: loaderResolver,
-          offline: offline,
-          dryRun: dryRun,
-          freshSlugs: freshSlugs,
-          relaxConstraints: relaxConstraints,
-          manifestOverride: manifestForResolve,
-        );
+    }) => runResolveAndSync(
+      io: io,
+      offline: offline,
+      dryRun: dryRun,
+      freshSlugs: freshSlugs,
+      relaxConstraints: relaxConstraints,
+      manifestOverride: manifestForResolve,
+    );
 
     final ResolveSyncResult result;
     final Set<(Section, String)> disabledByConflict;
@@ -231,16 +222,16 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         targets: targets,
         relaxSet: relaxSet,
         console: console,
-        resolve: ({
-          required manifestForResolve,
-          required freshSlugs,
-          required relaxConstraints,
-        }) =>
-            doResolve(
-          manifestForResolve: manifestForResolve,
-          freshSlugs: freshSlugs,
-          relaxConstraints: relaxConstraints,
-        ),
+        resolve:
+            ({
+              required manifestForResolve,
+              required freshSlugs,
+              required relaxConstraints,
+            }) => doResolve(
+              manifestForResolve: manifestForResolve,
+              freshSlugs: freshSlugs,
+              relaxConstraints: relaxConstraints,
+            ),
       );
       result = outcome.result;
       disabledByConflict = outcome.disabledByConflict;
@@ -283,8 +274,8 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         }
         // Look up the prior marker so the message names whichever one
         // was actually being recovered.
-        final priorMarker = markerByEntry[(section, slug)]?.constraintRaw
-                ?.trim() ??
+        final priorMarker =
+            markerByEntry[(section, slug)]?.constraintRaw?.trim() ??
             notFoundMarker;
         yamlText = setEntryVersion(
           yamlText,
@@ -339,7 +330,6 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
     return exitOk;
   }
-
 }
 
 ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {

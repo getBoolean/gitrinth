@@ -8,17 +8,18 @@ import 'package:test/test.dart';
 void main() {
   group('resolveUserConfigPath', () {
     test('--config wins over GITRINTH_CONFIG and HOME', () {
-      final path = resolveUserConfigPath(
-        const {'GITRINTH_CONFIG': '/from/env.yaml', 'HOME': '/h'},
-        override: '/from/flag.yaml',
-      );
+      final path = resolveUserConfigPath(const {
+        'GITRINTH_CONFIG': '/from/env.yaml',
+        'HOME': '/h',
+      }, override: '/from/flag.yaml');
       expect(path, equals(p.normalize(p.absolute('/from/flag.yaml'))));
     });
 
     test('GITRINTH_CONFIG wins over HOME default', () {
-      final path = resolveUserConfigPath(
-        const {'GITRINTH_CONFIG': '/from/env.yaml', 'HOME': '/h'},
-      );
+      final path = resolveUserConfigPath(const {
+        'GITRINTH_CONFIG': '/from/env.yaml',
+        'HOME': '/h',
+      });
       expect(path, equals(p.normalize(p.absolute('/from/env.yaml'))));
     });
 
@@ -34,20 +35,17 @@ void main() {
     });
 
     test('throws UserError when no override, env, or HOME', () {
-      expect(
-        () => resolveUserConfigPath(const {}),
-        throwsA(isA<UserError>()),
-      );
+      expect(() => resolveUserConfigPath(const {}), throwsA(isA<UserError>()));
     });
 
     test('empty override and empty env fall through', () {
       final env = Platform.isWindows
           ? const {'USERPROFILE': r'C:\Users\me'}
           : const {'HOME': '/home/me'};
-      final path = resolveUserConfigPath(
-        {...env, 'GITRINTH_CONFIG': ''},
-        override: '',
-      );
+      final path = resolveUserConfigPath({
+        ...env,
+        'GITRINTH_CONFIG': '',
+      }, override: '');
       final expected = Platform.isWindows
           ? p.normalize(p.join(r'C:\Users\me', '.gitrinth', 'config.yaml'))
           : p.normalize(p.join('/home/me', '.gitrinth', 'config.yaml'));
@@ -80,15 +78,10 @@ void main() {
       final path = p.join(tempDir.path, 'config.yaml');
       final store = UserConfigStore(path);
       store.write(
-        const UserConfig(
-          tokens: {'https://api.modrinth.com': 'mrt_xxx'},
-        ),
+        const UserConfig(tokens: {'https://api.modrinth.com': 'mrt_xxx'}),
       );
       final cfg = store.read();
-      expect(
-        cfg.tokens,
-        equals({'https://api.modrinth.com': 'mrt_xxx'}),
-      );
+      expect(cfg.tokens, equals({'https://api.modrinth.com': 'mrt_xxx'}));
     });
 
     test('write creates parent directory lazily', () {
@@ -105,10 +98,7 @@ void main() {
         'HTTPS://API.Modrinth.COM/v2/',
         'mrp_token',
       );
-      expect(
-        next.tokens,
-        equals({'https://api.modrinth.com/v2': 'mrp_token'}),
-      );
+      expect(next.tokens, equals({'https://api.modrinth.com/v2': 'mrp_token'}));
     });
 
     test('withToken overwrites an existing entry under the same key', () {
@@ -135,10 +125,7 @@ void main() {
       const cfg = UserConfig(
         tokens: {'https://api.modrinth.com/v2': 'mrp_token'},
       );
-      expect(
-        cfg.tokenFor('HTTPS://api.modrinth.com/v2/'),
-        equals('mrp_token'),
-      );
+      expect(cfg.tokenFor('HTTPS://api.modrinth.com/v2/'), equals('mrp_token'));
     });
   });
 }

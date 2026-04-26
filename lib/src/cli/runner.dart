@@ -7,6 +7,7 @@ import 'package:riverpod/riverpod.dart';
 
 import '../app/container.dart';
 import '../app/env.dart';
+import '../app/providers.dart';
 import '../app/runner_settings.dart';
 import '../commands/add_command.dart';
 import '../commands/build_command.dart';
@@ -56,14 +57,7 @@ class GitrinthRunner extends CommandRunner<int> {
       ..addOption(
         'verbosity',
         valueHelp: 'level',
-        allowed: [
-          'error',
-          'warning',
-          'normal',
-          'io',
-          'solver',
-          'all',
-        ],
+        allowed: ['error', 'warning', 'normal', 'io', 'solver', 'all'],
         allowedHelp: {
           'error': 'Errors only.',
           'warning': 'Errors and warnings.',
@@ -84,18 +78,21 @@ class GitrinthRunner extends CommandRunner<int> {
         'quiet',
         abbr: 'q',
         negatable: false,
-        help: 'Shorthand for --verbosity=warning. Mutually exclusive '
+        help:
+            'Shorthand for --verbosity=warning. Mutually exclusive '
             'with --verbose.',
       )
       ..addFlag(
         'color',
-        help: 'Force ANSI colour on (--color) or off (--no-color). '
+        help:
+            'Force ANSI colour on (--color) or off (--no-color). '
             'Defaults to auto-detection (honours NO_COLOR).',
       )
       ..addOption(
         'config',
         valueHelp: 'path',
-        help: 'Use an alternate user config file. '
+        help:
+            'Use an alternate user config file. '
             'Overrides GITRINTH_CONFIG and the platform default.',
       );
 
@@ -168,15 +165,11 @@ class GitrinthRunner extends CommandRunner<int> {
     container
         .read(runnerSettingsProvider.notifier)
         .set(
-          RunnerSettings(
-            level: level,
-            color: color,
-            configPath: configPath,
-          ),
+          RunnerSettings(level: level, color: color, configPath: configPath),
         );
 
     if (topLevelResults['version'] as bool) {
-      stdout.writeln('gitrinth $packageVersion');
+      container.read(consoleProvider).message('gitrinth $packageVersion');
       return exitOk;
     }
 
@@ -207,32 +200,33 @@ Future<int> runGitrinth(
         ],
       );
   final runner = GitrinthRunner(container: effectiveContainer);
+  Console console() => runner.container.read(consoleProvider);
   try {
     return await runner.run(arguments);
   } on GitrinthException catch (e) {
-    stderr.writeln('error: ${e.message}');
+    console().error(e.message);
     return e.exitCode;
   } on UsageException catch (e) {
     stderr.writeln(e.toString());
     return exitUsageError;
   } on FormatException catch (e) {
-    stderr.writeln('error: ${e.message}');
+    console().error(e.message);
     return exitUsageError;
   } on DioException catch (e, stack) {
     // Interceptors map upstream failures to GitrinthExceptions and stash
     // them on `err.error`; surface the typed error when present.
     final inner = e.error;
     if (inner is GitrinthException) {
-      stderr.writeln('error: ${inner.message}');
+      console().error(inner.message);
       return inner.exitCode;
     }
-    stderr.writeln('error: ${e.message ?? e.toString()}');
+    console().error(e.message ?? e.toString());
     if (runner.level == LogLevel.all) {
       stderr.writeln(stack);
     }
     return exitUserError;
   } catch (e, stack) {
-    stderr.writeln('error: $e');
+    console().error(e.toString());
     if (runner.level == LogLevel.all) {
       stderr.writeln(stack);
     }

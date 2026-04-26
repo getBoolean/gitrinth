@@ -117,8 +117,9 @@ void main() {
 
     test('first build writes ledger and copies files: entries', () async {
       File(p.join(packDir.path, 'sodium.jar')).writeAsStringSync('SODIUM');
-      File(p.join(packDir.path, 'sodium-options.json'))
-          .writeAsStringSync('{"version":1}');
+      File(
+        p.join(packDir.path, 'sodium-options.json'),
+      ).writeAsStringSync('{"version":1}');
       _writeFixture(
         packDir,
         modPaths: ['./sodium.jar'],
@@ -162,11 +163,7 @@ void main() {
       expect(File(clientPath('mods/old.jar')).existsSync(), isTrue);
 
       // Drop "old" from the manifest, rebuild.
-      _writeFixture(
-        packDir,
-        modPaths: ['./sodium.jar'],
-        files: const {},
-      );
+      _writeFixture(packDir, modPaths: ['./sodium.jar'], files: const {});
       await runBuild(
         options: const BuildOptions(envFlag: 'client', skipDownload: true),
         container: container,
@@ -213,78 +210,69 @@ void main() {
       );
     });
 
-    test('preserve: removed from manifest prunes the file (not sticky)',
-        () async {
-      File(p.join(packDir.path, 'opts.json')).writeAsStringSync('{"v":1}');
-      _writeFixture(
-        packDir,
-        modPaths: const [],
-        files: {
-          'config/opts.json': _FileFixture(
-            sourcePath: './opts.json',
-            preserve: true,
-          ),
-        },
-      );
-      await runBuild(
-        options: const BuildOptions(envFlag: 'client', skipDownload: true),
-        container: container,
-        console: const Console(),
-        io: io,
-      );
-      expect(File(clientPath('config/opts.json')).existsSync(), isTrue);
+    test(
+      'preserve: removed from manifest prunes the file (not sticky)',
+      () async {
+        File(p.join(packDir.path, 'opts.json')).writeAsStringSync('{"v":1}');
+        _writeFixture(
+          packDir,
+          modPaths: const [],
+          files: {
+            'config/opts.json': _FileFixture(
+              sourcePath: './opts.json',
+              preserve: true,
+            ),
+          },
+        );
+        await runBuild(
+          options: const BuildOptions(envFlag: 'client', skipDownload: true),
+          container: container,
+          console: const Console(),
+          io: io,
+        );
+        expect(File(clientPath('config/opts.json')).existsSync(), isTrue);
 
-      _writeFixture(
-        packDir,
-        modPaths: const [],
-        files: const {},
-      );
-      await runBuild(
-        options: const BuildOptions(envFlag: 'client', skipDownload: true),
-        container: container,
-        console: const Console(),
-        io: io,
-      );
-      expect(File(clientPath('config/opts.json')).existsSync(), isFalse);
-    });
+        _writeFixture(packDir, modPaths: const [], files: const {});
+        await runBuild(
+          options: const BuildOptions(envFlag: 'client', skipDownload: true),
+          container: container,
+          console: const Console(),
+          io: io,
+        );
+        expect(File(clientPath('config/opts.json')).existsSync(), isFalse);
+      },
+    );
 
-    test('user-dropped jar in mods/ survives prune (loose-file protection)',
-        () async {
-      File(p.join(packDir.path, 'sodium.jar')).writeAsStringSync('S');
-      _writeFixture(
-        packDir,
-        modPaths: ['./sodium.jar'],
-        files: const {},
-      );
-      await runBuild(
-        options: const BuildOptions(envFlag: 'client', skipDownload: true),
-        container: container,
-        console: const Console(),
-        io: io,
-      );
-      // User drops a custom jar after the build.
-      File(clientPath('mods/coolmod.jar')).writeAsStringSync('CUSTOM');
+    test(
+      'user-dropped jar in mods/ survives prune (loose-file protection)',
+      () async {
+        File(p.join(packDir.path, 'sodium.jar')).writeAsStringSync('S');
+        _writeFixture(packDir, modPaths: ['./sodium.jar'], files: const {});
+        await runBuild(
+          options: const BuildOptions(envFlag: 'client', skipDownload: true),
+          container: container,
+          console: const Console(),
+          io: io,
+        );
+        // User drops a custom jar after the build.
+        File(clientPath('mods/coolmod.jar')).writeAsStringSync('CUSTOM');
 
-      // Rebuild with the same manifest.
-      await runBuild(
-        options: const BuildOptions(envFlag: 'client', skipDownload: true),
-        container: container,
-        console: const Console(),
-        io: io,
-      );
-      expect(File(clientPath('mods/coolmod.jar')).existsSync(), isTrue);
-      expect(File(clientPath('mods/sodium.jar')).existsSync(), isTrue);
-    });
+        // Rebuild with the same manifest.
+        await runBuild(
+          options: const BuildOptions(envFlag: 'client', skipDownload: true),
+          container: container,
+          console: const Console(),
+          io: io,
+        );
+        expect(File(clientPath('mods/coolmod.jar')).existsSync(), isTrue);
+        expect(File(clientPath('mods/sodium.jar')).existsSync(), isTrue);
+      },
+    );
 
-    test('--no-prune leaves obsolete files but still updates ledger',
-        () async {
+    test('--no-prune leaves obsolete files but still updates ledger', () async {
       File(p.join(packDir.path, 'a.jar')).writeAsStringSync('A');
       File(p.join(packDir.path, 'b.jar')).writeAsStringSync('B');
-      _writeFixture(
-        packDir,
-        modPaths: ['./a.jar', './b.jar'],
-        files: const {},
-      );
+      _writeFixture(packDir, modPaths: ['./a.jar', './b.jar'], files: const {});
       await runBuild(
         options: const BuildOptions(envFlag: 'client', skipDownload: true),
         container: container,
@@ -292,11 +280,7 @@ void main() {
         io: io,
       );
 
-      _writeFixture(
-        packDir,
-        modPaths: ['./a.jar'],
-        files: const {},
-      );
+      _writeFixture(packDir, modPaths: ['./a.jar'], files: const {});
       await runBuild(
         options: const BuildOptions(
           envFlag: 'client',
@@ -307,8 +291,11 @@ void main() {
         console: const Console(),
         io: io,
       );
-      expect(File(clientPath('mods/b.jar')).existsSync(), isTrue,
-          reason: '--no-prune must keep obsolete files');
+      expect(
+        File(clientPath('mods/b.jar')).existsSync(),
+        isTrue,
+        reason: '--no-prune must keep obsolete files',
+      );
       // Ledger reflects the new desired state, so a follow-up build
       // without --no-prune will prune.
       final ledger = readLedgerOrEmpty(
@@ -319,10 +306,8 @@ void main() {
       expect(ledger.files.keys, isNot(contains('mods/b.jar')));
     });
 
-    test('side-filtering skips client-unsupported files: entries',
-        () async {
-      File(p.join(packDir.path, 'server-only.txt'))
-          .writeAsStringSync('S');
+    test('side-filtering skips client-unsupported files: entries', () async {
+      File(p.join(packDir.path, 'server-only.txt')).writeAsStringSync('S');
       _writeFixture(
         packDir,
         modPaths: const [],
@@ -340,10 +325,7 @@ void main() {
         console: const Console(),
         io: io,
       );
-      expect(
-        File(clientPath('config/server-only.txt')).existsSync(),
-        isFalse,
-      );
+      expect(File(clientPath('config/server-only.txt')).existsSync(), isFalse);
     });
   });
 }

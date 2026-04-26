@@ -16,13 +16,14 @@ import 'java_runtime_resolver.dart';
 /// environment (e.g. to prepend a chosen JDK's `bin/` to `PATH`) must
 /// build the merged map themselves and pass it here — semantics match
 /// `Process.start`'s `environment` parameter.
-typedef ProcessRunner = Future<int> Function(
-  String executable,
-  List<String> arguments, {
-  Directory? workingDirectory,
-  bool runInShell,
-  Map<String, String>? environment,
-});
+typedef ProcessRunner =
+    Future<int> Function(
+      String executable,
+      List<String> arguments, {
+      Directory? workingDirectory,
+      bool runInShell,
+      Map<String, String>? environment,
+    });
 
 /// Turns a cached loader binary (Forge/NeoForge installer JAR or
 /// fabric-server-launch JAR) into a runnable server tree under [outputDir].
