@@ -193,11 +193,7 @@ String? formatReportLine({
   final kind = diff?.kind;
   String? icon;
   String? wasVersion;
-  if (isOverridden) {
-    icon = '! ';
-  } else if (kind == DiffKind.added) {
-    icon = '+ ';
-  } else if (kind == DiffKind.updated) {
+  if (kind == DiffKind.updated) {
     final before = diff!.before;
     final after = diff.after;
     final sourceChanged = before?.sourceKind != after?.sourceKind;
@@ -222,9 +218,16 @@ String? formatReportLine({
       }
       wasVersion = bv ?? before?.path;
     }
+  } else if (kind == DiffKind.added) {
+    icon = '+ ';
   } else if (newerAvailable != null) {
     // Unchanged but outdated — pub prints these with the two-space icon.
     icon = '  ';
+  }
+  // Override icon wins over the diff-derived icon, but `wasVersion` from
+  // the update branch is preserved so all three parentheticals can render.
+  if (isOverridden) {
+    icon = '! ';
   }
   if (icon == null) return null;
 

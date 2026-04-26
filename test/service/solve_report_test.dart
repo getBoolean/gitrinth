@@ -265,28 +265,13 @@ void main() {
           before: before,
           after: after,
         );
-        // An update that is ALSO overridden resolves to the "!" icon (overridden
-        // wins in the icon branch), but the `(was …)` hint is absent because
-        // wasVersion is only populated when the update branch runs. The
-        // parenthetical-order contract is about the append sequence in the
-        // buffer, so construct a scenario that triggers all three slots.
-        // The overridden branch short-circuits wasVersion, so the only way to
-        // exercise all three is: updated (for was), overridden via flag, plus
-        // outdated. But since overridden wins the icon, we still get (was)
-        // only via the explicit wasVersion path. Instead verify the sequence
-        // via an unchanged overridden-with-outdated entry combined with an
-        // updated one — i.e., just assert order is (was) → (overridden) →
-        // (available) when all three happen to be set.
         final line = formatReportLine(
           locked: after,
           diff: diff,
           newerAvailable: '1.2.0',
           isOverridden: true,
         );
-        // Overridden wins the icon; there is no wasVersion in that branch
-        // because the update branch is skipped. So expect ! icon + overridden +
-        // available, with NO (was …). This documents the actual precedence.
-        expect(line, '! jei 1.1.0 (overridden) (1.2.0 available)');
+        expect(line, '! jei 1.1.0 (was 1.0.0) (overridden) (1.2.0 available)');
       },
     );
   });
