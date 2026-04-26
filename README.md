@@ -195,3 +195,11 @@ After changing any file under `assets/template/`, Dart Mappable models, or Retro
 dart pub get
 dart run build_runner build --delete-conflicting-outputs
 ```
+
+## References
+
+* [Modrinth API documentation](https://docs.modrinth.com/api-spec/)
+* [Semantic versioning](https://semver.org/)
+* Heavily inspired by [Dart Pub](https://dart.dev/tools/pub)
+* [packwiz](https://github.com/packwiz/packwiz)
+* [mrpack-install](https://github.com/nothub/mrpack-install)
