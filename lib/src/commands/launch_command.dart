@@ -86,6 +86,16 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
             'JVM heap size, passed as -Xmx and -Xms. Examples: 2G, 4G, 6144M.',
       )
       ..addOption(
+        'memory-max',
+        valueHelp: 'size',
+        help: 'Override -Xmx (max heap). Falls back to --memory.',
+      )
+      ..addOption(
+        'memory-min',
+        valueHelp: 'size',
+        help: 'Override -Xms (initial heap). Falls back to --memory.',
+      )
+      ..addOption(
         'output',
         abbr: 'o',
         valueHelp: 'path',
@@ -112,11 +122,20 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
 
   @override
   Future<int> run() async {
+    final memory = argResults!['memory'] as String;
+    final memoryMax = argResults!['memory-max'] as String?;
+    final memoryMin = argResults!['memory-min'] as String?;
+    resolveJvmHeap(
+      memory: memory,
+      memoryMax: memoryMax,
+      memoryMin: memoryMin,
+    );
     return runLaunchServer(
       options: LaunchServerOptions(
         acceptEula: argResults!['accept-eula'] as bool,
         autoBuild: argResults!['build'] as bool,
-        memory: argResults!['memory'] as String,
+        memoryMax: memoryMax ?? memory,
+        memoryMin: memoryMin ?? memory,
         outputPath: argResults!['output'] as String?,
         offline: readOfflineFlag(),
         verbose: gitrinthRunner.level.index >= LogLevel.io.index,
@@ -134,7 +153,8 @@ class LaunchServerOptions {
   const LaunchServerOptions({
     required this.acceptEula,
     required this.autoBuild,
-    required this.memory,
+    required this.memoryMax,
+    required this.memoryMin,
     required this.offline,
     required this.verbose,
     required this.extraArgs,
@@ -145,7 +165,8 @@ class LaunchServerOptions {
 
   final bool acceptEula;
   final bool autoBuild;
-  final String memory;
+  final String memoryMax;
+  final String memoryMin;
   final String? outputPath;
   final bool offline;
   final bool verbose;
@@ -234,7 +255,8 @@ Future<int> runLaunchServer({
   final (executable, args, useShell) = _serverLaunchCommand(
     loader: lock.loader.mods,
     serverDir: serverDir,
-    memory: options.memory,
+    memoryMax: options.memoryMax,
+    memoryMin: options.memoryMin,
     extraArgs: options.extraArgs,
     javaPath: java.path,
   );
@@ -274,7 +296,8 @@ Map<String, String> _spawnEnvironment({
 (String executable, List<String> args, bool runInShell) _serverLaunchCommand({
   required Loader loader,
   required Directory serverDir,
-  required String memory,
+  required String memoryMax,
+  required String memoryMin,
   required List<String> extraArgs,
   required String javaPath,
 }) {
@@ -283,8 +306,8 @@ Map<String, String> _spawnEnvironment({
       return (
         javaPath,
         [
-          '-Xmx$memory',
-          '-Xms$memory',
+          '-Xmx$memoryMax',
+          '-Xms$memoryMin',
           '-jar',
           'fabric-server-launch.jar',
           'nogui',
@@ -297,7 +320,7 @@ Map<String, String> _spawnEnvironment({
       // Modern Forge / NeoForge installers (MC 1.17+) emit run.sh / run.bat;
       // memory is supplied via user_jvm_args.txt rather than CLI flags so the
       // run script picks them up.
-      _writeUserJvmArgs(serverDir, memory);
+      _writeUserJvmArgs(serverDir, memoryMax, memoryMin);
       if (Platform.isWindows) {
         final bat = File(p.join(serverDir.path, 'run.bat'));
         if (bat.existsSync()) {
@@ -323,7 +346,11 @@ Map<String, String> _spawnEnvironment({
   }
 }
 
-void _writeUserJvmArgs(Directory serverDir, String memory) {
+void _writeUserJvmArgs(
+  Directory serverDir,
+  String memoryMax,
+  String memoryMin,
+) {
   final file = File(p.join(serverDir.path, 'user_jvm_args.txt'));
   // Preserve any existing non-Xmx/-Xms lines; only rewrite the heap entries
   // so power-users can keep custom GC flags.
@@ -337,10 +364,54 @@ void _writeUserJvmArgs(Directory serverDir, String memory) {
   }
   final out = <String>[
     ...keep,
-    '-Xmx$memory',
-    '-Xms$memory',
+    '-Xmx$memoryMax',
+    '-Xms$memoryMin',
   ];
   file.writeAsStringSync('${out.join('\n')}\n');
+}
+
+/// Parses a JVM-style size literal (`<int>[k|K|m|M|g|G|t|T]`) into bytes.
+/// Throws [UserError] when [input] doesn't match the JVM grammar — no
+/// decimals, no `B` suffix.
+int _parseJvmSize(String input) {
+  final match = RegExp(r'^\s*(\d+)\s*([kKmMgGtT])?\s*$').firstMatch(input);
+  if (match == null) {
+    throw UserError(
+      'Invalid JVM size "$input". Expected an integer with an optional unit '
+      'suffix (k, m, g, or t). Examples: 2G, 6144M, 512K.',
+    );
+  }
+  final value = int.parse(match.group(1)!);
+  final suffix = match.group(2)?.toLowerCase();
+  final multiplier = switch (suffix) {
+    'k' => 1024,
+    'm' => 1024 * 1024,
+    'g' => 1024 * 1024 * 1024,
+    't' => 1024 * 1024 * 1024 * 1024,
+    _ => 1,
+  };
+  return value * multiplier;
+}
+
+/// Resolves `--memory`, `--memory-max`, `--memory-min` into validated
+/// `(xmx, xms)` byte counts. Per-side flags override `--memory`. Throws
+/// [UserError] when any value is invalid syntax or when `xms > xmx`.
+(int, int) resolveJvmHeap({
+  String? memory,
+  String? memoryMax,
+  String? memoryMin,
+}) {
+  final xmxStr = memoryMax ?? memory ?? '2G';
+  final xmsStr = memoryMin ?? memory ?? '2G';
+  final xmx = _parseJvmSize(xmxStr);
+  final xms = _parseJvmSize(xmsStr);
+  if (xms > xmx) {
+    throw UserError(
+      'JVM heap min ($xmsStr) exceeds max ($xmxStr); --memory-min must be '
+      '<= --memory-max.',
+    );
+  }
+  return (xmx, xms);
 }
 
 Future<int> _defaultRunProcess(

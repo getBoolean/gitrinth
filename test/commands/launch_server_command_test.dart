@@ -118,7 +118,8 @@ void main() {
         options: const LaunchServerOptions(
           acceptEula: true,
           autoBuild: false,
-          memory: '2G',
+          memoryMax: '2G',
+          memoryMin: '2G',
           offline: false,
           verbose: false,
           extraArgs: [],
@@ -147,7 +148,8 @@ void main() {
         options: const LaunchServerOptions(
           acceptEula: false,
           autoBuild: false,
-          memory: '4G',
+          memoryMax: '4G',
+          memoryMin: '4G',
           offline: false,
           verbose: false,
           extraArgs: ['--port', '25566'],
@@ -180,7 +182,8 @@ void main() {
         options: LaunchServerOptions(
           acceptEula: false,
           autoBuild: false,
-          memory: '2G',
+          memoryMax: '2G',
+          memoryMin: '2G',
           offline: false,
           verbose: false,
           extraArgs: const [],
@@ -207,7 +210,8 @@ void main() {
         options: const LaunchServerOptions(
           acceptEula: false,
           autoBuild: false,
-          memory: '2G',
+          memoryMax: '2G',
+          memoryMin: '2G',
           offline: false,
           verbose: false,
           extraArgs: [],
@@ -235,7 +239,8 @@ void main() {
           options: const LaunchServerOptions(
             acceptEula: false,
             autoBuild: true,
-            memory: '2G',
+            memoryMax: '2G',
+          memoryMin: '2G',
             offline: false,
             verbose: false,
             extraArgs: [],
@@ -265,7 +270,8 @@ void main() {
         options: const LaunchServerOptions(
           acceptEula: false,
           autoBuild: true,
-          memory: '2G',
+          memoryMax: '2G',
+          memoryMin: '2G',
           offline: false,
           verbose: false,
           extraArgs: [],
@@ -297,7 +303,8 @@ void main() {
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
-              memory: '2G',
+              memoryMax: '2G',
+          memoryMin: '2G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -329,7 +336,8 @@ void main() {
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
-              memory: '2G',
+              memoryMax: '2G',
+          memoryMin: '2G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -351,6 +359,62 @@ void main() {
       },
     );
 
+    test(
+      '--memory-max only sets Xmx; Xms falls back to --memory default',
+      () async {
+        writeLock(_lock(loader: Loader.fabric));
+        File(p.join(serverDir.path, 'fabric-server-launch.jar'))
+            .writeAsStringSync('FAB');
+        final fake = _FakeRunProcess();
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '6G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+        expect(fake.args, contains('-Xmx6G'));
+        expect(fake.args, contains('-Xms2G'));
+      },
+    );
+
+    test(
+      '--memory + --memory-max: max wins for Xmx, --memory wins for Xms',
+      () async {
+        writeLock(_lock(loader: Loader.fabric));
+        File(p.join(serverDir.path, 'fabric-server-launch.jar'))
+            .writeAsStringSync('FAB');
+        final fake = _FakeRunProcess();
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '8G',
+            memoryMin: '4G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+        expect(fake.args, contains('-Xmx8G'));
+        expect(fake.args, contains('-Xms4G'));
+      },
+    );
+
     group('Forge / NeoForge', () {
       test(
         'on POSIX, Forge launch shells out to bash run.sh',
@@ -365,7 +429,8 @@ void main() {
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
-              memory: '6G',
+              memoryMax: '6G',
+          memoryMin: '6G',
               offline: false,
               verbose: false,
               extraArgs: ['--port', '25566'],
@@ -407,7 +472,8 @@ void main() {
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
-              memory: '6G',
+              memoryMax: '6G',
+          memoryMin: '6G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -450,7 +516,8 @@ void main() {
             options: const LaunchServerOptions(
               acceptEula: false,
               autoBuild: false,
-              memory: '8G',
+              memoryMax: '8G',
+          memoryMin: '8G',
               offline: false,
               verbose: false,
               extraArgs: [],
@@ -481,7 +548,8 @@ void main() {
               options: const LaunchServerOptions(
                 acceptEula: false,
                 autoBuild: false,
-                memory: '2G',
+                memoryMax: '2G',
+          memoryMin: '2G',
                 offline: false,
                 verbose: false,
                 extraArgs: [],
@@ -502,6 +570,91 @@ void main() {
           );
         },
       );
+
+      test(
+        'mismatched memoryMax/memoryMin write through to user_jvm_args.txt',
+        () async {
+          writeLock(_lock(loader: Loader.forge));
+          if (Platform.isWindows) {
+            File(p.join(serverDir.path, 'run.bat'))
+                .writeAsStringSync('@echo off\n');
+          } else {
+            File(p.join(serverDir.path, 'run.sh'))
+                .writeAsStringSync('#!/bin/sh\n');
+          }
+          await runLaunchServer(
+            options: const LaunchServerOptions(
+              acceptEula: false,
+              autoBuild: false,
+              memoryMax: '8G',
+              memoryMin: '2G',
+              offline: false,
+              verbose: false,
+              extraArgs: [],
+            ),
+            container: container,
+            console: const Console(),
+            io: io,
+            runProcess: _FakeRunProcess().call,
+            resolver: fakeResolver,
+          );
+          final body = File(
+            p.join(serverDir.path, 'user_jvm_args.txt'),
+          ).readAsStringSync();
+          expect(body, contains('-Xmx8G'));
+          expect(body, contains('-Xms2G'));
+        },
+      );
+    });
+  });
+
+  group('resolveJvmHeap', () {
+    test('defaults to 2G/2G when nothing is set', () {
+      final (xmx, xms) = resolveJvmHeap();
+      expect(xmx, 2 * 1024 * 1024 * 1024);
+      expect(xms, 2 * 1024 * 1024 * 1024);
+    });
+
+    test('--memory sets both sides', () {
+      final (xmx, xms) = resolveJvmHeap(memory: '4G');
+      expect(xmx, 4 * 1024 * 1024 * 1024);
+      expect(xms, 4 * 1024 * 1024 * 1024);
+    });
+
+    test('--memory-max overrides Xmx; --memory remains the Xms fallback', () {
+      final (xmx, xms) = resolveJvmHeap(memory: '4G', memoryMax: '8G');
+      expect(xmx, 8 * 1024 * 1024 * 1024);
+      expect(xms, 4 * 1024 * 1024 * 1024);
+    });
+
+    test('--memory-min > --memory-max throws UserError', () {
+      expect(
+        () => resolveJvmHeap(memoryMax: '2G', memoryMin: '4G'),
+        throwsA(
+          isA<UserError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('2G'), contains('4G')),
+          ),
+        ),
+      );
+    });
+
+    test('invalid size literal throws UserError', () {
+      expect(
+        () => resolveJvmHeap(memory: '1.5G'),
+        throwsA(isA<UserError>()),
+      );
+      expect(
+        () => resolveJvmHeap(memory: '2GB'),
+        throwsA(isA<UserError>()),
+      );
+    });
+
+    test('M/K/T suffixes parse correctly', () {
+      expect(resolveJvmHeap(memory: '6144M').$1, 6144 * 1024 * 1024);
+      expect(resolveJvmHeap(memory: '512K').$1, 512 * 1024);
+      expect(resolveJvmHeap(memory: '1T').$1, 1024 * 1024 * 1024 * 1024);
     });
   });
 }
