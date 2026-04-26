@@ -147,11 +147,35 @@ void main() {
   });
 
   group('SemverOnlyExactConstraint equality', () {
-    test('equal when bases have same precedence', () {
+    test('equal when base and buildNumber match exactly', () {
       final a = SemverOnlyExactConstraint(Version.parse('1.2.3'));
-      final b = SemverOnlyExactConstraint(Version.parse('1.2.3+mc'));
+      final b = SemverOnlyExactConstraint(Version.parse('1.2.3'));
       expect(a == b, isTrue);
       expect(a.hashCode == b.hashCode, isTrue);
+    });
+
+    test('not equal when bases differ in build metadata', () {
+      // Two constraints "match" the same candidates (allows() ignores tag
+      // metadata) but they aren't *equal* — equality is structural so a
+      // freshly-built SEC from a tagged version is distinguishable from
+      // an untagged one.
+      final a = SemverOnlyExactConstraint(Version.parse('1.2.3'));
+      final b = SemverOnlyExactConstraint(Version.parse('1.2.3+mc'));
+      expect(a == b, isFalse);
+      // Match semantics still treat them as compatible:
+      expect(a.allowsAll(b), isTrue);
+    });
+
+    test('symmetric equality with differing buildNumber', () {
+      // `==` must be symmetric, even when the build numbers differ — the
+      // old `allows`-as-equality conflation broke this because
+      // `a.allows(b.base)` and `b.allows(a.base)` aren't symmetric across
+      // distinct numeric prefixes.
+      final a = SemverOnlyExactConstraint(Version.parse('19.27.0+340'));
+      final b = SemverOnlyExactConstraint(Version.parse('19.27.0+341'));
+      expect(a == b, isFalse);
+      expect(b == a, isFalse);
+      expect(a == a, isTrue);
     });
 
     test('not equal to a plain Version', () {

@@ -5,6 +5,7 @@ import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
+import '../model/resolver/version_selection.dart';
 import 'console.dart';
 
 enum DiffKind { added, removed, updated, unchanged }

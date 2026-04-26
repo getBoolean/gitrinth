@@ -57,16 +57,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
   @override
   Future<int> run() async {
     final results = argResults!;
-    final rest = results.rest;
-    if (rest.isEmpty) {
-      throw const UsageError('create requires a target <directory>.');
-    }
-    if (rest.length > 1) {
-      throw UsageError(
-        'Unexpected arguments after <directory>: ${rest.skip(1).join(' ')}',
-      );
-    }
-    final directoryArg = rest.first;
+    final directoryArg = parseSinglePositional(name: '<directory>');
 
     final slug = _resolveSlug(results['slug'] as String?, directoryArg);
     final packName = (results['name'] as String?) ?? slug;

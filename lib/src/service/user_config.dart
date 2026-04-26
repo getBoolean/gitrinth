@@ -2,11 +2,11 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
-import 'package:yaml/yaml.dart';
 
 import '../app/env.dart';
 import '../app/runner_settings.dart';
 import '../cli/exceptions.dart';
+import '../util/safe_yaml.dart';
 import 'modrinth_url.dart';
 
 /// User-level config. Holds per-host Modrinth tokens keyed by
@@ -99,7 +99,7 @@ class UserConfigStore {
   UserConfig read() {
     final file = File(path);
     if (!file.existsSync()) return const UserConfig();
-    final raw = loadYaml(file.readAsStringSync());
+    final raw = safeLoadYaml<Object?>(file.readAsStringSync(), path: path);
     return UserConfig.fromYaml(raw);
   }
 

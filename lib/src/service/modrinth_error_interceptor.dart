@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../cli/exceptions.dart';
+import 'dio_error_helpers.dart';
 
 class ModrinthErrorInterceptor extends Interceptor {
   @override
@@ -75,16 +76,7 @@ class ModrinthErrorInterceptor extends Interceptor {
     ErrorInterceptorHandler handler,
     UserError wrapped,
   ) {
-    handler.reject(
-      DioException(
-        requestOptions: err.requestOptions,
-        response: err.response,
-        type: err.type,
-        error: wrapped,
-        stackTrace: err.stackTrace,
-        message: wrapped.message,
-      ),
-    );
+    handler.reject(wrapDioError(err, wrapped));
   }
 }
 

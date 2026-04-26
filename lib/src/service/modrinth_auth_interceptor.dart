@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../cli/exceptions.dart';
+import 'dio_error_helpers.dart';
 import 'modrinth_url.dart';
 
 /// Marker key on `RequestOptions.extra` that opts a request into auth.
@@ -79,16 +80,7 @@ class ModrinthAuthInterceptor extends Interceptor {
               'Re-run `gitrinth modrinth login`.'
         : 'Modrinth rejected the stored credentials for $hostLabel. '
               'Re-run `gitrinth modrinth token add $hostLabel`.';
-    handler.reject(
-      DioException(
-        requestOptions: err.requestOptions,
-        response: err.response,
-        type: err.type,
-        error: AuthenticationError(message),
-        stackTrace: err.stackTrace,
-        message: message,
-      ),
-    );
+    handler.reject(wrapDioError(err, AuthenticationError(message)));
   }
 
   String? _resolveToken(Uri requestUri) {

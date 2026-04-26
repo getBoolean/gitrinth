@@ -7,6 +7,7 @@ import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/parser.dart';
 import '../model/manifest/project_overrides.dart';
+import '../util/atomic_file_writer.dart';
 
 class ManifestIo {
   final Directory directory;
@@ -14,10 +15,10 @@ class ManifestIo {
   ManifestIo({Directory? directory})
     : directory = directory ?? Directory.current;
 
-  String get modsYamlPath => p.join(directory.path, 'mods.yaml');
+  String get modsYamlPath => p.normalize(p.join(directory.path, 'mods.yaml'));
   String get projectOverridesPath =>
-      p.join(directory.path, 'project_overrides.yaml');
-  String get modsLockPath => p.join(directory.path, 'mods.lock');
+      p.normalize(p.join(directory.path, 'project_overrides.yaml'));
+  String get modsLockPath => p.normalize(p.join(directory.path, 'mods.lock'));
 
   ModsYaml readModsYaml() {
     final file = File(modsYamlPath);
@@ -46,26 +47,14 @@ class ManifestIo {
   }
 
   void writeModsLock(String contents) {
-    final lockFile = File(modsLockPath);
-    final tempFile = File('$modsLockPath.tmp');
-    tempFile.writeAsStringSync(contents);
-    if (lockFile.existsSync()) lockFile.deleteSync();
-    tempFile.renameSync(lockFile.path);
+    atomicWriteString(modsLockPath, contents);
   }
 
   void writeModsYaml(String contents) {
-    final yamlFile = File(modsYamlPath);
-    final tempFile = File('$modsYamlPath.tmp');
-    tempFile.writeAsStringSync(contents);
-    if (yamlFile.existsSync()) yamlFile.deleteSync();
-    tempFile.renameSync(yamlFile.path);
+    atomicWriteString(modsYamlPath, contents);
   }
 
   void writeProjectOverrides(String contents) {
-    final file = File(projectOverridesPath);
-    final tempFile = File('$projectOverridesPath.tmp');
-    tempFile.writeAsStringSync(contents);
-    if (file.existsSync()) file.deleteSync();
-    tempFile.renameSync(file.path);
+    atomicWriteString(projectOverridesPath, contents);
   }
 }

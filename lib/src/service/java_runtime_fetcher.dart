@@ -8,8 +8,10 @@ import 'package:path/path.dart' as p;
 import '../cli/exceptions.dart';
 import '../util/host_platform.dart';
 import '../util/mc_version.dart';
+import '../util/url_template.dart';
 import 'cache.dart';
 import 'console.dart';
+import 'dio_error_helpers.dart';
 import 'downloader.dart';
 
 /// Fetches and caches an Eclipse Temurin JDK matching a feature version
@@ -105,9 +107,7 @@ class JavaRuntimeFetcher {
     }
 
     Directory(_cache.runtimesRoot).createSync(recursive: true);
-    final lockFile = File(
-      p.join(_cache.runtimesRoot, '.lock-temurin-$feature'),
-    );
+    final lockFile = File(_cache.javaRuntimeLockPath(feature.toString()));
     final lockHandle = lockFile.openSync(mode: FileMode.write);
     lockHandle.lockSync(FileLock.exclusive);
     try {
@@ -124,10 +124,11 @@ class JavaRuntimeFetcher {
         'one-time per JDK feature version.',
       );
 
-      final metaUrl = _metadataUrlTemplate
-          .replaceAll('{feature}', feature.toString())
-          .replaceAll('{os}', osKey)
-          .replaceAll('{arch}', archKey);
+      final metaUrl = fillUrlTemplate(_metadataUrlTemplate, {
+        'feature': feature.toString(),
+        'os': osKey,
+        'arch': archKey,
+      });
       final meta = await _fetchMetadata(metaUrl);
 
       final ext = osKey == 'windows' ? '.zip' : '.tar.gz';
@@ -146,11 +147,9 @@ class JavaRuntimeFetcher {
       } on GitrinthException {
         rethrow;
       } on DioException catch (e) {
-        final inner = e.error;
-        if (inner is GitrinthException) throw inner;
-        throw UserError(
-          'failed to download Temurin $feature from ${meta.url}: '
-          '${e.message ?? e.toString()}',
+        unwrapOrThrow(
+          e,
+          context: 'failed to download Temurin $feature from ${meta.url}',
         );
       }
 

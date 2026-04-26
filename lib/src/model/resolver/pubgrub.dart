@@ -132,26 +132,10 @@ class PubGrubSolver {
           final depSlug = await resolveSlugForProjectId(depProjectId);
           if (depSlug == null) continue;
           if (state.overriddenSlugs.contains(depSlug)) continue;
-          var depConstraint = VersionConstraint.any;
-          final depVersionId = dep.versionId;
-          if (depVersionId != null) {
-            final depVersions = await _versionsFor(depSlug);
-            modrinth.Version? pinned;
-            for (final dv in depVersions) {
-              if (dv.id == depVersionId) {
-                pinned = dv;
-                break;
-              }
-            }
-            if (pinned != null) {
-              try {
-                final floor = parseModrinthVersion(pinned.versionNumber);
-                depConstraint = VersionRange(min: floor, includeMin: true);
-              } on FormatException {
-                // Non-semver → fall back to `any`.
-              }
-            }
-          }
+          final depConstraint = await _constraintFromVersionId(
+            slug: depSlug,
+            versionId: dep.versionId,
+          );
           state.addConstraint(depSlug, depConstraint, parentSlug: pin.slug);
           state.addChannel(depSlug, Channel.alpha);
           state.recordIntroducer(depSlug, pin.slug, pin.version.versionNumber);
@@ -249,6 +233,33 @@ class PubGrubSolver {
     final list = await listVersions(slug);
     _versionCache[slug] = list;
     return list;
+  }
+
+  /// Builds the lower-bound [VersionRange] implied by a Modrinth dependency
+  /// pinned to [versionId] for [slug]. Returns [VersionConstraint.any] when
+  /// the version isn't found in the listing or its `version_number` doesn't
+  /// parse as semver — both fall back to the permissive default the solver
+  /// uses when no pin is present.
+  Future<VersionConstraint> _constraintFromVersionId({
+    required String slug,
+    required String? versionId,
+  }) async {
+    if (versionId == null) return VersionConstraint.any;
+    final versions = await _versionsFor(slug);
+    modrinth.Version? pinned;
+    for (final dv in versions) {
+      if (dv.id == versionId) {
+        pinned = dv;
+        break;
+      }
+    }
+    if (pinned == null) return VersionConstraint.any;
+    try {
+      final floor = parseModrinthVersion(pinned.versionNumber);
+      return VersionRange(min: floor, includeMin: true);
+    } on FormatException {
+      return VersionConstraint.any;
+    }
   }
 
   Future<bool> _solveStep(_SolverState state) async {
@@ -370,26 +381,10 @@ class PubGrubSolver {
           // mods don't declare upper compatibility bounds, so two
           // parents pinning across majors should resolve to the higher
           // floor instead of conflicting.
-          var depConstraint = VersionConstraint.any;
-          final depVersionId = dep.versionId;
-          if (depVersionId != null) {
-            final depVersions = await _versionsFor(depSlug);
-            modrinth.Version? pinned;
-            for (final dv in depVersions) {
-              if (dv.id == depVersionId) {
-                pinned = dv;
-                break;
-              }
-            }
-            if (pinned != null) {
-              try {
-                final floor = parseModrinthVersion(pinned.versionNumber);
-                depConstraint = VersionRange(min: floor, includeMin: true);
-              } on FormatException {
-                // Non-semver upstream version → fall back to `any`.
-              }
-            }
-          }
+          final depConstraint = await _constraintFromVersionId(
+            slug: depSlug,
+            versionId: dep.versionId,
+          );
           state.addConstraint(depSlug, depConstraint, parentSlug: ancestor);
           // Transitive deps inherit the permissive default (all
           // version_types admitted). A user who wants to pin the stability

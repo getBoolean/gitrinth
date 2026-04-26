@@ -1,3 +1,24 @@
+/// `gitrinth build` is split across three sibling files for separation of
+/// concerns. The orchestrator is the entry point — assembler and pruner
+/// each own one phase and are not used independently.
+///
+///   - `build_command.dart`  — flag parsing + thin shell that delegates to
+///     [runBuildOrchestrator].
+///   - `build_orchestrator.dart` — drives the full build: kicks off
+///     `resolveAndSync`, loads the prior ledger, calls the assembler for
+///     each env, then hands off to the pruner.
+///   - `build_assembler.dart` — pure file-copy + per-section / per-side
+///     routing. Knows how to materialize a single `LockedEntry` into the
+///     output tree but nothing about prior state.
+///   - `build_pruner.dart`   — ledger reader/writer plus deletion logic.
+///     Compares the prior ledger to the current build's manifest and
+///     prunes files the new build no longer produces.
+///
+/// Ordering contract: orchestrator MUST call assembler before pruner so
+/// the pruner sees the ledger entries the new build added before it
+/// decides what to delete from the old ledger.
+library;
+
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/offline_flag.dart';

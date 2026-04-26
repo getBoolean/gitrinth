@@ -5,7 +5,6 @@ import 'package:args/command_runner.dart';
 import 'package:dio/dio.dart';
 import 'package:riverpod/riverpod.dart';
 
-import '../app/container.dart';
 import '../app/env.dart';
 import '../app/providers.dart';
 import '../app/runner_settings.dart';
@@ -40,7 +39,7 @@ class GitrinthRunner extends CommandRunner<int> {
   final ProviderContainer container;
 
   GitrinthRunner({ProviderContainer? container})
-    : container = container ?? buildContainer(),
+    : container = container ?? ProviderContainer(),
       super('gitrinth', 'Manage Modrinth modpacks declared in mods.yaml.') {
     argParser
       ..addFlag(
@@ -193,7 +192,7 @@ Future<int> runGitrinth(
 }) async {
   final effectiveContainer =
       container ??
-      buildContainer(
+      ProviderContainer(
         overrides: [
           if (environment != null)
             environmentProvider.overrideWithValue(environment),

@@ -411,7 +411,7 @@ Future<ResolveSyncResult> resolveAndSync({
             if (file == null || file.url == null) continue;
             final dest = file.sha512 != null
                 ? cache.urlPath(sha512: file.sha512!, filename: file.name)
-                : p.join(cache.urlRoot, '_unverified', locked.slug, file.name);
+                : cache.unverifiedUrlPath(locked.slug, file.name);
             final existed = File(dest).existsSync();
             await downloader.downloadTo(
               url: file.url!,

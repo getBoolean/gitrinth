@@ -1,4 +1,25 @@
+import 'package:collection/collection.dart';
 import 'package:pub_semver/pub_semver.dart';
+
+/// Returns the leading run of purely-numeric segments in [build] —
+/// the "build number" prefix. Stops at the first non-numeric segment
+/// (tag metadata like `mc`). Empty list when [build] is empty or starts
+/// with a tag segment.
+///
+/// Shared between `parseConstraint`, `bareVersionForPin`, and
+/// [SemverOnlyExactConstraint] so the classifier stays in one place.
+List<String> numericBuildPrefix(List<Object> build) {
+  final out = <String>[];
+  for (final seg in build) {
+    final s = seg.toString();
+    if (!RegExp(r'^\d+$').hasMatch(s)) break;
+    out.add(s);
+  }
+  return out;
+}
+
+const _stringListEq = ListEquality<Object>();
+const _intListEq = ListEquality<int>();
 
 /// Exact-pin [VersionConstraint] with Modrinth-aware metadata handling.
 ///
@@ -28,41 +49,18 @@ class SemverOnlyExactConstraint implements VersionConstraint {
   final List<int> buildNumber;
 
   SemverOnlyExactConstraint(this.base)
-    : buildNumber = _numericPrefix(base.build);
-
-  static List<int> _numericPrefix(List<Object> build) {
-    final out = <int>[];
-    for (final seg in build) {
-      final parsed = int.tryParse(seg.toString());
-      if (parsed == null) break;
-      out.add(parsed);
-    }
-    return out;
-  }
+    : buildNumber = numericBuildPrefix(base.build).map(int.parse).toList();
 
   @override
   bool allows(Version other) =>
       base.major == other.major &&
       base.minor == other.minor &&
       base.patch == other.patch &&
-      _listEq(base.preRelease, other.preRelease) &&
-      _intListEq(buildNumber, _numericPrefix(other.build));
-
-  static bool _listEq(List<Object> a, List<Object> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  static bool _intListEq(List<int> a, List<int> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
+      _stringListEq.equals(base.preRelease, other.preRelease) &&
+      _intListEq.equals(
+        buildNumber,
+        numericBuildPrefix(other.build).map(int.parse).toList(),
+      );
 
   @override
   bool get isAny => false;
@@ -118,16 +116,12 @@ class SemverOnlyExactConstraint implements VersionConstraint {
 
   @override
   bool operator ==(Object other) =>
-      other is SemverOnlyExactConstraint && allows(other.base);
+      other is SemverOnlyExactConstraint &&
+      base == other.base &&
+      _intListEq.equals(buildNumber, other.buildNumber);
 
   @override
-  int get hashCode => Object.hash(
-    base.major,
-    base.minor,
-    base.patch,
-    base.preRelease.join('.'),
-    buildNumber.join('.'),
-  );
+  int get hashCode => Object.hash(base, Object.hashAll(buildNumber));
 
   @override
   String toString() => base.toString();

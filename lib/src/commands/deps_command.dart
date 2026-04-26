@@ -316,7 +316,7 @@ class DepsCommand extends GitrinthCommand {
       visibleSlugs: visibleSlugs,
       targetSlug: targetSlug,
     );
-    final rendered = ascii_tree.fromMap(tree);
+    final rendered = ascii_tree.fromMap(tree, console: console);
     // Trim trailing newline; console.info adds one.
     final lines = rendered.trimRight().split('\n');
     for (final l in lines) {

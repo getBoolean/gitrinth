@@ -22,5 +22,9 @@ mixin OfflineFlag on GitrinthCommand {
     return offline;
   }
 
-  bool get isOffline => (argResults?['offline'] as bool?) ?? false;
+  /// The current offline state. Reads the live [offlineProvider] value
+  /// (kept in sync by [readOfflineFlag]) so the answer matches whatever
+  /// the Dio interceptor is gating on, even if a caller mutates the
+  /// provider directly.
+  bool get isOffline => container.read(offlineProvider);
 }

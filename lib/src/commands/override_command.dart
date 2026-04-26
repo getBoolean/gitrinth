@@ -13,6 +13,7 @@ import '../model/resolver/constraint.dart';
 import '../service/manifest_io.dart';
 import '../service/section_inference.dart';
 import '../service/solve_report.dart';
+import '_constraint_helpers.dart';
 import 'add_command_editor.dart';
 import 'override_command_editor.dart';
 import 'slug_constraint_parser.dart';
@@ -108,20 +109,10 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
 
   @override
   Future<int> run() async {
-    final rest = argResults!.rest;
-    if (rest.isEmpty) {
-      throw const UsageError(
-        'override requires a slug: gitrinth override '
-        '<slug>[@<constraint>]',
-      );
-    }
-    if (rest.length > 1) {
-      throw UsageError(
-        'Unexpected arguments after slug: ${rest.skip(1).join(' ')}',
-      );
-    }
-
-    final positional = rest.first;
+    final positional = parseSinglePositional(
+      name: 'slug',
+      usage: 'gitrinth override <slug>[@<constraint>]',
+    );
     final urlOpt = argResults!['url'] as String?;
     final pathOpt = argResults!['path'] as String?;
     final envOpt = argResults!['env'] as String?;
@@ -131,7 +122,7 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
     final standalone = argResults!['standalone'] as bool;
     final offline = readOfflineFlag();
     final typeOverride = sectionFromTypeFlag(argResults!['type'] as String?);
-    final acceptsMc = _parseAcceptsMcFlag(
+    final acceptsMc = parseAcceptsMcFlag(
       argResults!['accepts-mc'] as List<String>,
     );
     if (urlOpt != null && pathOpt != null) {
@@ -149,9 +140,6 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
         'with --url or --path.',
       );
     }
-    if (pinFlag && exactFlag) {
-      throw const UsageError('--pin and --exact are mutually exclusive.');
-    }
     if (pinFlag && (urlOpt != null || pathOpt != null)) {
       throw const UsageError(
         '--pin applies to Modrinth-sourced overrides; cannot combine '
@@ -160,18 +148,11 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
     }
 
     final (:slug, :constraintRaw) = parseSlugConstraint(positional);
-    if (exactFlag && constraintRaw != null) {
-      throw const UsageError(
-        '--exact has no effect when a version constraint is supplied '
-        'explicitly.',
-      );
-    }
-    if (pinFlag && constraintRaw != null) {
-      throw const UsageError(
-        '--pin has no effect when a version constraint is supplied '
-        'explicitly.',
-      );
-    }
+    validateConstraintFlags(
+      exact: exactFlag,
+      pin: pinFlag,
+      constraint: constraintRaw,
+    );
 
     final io = ManifestIo();
     final existingManifest = io.readModsYaml();
@@ -222,7 +203,7 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
       final long = <String, Object?>{};
       if (urlOpt != null) long['url'] = urlOpt;
       if (pathOpt != null) long['path'] = pathOpt;
-      _writeSideFields(long, envOpt);
+      writeSideFields(long, envOpt);
       longForm = long;
       writtenValue = null;
     } else {
@@ -309,7 +290,7 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
           (envOpt != null && envOpt != 'both') || acceptsMc.isNotEmpty;
       if (needsLongForm) {
         final long = <String, Object?>{'version': effectiveConstraint};
-        _writeSideFields(long, envOpt);
+        writeSideFields(long, envOpt);
         if (acceptsMc.isNotEmpty) {
           long['accepts-mc'] = acceptsMc.length == 1
               ? acceptsMc.first
@@ -381,37 +362,6 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
       );
     }
     return exitOk;
-  }
-
-  static final _acceptsMcPattern = RegExp(r'^[A-Za-z0-9][A-Za-z0-9._+-]*$');
-
-  List<String> _parseAcceptsMcFlag(List<String> raw) {
-    final seen = <String>{};
-    final out = <String>[];
-    for (final entry in raw) {
-      final trimmed = entry.trim();
-      if (trimmed.isEmpty) continue;
-      if (!_acceptsMcPattern.hasMatch(trimmed)) {
-        throw UserError(
-          '--accepts-mc "$trimmed" is not a valid Minecraft version '
-          'tag (expected forms like "1.21", "1.20.1", "24w10a", or '
-          '"1.21-pre1").',
-        );
-      }
-      if (seen.add(trimmed)) out.add(trimmed);
-    }
-    return out;
-  }
-
-  void _writeSideFields(Map<String, Object?> long, String? envOpt) {
-    if (envOpt == null || envOpt == 'both') return;
-    if (envOpt == 'client') {
-      long['client'] = 'required';
-      long['server'] = 'unsupported';
-    } else if (envOpt == 'server') {
-      long['client'] = 'unsupported';
-      long['server'] = 'required';
-    }
   }
 
   String _describeEntry({

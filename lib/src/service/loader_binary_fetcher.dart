@@ -4,7 +4,9 @@ import 'package:dio/dio.dart';
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../util/url_template.dart';
 import 'cache.dart';
+import 'dio_error_helpers.dart';
 import 'downloader.dart';
 
 /// Fetches and caches the loader binary needed to run a server distribution
@@ -101,11 +103,9 @@ class LoaderBinaryFetcher {
     } on GitrinthException {
       rethrow;
     } on DioException catch (e) {
-      final inner = e.error;
-      if (inner is GitrinthException) throw inner;
-      throw UserError(
-        'failed to download ${loader.name} server binary from $url: '
-        '${e.message ?? e.toString()}',
+      unwrapOrThrow(
+        e,
+        context: 'failed to download ${loader.name} server binary from $url',
       );
     }
   }
@@ -144,11 +144,9 @@ class LoaderBinaryFetcher {
         } on GitrinthException {
           rethrow;
         } on DioException catch (e) {
-          final inner = e.error;
-          if (inner is GitrinthException) throw inner;
-          throw UserError(
-            'failed to download Fabric installer from $url: '
-            '${e.message ?? e.toString()}',
+          unwrapOrThrow(
+            e,
+            context: 'failed to download Fabric installer from $url',
           );
         }
     }
@@ -161,26 +159,28 @@ class LoaderBinaryFetcher {
   }) {
     switch (loader) {
       case Loader.forge:
-        final url = _forgeInstallerUrlTemplate
-            .replaceAll('{mc}', mcVersion)
-            .replaceAll('{v}', loaderVersion);
+        final url = fillUrlTemplate(_forgeInstallerUrlTemplate, {
+          'mc': mcVersion,
+          'v': loaderVersion,
+        });
         return (url, 'forge-$mcVersion-$loaderVersion-installer.jar');
       case Loader.neoforge:
         if (mcVersion == '1.20.1') {
-          final url = _neoforgeLegacyInstallerUrlTemplate
-              .replaceAll('{mc}', mcVersion)
-              .replaceAll('{v}', loaderVersion);
+          final url = fillUrlTemplate(_neoforgeLegacyInstallerUrlTemplate, {
+            'mc': mcVersion,
+            'v': loaderVersion,
+          });
           return (url, 'forge-$mcVersion-$loaderVersion-installer.jar');
         }
-        final url = _neoforgeInstallerUrlTemplate.replaceAll(
-          '{v}',
-          loaderVersion,
-        );
+        final url = fillUrlTemplate(_neoforgeInstallerUrlTemplate, {
+          'v': loaderVersion,
+        });
         return (url, 'neoforge-$loaderVersion-installer.jar');
       case Loader.fabric:
-        final url = _fabricServerJarUrlTemplate
-            .replaceAll('{mc}', mcVersion)
-            .replaceAll('{v}', loaderVersion);
+        final url = fillUrlTemplate(_fabricServerJarUrlTemplate, {
+          'mc': mcVersion,
+          'v': loaderVersion,
+        });
         return (url, 'fabric-server-launch.jar');
     }
   }

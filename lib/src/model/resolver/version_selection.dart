@@ -66,3 +66,38 @@ class _Candidate {
   final modrinth.Version modrinthVersion;
   const _Candidate(this.parsed, this.modrinthVersion);
 }
+
+/// Comparator: orders Modrinth versions "newest first" under the resolver's
+/// selection rule — `date_published` descending, with parsed semver descending
+/// as tiebreaker.
+///
+/// Modrinth doesn't enforce semver on `version_number`. Resource packs and
+/// shaders in particular bake max-MC compatibility into the leading
+/// `MAJOR.MINOR.PATCH` (Faithful 32x: `1.21.3-june-2025` was published *before*
+/// `1.21.1-december-2025` even though parsed semver makes 1.21.3 look "higher").
+/// Sorting by publish date matches Modrinth's UI and the user's intuition for
+/// "newest within constraint"; falling back to parsed semver keeps existing
+/// callers (and tests) that don't carry a publish date deterministic.
+///
+/// [aParsed] / [bParsed] are the pre-parsed semvers — callers typically already
+/// have these from constraint matching, and threading them avoids re-parsing
+/// inside the sort.
+int compareModrinthSelectionOrder(
+  modrinth.Version a,
+  Version aParsed,
+  modrinth.Version b,
+  Version bParsed,
+) {
+  final aDate = a.datePublished;
+  final bDate = b.datePublished;
+  if (aDate != null && bDate != null) {
+    // ISO 8601 strings sort correctly lexicographically.
+    final cmp = bDate.compareTo(aDate);
+    if (cmp != 0) return cmp;
+  } else if (aDate != null) {
+    return -1;
+  } else if (bDate != null) {
+    return 1;
+  }
+  return bParsed.compareTo(aParsed);
+}

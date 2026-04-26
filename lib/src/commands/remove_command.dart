@@ -31,17 +31,10 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
 
   @override
   Future<int> run() async {
-    final rest = argResults!.rest;
-    if (rest.isEmpty) {
-      throw const UsageError('remove requires a slug: gitrinth remove <slug>');
-    }
-    if (rest.length > 1) {
-      throw UsageError(
-        'Unexpected arguments after slug: ${rest.skip(1).join(' ')}',
-      );
-    }
-
-    final slug = rest.first;
+    final slug = parseSinglePositional(
+      name: 'slug',
+      usage: 'gitrinth remove <slug>',
+    );
     if (slug.contains('@')) {
       throw UsageError(
         "remove does not take a version — drop the '@' and pass just the "

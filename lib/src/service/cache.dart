@@ -17,12 +17,24 @@ class GitrinthCache {
   GitrinthCache({required this.root, Console? console})
     : _console = console ?? const Console();
 
-  String get modrinthRoot => p.join(root, 'modrinth');
-  String get urlRoot => p.join(root, 'url');
-  String get tmpRoot => p.join(root, 'tmp');
-  String get loadersRoot => p.join(root, 'loaders');
-  String get launchersRoot => p.join(root, 'launchers');
-  String get runtimesRoot => p.join(root, 'runtimes');
+  String get modrinthRoot => p.normalize(p.join(root, 'modrinth'));
+  String get urlRoot => p.normalize(p.join(root, 'url'));
+  String get tmpRoot => p.normalize(p.join(root, 'tmp'));
+  String get loadersRoot => p.normalize(p.join(root, 'loaders'));
+  String get launchersRoot => p.normalize(p.join(root, 'launchers'));
+  String get runtimesRoot => p.normalize(p.join(root, 'runtimes'));
+
+  /// Path to a `_unverified` staging file under [urlRoot] for a
+  /// url:-sourced artifact whose sha512 isn't yet known. Used by
+  /// `gitrinth get` / `build` to land the download before promoting it
+  /// to the sha-keyed canonical path via [urlPath].
+  String unverifiedUrlPath(String slug, String filename) =>
+      p.normalize(p.join(urlRoot, '_unverified', slug, filename));
+
+  /// Path of the file lock used to serialize concurrent downloads of the
+  /// Temurin JDK for a given [feature] version.
+  String javaRuntimeLockPath(String feature) =>
+      p.normalize(p.join(runtimesRoot, '.lock-temurin-$feature'));
 
   /// Root directory of an extracted JDK feature for the current host.
   /// Inside lives the vendor's archive top-level directory (e.g.
@@ -43,7 +55,9 @@ class GitrinthCache {
   /// and tweaked options aren't wiped when build artifacts are.
   String launcherWorkDir({required String slug}) {
     if (slug.isEmpty) {
-      throw ArgumentError.value(slug, 'slug', 'must not be empty');
+      throw const ValidationError(
+        'launcher work dir requires a non-empty slug',
+      );
     }
     return p.join(launchersRoot, slug);
   }
@@ -106,7 +120,9 @@ class GitrinthCache {
   String urlPath({required String sha512, required String filename}) {
     final lower = sha512.toLowerCase();
     if (lower.length < 2) {
-      throw ArgumentError.value(sha512, 'sha512', 'must be at least 2 chars');
+      throw ValidationError(
+        'sha512 "$sha512" is too short; expected the full hex digest.',
+      );
     }
     final prefix = lower.substring(0, 2);
     return p.join(urlRoot, prefix, lower, filename);

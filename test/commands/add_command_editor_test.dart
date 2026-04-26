@@ -126,7 +126,7 @@ mods:
       const before = 'slug: pack\nmods: {}\n';
       expect(
         () => injectEntry(before, section: Section.mods, slug: 's'),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<ValidationError>()),
       );
       expect(
         () => injectEntry(
@@ -136,7 +136,7 @@ mods:
           shorthandValue: 'release',
           longForm: const {'version': 'x'},
         ),
-        throwsA(isA<ArgumentError>()),
+        throwsA(isA<ValidationError>()),
       );
     });
 

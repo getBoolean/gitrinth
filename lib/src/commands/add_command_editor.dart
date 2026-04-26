@@ -27,8 +27,9 @@ const typeFlagValues = ['mod', 'resourcepack', 'datapack', 'shader'];
 
 /// Maps a `--type` flag value to its [Section]. Returns `null` when [raw] is
 /// null (flag not passed). Unknown values should already have been rejected
-/// by `argParser.addOption(allowed: ...)`, so this throws [ArgumentError]
-/// instead of a user-facing error.
+/// by `argParser.addOption(allowed: ...)`; we still throw a typed
+/// [ValidationError] so a misuse surfaces through the standard CLI exit-code
+/// contract rather than a bare Dart stack trace.
 Section? sectionFromTypeFlag(String? raw) {
   if (raw == null) return null;
   switch (raw) {
@@ -41,7 +42,7 @@ Section? sectionFromTypeFlag(String? raw) {
     case 'shader':
       return Section.shaders;
     default:
-      throw ArgumentError.value(raw, 'raw', 'unknown --type value');
+      throw ValidationError('unknown --type value: "$raw"');
   }
 }
 
@@ -67,7 +68,7 @@ String injectEntry(
   Map<String, Object?>? longForm,
 }) {
   if ((shorthandValue == null) == (longForm == null)) {
-    throw ArgumentError(
+    throw const ValidationError(
       'injectEntry requires exactly one of shorthandValue or longForm.',
     );
   }

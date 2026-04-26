@@ -101,7 +101,7 @@ String resolveSourcePath(
       if (file.sha512 != null) {
         return cache.urlPath(sha512: file.sha512!, filename: file.name);
       }
-      return p.join(cache.urlRoot, '_unverified', entry.slug, file.name);
+      return cache.unverifiedUrlPath(entry.slug, file.name);
     case LockedSourceKind.path:
       final raw = entry.path;
       if (raw == null) {

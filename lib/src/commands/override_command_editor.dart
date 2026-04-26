@@ -60,7 +60,7 @@ String _injectOverride({
   required bool seedTopLevelOnEmpty,
 }) {
   if ((shorthandValue == null) == (longForm == null)) {
-    throw ArgumentError(
+    throw const ValidationError(
       '_injectOverride requires exactly one of shorthandValue or longForm.',
     );
   }

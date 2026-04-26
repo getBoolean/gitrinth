@@ -39,16 +39,10 @@ class PinCommand extends GitrinthCommand {
 
   @override
   Future<int> run() async {
-    final rest = argResults!.rest;
-    if (rest.isEmpty) {
-      throw const UsageError('pin requires a slug: gitrinth pin <slug>');
-    }
-    if (rest.length > 1) {
-      throw UsageError(
-        'Unexpected arguments after slug: ${rest.skip(1).join(' ')}',
-      );
-    }
-    final slug = rest.first;
+    final slug = parseSinglePositional(
+      name: 'slug',
+      usage: 'gitrinth pin <slug>',
+    );
     final preferredSection = sectionFromTypeFlag(
       argResults!['type'] as String?,
     );

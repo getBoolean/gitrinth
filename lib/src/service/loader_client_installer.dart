@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import 'console.dart';
+import 'java_environment.dart' as java_env;
 import 'java_runtime_resolver.dart';
 import 'server_installer.dart' show ProcessRunner, spawnInstaller;
 
@@ -118,15 +119,8 @@ class LoaderClientInstaller {
     return versionId;
   }
 
-  Map<String, String> _spawnEnvironment(String javaPath) {
-    final pathSep = Platform.isWindows ? ';' : ':';
-    final binDir = p.dirname(javaPath);
-    return {
-      ..._environment,
-      'PATH': '$binDir$pathSep${_environment['PATH'] ?? ''}',
-      'JAVA_HOME': p.dirname(binDir),
-    };
-  }
+  Map<String, String> _spawnEnvironment(String javaPath) =>
+      java_env.spawnEnvironment(_environment, p.dirname(javaPath));
 
   /// The `lastVersionId` the launcher uses for the freshly-installed profile.
   /// Must match what the installer writes to `<dotMc>/versions/`.
@@ -193,13 +187,6 @@ class LoaderClientInstaller {
     }
     // Fallback for tests that don't inject a resolver: legacy
     // JAVA_HOME-or-PATH lookup, no version validation.
-    final javaHome = _environment['JAVA_HOME'];
-    if (javaHome != null && javaHome.isNotEmpty) {
-      final candidate = File(
-        p.join(javaHome, 'bin', Platform.isWindows ? 'java.exe' : 'java'),
-      );
-      if (candidate.existsSync()) return candidate;
-    }
-    return File(Platform.isWindows ? 'java.exe' : 'java');
+    return java_env.resolveJava(_environment['JAVA_HOME']);
   }
 }
