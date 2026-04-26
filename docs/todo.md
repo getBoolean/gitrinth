@@ -30,10 +30,10 @@ Deferred MVP work:
 - [x] [`downgrade` command](#downgrade-command)
 - [x] [`outdated` command](#outdated-command)
 - [x] [`deps` command](#deps-command)
-- [ ] `modrinth` scoped commands:
-  - [ ] [`publish` command](#publish-command)
-  - [ ] [`login` / `logout` commands](#login--logout-commands)
-  - [ ] [`token` command](#token-command)
+- [x] `modrinth` scoped commands:
+  - [x] [`publish` command](#publish-command)
+  - [x] [`login` / `logout` commands](#login--logout-commands)
+  - [x] [`token` command](#token-command)
 - [ ] [`unpack` command](#unpack-command)
 - [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
 
@@ -426,6 +426,7 @@ cache or hit the network.
 
 ## `publish` command
 
+Shipped. See [`gitrinth modrinth publish`](cli.md#gitrinth-modrinth-publish).
 Upload the modpack to Modrinth (or the server declared in
 [`publish_to`](mods-yaml.md#publish_to)).
 
@@ -448,38 +449,34 @@ Requires a token stored via [`login`](#login--logout-commands) or
 overrides any stored token. Adds exit code `4` (authentication
 failure).
 
+The PAT used for publishing must carry these scopes (from
+[labrinth's `pats.rs`](https://github.com/modrinth/code/blob/main/apps/labrinth/src/models/v3/pats.rs)):
+
+| Scope            | Bit       | Required for                                        |
+|------------------|-----------|-----------------------------------------------------|
+| `USER_READ`      | `1 << 1`  | `GET /user` (login validation)                      |
+| `PROJECT_READ`   | `1 << 11` | resolving the project before upload                 |
+| `VERSION_CREATE` | `1 << 14` | `POST /project/{slug}/version` (the publish call)   |
+
+`VERSION_WRITE`, `VERSION_READ`, and `PROJECT_WRITE` are *not*
+required by `publish` itself — leave them off for a tighter PAT.
+
 ## `login` / `logout` commands
 
-Store and clear Modrinth credentials for the default server
-(modrinth.com) in the user config.
+Shipped. See [`gitrinth modrinth login`](cli.md#gitrinth-modrinth-login)
+and [`gitrinth modrinth logout`](cli.md#gitrinth-modrinth-logout).
+Store and clear a Modrinth personal-access token for the default
+server (modrinth.com) in the user config. The token is never echoed
+and can be piped over stdin or supplied via `--token`.
 
 ```text
-gitrinth modrinth login [--pat]
+gitrinth modrinth login
 gitrinth modrinth logout
 ```
 
-| Option  | Description                                                                                                                                  |
-|---------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `--pat` | Store a personal-access token instead of running the OAuth flow. The token is never echoed and can be piped over stdin. Same shape as today. |
-
-Default flow is OAuth: `login` opens the browser to Modrinth's
-authorization endpoint, listens on a loopback redirect for the
-callback, exchanges the code for an access + refresh token pair, and
-persists both (plus expiry) to the user config. Subsequent commands
-refresh transparently via the refresh token. `logout` revokes the
-refresh token server-side (best-effort) and clears the stored
-credentials.
-
-`--pat` keeps the original headless path for CI, remote shells, and
-users who'd rather paste a token. `GITRINTH_TOKEN` continues to
-override any stored credential and bypasses both flows.
-
-[`token`](#token-command) gains a parallel `--pat` flag for
-non-default servers; OAuth there depends on the target server
-exposing a compatible authorization endpoint.
-
 ## `token` command
 
+Shipped. See [`gitrinth modrinth token`](cli.md#gitrinth-modrinth-token).
 Manage tokens for additional Modrinth-compatible servers — anything
 other than modrinth.com. Use [`login` / `logout`](#login--logout-commands)
 for the default server.

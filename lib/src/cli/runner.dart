@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:dio/dio.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../app/container.dart';
@@ -18,6 +19,7 @@ import '../commands/downgrade_command.dart';
 import '../commands/get_command.dart';
 import '../commands/launch_command.dart';
 import '../commands/migrate_command.dart';
+import '../commands/modrinth_command.dart';
 import '../commands/outdated_command.dart';
 import '../commands/override_command.dart';
 import '../commands/pack_command.dart';
@@ -114,6 +116,7 @@ class GitrinthRunner extends CommandRunner<int> {
     addCommand(LaunchCommand());
     addCommand(MigrateCommand());
     addCommand(CacheCommand());
+    addCommand(ModrinthCommand());
     addCommand(CompletionCommand());
   }
 
@@ -215,6 +218,19 @@ Future<int> runGitrinth(
   } on FormatException catch (e) {
     stderr.writeln('error: ${e.message}');
     return exitUsageError;
+  } on DioException catch (e, stack) {
+    // Interceptors map upstream failures to GitrinthExceptions and stash
+    // them on `err.error`; surface the typed error when present.
+    final inner = e.error;
+    if (inner is GitrinthException) {
+      stderr.writeln('error: ${inner.message}');
+      return inner.exitCode;
+    }
+    stderr.writeln('error: ${e.message ?? e.toString()}');
+    if (runner.level == LogLevel.all) {
+      stderr.writeln(stack);
+    }
+    return exitUserError;
   } catch (e, stack) {
     stderr.writeln('error: $e');
     if (runner.level == LogLevel.all) {

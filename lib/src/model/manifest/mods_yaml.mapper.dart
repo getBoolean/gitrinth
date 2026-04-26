@@ -1194,6 +1194,12 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     opt: true,
     def: const {},
   );
+  static String? _$publishTo(ModsYaml v) => v.publishTo;
+  static const Field<ModsYaml, String> _f$publishTo = Field(
+    'publishTo',
+    _$publishTo,
+    opt: true,
+  );
 
   @override
   final MappableFields<ModsYaml> fields = const {
@@ -1209,6 +1215,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     #shaders: _f$shaders,
     #projectOverrides: _f$projectOverrides,
     #files: _f$files,
+    #publishTo: _f$publishTo,
   };
 
   static ModsYaml _instantiate(DecodingData data) {
@@ -1225,6 +1232,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       shaders: data.dec(_f$shaders),
       projectOverrides: data.dec(_f$projectOverrides),
       files: data.dec(_f$files),
+      publishTo: data.dec(_f$publishTo),
     );
   }
 
@@ -1316,6 +1324,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     Map<String, ModEntry>? shaders,
     Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
+    String? publishTo,
   });
   ModsYamlCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1392,6 +1401,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     Map<String, ModEntry>? shaders,
     Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
+    Object? publishTo = $none,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1406,6 +1416,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
       if (shaders != null) #shaders: shaders,
       if (projectOverrides != null) #projectOverrides: projectOverrides,
       if (files != null) #files: files,
+      if (publishTo != $none) #publishTo: publishTo,
     }),
   );
   @override
@@ -1422,6 +1433,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     shaders: data.get(#shaders, or: $value.shaders),
     projectOverrides: data.get(#projectOverrides, or: $value.projectOverrides),
     files: data.get(#files, or: $value.files),
+    publishTo: data.get(#publishTo, or: $value.publishTo),
   );
 
   @override

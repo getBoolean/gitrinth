@@ -7,13 +7,12 @@ import 'package:yaml/yaml.dart';
 import '../app/env.dart';
 import '../app/runner_settings.dart';
 import '../cli/exceptions.dart';
+import 'modrinth_url.dart';
 
-/// User-level config file. Currently only carries per-host Modrinth
-/// tokens; consumers (`login`/`logout`/`token`) land later. The
-/// stub exists so the `--config` flag and `GITRINTH_CONFIG` env var
-/// resolve to a real path that the file can be written to lazily.
+/// User-level config. Holds per-host Modrinth tokens keyed by
+/// [normalizeServerKey]; mutate via [withToken] / [withoutToken].
 class UserConfig {
-  /// Modrinth-compatible server URL → personal access token.
+  /// Normalized server URL → personal access token.
   final Map<String, String> tokens;
 
   const UserConfig({this.tokens = const {}});
@@ -32,6 +31,28 @@ class UserConfig {
       }
     }
     return UserConfig(tokens: tokens);
+  }
+
+  /// Copy with [token] stored under `normalizeServerKey(serverUrl)`.
+  UserConfig withToken(String serverUrl, String token) {
+    final key = normalizeServerKey(serverUrl);
+    final next = Map<String, String>.from(tokens);
+    next[key] = token;
+    return UserConfig(tokens: next);
+  }
+
+  /// Copy without the entry for `normalizeServerKey(serverUrl)`.
+  UserConfig withoutToken(String serverUrl) {
+    final key = normalizeServerKey(serverUrl);
+    if (!tokens.containsKey(key)) return this;
+    final next = Map<String, String>.from(tokens)..remove(key);
+    return UserConfig(tokens: next);
+  }
+
+  /// Stored token for [serverUrl] after normalization, or null.
+  String? tokenFor(String serverUrl) {
+    final key = normalizeServerKey(serverUrl);
+    return tokens[key];
   }
 
   String toYamlString() {
@@ -82,10 +103,19 @@ class UserConfigStore {
     return UserConfig.fromYaml(raw);
   }
 
+  /// Persists [config]. POSIX: best-effort `chmod 600`. Windows:
+  /// ACLs are not normalized.
   void write(UserConfig config) {
     final file = File(path);
     file.parent.createSync(recursive: true);
     file.writeAsStringSync(config.toYamlString());
+    if (!Platform.isWindows) {
+      try {
+        Process.runSync('chmod', ['600', path]);
+      } on Object {
+        // chmod unavailable; file mode left as-is.
+      }
+    }
   }
 }
 

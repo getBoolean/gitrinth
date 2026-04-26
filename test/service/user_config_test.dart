@@ -98,4 +98,47 @@ void main() {
       expect(File(path).existsSync(), isTrue);
     });
   });
+
+  group('UserConfig.withToken / withoutToken', () {
+    test('withToken normalizes the server URL into the map key', () {
+      final next = const UserConfig().withToken(
+        'HTTPS://API.Modrinth.COM/v2/',
+        'mrp_token',
+      );
+      expect(
+        next.tokens,
+        equals({'https://api.modrinth.com/v2': 'mrp_token'}),
+      );
+    });
+
+    test('withToken overwrites an existing entry under the same key', () {
+      final next = const UserConfig(
+        tokens: {'https://api.modrinth.com/v2': 'old'},
+      ).withToken('https://api.modrinth.com/v2/', 'new');
+      expect(next.tokens['https://api.modrinth.com/v2'], equals('new'));
+    });
+
+    test('withoutToken removes the entry by normalized key', () {
+      final next = const UserConfig(
+        tokens: {'https://api.modrinth.com/v2': 'mrp'},
+      ).withoutToken('HTTPS://api.modrinth.com/v2/');
+      expect(next.tokens, isEmpty);
+    });
+
+    test('withoutToken is a no-op when no entry exists', () {
+      const cfg = UserConfig(tokens: {'https://my.host/api': 'mrp'});
+      final next = cfg.withoutToken('https://other.host');
+      expect(next.tokens, equals(cfg.tokens));
+    });
+
+    test('tokenFor reads via the normalized key', () {
+      const cfg = UserConfig(
+        tokens: {'https://api.modrinth.com/v2': 'mrp_token'},
+      );
+      expect(
+        cfg.tokenFor('HTTPS://api.modrinth.com/v2/'),
+        equals('mrp_token'),
+      );
+    });
+  });
 }

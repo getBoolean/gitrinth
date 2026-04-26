@@ -937,6 +937,97 @@ gitrinth cache repair
 | `clean`    | Delete every cached artifact. Prompts for confirmation before deleting; pass `--force` (`-f`) to skip the prompt. Refuses to wipe without `--force` when stdin is not a terminal. |
 | `repair`   | Re-verify every cached file against its expected hash. Re-downloads corrupt Modrinth-sourced entries; deletes corrupt url-sourced entries (the next `gitrinth get` re-fetches).   |
 
+### `gitrinth modrinth login`
+
+Store a Modrinth personal-access token (PAT) for the default server
+(modrinth.com or `GITRINTH_MODRINTH_URL` if set) in the user config.
+The token is validated against `GET /user` before being persisted —
+an invalid token never lands on disk.
+
+```text
+gitrinth modrinth login [--token <pat>]
+```
+
+| Option         | Description                                                                                       |
+|----------------|---------------------------------------------------------------------------------------------------|
+| `--token <pat>`| Pass the PAT directly. Designed for headless / CI use; falls back to a hidden stdin prompt when omitted. The prompted form also accepts piped stdin (e.g. `echo $TOKEN | gitrinth modrinth login`). |
+
+The PAT for `gitrinth modrinth publish` must include these labrinth
+scopes: `USER_READ`, `PROJECT_READ`, `VERSION_CREATE`. Generate one
+under *Account → Authorization* on Modrinth.
+
+`GITRINTH_TOKEN`, when set, **overrides** the stored PAT for the
+default host on every subsequent command — `login` warns when the
+env var is set so the user knows the stored value will be masked.
+
+On POSIX hosts the user config is written with mode `0600` so other
+local users can't read stored tokens. On Windows ACLs are not
+normalized; the file lives under the user's profile directory.
+
+### `gitrinth modrinth logout`
+
+Clear the stored PAT for the default server. *Does not* revoke the
+token server-side — Modrinth's published auth API has no revocation
+endpoint. Re-issue a new PAT and discard the old one in the
+*Authorization* page if the token may have been exposed.
+
+```text
+gitrinth modrinth logout
+```
+
+### `gitrinth modrinth token`
+
+Manage tokens for non-default Modrinth-compatible servers (a self-hosted
+labrinth, a staging instance, etc.). Use `login` / `logout` for the
+default server.
+
+```text
+gitrinth modrinth token add <server-url> [--token <pat>]
+gitrinth modrinth token list
+gitrinth modrinth token remove <server-url>
+```
+
+| Subcommand          | Description                                                                                  |
+|---------------------|----------------------------------------------------------------------------------------------|
+| `add <server-url>`  | Validate against `<server-url>/user` and store the PAT under the normalized URL key.         |
+| `list`              | Print every stored host with its token masked (first / last 4 chars, middle elided).         |
+| `remove <server-url>`| Clear the entry. Errors when no token is stored under that key.                              |
+
+Server URLs are normalized to scheme + host + port + path before being
+used as map keys, so `https://my.host/api` and `HTTPS://my.host/api/`
+collapse to the same entry.
+
+### `gitrinth modrinth publish`
+
+Upload a built `.mrpack` as a new version on the resolved server.
+Reads the artifact produced by [`pack`](#pack) (or the path given by
+`--pack`), assembles the multipart payload, hashes the file locally
+(sha1 + sha512), and POSTs to `/project/{slug}/version`.
+
+```text
+gitrinth modrinth publish [--dry-run] [--force] [--draft]
+                          [--version-type <release|beta|alpha>]
+                          [--changelog <path>] [--pack <path>]
+```
+
+| Option                         | Description                                                                                                                                |
+|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `--dry-run`                    | Hash the artifact and emit the JSON payload without uploading.                                                                             |
+| `-f`, `--force`                | Skip the interactive `Publish <slug> v<version> to <host>? [y/N]` confirmation. Required when stdin is not a terminal.                     |
+| `--draft`                      | Set `status: draft` instead of `status: listed` on the new version.                                                                        |
+| `--version-type <channel>`     | Modrinth version channel. Defaults to `beta` when `mods.yaml.version` carries a pre-release suffix (e.g. `1.0.0-beta.2`), else `release`.  |
+| `--changelog <path>`           | Markdown changelog. Defaults to the matching `## [<version>]` section of `CHANGELOG.md` in the project directory; absent → empty changelog.|
+| `--pack <path>`                | Override the `.mrpack` location. Defaults to `build/<slug>-<version>.mrpack` (the path produced by `gitrinth pack`).                       |
+
+The target server is resolved from `mods.yaml.publish_to` if set,
+otherwise from `GITRINTH_MODRINTH_URL` / the built-in default. A
+`publish_to: 'none'` disables publishing for the pack.
+
+Authentication uses the same token resolution as the rest of the
+CLI (`GITRINTH_TOKEN` → stored token for the resolved host). If
+neither source has a token, `publish` exits with code `4` before
+hitting the network.
+
 ### `completion`
 
 Emit a shell-completion script for the given shell to stdout. No
@@ -973,25 +1064,27 @@ want a particular mod in the pack despite a declared incompatibility.
 
 ## Exit codes
 
-| Code | Meaning                                        |
-|------|------------------------------------------------|
-| `0`  | Success.                                       |
-| `1`  | Recoverable user-facing error.                 |
-| `2`  | Validation or resolution failed.               |
-| `5`  | Cache corruption `cache repair` could not fix. |
-| `64` | Usage error — matches `sysexits.h` `EX_USAGE`. |
+| Code | Meaning                                                                                |
+|------|----------------------------------------------------------------------------------------|
+| `0`  | Success.                                                                               |
+| `1`  | Recoverable user-facing error.                                                         |
+| `2`  | Validation or resolution failed.                                                       |
+| `4`  | Authentication failure — no PAT configured, or upstream rejected the supplied token.   |
+| `5`  | Cache corruption `cache repair` could not fix.                                         |
+| `64` | Usage error — matches `sysexits.h` `EX_USAGE`.                                         |
 
 ## Environment variables
 
-| Variable                      | Used by                  | Purpose                                                   |
-|-------------------------------|--------------------------|-----------------------------------------------------------|
-| `GITRINTH_CACHE`              | every command            | Override the cache root.                                  |
-| `GITRINTH_CONFIG`             | every command            | Override the user config file path. `--config` wins.      |
-| `GITRINTH_MODRINTH_URL`       | every command            | Override the default Modrinth base URL.                   |
-| `GITRINTH_JAVA_METADATA_URL`  | `launch` / `build`       | Override Adoptium metadata URL.                           |
-| `JAVA_HOME`                   | `launch` / `build`       | Honored by the Java resolver if its major matches.        |
-| `NO_COLOR`                    | every command            | Disable ANSI colour. `--color` overrides; `--no-color` matches. |
-| `HTTPS_PROXY` / `HTTP_PROXY`  | every command            | Standard proxy variables, honoured by every HTTP request. |
+| Variable                      | Used by                  | Purpose                                                                                                                            |
+|-------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_CACHE`              | every command            | Override the cache root.                                                                                                           |
+| `GITRINTH_CONFIG`             | every command            | Override the user config file path. `--config` wins.                                                                               |
+| `GITRINTH_MODRINTH_URL`       | every command            | Override the default Modrinth base URL.                                                                                            |
+| `GITRINTH_TOKEN`              | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix) per the Modrinth auth doc. Other hosts always use the stored token. |
+| `GITRINTH_JAVA_METADATA_URL`  | `launch` / `build`       | Override Adoptium metadata URL.                                                                                                    |
+| `JAVA_HOME`                   | `launch` / `build`       | Honored by the Java resolver if its major matches.                                                                                 |
+| `NO_COLOR`                    | every command            | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                    |
+| `HTTPS_PROXY` / `HTTP_PROXY`  | every command            | Standard proxy variables, honoured by every HTTP request.                                                                          |
 
 ## Shell completion
 

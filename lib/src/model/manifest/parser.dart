@@ -73,6 +73,19 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
   );
   final files = _parseFilesSection(map['files'], filePath);
 
+  final publishToRaw = map['publish_to'];
+  final String? publishTo;
+  if (publishToRaw == null) {
+    publishTo = null;
+  } else if (publishToRaw is String) {
+    final trimmed = publishToRaw.trim();
+    publishTo = trimmed.isEmpty ? null : trimmed;
+  } else {
+    throw _err(
+      "$filePath: 'publish_to' must be a string URL, 'none', or omitted.",
+    );
+  }
+
   if (shaders.isNotEmpty && loader.shaders == null) {
     throw _err(
       "$filePath: manifest has entries under 'shaders:' but no "
@@ -94,6 +107,7 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     shaders: shaders,
     projectOverrides: projectOverrides,
     files: files,
+    publishTo: publishTo,
   );
 }
 

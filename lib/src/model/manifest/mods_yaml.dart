@@ -157,6 +157,11 @@ class ModsYaml with ModsYamlMappable {
   /// pubgrub, mrpack `files[]` resolution, or the globalpacks tree.
   final Map<String, FileEntry> files;
 
+  /// Modrinth-compatible server URL `gitrinth modrinth publish`
+  /// uploads to. `null` means the default (modrinth.com); the literal
+  /// string `none` means publishing is disabled for this pack.
+  final String? publishTo;
+
   const ModsYaml({
     required this.slug,
     required this.name,
@@ -170,6 +175,7 @@ class ModsYaml with ModsYamlMappable {
     this.shaders = const {},
     this.projectOverrides = const {},
     this.files = const {},
+    this.publishTo,
   });
 
   Map<String, ModEntry> sectionEntries(Section section) {

@@ -7,6 +7,13 @@ import '../cli/exceptions.dart';
 class ModrinthErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
+    // A prior interceptor (e.g. auth) may have already mapped this to
+    // a typed gitrinth exception — don't shroud it in UserError.
+    if (err.error is GitrinthException) {
+      handler.next(err);
+      return;
+    }
+
     final response = err.response;
     final reqUri = err.requestOptions.uri;
     final status = response?.statusCode;

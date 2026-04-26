@@ -43,6 +43,12 @@ abstract class ModrinthApi {
   /// already records.
   @GET('/tag/game_version')
   Future<List<GameVersion>> getGameVersions();
+
+  /// Returns the current user. 200 means the bearer token is valid;
+  /// 401 means it isn't. Body is loosely typed — callers only need
+  /// the `username` field for the post-login confirmation message.
+  @GET('/user')
+  Future<HttpResponse<dynamic>> getCurrentUser();
 }
 
 String encodeFilterArray(List<String> values) => jsonEncode(values);

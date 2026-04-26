@@ -57,6 +57,14 @@ class FakeModrinth {
   /// filters the CLI sent (or didn't send) for a given request.
   final Map<String, Map<String, String>> lastVersionQuery = {};
 
+  /// Tokens accepted by `GET /v2/user`. Map value is the username
+  /// returned in the response body. Add via [registerToken]; any
+  /// `Authorization` header not present here yields 401.
+  final Map<String, String> _knownTokens = <String, String>{};
+
+  /// Last `Authorization` header seen on a request, by path.
+  final Map<String, String?> lastAuthorization = <String, String?>{};
+
   /// Number of times each route has been requested. Tests can assert
   /// that mc-version validation only fires when expected (one-shot rule).
   final Map<String, int> requestCounts = {};
@@ -247,6 +255,11 @@ class FakeModrinth {
     _takenSlugs.add(slug);
   }
 
+  /// Registers [token] as valid; `GET /v2/user` returns [username].
+  void registerToken(String token, {String username = 'tester'}) {
+    _knownTokens[token] = username;
+  }
+
   /// Adds an artifact and returns its sha512.
   String addArtifact(String slug, String filename, Uint8List bytes) {
     final key = '$slug/$filename';
@@ -339,8 +352,23 @@ class FakeModrinth {
   void _handle(HttpRequest req) async {
     final path = req.uri.path;
     requestCounts.update(path, (n) => n + 1, ifAbsent: () => 1);
+    lastAuthorization[path] = req.headers.value('authorization');
     try {
-      if (path == '/v2/tag/game_version') {
+      if (path == '/v2/user') {
+        final auth = req.headers.value('authorization');
+        final username = auth == null ? null : _knownTokens[auth];
+        if (username == null) {
+          req.response.statusCode = 401;
+          req.response.headers.contentType = ContentType.json;
+          req.response.write(jsonEncode({'error': 'unauthenticated'}));
+        } else {
+          req.response.headers.contentType = ContentType.json;
+          req.response.write(jsonEncode({
+            'id': 'fake-user-id',
+            'username': username,
+          }));
+        }
+      } else if (path == '/v2/tag/game_version') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode(gameVersions));
       } else if (path == '/fabric/v2/versions/loader') {

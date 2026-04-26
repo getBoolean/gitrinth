@@ -328,17 +328,24 @@ project:
 
 ### `publish_to`
 
-**Optional.** URL of the Modrinth-compatible server `gitrinth publish`
+**Optional.** URL of the Modrinth-compatible server
+[`gitrinth modrinth publish`](cli.md#gitrinth-modrinth-publish)
 uploads the modpack to.
 
-| Value   | Meaning                                                        |
-|---------|----------------------------------------------------------------|
-| *unset* | Publish to modrinth.com (the default).                         |
-| *URL*   | Publish to the Modrinth-compatible server at that URL instead. |
+| Value   | Meaning                                                                         |
+|---------|---------------------------------------------------------------------------------|
+| *unset* | Publish to the default host (`GITRINTH_MODRINTH_URL` if set, else modrinth.com).|
+| *URL*   | Publish to the Modrinth-compatible server at that URL instead.                  |
+| `none`  | Publishing is disabled for this pack — `publish` exits with an error.           |
 
 ```yaml
 publish_to: https://modrinth.example.com
 ```
+
+Authentication uses the per-host token configured via
+[`gitrinth modrinth token add <url>`](cli.md#gitrinth-modrinth-token).
+For the default host, use [`login`](cli.md#gitrinth-modrinth-login) or
+the `GITRINTH_TOKEN` env var instead.
 
 ### `loader`
 

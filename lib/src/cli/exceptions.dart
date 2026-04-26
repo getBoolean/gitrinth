@@ -37,3 +37,10 @@ class CacheCorruptionError extends GitrinthException {
   @override
   int get exitCode => exitCacheCorruption;
 }
+
+class AuthenticationError extends GitrinthException {
+  const AuthenticationError(super.message);
+
+  @override
+  int get exitCode => exitAuthenticationFailure;
+}
