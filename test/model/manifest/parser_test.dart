@@ -880,7 +880,7 @@ mc-version: 1.21.1
           isA<ValidationError>().having(
             (e) => e.message,
             'message',
-            contains('not supported'),
+            contains('not a recognized loader'),
           ),
         ),
       );

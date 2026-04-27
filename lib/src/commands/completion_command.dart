@@ -4,6 +4,7 @@ import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/runner.dart';
+import '../model/manifest/loader_ref.dart';
 
 class CompletionCommand extends GitrinthCommand {
   @override
@@ -135,13 +136,25 @@ String _firstLine(String s) {
   return head.trim();
 }
 
+/// Manual completion candidates for options whose `argParser.allowed`
+/// can't be set (because the option accepts a richer grammar than a
+/// fixed enum). The bare names are still useful as completion hints
+/// even when the user can append `:<tag>` after one. Keyed by option
+/// name so any subcommand declaring that option picks up the same
+/// candidate set automatically.
+final Map<String, List<String>> _manualEnumHints = {
+  // `--loader` accepts `<name>` or `<name>:<tag>` per
+  // [parseLoaderRef]; the shared name list is the canonical source.
+  'loader': loaderRefNames,
+};
+
 /// Map of option-name -> allowed-values across globals and all subcommands.
 /// Used so `gitrinth <anything> --env <TAB>` always completes to the same set.
 Map<String, List<String>> _enumOptions(_CompletionModel m) {
   final out = <String, List<String>>{};
   void collect(Iterable<_OptionSpec> opts) {
     for (final o in opts) {
-      final allowed = o.allowed;
+      final allowed = o.allowed ?? _manualEnumHints[o.name];
       if (allowed != null && allowed.isNotEmpty) {
         out[o.name] = allowed;
       }

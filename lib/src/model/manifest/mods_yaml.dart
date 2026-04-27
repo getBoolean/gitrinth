@@ -55,6 +55,38 @@ extension PluginLoaderToDeclared on PluginLoader {
   };
 }
 
+/// Single source of truth for the (declared, mods) → resolved
+/// [PluginLoader] mapping. Pairs with [PluginLoaderToDeclared.toDeclared]
+/// for the round-trip; called from the yaml parser and from
+/// `migrate loader` when re-resolving a sponge pack under a new mod
+/// loader.
+///
+///   declared    loader.mods   resolved
+///   ─────────   ───────────   ────────────────
+///   bukkit      *             bukkit
+///   folia       *             folia
+///   paper       *             paper
+///   spigot      *             spigot
+///   sponge      forge         spongeforge
+///   sponge      neoforge      spongeneo
+///   sponge      fabric        spongevanilla   (server is SpongeVanilla;
+///                                              client-side fabric mods
+///                                              coerce to server-unsupported)
+///   sponge      vanilla       spongevanilla
+extension DeclaredPluginLoaderResolution on DeclaredPluginLoader {
+  PluginLoader resolveWith(ModLoader mods) => switch (this) {
+    DeclaredPluginLoader.bukkit => PluginLoader.bukkit,
+    DeclaredPluginLoader.folia => PluginLoader.folia,
+    DeclaredPluginLoader.paper => PluginLoader.paper,
+    DeclaredPluginLoader.spigot => PluginLoader.spigot,
+    DeclaredPluginLoader.sponge => switch (mods) {
+      ModLoader.forge => PluginLoader.spongeforge,
+      ModLoader.neoforge => PluginLoader.spongeneo,
+      ModLoader.fabric || ModLoader.vanilla => PluginLoader.spongevanilla,
+    },
+  };
+}
+
 /// Per-loader behavior knobs. Single source of truth for every
 /// plugin-loader-specific decision — call sites read these properties
 /// instead of switching on [PluginLoader] themselves.

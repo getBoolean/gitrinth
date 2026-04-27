@@ -6,6 +6,7 @@ import 'package:yaml/yaml.dart';
 import '../../cli/exceptions.dart';
 import '../resolver/constraint.dart';
 import 'file_entry.dart';
+import 'loader_ref.dart';
 import 'mods_lock.dart';
 import 'mods_yaml.dart';
 import 'project_overrides.dart';

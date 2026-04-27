@@ -53,7 +53,7 @@ LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
   PluginLoader? plugins;
   if (map.containsKey('plugins')) {
     final declared = _parseDeclaredPluginLoader(map['plugins'], filePath);
-    plugins = _resolvePluginLoader(declared, modsLoader);
+    plugins = declared.resolveWith(modsLoader);
   }
 
   return LoaderConfig(
@@ -121,63 +121,31 @@ class _ModLoaderTag {
   const _ModLoaderTag(this.loader, this.version);
 }
 
-/// Parses a `loader.mods` value from `mods.yaml`. Forms:
-///   * `<loader>` or `<loader>:<tag>` for forge / fabric / neoforge
-///     (default tag `stable`).
-///   * bare `vanilla` (no tag — vanilla has no version).
+/// Parses a `loader.mods` value from `mods.yaml`. Defaults a missing
+/// tag on a real loader to `stable`; vanilla has no tag.
 _ModLoaderTag _parseYamlModLoader(dynamic raw, String filePath) {
-  final asString = raw.toString();
-  final colon = asString.indexOf(':');
-  final namePart = (colon < 0 ? asString : asString.substring(0, colon))
-      .toLowerCase();
-  final tagPart = colon < 0 ? null : asString.substring(colon + 1);
-
-  if (namePart == 'vanilla') {
-    if (tagPart != null) {
-      throw _err(
-        '$filePath: loader.mods "vanilla" must not carry a version tag '
-        '(write `mods: vanilla` or omit `loader.mods` entirely).',
-      );
-    }
-    return const _ModLoaderTag(ModLoader.vanilla, null);
-  }
-
-  final effectiveTag = tagPart ?? 'stable';
-  if (tagPart != null && tagPart.isEmpty) {
-    throw _err(
-      '$filePath: loader.mods "$asString" has an empty version tag '
-      '(use `<loader>` or `<loader>:<version|stable|latest>`).',
-    );
-  }
-  if (effectiveTag.contains(':')) {
-    throw _err(
-      '$filePath: loader.mods "$asString" has more than one `:` '
-      '(expected `<loader>` or `<loader>:<version|stable|latest>`).',
-    );
-  }
-  switch (namePart) {
-    case 'forge':
-      return _ModLoaderTag(ModLoader.forge, effectiveTag);
-    case 'fabric':
-      return _ModLoaderTag(ModLoader.fabric, effectiveTag);
-    case 'neoforge':
-      return _ModLoaderTag(ModLoader.neoforge, effectiveTag);
-    default:
-      throw _err(
-        '$filePath: loader.mods "$namePart" is not supported '
-        '(allowed: forge, fabric, neoforge, vanilla).',
-      );
-  }
+  final (loader, tag) = parseLoaderRef(
+    raw.toString(),
+    (msg) => throw _err('$filePath: loader.mods $msg'),
+  );
+  return _ModLoaderTag(
+    loader,
+    loader == ModLoader.vanilla ? null : (tag ?? 'stable'),
+  );
 }
 
 /// Parses a `loader.mods` value from `mods.lock`. Same syntax as the
-/// yaml form; bare `vanilla` is accepted (no version) and a missing
-/// tag on a real loader stays `stable` for forward compatibility with
-/// older locks.
+/// yaml form, but a missing tag on a real loader is preserved as-is
+/// (older locks may have been written before the resolver existed).
 _ModLoaderTag _parseLockModLoader(dynamic raw, String filePath) {
-  // The on-disk shape for the lock matches the yaml shape closely
-  // enough that we can reuse the yaml parser.
-  return _parseYamlModLoader(raw, filePath);
+  final (loader, tag) = parseLoaderRef(
+    raw.toString(),
+    (msg) => throw _err('$filePath: loader.mods $msg'),
+  );
+  return _ModLoaderTag(
+    loader,
+    loader == ModLoader.vanilla ? null : (tag ?? 'stable'),
+  );
 }
 
 ShaderLoader _parseShaderLoader(dynamic raw, String filePath) {
@@ -248,46 +216,5 @@ PluginLoader _parseResolvedPluginLoader(dynamic raw, String filePath) {
         'plugin loader (lockfile vocabulary: bukkit, folia, paper, '
         'spigot, spongeforge, spongeneo, spongevanilla).',
       );
-  }
-}
-
-/// Resolves a declared plugin loader plus a mod loader to the
-/// concrete [PluginLoader] stored in [LoaderConfig].
-///
-///   declared    loader.mods   resolved
-///   ─────────   ───────────   ────────────────
-///   bukkit      *             bukkit
-///   folia       *             folia
-///   paper       *             paper
-///   spigot      *             spigot
-///   sponge      forge         spongeforge
-///   sponge      neoforge      spongeneo
-///   sponge      fabric        spongevanilla   (server is SpongeVanilla;
-///                                              client-side fabric mods
-///                                              coerce to server-unsupported)
-///   sponge      vanilla       spongevanilla
-PluginLoader _resolvePluginLoader(
-  DeclaredPluginLoader declared,
-  ModLoader mods,
-) {
-  switch (declared) {
-    case DeclaredPluginLoader.bukkit:
-      return PluginLoader.bukkit;
-    case DeclaredPluginLoader.folia:
-      return PluginLoader.folia;
-    case DeclaredPluginLoader.paper:
-      return PluginLoader.paper;
-    case DeclaredPluginLoader.spigot:
-      return PluginLoader.spigot;
-    case DeclaredPluginLoader.sponge:
-      switch (mods) {
-        case ModLoader.forge:
-          return PluginLoader.spongeforge;
-        case ModLoader.neoforge:
-          return PluginLoader.spongeneo;
-        case ModLoader.fabric:
-        case ModLoader.vanilla:
-          return PluginLoader.spongevanilla;
-      }
   }
 }

@@ -183,4 +183,20 @@ class GitrinthCache {
     final bytes = await file.readAsBytes();
     verifySha256(Uint8List.fromList(bytes), expectedSha256);
   }
+
+  /// Verifies [bytes] against [expectedSha1] (case-insensitive). Throws
+  /// [UserError] on mismatch. Used for sources like Mojang's piston-meta
+  /// that publish sha1 instead of sha512.
+  static void verifySha1(List<int> bytes, String expectedSha1) {
+    final actual = sha1.convert(bytes).toString();
+    if (actual.toLowerCase() != expectedSha1.toLowerCase()) {
+      throw UserError('checksum mismatch: expected $expectedSha1, got $actual');
+    }
+  }
+
+  /// Verifies the contents of [file] against [expectedSha1].
+  static Future<void> verifyFileSha1(File file, String expectedSha1) async {
+    final bytes = await file.readAsBytes();
+    verifySha1(Uint8List.fromList(bytes), expectedSha1);
+  }
 }

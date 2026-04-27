@@ -95,4 +95,52 @@ mods:
       expect(m.mods['sodium']!.client, SideEnv.required);
     });
   });
+
+  group('DeclaredPluginLoaderResolution.resolveWith', () {
+    test('non-sponge declared loaders pass through every mods loader', () {
+      const passthrough = {
+        DeclaredPluginLoader.bukkit: PluginLoader.bukkit,
+        DeclaredPluginLoader.folia: PluginLoader.folia,
+        DeclaredPluginLoader.paper: PluginLoader.paper,
+        DeclaredPluginLoader.spigot: PluginLoader.spigot,
+      };
+      for (final entry in passthrough.entries) {
+        for (final mods in ModLoader.values) {
+          expect(
+            entry.key.resolveWith(mods),
+            entry.value,
+            reason: '${entry.key.name} + ${mods.name}',
+          );
+        }
+      }
+    });
+
+    test('sponge + forge resolves to spongeforge', () {
+      expect(
+        DeclaredPluginLoader.sponge.resolveWith(ModLoader.forge),
+        PluginLoader.spongeforge,
+      );
+    });
+
+    test('sponge + neoforge resolves to spongeneo', () {
+      expect(
+        DeclaredPluginLoader.sponge.resolveWith(ModLoader.neoforge),
+        PluginLoader.spongeneo,
+      );
+    });
+
+    test('sponge + fabric resolves to spongevanilla', () {
+      expect(
+        DeclaredPluginLoader.sponge.resolveWith(ModLoader.fabric),
+        PluginLoader.spongevanilla,
+      );
+    });
+
+    test('sponge + vanilla resolves to spongevanilla', () {
+      expect(
+        DeclaredPluginLoader.sponge.resolveWith(ModLoader.vanilla),
+        PluginLoader.spongevanilla,
+      );
+    });
+  });
 }

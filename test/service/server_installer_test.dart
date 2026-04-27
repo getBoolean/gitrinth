@@ -224,6 +224,67 @@ void main() {
       expect(called, isFalse);
     });
 
+    test('mod-loader path with vanilla loader throws StateError '
+        '(release-mode invariant; assert is stripped)', () async {
+      final installer = ServerInstaller(
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async => 0,
+      );
+      await expectLater(
+        installer.installServer(
+          loader: ModLoader.vanilla,
+          mcVersion: '1.21.1',
+          loaderVersion: null,
+          outputDir: outputDir,
+          installerOrServerJar: fakeInstaller,
+          offline: false,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('vanilla'), contains('hasModRuntime')),
+          ),
+        ),
+      );
+    });
+
+    test('mod-loader path with null loaderVersion throws StateError', () async {
+      final installer = ServerInstaller(
+        runProcess:
+            (
+              exe,
+              args, {
+              workingDirectory,
+              runInShell = false,
+              environment,
+            }) async => 0,
+      );
+      await expectLater(
+        installer.installServer(
+          loader: ModLoader.forge,
+          mcVersion: '1.21.1',
+          loaderVersion: null,
+          outputDir: outputDir,
+          installerOrServerJar: fakeInstaller,
+          offline: false,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('loaderVersion'), contains('hasModRuntime')),
+          ),
+        ),
+      );
+    });
+
     test('offline + existing marker is a no-op', () async {
       // Pre-write the marker as if a prior online install succeeded.
       outputDir.createSync(recursive: true);

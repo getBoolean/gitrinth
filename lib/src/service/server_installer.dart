@@ -60,12 +60,23 @@ class ServerInstaller {
     String? pluginInstallMarker,
   }) async {
     // Plugin-loader installs don't use [loader] / [loaderVersion]; the
-    // mod-loader path requires both, so a null version there is a bug.
-    assert(
-      pluginServerJar != null ||
-          (loader != ModLoader.vanilla && loaderVersion != null),
-      'mod-loader install requires a real loader and a concrete version',
-    );
+    // mod-loader path requires both. Caller must guard with
+    // LoaderConfig.hasModRuntime — these throws are the last line of
+    // defense and fire in release builds (where `assert` is stripped).
+    if (pluginServerJar == null) {
+      if (loader == ModLoader.vanilla) {
+        throw StateError(
+          'installServer: mod-loader path entered with vanilla loader; '
+          'gate on LoaderConfig.hasModRuntime.',
+        );
+      }
+      if (loaderVersion == null) {
+        throw StateError(
+          'installServer: mod-loader install requires a concrete '
+          'loaderVersion (gate on LoaderConfig.hasModRuntime).',
+        );
+      }
+    }
     outputDir.createSync(recursive: true);
 
     if (pluginServerJar != null && pluginInstallMarker != null) {

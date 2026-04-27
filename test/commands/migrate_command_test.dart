@@ -759,6 +759,98 @@ mods:
     );
   });
 
+  group('migrate loader survives every loader-block shape', () {
+    Future<CapturedOutput> runMigrateLoader(
+      String target, [
+      List<String> extra = const [],
+    ]) => runCli([
+      '-C',
+      packDir.path,
+      'migrate',
+      'loader',
+      target,
+      ...extra,
+    ], environment: env);
+
+    test(
+      'inserts `mods:` leaf when loader has plugins but no mods key',
+      () async {
+        // No mods to re-resolve and no loader.mods present (so the pack is
+        // currently a pure paper plugin server). Migrating to fabric must
+        // insert `loader.mods: fabric` without smashing `plugins: paper`.
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  plugins: paper
+mc-version: 1.21.1
+mods: {}
+''');
+        expect((await runGet()).exitCode, 0);
+
+        final out = await runMigrateLoader('fabric');
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final manifest = readManifest();
+        expect(manifest, contains('mods: fabric'));
+        expect(manifest, contains('plugins: paper'));
+      },
+    );
+
+    test(
+      'inserts a full `loader:` block when the manifest lacks one',
+      () async {
+        // No `loader:` key at all (parser treats this as vanilla, no
+        // plugins). Migrating to fabric must insert the whole block.
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+mc-version: 1.21.1
+mods: {}
+''');
+        expect((await runGet()).exitCode, 0);
+
+        final out = await runMigrateLoader('fabric');
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final manifest = readManifest();
+        expect(manifest, contains('loader:'));
+        expect(manifest, contains('mods: fabric'));
+      },
+    );
+
+    test('migrate loader vanilla removes `loader.mods` and preserves '
+        'plugins:', () async {
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: forge
+  plugins: paper
+mc-version: 1.21.1
+mods: {}
+''');
+      // Forge install isn't actually run during migrate (no mods to
+      // resolve, no loader binary fetched here), so `get` need not run.
+      // But the existing-lock mc-version validation skips when no lock
+      // is present, so we can go directly to migrate.
+
+      final out = await runMigrateLoader('vanilla');
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      final manifest = readManifest();
+      expect(manifest, isNot(contains('mods: forge')));
+      expect(manifest, isNot(contains('mods: vanilla')));
+      // plugins: paper survives.
+      expect(manifest, contains('plugins: paper'));
+      // The whole `loader:` block survives — only `mods:` was removed.
+      expect(manifest, contains('loader:'));
+    });
+  });
+
   group('parseConstraint with not-found marker', () {
     test('throws ValidationError naming `gitrinth migrate` as the fix', () {
       expect(

@@ -3,6 +3,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
+import 'package:gitrinth/src/model/manifest/parser.dart';
+
 import '../helpers/capture.dart';
 import '../helpers/fake_modrinth.dart';
 
@@ -45,6 +48,74 @@ void main() {
         expect(File(p.join(target, '.modrinth_ignore')).existsSync(), isTrue);
       },
     );
+
+    test('--loader vanilla scaffolds without the seeded mods entry', () async {
+      final target = p.join(tempRoot.path, 'vanilla_pack');
+      final out = await runCli([
+        'create',
+        '--loader',
+        'vanilla',
+        '--offline',
+        target,
+      ], environment: env());
+      expect(out.exitCode, 0, reason: out.stderr);
+
+      final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+      expect(mods, contains('mods: vanilla'));
+      // The default template seeds `globalpacks: stable` under `mods:`.
+      // Under vanilla that would be a parse error, so it must be
+      // stripped — and an empty `mods:` header is left in its place.
+      expect(mods, isNot(contains('globalpacks')));
+      expect(
+        mods,
+        contains(RegExp(r'^mods:\s*\n', multiLine: true)),
+        reason: 'expected a blank `mods:` header to remain',
+      );
+
+      // Sanity: the scaffold round-trips through the parser without
+      // tripping the "mods entries require a real loader" rule.
+      final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
+      expect(parsed.loader.mods, ModLoader.vanilla);
+      expect(parsed.mods, isEmpty);
+    });
+
+    test('--loader accepts docker-style <name>:<tag>', () async {
+      final target = p.join(tempRoot.path, 'tagged_pack');
+      final out = await runCli([
+        'create',
+        '--loader',
+        'neoforge:21.1.50',
+        '--offline',
+        target,
+      ], environment: env());
+      expect(out.exitCode, 0, reason: out.stderr);
+
+      final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+      // Tag must be quoted in yaml so the embedded `:` doesn't get
+      // read as a nested mapping.
+      expect(mods, contains('mods: "neoforge:21.1.50"'));
+
+      // Round-trips through the parser.
+      final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
+      expect(parsed.loader.mods, ModLoader.neoforge);
+      expect(parsed.loader.modsVersion, '21.1.50');
+    });
+
+    test('--loader rejects vanilla with a tag', () async {
+      final target = p.join(tempRoot.path, 'bogus_vanilla');
+      final out = await runCli([
+        'create',
+        '--loader',
+        'vanilla:1.0',
+        '--offline',
+        target,
+      ], environment: env());
+      expect(out.exitCode, 2);
+      expect(
+        out.stderr + out.stdout,
+        allOf(contains('--loader'), contains('vanilla')),
+      );
+    });
 
     test('--loader and --mc-version override the defaults', () async {
       final target = p.join(tempRoot.path, 'custom_pack');
@@ -161,7 +232,7 @@ void main() {
     });
 
     test(
-      'rejects --loader value outside the MVP set (args usage error)',
+      'rejects --loader value outside the MVP set (validation error)',
       () async {
         final target = p.join(tempRoot.path, 'pack_dir');
         final out = await runCli([
@@ -170,7 +241,14 @@ void main() {
           'sponge',
           target,
         ], environment: env());
-        expect(out.exitCode, 64);
+        // Exit 2 is ValidationError; --loader runs through the shared
+        // loader-ref parser (not argParser.allowed), so an unknown
+        // name surfaces as a ValidationError, not a UsageError.
+        expect(out.exitCode, 2);
+        expect(
+          out.stderr + out.stdout,
+          allOf(contains('--loader'), contains('sponge')),
+        );
       },
     );
 

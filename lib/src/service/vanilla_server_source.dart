@@ -15,7 +15,7 @@ import 'downloader.dart';
 /// version manifest enumerates every release and points at a per-
 /// version metadata blob that carries the actual server-jar URL.
 class VanillaServerSource {
-  static const String _versionManifestUrl =
+  static const String _defaultVersionManifestUrl =
       'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 
   /// Marker baked into the install marker file by [ServerInstaller] so
@@ -25,12 +25,14 @@ class VanillaServerSource {
   final Dio dio;
   final Downloader downloader;
   final GitrinthCache cache;
+  final String _versionManifestUrl;
 
   VanillaServerSource({
     required this.dio,
     required this.downloader,
     required this.cache,
-  });
+    String? versionManifestUrl,
+  }) : _versionManifestUrl = versionManifestUrl ?? _defaultVersionManifestUrl;
 
   Future<File> fetchServerJar({
     required String mcVersion,
@@ -71,9 +73,13 @@ class VanillaServerSource {
       );
     }
     // piston-meta publishes sha1, not sha512; the Downloader only
-    // checks sha512, so the integrity check is deferred to the
-    // launcher's first start (a corrupt jar fails immediately there).
-    return downloader.downloadTo(url: url, destinationPath: dest);
+    // checks sha512, so we verify sha1 here after the file lands.
+    final expectedSha1 = server['sha1'];
+    final file = await downloader.downloadTo(url: url, destinationPath: dest);
+    if (expectedSha1 is String) {
+      await GitrinthCache.verifyFileSha1(file, expectedSha1);
+    }
+    return file;
   }
 
   Future<Map<String, dynamic>> _findManifestEntry(String mcVersion) async {

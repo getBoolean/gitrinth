@@ -7,6 +7,7 @@ import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
+import '../model/manifest/loader_ref.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
@@ -138,46 +139,13 @@ class MigrateLoaderCommand extends GitrinthCommand with OfflineFlag {
 }
 
 (ModLoader, String?) _parseLoaderArg(String raw) {
-  final colon = raw.indexOf(':');
-  final namePart = (colon < 0 ? raw : raw.substring(0, colon)).toLowerCase();
-  final tagPart = colon < 0 ? null : raw.substring(colon + 1);
-
-  if (namePart == 'vanilla') {
-    if (tagPart != null) {
-      throw UsageError(
-        'migrate loader: "vanilla" must not carry a version tag '
-        '(write `migrate loader vanilla`).',
-      );
-    }
-    return (ModLoader.vanilla, null);
-  }
-
-  final effectiveTag = tagPart ?? 'stable';
-  if (tagPart != null && tagPart.isEmpty) {
-    throw UsageError(
-      'migrate loader: "$raw" has an empty tag '
-      '(use `<loader>` or `<loader>:<version|stable|latest>`).',
-    );
-  }
-  if (effectiveTag.contains(':')) {
-    throw UsageError(
-      'migrate loader: "$raw" has more than one `:` '
-      '(expected `<loader>` or `<loader>:<version|stable|latest>`).',
-    );
-  }
-  switch (namePart) {
-    case 'forge':
-      return (ModLoader.forge, effectiveTag);
-    case 'fabric':
-      return (ModLoader.fabric, effectiveTag);
-    case 'neoforge':
-      return (ModLoader.neoforge, effectiveTag);
-    default:
-      throw UsageError(
-        'migrate loader: "$namePart" is not a supported loader '
-        '(allowed: forge, fabric, neoforge, vanilla).',
-      );
-  }
+  final (loader, tag) = parseLoaderRef(
+    raw,
+    (msg) => throw UsageError('migrate loader: $msg'),
+  );
+  // Default tag to `stable` when the user didn't supply one (vanilla
+  // has no tag). Matches the yaml parser.
+  return (loader, loader == ModLoader.vanilla ? null : (tag ?? 'stable'));
 }
 
 Future<int> _runMigrate({
@@ -363,21 +331,16 @@ Future<int> _runMigrate({
       path: const ['mc-version'],
       newValue: newMcVersion,
     );
+  } else if (newLoader == ModLoader.vanilla) {
+    // Canonical vanilla form: `loader.mods` is removed (absence is the
+    // sentinel). Preserves any `plugins:` / `shaders:` siblings.
+    yamlText = setLoaderMods(yamlText, value: null);
   } else {
-    final String loaderValue;
-    if (newLoader == ModLoader.vanilla) {
-      loaderValue = 'vanilla';
-    } else {
-      final tag = newLoaderTag ?? 'stable';
-      loaderValue = tag == 'stable'
-          ? newLoader!.name
-          : '${newLoader!.name}:$tag';
-    }
-    yamlText = updateTopLevelScalar(
-      yamlText,
-      path: const ['loader', 'mods'],
-      newValue: loaderValue,
-    );
+    final tag = newLoaderTag ?? 'stable';
+    final loaderValue = tag == 'stable'
+        ? newLoader!.name
+        : '${newLoader!.name}:$tag';
+    yamlText = setLoaderMods(yamlText, value: loaderValue);
   }
 
   for (final (section, slug) in lost) {
@@ -471,21 +434,9 @@ ModsYaml _applyTarget(
   // pack switching from forge to fabric becomes spongevanilla. The
   // declared yaml value (`plugins: sponge`) doesn't change on disk;
   // only the in-memory resolution does.
-  final declared = manifest.loader.plugins?.toDeclared();
-  PluginLoader? resolvedPlugins;
-  if (declared != null) {
-    resolvedPlugins = switch (declared) {
-      DeclaredPluginLoader.bukkit => PluginLoader.bukkit,
-      DeclaredPluginLoader.folia => PluginLoader.folia,
-      DeclaredPluginLoader.paper => PluginLoader.paper,
-      DeclaredPluginLoader.spigot => PluginLoader.spigot,
-      DeclaredPluginLoader.sponge => switch (newLoader!) {
-        ModLoader.forge => PluginLoader.spongeforge,
-        ModLoader.neoforge => PluginLoader.spongeneo,
-        ModLoader.fabric || ModLoader.vanilla => PluginLoader.spongevanilla,
-      },
-    };
-  }
+  final resolvedPlugins = manifest.loader.plugins?.toDeclared().resolveWith(
+    newLoader!,
+  );
 
   return manifest.copyWith(
     loader: LoaderConfig(

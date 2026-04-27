@@ -179,7 +179,8 @@ Future<ResolveSyncResult> resolveAndSync({
   final String? resolvedLoaderVersion = loaderConfig.hasModRuntime
       ? await _resolveLoaderVersion(
           loaderResolver: loaderResolver,
-          loaderConfig: loaderConfig,
+          modsLoader: loaderConfig.mods,
+          tag: loaderConfig.modsVersion!,
           mcVersion: mc,
           existingLock: existingLock,
           offline: offline,
@@ -565,18 +566,19 @@ Future<void> _validateGameVersion({
 ///
 /// Concrete tags hit the network for upstream validation on first use;
 /// under `--offline` the validation is skipped (we trust the user's pin).
+///
+/// Caller is expected to gate on [LoaderConfig.hasModRuntime] and pass
+/// the populated [tag]; vanilla packs skip this resolution entirely.
 Future<String> _resolveLoaderVersion({
   required LoaderVersionResolver loaderResolver,
-  required LoaderConfig loaderConfig,
+  required ModLoader modsLoader,
+  required String tag,
   required String mcVersion,
   required ModsLock? existingLock,
   required bool offline,
   required Console console,
 }) async {
-  // Caller guarantees `loaderConfig.hasModRuntime`, so the version is
-  // populated for forge/fabric/neoforge.
-  final tag = loaderConfig.modsVersion!;
-  final lockedSameLoader = existingLock?.loader.mods == loaderConfig.mods;
+  final lockedSameLoader = existingLock?.loader.mods == modsLoader;
   final lockedVersion = existingLock?.loader.modsVersion;
   final tagIsConcrete = tag != 'stable' && tag != 'latest';
   if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
@@ -585,7 +587,7 @@ Future<String> _resolveLoaderVersion({
   if (tagIsConcrete && offline) {
     if (lockedSameLoader && lockedVersion != null && lockedVersion != tag) {
       console.warn(
-        'using unvalidated loader pin `${loaderConfig.mods.name}:'
+        'using unvalidated loader pin `${modsLoader.name}:'
         '$tag` while offline (mods.lock had `$lockedVersion`).',
       );
     }
@@ -598,12 +600,12 @@ Future<String> _resolveLoaderVersion({
     throw UserError(
       'cannot resolve loader tag "$tag" while offline: no concrete '
       'version recorded in mods.lock. Try again without --offline, or '
-      'pin a concrete tag like `${loaderConfig.mods.name}:<version>` in '
+      'pin a concrete tag like `${modsLoader.name}:<version>` in '
       'mods.yaml.',
     );
   }
   return loaderResolver.resolve(
-    loader: loaderConfig.mods,
+    loader: modsLoader,
     tag: tag,
     mcVersion: mcVersion,
   );

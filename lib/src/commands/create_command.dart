@@ -2,16 +2,18 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
+import 'package:yaml/yaml.dart';
+import 'package:yaml_edit/yaml_edit.dart';
 
 import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
+import '../model/manifest/loader_ref.dart';
+import '../model/manifest/mods_yaml.dart';
 import '../model/templates.dart';
 import '../version.dart';
-
-const List<String> _allowedLoaders = ['forge', 'fabric', 'neoforge'];
 
 /// Mirrors Modrinth's project-creation rule (`RE_URL_SAFE` + `length(3, 64)`)
 /// so any slug accepted locally is also accepted by Modrinth's project-create
@@ -34,9 +36,12 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     argParser
       ..addOption(
         'loader',
-        allowed: _allowedLoaders,
-        valueHelp: 'loader',
-        help: 'Pre-fill loader. Defaults to $defaultLoader.',
+        valueHelp: 'loader[:tag]',
+        help:
+            'Pre-fill loader. One of ${loaderRefNames.join(', ')}, '
+            'optionally with a docker-style version tag '
+            '(e.g. `neoforge:21.1.50`, `fabric:latest`). Defaults to '
+            '$defaultLoader.',
       )
       ..addOption(
         'mc-version',
@@ -61,7 +66,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
 
     final slug = _resolveSlug(results['slug'] as String?, directoryArg);
     final packName = (results['name'] as String?) ?? slug;
-    final loader = (results['loader'] as String?) ?? defaultLoader;
+    final loader = _resolveLoader(results['loader'] as String?);
     final mcVersion = _resolveMcVersion(results['mc-version'] as String?);
 
     final offline = readOfflineFlag();
@@ -76,37 +81,54 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     _ensureTargetWritable(targetDir, force: force);
     targetDir.createSync(recursive: true);
 
-    final templateValues = <String, String>{
+    // The template inserts `{{loader}}` directly after `mods: ` in
+    // mods.yaml. A tagged form like `neoforge:21.1.50` contains a
+    // colon, so YAML would otherwise misread it as a nested mapping —
+    // quote it for the yaml render. The README receives the bare form
+    // so the bullet point stays unquoted.
+    final loaderName = loader.split(':').first;
+    final loaderForYaml = loader.contains(':') ? '"$loader"' : loader;
+
+    final commonTemplateValues = <String, String>{
       'slug': slug,
       'name': packName,
       'version': '0.1.0',
       'description': 'A new Modrinth modpack.',
-      'loader': loader,
       'mc-version': mcVersion,
       'gitrinth-version': packageVersion,
       'gitrinth-next-major': nextMajor(packageVersion),
     };
+    final yamlTemplateValues = {
+      ...commonTemplateValues,
+      'loader': loaderForYaml,
+    };
+    final readmeTemplateValues = {
+      ...commonTemplateValues,
+      'loader': loaderName,
+    };
+
+    final renderedModsYaml = (loader == 'vanilla')
+        ? _stripSeededModsForVanilla(
+            render(modsYamlTemplate, yamlTemplateValues),
+          )
+        : render(modsYamlTemplate, yamlTemplateValues);
 
     final written = <String>[
-      _writeFile(
-        targetDir,
-        'mods.yaml',
-        render(modsYamlTemplate, templateValues),
-      ),
+      _writeFile(targetDir, 'mods.yaml', renderedModsYaml),
       _writeFile(
         targetDir,
         'README.md',
-        render(readmeTemplate, templateValues),
+        render(readmeTemplate, readmeTemplateValues),
       ),
       _writeFile(
         targetDir,
         '.gitignore',
-        render(gitignoreTemplate, templateValues),
+        render(gitignoreTemplate, readmeTemplateValues),
       ),
       _writeFile(
         targetDir,
         '.modrinth_ignore',
-        render(modrinthIgnoreTemplate, templateValues),
+        render(modrinthIgnoreTemplate, readmeTemplateValues),
       ),
     ];
 
@@ -154,6 +176,20 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     }
   }
 
+  /// Validates the `--loader` flag via the shared [parseLoaderRef]
+  /// helper and renders the value to inject into the scaffolded
+  /// `mods.yaml`. Re-emits the docker-style form so a tag the user
+  /// supplied survives round-trip.
+  String _resolveLoader(String? raw) {
+    if (raw == null) return defaultLoader;
+    final (loader, tag) = parseLoaderRef(
+      raw,
+      (msg) => throw ValidationError('--loader $msg'),
+    );
+    if (loader == ModLoader.vanilla) return 'vanilla';
+    return tag == null ? loader.name : '${loader.name}:$tag';
+  }
+
   String _resolveMcVersion(String? override) {
     if (override == null) return defaultMcVersion;
     if (!_mcVersionPattern.hasMatch(override)) {
@@ -181,4 +217,37 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     file.writeAsStringSync(contents);
     return p.join(dir.path, name);
   }
+}
+
+/// Strips the seeded `mods:` entries from the rendered template when
+/// the scaffolded pack has no mod runtime. The default template seeds
+/// `globalpacks: stable` under `mods:` so a freshly-created pack picks
+/// up the standard helper resource pack collection; under
+/// `loader.mods: vanilla`, any `mods:` entry is a parse error
+/// (declared mods need a real loader), so the seed must be dropped.
+///
+/// Uses `yaml_edit` to remove children of `mods:` regardless of how
+/// they're formatted (any indentation, future commented-out entries,
+/// nested long-form blocks). yaml_edit leaves an explicit `{}`
+/// placeholder beneath the header after the last child is removed; we
+/// strip that placeholder so the result is a bare `mods:` header.
+String _stripSeededModsForVanilla(String rendered) {
+  final editor = YamlEditor(rendered);
+  final root = editor.parseAt(<Object>[]);
+  if (root is! YamlMap) return rendered;
+  final mods = root.nodes['mods'];
+  if (mods is! YamlMap) return rendered;
+  for (final key in mods.keys.toList()) {
+    editor.remove(['mods', key.toString()]);
+  }
+  // Drop the `  {}` placeholder yaml_edit emits for an emptied block
+  // map, scoped to the `mods:` header so other empty sections in the
+  // template are left untouched.
+  return editor.toString().replaceAllMapped(
+    RegExp(
+      r'^(mods:)[ \t]*(\r?\n)[ \t]+\{\}[ \t]*(?=\r?\n|$)',
+      multiLine: true,
+    ),
+    (m) => '${m[1]}${m[2]}',
+  );
 }
