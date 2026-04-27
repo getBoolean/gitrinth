@@ -77,9 +77,11 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       final lockSection = lock.sectionFor(section);
       final manifestSection = manifest.sectionEntries(section);
       // Stable order: alphabetical within each section.
-      final slugs = lockSection.keys.toList()..sort();
-      for (final slug in slugs) {
-        final locked = lockSection[slug]!;
+      final entries = lockSection.entries.toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
+      for (final lockEntry in entries) {
+        final slug = lockEntry.key;
+        final locked = lockEntry.value;
         if (!includeTransitive &&
             locked.dependency == LockedDependencyKind.transitive) {
           continue;
@@ -326,10 +328,11 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       console.message(c.bold('$title:'));
       for (final r in section) {
         final pkg = pkgLabel(r);
+        final latest = r.latest;
         final markedPkg =
             (r.upgradable != null &&
-                r.latest != null &&
-                _parsedNotEqual(r.current, r.latest!))
+                latest != null &&
+                _parsedNotEqual(r.current, latest))
             ? '${c.red('*')} $pkg'
             : '  $pkg';
         // Pad the visible content to slugWidth (account for the 2-char

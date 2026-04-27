@@ -61,10 +61,11 @@ class UnpinCommand extends GitrinthCommand {
       slug: slug,
       preferredSection: preferredSection,
     );
-    if (hit.entry.channel != null && hit.entry.constraintRaw == null) {
+    final channel = hit.entry.channel;
+    if (channel != null && hit.entry.constraintRaw == null) {
       throw UserError(
         "'$slug' constraint is the channel token "
-        "'${hit.entry.channel!.name}', not a pinned version.",
+        "'${channel.name}', not a pinned version.",
       );
     }
     final raw = hit.entry.constraintRaw;

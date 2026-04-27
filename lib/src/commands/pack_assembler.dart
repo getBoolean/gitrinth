@@ -162,8 +162,12 @@ MrpackIndex buildIndex({
     files: files,
     dependencies: {
       'minecraft': lock.mcVersion,
-      if (lock.loader.hasModRuntime)
-        mrpackLoaderKey(lock.loader.mods): loaderVersion!,
+      // hasModRuntime + concrete loaderVersion is enforced above; the
+      // null branch is unreachable for non-vanilla packs, but the
+      // collection-if also lets the loader entry drop cleanly when
+      // the pack is vanilla.
+      if (lock.loader.hasModRuntime && loaderVersion != null)
+        mrpackLoaderKey(lock.loader.mods): loaderVersion,
     },
   );
 }
@@ -176,20 +180,23 @@ MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
       '`file` block. Re-run `gitrinth get` to repopulate.',
     );
   }
-  if (file.sha512 == null) {
+  final sha512 = file.sha512;
+  if (sha512 == null) {
     throw ValidationError(
       'lockfile entry "${entry.slug}" is missing sha512. Re-run '
       '`gitrinth get` to repopulate.',
     );
   }
-  if (file.sha1 == null) {
+  final sha1 = file.sha1;
+  if (sha1 == null) {
     throw ValidationError(
       'lockfile entry "${entry.slug}" is missing sha1. Re-run '
       '`gitrinth get` to repopulate (sha1 was added in a recent '
       'gitrinth version).',
     );
   }
-  if (file.size == null) {
+  final size = file.size;
+  if (size == null) {
     throw ValidationError(
       'lockfile entry "${entry.slug}" is missing file size. Re-run '
       '`gitrinth get` to repopulate.',
@@ -198,10 +205,10 @@ MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
   final downloadUrl = file.url ?? _canonicalModrinthUrl(entry, file);
   return MrpackFile(
     path: '$subdir/${file.name}',
-    hashes: {'sha1': file.sha1!, 'sha512': file.sha512!},
+    hashes: {'sha1': sha1, 'sha512': sha512},
     env: mrpackEnvFor(entry.client, entry.server),
     downloads: [downloadUrl],
-    fileSize: file.size!,
+    fileSize: size,
   );
 }
 

@@ -264,20 +264,21 @@ class PubGrubSolver {
 
   Future<bool> _solveStep(_SolverState state) async {
     // Pick a slug with constraints but no decision yet.
-    final undecided = state.constraints.keys
-        .where((s) => !state.decisions.containsKey(s))
+    final undecided = state.constraints.entries
+        .where((e) => !state.decisions.containsKey(e.key))
         .toList();
     if (undecided.isEmpty) return true;
 
     // Prefer user-declared roots first, then alphabetical.
     undecided.sort((a, b) {
-      final aUser = state.userSlugs.contains(a) ? 0 : 1;
-      final bUser = state.userSlugs.contains(b) ? 0 : 1;
+      final aUser = state.userSlugs.contains(a.key) ? 0 : 1;
+      final bUser = state.userSlugs.contains(b.key) ? 0 : 1;
       if (aUser != bUser) return aUser - bUser;
-      return a.compareTo(b);
+      return a.key.compareTo(b.key);
     });
-    final slug = undecided.first;
-    final constraint = state.constraints[slug]!;
+    final picked = undecided.first;
+    final slug = picked.key;
+    final constraint = picked.value;
     final channel = state.channels[slug] ?? Channel.alpha;
     final allowed = allowedVersionTypes(channel);
 

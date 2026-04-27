@@ -8,12 +8,25 @@ ModsLock _buildLock(
   ResolutionResult resolution,
   String? resolvedLoaderVersion,
 ) {
+  final mods = <String, LockedEntry>{};
+  final resourcePacks = <String, LockedEntry>{};
+  final dataPacks = <String, LockedEntry>{};
+  final shaders = <String, LockedEntry>{};
+  final plugins = <String, LockedEntry>{};
   final byKind = <Section, Map<String, LockedEntry>>{
-    for (final s in Section.values) s: <String, LockedEntry>{},
+    Section.mods: mods,
+    Section.resourcePacks: resourcePacks,
+    Section.dataPacks: dataPacks,
+    Section.shaders: shaders,
+    Section.plugins: plugins,
   };
   for (final r in resolution.entries) {
+    final sectionMap = byKind[r.section];
+    if (sectionMap == null) {
+      throw StateError('lock_builder: unknown section ${r.section}');
+    }
     final entry = manifest.sectionEntries(r.section)[r.slug];
-    byKind[r.section]![r.slug] = LockedEntry(
+    sectionMap[r.slug] = LockedEntry(
       slug: r.slug,
       sourceKind: LockedSourceKind.modrinth,
       version: r.version.versionNumber,
@@ -34,11 +47,15 @@ ModsLock _buildLock(
     );
   }
   for (final section in Section.values) {
+    final sectionMap = byKind[section];
+    if (sectionMap == null) {
+      throw StateError('lock_builder: unknown section $section');
+    }
     final entries = manifest.sectionEntries(section);
     entries.forEach((slug, entry) {
       final src = entry.source;
       if (src is UrlEntrySource) {
-        byKind[section]![slug] = LockedEntry(
+        sectionMap[slug] = LockedEntry(
           slug: slug,
           sourceKind: LockedSourceKind.url,
           file: LockedFile(name: _filenameFromUrl(src.url), url: src.url),
@@ -46,7 +63,7 @@ ModsLock _buildLock(
           server: entry.server,
         );
       } else if (src is PathEntrySource) {
-        byKind[section]![slug] = LockedEntry(
+        sectionMap[slug] = LockedEntry(
           slug: slug,
           sourceKind: LockedSourceKind.path,
           path: src.path,
@@ -81,11 +98,11 @@ ModsLock _buildLock(
     gitrinthVersion: packageVersion,
     loader: lockedLoader,
     mcVersion: manifest.mcVersion,
-    mods: byKind[Section.mods]!,
-    resourcePacks: byKind[Section.resourcePacks]!,
-    dataPacks: byKind[Section.dataPacks]!,
-    shaders: byKind[Section.shaders]!,
-    plugins: byKind[Section.plugins]!,
+    mods: mods,
+    resourcePacks: resourcePacks,
+    dataPacks: dataPacks,
+    shaders: shaders,
+    plugins: plugins,
     files: lockedFiles,
   );
 }

@@ -176,17 +176,21 @@ Future<ResolveSyncResult> resolveAndSync({
   // precisely to drift). For concrete tags that already match the lock,
   // skip even the passthrough — the lock is the cache. Under --offline,
   // `stable`/`latest` falls back to the lock's concrete version.
-  final String? resolvedLoaderVersion = loaderConfig.hasModRuntime
-      ? await _resolveLoaderVersion(
-          loaderResolver: loaderResolver,
-          modsLoader: loaderConfig.mods,
-          tag: loaderConfig.modsVersion!,
-          mcVersion: mc,
-          existingLock: existingLock,
-          offline: offline,
-          console: console,
-        )
-      : null;
+  final String? resolvedLoaderVersion;
+  final modsVersion = loaderConfig.modsVersion;
+  if (loaderConfig.hasModRuntime && modsVersion != null) {
+    resolvedLoaderVersion = await _resolveLoaderVersion(
+      loaderResolver: loaderResolver,
+      modsLoader: loaderConfig.mods,
+      tag: modsVersion,
+      mcVersion: mc,
+      existingLock: existingLock,
+      offline: offline,
+      console: console,
+    );
+  } else {
+    resolvedLoaderVersion = null;
+  }
 
   final slugToSection = <String, Section>{};
   for (final section in Section.values) {
@@ -377,15 +381,25 @@ Future<ResolveSyncResult> resolveAndSync({
         switch (locked.sourceKind) {
           case LockedSourceKind.modrinth:
             final file = locked.file;
-            if (file == null || file.url == null) continue;
+            final projectId = locked.projectId;
+            final versionId = locked.versionId;
+            if (file == null || projectId == null || versionId == null) {
+              throw FormatException(
+                'lock entry "${locked.slug}" with kind=modrinth is missing '
+                'required fields — mods.lock is malformed; rerun '
+                '`gitrinth get`.',
+              );
+            }
+            final url = file.url;
+            if (url == null) continue;
             final dest = cache.modrinthPath(
-              projectId: locked.projectId!,
-              versionId: locked.versionId!,
+              projectId: projectId,
+              versionId: versionId,
               filename: file.name,
             );
             final existed = File(dest).existsSync();
             await downloader.downloadTo(
-              url: file.url!,
+              url: url,
               destinationPath: dest,
               expectedSha512: file.sha512,
             );
@@ -399,15 +413,18 @@ Future<ResolveSyncResult> resolveAndSync({
             break;
           case LockedSourceKind.url:
             final file = locked.file;
-            if (file == null || file.url == null) continue;
-            final dest = file.sha512 != null
-                ? cache.urlPath(sha512: file.sha512!, filename: file.name)
+            if (file == null) continue;
+            final url = file.url;
+            if (url == null) continue;
+            final sha512 = file.sha512;
+            final dest = sha512 != null
+                ? cache.urlPath(sha512: sha512, filename: file.name)
                 : cache.unverifiedUrlPath(locked.slug, file.name);
             final existed = File(dest).existsSync();
             await downloader.downloadTo(
-              url: file.url!,
+              url: url,
               destinationPath: dest,
-              expectedSha512: file.sha512,
+              expectedSha512: sha512,
             );
             if (existed) {
               hits++;
@@ -416,7 +433,13 @@ Future<ResolveSyncResult> resolveAndSync({
             }
             break;
           case LockedSourceKind.path:
-            final rawPath = locked.path!;
+            final rawPath = locked.path;
+            if (rawPath == null) {
+              throw FormatException(
+                'lock entry "${locked.slug}" with kind=path has no path '
+                '— mods.lock is malformed; rerun `gitrinth get`.',
+              );
+            }
             final resolved = p.isAbsolute(rawPath)
                 ? rawPath
                 : p.normalize(p.join(io.directory.path, rawPath));

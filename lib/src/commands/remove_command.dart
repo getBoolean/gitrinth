@@ -95,10 +95,12 @@ class RemoveCommand extends GitrinthCommand with OfflineFlag {
       return '  $slug: path ${src.path}';
     }
     final parts = <String>[];
-    if (entry.constraintRaw != null) {
-      parts.add(entry.constraintRaw!);
-    } else if (entry.channel != null) {
-      parts.add(entry.channel!.name);
+    final constraintRaw = entry.constraintRaw;
+    final channel = entry.channel;
+    if (constraintRaw != null) {
+      parts.add(constraintRaw);
+    } else if (channel != null) {
+      parts.add(channel.name);
     }
     final defaults = defaultSidesFor(section);
     if (entry.client != defaults.client) {

@@ -136,8 +136,14 @@ String? newerAvailableThan(
     } on FormatException {
       continue;
     }
-    if (best == null ||
-        compareModrinthSelectionOrder(v, parsed, best, bestParsed!) < 0) {
+    if (best == null) {
+      best = v;
+      bestParsed = parsed;
+      continue;
+    }
+    final bp = bestParsed;
+    if (bp == null) continue;
+    if (compareModrinthSelectionOrder(v, parsed, best, bp) < 0) {
       best = v;
       bestParsed = parsed;
     }
@@ -200,8 +206,8 @@ String? formatReportLine({
   final kind = diff?.kind;
   String? icon;
   String? wasVersion;
-  if (kind == DiffKind.updated) {
-    final before = diff!.before;
+  if (kind == DiffKind.updated && diff != null) {
+    final before = diff.before;
     final after = diff.after;
     final sourceChanged = before?.sourceKind != after?.sourceKind;
     if (sourceChanged) {
@@ -294,8 +300,9 @@ class SolveReporter {
     final reportLines = <String>[];
     for (final section in Section.values) {
       final sectionMap = newLock.sectionFor(section);
-      for (final slug in sectionMap.keys) {
-        final locked = sectionMap[slug]!;
+      for (final entry in sectionMap.entries) {
+        final slug = entry.key;
+        final locked = entry.value;
         final newerRaw = locked.sourceKind == LockedSourceKind.modrinth
             ? newerAvailableThan(locked.version ?? '', versionsPerSlug[slug])
             : null;

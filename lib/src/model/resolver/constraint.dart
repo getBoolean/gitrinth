@@ -147,7 +147,10 @@ VersionConstraint _parseRangeConstraint(String trimmed) {
     if (opMatch == null) {
       throw FormatException('expected >=, <=, >, or < at "$remaining"');
     }
-    final op = opMatch.group(0)!;
+    final op = opMatch.group(0);
+    if (op == null) {
+      throw FormatException('range operator at "$remaining" did not capture');
+    }
     var afterOp = remaining.substring(opMatch.end).trimLeft();
     final verEnd = _rangeVersionEndPattern.firstMatch(afterOp);
     final verRaw = verEnd == null
@@ -226,9 +229,15 @@ Version parseModrinthVersion(String raw) {
   // pre-release tails like `1.21.1-december-2025` are unaffected.
   final modrinthTag = _modrinthTagPattern.firstMatch(trimmed);
   if (modrinthTag != null) {
-    final mmp = modrinthTag[1]!;
-    final label = modrinthTag[2]!;
-    final mc = modrinthTag[3]!;
+    final mmp = modrinthTag[1];
+    final label = modrinthTag[2];
+    final mc = modrinthTag[3];
+    if (mmp == null || label == null || mc == null) {
+      throw FormatException(
+        'modrinth-tag pattern matched "$trimmed" but a required '
+        'capture group was null',
+      );
+    }
     return Version.parse('$mmp-$label+mc.$mc');
   }
   // First attempt: pub_semver as-is.
@@ -241,8 +250,15 @@ Version parseModrinthVersion(String raw) {
   // `v1.2.3`, `release-1.0.0`). Recurse so four-segment normalization still runs.
   final prefixed = RegExp(r'^[^\d]+(\d.*)$').firstMatch(trimmed);
   if (prefixed != null) {
+    final tail = prefixed[1];
+    if (tail == null) {
+      throw FormatException(
+        'prefix-strip pattern matched "$trimmed" but the digit-tail '
+        'group was null',
+      );
+    }
     try {
-      return parseModrinthVersion(prefixed[1]!);
+      return parseModrinthVersion(tail);
     } on FormatException {
       // fall through
     }
@@ -263,9 +279,16 @@ Version parseModrinthVersion(String raw) {
   );
   final mt = fourSegmentWithTail.firstMatch(trimmed);
   if (mt != null) {
+    final tailRaw = mt[5];
+    if (tailRaw == null) {
+      throw FormatException(
+        'four-segment-with-tail pattern matched "$trimmed" but the tail '
+        'group was null',
+      );
+    }
     // Convert hyphens in the tail to dots so every token is a valid build
     // identifier (semver build metadata is `[A-Za-z0-9-]`, dot-separated).
-    final tail = mt[5]!.replaceAll('-', '.');
+    final tail = tailRaw.replaceAll('-', '.');
     return Version.parse('${mt[1]}.${mt[2]}.${mt[3]}+${mt[4]}.$tail');
   }
   throw FormatException('cannot parse version "$raw"');

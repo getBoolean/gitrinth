@@ -19,11 +19,13 @@ String emitModsLock(ModsLock lock) {
   } else {
     buf.writeln('  mods: ${_str("$modsName:$modsVersion")}');
   }
-  if (lock.loader.shaders != null) {
-    buf.writeln('  shaders: ${lock.loader.shaders!.name}');
+  final shaders = lock.loader.shaders;
+  if (shaders != null) {
+    buf.writeln('  shaders: ${shaders.name}');
   }
-  if (lock.loader.plugins != null) {
-    buf.writeln('  plugins: ${lock.loader.plugins!.name}');
+  final plugins = lock.loader.plugins;
+  if (plugins != null) {
+    buf.writeln('  plugins: ${plugins.name}');
   }
   buf.writeln('mc-version: ${_str(lock.mcVersion)}');
 
@@ -42,16 +44,19 @@ void _emitFilesSection(StringBuffer buf, Map<String, LockedFileEntry> files) {
     return;
   }
   buf.writeln('files:');
-  final keys = files.keys.toList()..sort();
-  for (final dest in keys) {
-    final e = files[dest]!;
+  final entries = files.entries.toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  for (final fileEntry in entries) {
+    final dest = fileEntry.key;
+    final e = fileEntry.value;
     buf.writeln('  ${_key(dest)}:');
     buf.writeln('    path: ${_str(e.sourcePath)}');
     buf.writeln('    client: ${e.client.name}');
     buf.writeln('    server: ${e.server.name}');
     if (e.preserve) buf.writeln('    preserve: true');
-    if (e.sha512 != null) {
-      buf.writeln('    sha512: ${_str(e.sha512!.toLowerCase())}');
+    final sha512 = e.sha512;
+    if (sha512 != null) {
+      buf.writeln('    sha512: ${_str(sha512.toLowerCase())}');
     }
   }
 }
@@ -66,29 +71,37 @@ void _emitSection(
     return;
   }
   buf.writeln('$name:');
-  final keys = entries.keys.toList()..sort();
-  for (final slug in keys) {
-    _emitEntry(buf, slug, entries[slug]!);
+  final sortedEntries = entries.entries.toList()
+    ..sort((a, b) => a.key.compareTo(b.key));
+  for (final entry in sortedEntries) {
+    _emitEntry(buf, entry.key, entry.value);
   }
 }
 
 void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   buf.writeln('  ${_key(slug)}:');
   buf.writeln('    source: ${_sourceKindName(e.sourceKind)}');
-  if (e.version != null) buf.writeln('    version: ${_str(e.version!)}');
-  if (e.projectId != null) buf.writeln('    project-id: ${_str(e.projectId!)}');
-  if (e.versionId != null) buf.writeln('    version-id: ${_str(e.versionId!)}');
-  if (e.path != null) buf.writeln('    path: ${_str(e.path!)}');
+  final version = e.version;
+  if (version != null) buf.writeln('    version: ${_str(version)}');
+  final projectId = e.projectId;
+  if (projectId != null) buf.writeln('    project-id: ${_str(projectId)}');
+  final versionId = e.versionId;
+  if (versionId != null) buf.writeln('    version-id: ${_str(versionId)}');
+  final path = e.path;
+  if (path != null) buf.writeln('    path: ${_str(path)}');
   final f = e.file;
   if (f != null) {
     buf.writeln('    file:');
     buf.writeln('      name: ${_str(f.name)}');
-    if (f.url != null) buf.writeln('      url: ${_str(f.url!)}');
-    if (f.sha1 != null) {
-      buf.writeln('      sha1: ${_str(f.sha1!.toLowerCase())}');
+    final url = f.url;
+    if (url != null) buf.writeln('      url: ${_str(url)}');
+    final sha1 = f.sha1;
+    if (sha1 != null) {
+      buf.writeln('      sha1: ${_str(sha1.toLowerCase())}');
     }
-    if (f.sha512 != null) {
-      buf.writeln('      sha512: ${_str(f.sha512!.toLowerCase())}');
+    final sha512 = f.sha512;
+    if (sha512 != null) {
+      buf.writeln('      sha512: ${_str(sha512.toLowerCase())}');
     }
     if (f.size != null) buf.writeln('      size: ${f.size}');
   }

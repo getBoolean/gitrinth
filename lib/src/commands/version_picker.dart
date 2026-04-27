@@ -69,15 +69,15 @@ List<String>? filterLoadersForSection(LoaderConfig config, Section section) {
       // only ever hit by code that walks every section unconditionally.
       return config.hasModRuntime ? [config.mods.name] : null;
     case Section.shaders:
-      return config.shaders == null ? null : [config.shaders!.name];
+      final shaders = config.shaders;
+      return shaders == null ? null : [shaders.name];
     case Section.resourcePacks:
       return const ['minecraft'];
     case Section.dataPacks:
       return const ['datapack'];
     case Section.plugins:
-      return config.plugins == null
-          ? null
-          : [config.plugins!.modrinthLoaderToken];
+      final plugins = config.plugins;
+      return plugins == null ? null : [plugins.modrinthLoaderToken];
   }
 }
 

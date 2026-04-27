@@ -105,10 +105,8 @@ class DepsCommand extends GitrinthCommand {
         children[slug] = const [];
         continue;
       }
-      children[slug] = [
-        for (final childPid in raw)
-          if (projectIdToSlug.containsKey(childPid)) projectIdToSlug[childPid]!,
-      ]..sort();
+      children[slug] = [for (final childPid in raw) ?projectIdToSlug[childPid]]
+        ..sort();
     }
 
     final visibleSlugs = _filterByEnv(lockBySlug, env);
@@ -235,7 +233,8 @@ class DepsCommand extends GitrinthCommand {
     required String? targetSlug,
   }) {
     String label(String slug, {bool prefixSection = false}) {
-      final entry = lockBySlug[slug]!;
+      final entry = lockBySlug[slug];
+      if (entry == null) return slug;
       final ver = entry.locked.version ?? entry.locked.path ?? '';
       final prefix = prefixSection ? '${entry.section.name}/' : '';
       return ver.isEmpty ? '$prefix$slug' : '$prefix$slug $ver';
@@ -363,7 +362,8 @@ class DepsCommand extends GitrinthCommand {
       if (directSlugs.isNotEmpty) console.message('');
       console.message('transitive dependencies:');
       for (final slug in transitiveSlugs) {
-        final entry = lockBySlug[slug]!;
+        final entry = lockBySlug[slug];
+        if (entry == null) continue;
         final ver = entry.locked.version ?? entry.locked.path ?? '';
         console.message('- $slug${ver.isEmpty ? '' : ' $ver'}');
       }
@@ -433,7 +433,8 @@ class DepsCommand extends GitrinthCommand {
       if (directSlugs.isNotEmpty) console.message('');
       console.message('transitive dependencies:');
       for (final slug in transitiveSlugs) {
-        final entry = lockBySlug[slug]!;
+        final entry = lockBySlug[slug];
+        if (entry == null) continue;
         final ver = entry.locked.version ?? entry.locked.path ?? '';
         console.message('- $slug${ver.isEmpty ? '' : ' $ver'}');
       }

@@ -182,6 +182,8 @@ class CacheInspector {
             verified++;
           case _UrlRepair.deleted:
             deleted++;
+          case _UrlRepair.skipped:
+            skippedOrphans.add(artifact.location);
         }
       }
     }
@@ -210,9 +212,18 @@ class CacheInspector {
     Downloader downloader, {
     required Console console,
   }) async {
+    final projectId = artifact.projectId;
+    final versionId = artifact.versionId;
+    if (projectId == null || versionId == null) {
+      console.warn(
+        'cache repair: ${artifact.location}: missing projectId/versionId; '
+        'skipping (cannot resolve metadata path)',
+      );
+      return _ModrinthRepair.skippedOrphan;
+    }
     final metaPath = cache.modrinthVersionMetadataPath(
-      projectId: artifact.projectId!,
-      versionId: artifact.versionId!,
+      projectId: projectId,
+      versionId: versionId,
     );
     final metaFile = File(metaPath);
     if (!metaFile.existsSync()) {
@@ -303,7 +314,14 @@ class CacheInspector {
   }
 
   _UrlRepair _repairUrl(CachedArtifact artifact, {required Console console}) {
-    final expected = artifact.sha512!;
+    final expected = artifact.sha512;
+    if (expected == null) {
+      console.warn(
+        'cache repair: ${artifact.location}: URL artifact has no expected '
+        'sha512; skipping (cannot verify, leaving file in place)',
+      );
+      return _UrlRepair.skipped;
+    }
     try {
       final bytes = File(artifact.location).readAsBytesSync();
       GitrinthCache.verifySha512(bytes, expected);
@@ -359,4 +377,4 @@ class CacheInspector {
 
 enum _ModrinthRepair { verified, redownloaded, skippedOrphan, stillCorrupt }
 
-enum _UrlRepair { verified, deleted }
+enum _UrlRepair { verified, deleted, skipped }

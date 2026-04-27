@@ -97,9 +97,11 @@ class Resolver {
     final result = await solver.solve(roots);
 
     final entries = <ResolvedEntry>[];
-    final sortedSlugs = result.decisions.keys.toList()..sort();
-    for (final slug in sortedSlugs) {
-      final v = result.decisions[slug]!;
+    final sortedDecisions = result.decisions.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final decision in sortedDecisions) {
+      final slug = decision.key;
+      final v = decision.value;
       final file = v.primaryFile;
       if (file == null) {
         throw ValidationError(

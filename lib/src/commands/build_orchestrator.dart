@@ -16,8 +16,8 @@ import '../service/manifest_io.dart';
 import '../service/plugin_server_source.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/server_installer.dart';
-import '../service/vanilla_server_source.dart';
 import '../service/solve_report.dart';
+import '../service/vanilla_server_source.dart';
 import '../version.dart';
 import 'build_assembler.dart';
 import 'build_pruner.dart';
@@ -161,7 +161,7 @@ Future<int> runBuild({
         console: console,
       );
     } else if (lock.loader.hasModRuntime) {
-      await _installServerBinary(
+      await _installModdedServerBinary(
         lock: lock,
         cache: cache,
         serverDir: serverDir,
@@ -269,7 +269,7 @@ Future<void> _installVanillaServerBinary({
   );
 }
 
-Future<void> _installServerBinary({
+Future<void> _installModdedServerBinary({
   required ModsLock lock,
   required GitrinthCache cache,
   required Directory serverDir,
@@ -285,8 +285,12 @@ Future<void> _installServerBinary({
   final loader = lock.loader.mods;
   final mcVersion = lock.mcVersion;
   // Caller already gated on `hasModRuntime`, so the lock has a
-  // resolved concrete loader version.
-  final loaderVersion = lock.loader.modsVersion!;
+  // resolved concrete loader version. If somehow null (e.g. vanilla
+  // path), there's nothing to install — bail.
+  final loaderVersion = lock.loader.modsVersion;
+  if (loaderVersion == null) {
+    return;
+  }
 
   if (skipDownload) {
     final cachedPath = _expectedCachedInstallerPath(

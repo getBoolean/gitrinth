@@ -390,7 +390,13 @@ int _parseJvmSize(String input) {
       'suffix (k, m, g, or t). Examples: 2G, 6144M, 512K.',
     );
   }
-  final value = int.parse(match.group(1)!);
+  final raw = match.group(1);
+  if (raw == null) {
+    throw FormatException(
+      'memory specifier "$input" did not parse a numeric prefix',
+    );
+  }
+  final value = int.parse(raw);
   final suffix = match.group(2)?.toLowerCase();
   final multiplier = switch (suffix) {
     'k' => 1024,
@@ -665,10 +671,21 @@ Future<int> runLaunchClient({
     await ensureDirSymlink(linkPath: linkPath, target: target.path);
   }
 
+  // hasModRuntime is true (gated above), so a non-vanilla loader was
+  // resolved during `gitrinth get`. A null modsVersion here means the
+  // lock is missing the resolved version it should have written.
+  final loaderVersion = lock.loader.modsVersion;
+  if (loaderVersion == null) {
+    throw const UserError(
+      'launch client: mods.lock has hasModRuntime=true but no resolved '
+      'loader version — mods.lock is malformed; rerun `gitrinth get`.',
+    );
+  }
+
   final installerJar = await effectiveFetcher.fetchClientInstaller(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
-    loaderVersion: lock.loader.modsVersion!,
+    loaderVersion: loaderVersion,
   );
 
   // Install the loader into the cache workdir so versions/, libraries/,
@@ -678,7 +695,7 @@ Future<int> runLaunchClient({
   final lastVersionId = await effectiveClientInstaller.installClient(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
-    loaderVersion: lock.loader.modsVersion!,
+    loaderVersion: loaderVersion,
     dotMinecraftDir: workDir,
     installerJar: installerJar,
     offline: options.offline,

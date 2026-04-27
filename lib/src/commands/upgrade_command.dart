@@ -258,9 +258,9 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       return exitOk;
     }
 
-    if (recovered.isNotEmpty && result.newLock != null) {
+    final newLock = result.newLock;
+    if (recovered.isNotEmpty && newLock != null) {
       var yamlText = File(io.modsYamlPath).readAsStringSync();
-      final newLock = result.newLock!;
       var rewrites = 0;
       for (final (section, slug) in recovered) {
         if (!targets.contains(slug)) continue;
@@ -305,7 +305,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
       io.writeModsYaml(yamlText);
     }
 
-    if ((majorVersions || tighten) && result.newLock != null) {
+    if ((majorVersions || tighten) && newLock != null) {
       rewriteCaretConstraints(
         io: io,
         console: console,
@@ -314,7 +314,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         relaxSet: relaxSet,
         majorVersions: majorVersions,
         tighten: tighten,
-        newLock: result.newLock!,
+        newLock: newLock,
       );
     }
 

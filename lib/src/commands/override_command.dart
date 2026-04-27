@@ -184,7 +184,13 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
       // Local / url: source — no Modrinth round-trip and no version
       // promotion. The resolver doesn't see this override; the lock
       // builder routes it through the url/path branches.
-      final filename = urlOpt ?? pathOpt!;
+      final filename = urlOpt ?? pathOpt;
+      if (filename == null) {
+        throw ArgumentError(
+          'override_command: neither --url nor --path supplied; '
+          'argument-validation should have rejected earlier.',
+        );
+      }
       if (typeOverride != null) {
         section = typeOverride;
       } else {
@@ -372,8 +378,12 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
     if (shorthand != null) {
       return '  $slug: $shorthand';
     }
+    final lf = longForm;
+    if (lf == null) {
+      throw ArgumentError('_describeEntry: shorthand and longForm both null');
+    }
     final buf = StringBuffer('  $slug:\n');
-    final entries = longForm!.entries.toList();
+    final entries = lf.entries.toList();
     for (var i = 0; i < entries.length; i++) {
       final e = entries[i];
       buf.write('    ${e.key}: ${e.value}');

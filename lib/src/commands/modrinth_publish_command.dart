@@ -89,9 +89,10 @@ class ModrinthPublishCommand extends GitrinthCommand {
     }
 
     final env = read(environmentProvider);
-    final baseUrl = yaml.publishTo == null || yaml.publishTo!.isEmpty
+    final publishTo = yaml.publishTo;
+    final baseUrl = publishTo == null || publishTo.isEmpty
         ? resolveModrinthBaseUrl(env)
-        : yaml.publishTo!;
+        : publishTo;
 
     final hasEnvToken = (env['GITRINTH_TOKEN'] ?? '').isNotEmpty;
     final stored = _readTokens();

@@ -79,14 +79,16 @@ String resolveSourcePath(
   switch (entry.sourceKind) {
     case LockedSourceKind.modrinth:
       final file = entry.file;
-      if (file == null || entry.projectId == null || entry.versionId == null) {
+      final projectId = entry.projectId;
+      final versionId = entry.versionId;
+      if (file == null || projectId == null || versionId == null) {
         throw ValidationError(
           'lockfile entry "${entry.slug}" is missing modrinth source fields.',
         );
       }
       return cache.modrinthPath(
-        projectId: entry.projectId!,
-        versionId: entry.versionId!,
+        projectId: projectId,
+        versionId: versionId,
         filename: file.name,
       );
     case LockedSourceKind.url:
@@ -101,8 +103,9 @@ String resolveSourcePath(
       // keyed by slug (same fallback resolve_and_sync uses). Mirroring
       // that here avoids forcing callers to re-run `get` just to
       // populate a hash they may never need.
-      if (file.sha512 != null) {
-        return cache.urlPath(sha512: file.sha512!, filename: file.name);
+      final sha512 = file.sha512;
+      if (sha512 != null) {
+        return cache.urlPath(sha512: sha512, filename: file.name);
       }
       return cache.unverifiedUrlPath(entry.slug, file.name);
     case LockedSourceKind.path:

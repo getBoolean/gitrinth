@@ -307,6 +307,7 @@ Future<int> _runMigrate({
   );
   final result = outcome.result;
   final disabledByConflict = outcome.disabledByConflict;
+  final newLock = result.newLock;
 
   if (result.exitCode != exitOk) {
     return result.exitCode;
@@ -336,10 +337,15 @@ Future<int> _runMigrate({
     // sentinel). Preserves any `plugins:` / `shaders:` siblings.
     yamlText = setLoaderMods(yamlText, value: null);
   } else {
+    final loader = newLoader;
+    if (loader == null) {
+      throw StateError(
+        'migrate: caller contract requires either newMcVersion '
+        'or newLoader to be set',
+      );
+    }
     final tag = newLoaderTag ?? 'stable';
-    final loaderValue = tag == 'stable'
-        ? newLoader!.name
-        : '${newLoader!.name}:$tag';
+    final loaderValue = tag == 'stable' ? loader.name : '${loader.name}:$tag';
     yamlText = setLoaderMods(yamlText, value: loaderValue);
   }
 
@@ -352,8 +358,7 @@ Future<int> _runMigrate({
     );
   }
 
-  if (result.newLock != null) {
-    final newLock = result.newLock!;
+  if (newLock != null) {
     for (final (section, slug) in recovered) {
       final locked = newLock.sectionFor(section)[slug];
       final resolvedRaw = locked?.version;
@@ -393,11 +398,16 @@ Future<int> _runMigrate({
 
   io.writeModsYaml(yamlText);
 
-  if (result.newLock != null && available.isNotEmpty) {
-    final modrinthByEntry = <(Section, String), ModEntry>{
-      for (final (section, slug) in available)
-        (section, slug): manifest.sectionEntries(section)[slug]!,
-    };
+  if (newLock != null && available.isNotEmpty) {
+    final modrinthByEntry = <(Section, String), ModEntry>{};
+    for (final (section, slug) in available) {
+      final entry = manifest.sectionEntries(section)[slug];
+      if (entry == null) {
+        console.warn('migrate: dropping orphaned entry $slug from $section');
+        continue;
+      }
+      modrinthByEntry[(section, slug)] = entry;
+    }
     rewriteCaretConstraints(
       io: io,
       console: console,
@@ -406,7 +416,7 @@ Future<int> _runMigrate({
       relaxSet: relaxSet,
       majorVersions: true,
       tighten: false,
-      newLock: result.newLock!,
+      newLock: newLock,
     );
   }
 
@@ -430,18 +440,23 @@ ModsYaml _applyTarget(
   if (newMcVersion != null) {
     return manifest.copyWith(mcVersion: newMcVersion);
   }
+  final loader = newLoader;
+  if (loader == null) {
+    // Caller contract: exactly one of newMcVersion / newLoader is set.
+    return manifest;
+  }
   // Re-resolve the plugin loader under the new mod loader: a sponge
   // pack switching from forge to fabric becomes spongevanilla. The
   // declared yaml value (`plugins: sponge`) doesn't change on disk;
   // only the in-memory resolution does.
   final resolvedPlugins = manifest.loader.plugins?.toDeclared().resolveWith(
-    newLoader!,
+    loader,
   );
 
   return manifest.copyWith(
     loader: LoaderConfig(
-      mods: newLoader!,
-      modsVersion: newLoader == ModLoader.vanilla
+      mods: loader,
+      modsVersion: loader == ModLoader.vanilla
           ? null
           : (newLoaderTag ?? 'stable'),
       shaders: manifest.loader.shaders,
@@ -470,8 +485,10 @@ String _summaryTarget(
 ) {
   if (newMcVersion != null) return 'mc-version $newMcVersion';
   if (newLoader == ModLoader.vanilla) return 'loader vanilla';
+  final loader = newLoader;
+  if (loader == null) return 'loader (none)';
   final tag = newLoaderTag ?? 'stable';
-  return 'loader ${newLoader!.name}:$tag';
+  return 'loader ${loader.name}:$tag';
 }
 
 void _printSummary({

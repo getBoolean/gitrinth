@@ -109,25 +109,29 @@ void writeLedger(String ledgerPath, BuildLedger ledger) {
     buf.writeln('files: {}');
   } else {
     buf.writeln('files:');
-    final keys = ledger.files.keys.toList()..sort();
-    for (final dest in keys) {
-      final src = ledger.files[dest]!;
+    final entries = ledger.files.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final fileEntry in entries) {
+      final dest = fileEntry.key;
+      final src = fileEntry.value;
       buf.writeln('  ${_key(dest)}:');
       switch (src) {
         case LedgerModSource():
           buf.writeln('    kind: mod-entry');
           buf.writeln('    section: ${_str(src.section)}');
           buf.writeln('    slug: ${_str(src.slug)}');
-          if (src.sha512 != null) {
-            buf.writeln('    sha512: ${_str(src.sha512!.toLowerCase())}');
+          final sha512 = src.sha512;
+          if (sha512 != null) {
+            buf.writeln('    sha512: ${_str(sha512.toLowerCase())}');
           }
         case LedgerFileSource():
           buf.writeln('    kind: file-entry');
           buf.writeln('    key: ${_str(src.key)}');
           if (src.preserve) buf.writeln('    preserve: true');
           buf.writeln('    source-path: ${_str(src.sourcePath)}');
-          if (src.sha512 != null) {
-            buf.writeln('    sha512: ${_str(src.sha512!.toLowerCase())}');
+          final sha512 = src.sha512;
+          if (sha512 != null) {
+            buf.writeln('    sha512: ${_str(sha512.toLowerCase())}');
           }
       }
     }

@@ -243,13 +243,14 @@ class ModrinthTokenListCommand extends GitrinthCommand {
       );
       return exitOk;
     }
-    final keys = cfg.tokens.keys.toList()..sort();
-    for (final key in keys) {
-      final masked = _maskToken(cfg.tokens[key]!);
-      final suffix = (envOverride && key == defaultKey)
+    final entries = cfg.tokens.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in entries) {
+      final masked = _maskToken(entry.value);
+      final suffix = (envOverride && entry.key == defaultKey)
           ? ' (GITRINTH_TOKEN override)'
           : '';
-      console.message('$key  $masked$suffix');
+      console.message('${entry.key}  $masked$suffix');
     }
     if (envOverride && !cfg.tokens.containsKey(defaultKey)) {
       console.message('$defaultKey  <env>  (GITRINTH_TOKEN override)');
