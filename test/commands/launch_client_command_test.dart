@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:gitrinth/src/cli/exceptions.dart';
@@ -338,6 +339,132 @@ void main() {
       },
     );
 
+    test('--memory writes -Xmx/-Xms into the renamed launcher profile', () async {
+      final installer = _ProfileWritingClientInstaller(
+        'fabric-loader-0.17.3-1.21.1',
+      );
+      final code = await runLaunchClient(
+        options: const LaunchClientOptions(
+          autoBuild: false,
+          offline: false,
+          verbose: false,
+          memoryMax: '4G',
+          memoryMin: '4G',
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess:
+            (
+              exe,
+              args, {
+              Directory? workingDirectory,
+              bool runInShell = false,
+              Map<String, String>? environment,
+            }) async => 0,
+        fetcher: _FakeFetcher(installerJar),
+        clientInstaller: installer,
+        locator: _FakeLocator(launcherExecutable: launcherExe),
+        cache: cache,
+      );
+      expect(code, 0);
+
+      final profilesFile = File(
+        p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
+      );
+      final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
+      final profile =
+          (root['profiles'] as Map).values.first as Map<String, dynamic>;
+      expect(profile['javaArgs'], '-Xmx4G -Xms4G');
+      expect(
+        profile['name'],
+        'gitrinth: pack',
+        reason:
+            'memory injection must not regress the existing rename behavior',
+      );
+    });
+
+    test('no memory flags leave a preexisting javaArgs string untouched', () async {
+      final installer = _ProfileWritingClientInstaller(
+        'fabric-loader-0.17.3-1.21.1',
+        presetJavaArgs: '-XX:+UseG1GC',
+      );
+      await runLaunchClient(
+        options: const LaunchClientOptions(
+          autoBuild: false,
+          offline: false,
+          verbose: false,
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess:
+            (
+              exe,
+              args, {
+              Directory? workingDirectory,
+              bool runInShell = false,
+              Map<String, String>? environment,
+            }) async => 0,
+        fetcher: _FakeFetcher(installerJar),
+        clientInstaller: installer,
+        locator: _FakeLocator(launcherExecutable: launcherExe),
+        cache: cache,
+      );
+
+      final profilesFile = File(
+        p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
+      );
+      final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
+      final profile =
+          (root['profiles'] as Map).values.first as Map<String, dynamic>;
+      expect(
+        profile['javaArgs'],
+        '-XX:+UseG1GC',
+        reason:
+            'absent --memory, gitrinth must not touch the launcher GUI value',
+      );
+    });
+
+    test('--memory preserves preexisting non-heap javaArgs tokens', () async {
+      final installer = _ProfileWritingClientInstaller(
+        'fabric-loader-0.17.3-1.21.1',
+        presetJavaArgs: '-Xmx512M -XX:+UseG1GC -Xms256M',
+      );
+      await runLaunchClient(
+        options: const LaunchClientOptions(
+          autoBuild: false,
+          offline: false,
+          verbose: false,
+          memoryMax: '8G',
+          memoryMin: '8G',
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess:
+            (
+              exe,
+              args, {
+              Directory? workingDirectory,
+              bool runInShell = false,
+              Map<String, String>? environment,
+            }) async => 0,
+        fetcher: _FakeFetcher(installerJar),
+        clientInstaller: installer,
+        locator: _FakeLocator(launcherExecutable: launcherExe),
+        cache: cache,
+      );
+
+      final profilesFile = File(
+        p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
+      );
+      final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
+      final profile =
+          (root['profiles'] as Map).values.first as Map<String, dynamic>;
+      expect(profile['javaArgs'], '-XX:+UseG1GC -Xmx8G -Xms8G');
+    });
+
     test('missing build/client when --no-build surfaces a clear UserError '
         'and leaves cache workdir untouched', () async {
       clientDir.deleteSync(recursive: true);
@@ -380,6 +507,41 @@ void main() {
       );
     });
   });
+}
+
+/// Test installer that mimics the real installer's auto-injection of a
+/// profile entry into launcher_profiles.json — the rename + javaArgs
+/// injection logic only runs against an existing file with a matching
+/// `lastVersionId`, so realistic tests need that file to exist.
+class _ProfileWritingClientInstaller implements LoaderClientInstaller {
+  final String returnId;
+  final String? presetJavaArgs;
+
+  _ProfileWritingClientInstaller(this.returnId, {this.presetJavaArgs});
+
+  @override
+  Future<String> installClient({
+    required ModLoader loader,
+    required String mcVersion,
+    required String loaderVersion,
+    required Directory dotMinecraftDir,
+    required File installerJar,
+    required bool offline,
+    String? javaPath,
+    bool allowManagedJava = true,
+    bool verbose = false,
+  }) async {
+    final profile = <String, dynamic>{
+      'lastVersionId': returnId,
+      'name': 'NeoForge',
+    };
+    if (presetJavaArgs != null) profile['javaArgs'] = presetJavaArgs;
+    final file = File(p.join(dotMinecraftDir.path, 'launcher_profiles.json'));
+    file.writeAsStringSync(jsonEncode({
+      'profiles': {'auto': profile},
+    }));
+    return returnId;
+  }
 }
 
 class _CountingFetcher implements LoaderBinaryFetcher {

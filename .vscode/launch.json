@@ -25,25 +25,28 @@
             ]
         },
         {
-            "name": "Neoforge: Launch Client",
+            "name": "Neoforge: Client",
             "request": "launch",
             "type": "dart",
             "program": "bin/gitrinth.dart",
             "args": [
                 "launch",
                 "client",
-                "--directory=example/example_neoforge"
+                "--directory=example/example_neoforge",
+                "--memory=4G"
             ]
         },
         {
-            "name": "Neoforge: Launch Server",
+            "name": "Neoforge: Server",
             "request": "launch",
             "type": "dart",
             "program": "bin/gitrinth.dart",
             "args": [
                 "launch",
                 "server",
-                "--directory=example/example_neoforge"
+                "--directory=example/example_neoforge",
+                "--accept-eula",
+                "--memory=4G"
             ]
         }
     ]

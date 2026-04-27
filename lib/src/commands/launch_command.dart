@@ -447,14 +447,19 @@ Future<int> _defaultRunProcess(
   return process.exitCode;
 }
 
-/// Renames the profile in [profilesFile] whose `lastVersionId` matches
-/// [lastVersionId] so the launcher GUI displays [newName]. No-op if the
-/// file is missing/malformed or no profile matches — the launcher still
-/// works either way; this is purely cosmetic.
-void _renameInstallerProfile({
+/// Updates the profile in [profilesFile] whose `lastVersionId` matches
+/// [lastVersionId]: renames it to [newName], and — when [memoryMax] and
+/// [memoryMin] are both set — rewrites its `javaArgs` to inject `-Xmx` /
+/// `-Xms` while preserving any pre-existing non-heap tokens (so users who
+/// added e.g. `-XX:+UseG1GC` via the launcher GUI keep their flags).
+/// No-op if the file is missing/malformed or no profile matches — the
+/// launcher still works either way; this is best-effort.
+void _updateInstallerProfile({
   required File profilesFile,
   required String lastVersionId,
   required String newName,
+  String? memoryMax,
+  String? memoryMin,
 }) {
   if (!profilesFile.existsSync()) return;
   Map<String, dynamic> root;
@@ -469,8 +474,24 @@ void _renameInstallerProfile({
   if (profiles is! Map) return;
   for (final entry in profiles.values) {
     if (entry is! Map) continue;
-    if (entry['lastVersionId'] == lastVersionId) {
-      entry['name'] = newName;
+    if (entry['lastVersionId'] != lastVersionId) continue;
+    entry['name'] = newName;
+    if (memoryMax != null && memoryMin != null) {
+      final existing = entry['javaArgs'];
+      final preserved = (existing is String ? existing : '')
+          .split(RegExp(r'\s+'))
+          .where(
+            (t) =>
+                t.isNotEmpty &&
+                !t.startsWith('-Xmx') &&
+                !t.startsWith('-Xms'),
+          )
+          .toList();
+      entry['javaArgs'] = [
+        ...preserved,
+        '-Xmx$memoryMax',
+        '-Xms$memoryMin',
+      ].join(' ');
     }
   }
   profilesFile.writeAsStringSync(
@@ -496,6 +517,26 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
         'build',
         defaultsTo: true,
         help: 'Auto-build client/ before launching. Use --no-build to skip.',
+      )
+      ..addOption(
+        'memory',
+        abbr: 'm',
+        valueHelp: 'size',
+        defaultsTo: '2G',
+        help:
+            'JVM heap size, written to the launcher profile as -Xmx and -Xms. '
+            'Examples: 2G, 4G, 6144M. Only takes effect when explicitly '
+            'passed; omit to keep whatever the launcher GUI has set.',
+      )
+      ..addOption(
+        'memory-max',
+        valueHelp: 'size',
+        help: 'Override -Xmx (max heap). Falls back to --memory.',
+      )
+      ..addOption(
+        'memory-min',
+        valueHelp: 'size',
+        help: 'Override -Xms (initial heap). Falls back to --memory.',
       )
       ..addOption(
         'output',
@@ -525,6 +566,27 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
 
   @override
   Future<int> run() async {
+    final memory = argResults!['memory'] as String;
+    final memoryMax = argResults!['memory-max'] as String?;
+    final memoryMin = argResults!['memory-min'] as String?;
+    // The launcher GUI owns javaArgs by default; only inject when the user
+    // explicitly opts in, so a no-arg `gitrinth launch client` doesn't stomp
+    // their customizations.
+    final memorySet =
+        argResults!.wasParsed('memory') ||
+        argResults!.wasParsed('memory-max') ||
+        argResults!.wasParsed('memory-min');
+    String? effectiveMax;
+    String? effectiveMin;
+    if (memorySet) {
+      resolveJvmHeap(
+        memory: memory,
+        memoryMax: memoryMax,
+        memoryMin: memoryMin,
+      );
+      effectiveMax = memoryMax ?? memory;
+      effectiveMin = memoryMin ?? memory;
+    }
     return runLaunchClient(
       options: LaunchClientOptions(
         autoBuild: argResults!['build'] as bool,
@@ -533,6 +595,8 @@ class LaunchClientCommand extends GitrinthCommand with OfflineFlag {
         verbose: gitrinthRunner.level.index >= LogLevel.io.index,
         javaPath: argResults!['java'] as String?,
         allowManagedJava: argResults!['managed-java'] as bool,
+        memoryMax: effectiveMax,
+        memoryMin: effectiveMin,
       ),
       container: container,
       console: console,
@@ -548,6 +612,8 @@ class LaunchClientOptions {
     this.outputPath,
     this.javaPath,
     this.allowManagedJava = true,
+    this.memoryMax,
+    this.memoryMin,
   });
 
   final bool autoBuild;
@@ -556,6 +622,15 @@ class LaunchClientOptions {
   final bool verbose;
   final String? javaPath;
   final bool allowManagedJava;
+
+  /// JVM `-Xmx` written into the launcher profile's `javaArgs`. Null means
+  /// the user did not pass a memory flag, so gitrinth leaves `javaArgs`
+  /// alone — whatever the launcher GUI has set wins.
+  final String? memoryMax;
+
+  /// JVM `-Xms` for the launcher profile; same null semantics as
+  /// [memoryMax].
+  final String? memoryMin;
 }
 
 /// Public hook so [LaunchClientCommand] can drive the client-launch flow
@@ -707,11 +782,15 @@ Future<int> runLaunchClient({
   // The loader installer auto-injects a profile with a generic name
   // (e.g. "NeoForge"). Rename it to "gitrinth: <slug>" so the launcher GUI
   // identifies which modpack this workDir belongs to. Match by
-  // lastVersionId so we don't depend on the installer's chosen key.
-  _renameInstallerProfile(
+  // lastVersionId so we don't depend on the installer's chosen key. When
+  // the user passed --memory, also inject -Xmx/-Xms into the profile's
+  // javaArgs so the launcher uses gitrinth's heap sizing.
+  _updateInstallerProfile(
     profilesFile: File(p.join(workDir.path, 'launcher_profiles.json')),
     lastVersionId: lastVersionId,
     newName: 'gitrinth: ${yaml.slug}',
+    memoryMax: options.memoryMax,
+    memoryMin: options.memoryMin,
   );
 
   final launcherExe = effectiveLocator.launcherExecutable;
