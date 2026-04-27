@@ -54,29 +54,80 @@ class _FakeResolver implements JavaRuntimeResolver {
   Future<int?> probeMajorVersion(String javaPath) async => null;
 }
 
+/// Captures `console.message(...)` calls so detach-mode tests can
+/// assert on the printed PID/kill instructions without spying on
+/// stdout. Other Console methods (warn/io/etc.) fall back to silent
+/// no-ops because the launch flow only uses [message].
+class _CapturingConsole implements Console {
+  final List<String> messages = [];
+
+  @override
+  LogLevel get level => LogLevel.normal;
+
+  @override
+  bool get useAnsi => false;
+
+  @override
+  void message(String msg) => messages.add(msg);
+
+  @override
+  void error(String message) {}
+
+  @override
+  void warn(String message) {}
+
+  @override
+  void io(String msg) {}
+
+  @override
+  void solver(String msg) {}
+
+  @override
+  void trace(String msg) {}
+
+  @override
+  void raw(String message) {}
+
+  @override
+  String bold(String s) => s;
+
+  @override
+  String red(String s) => s;
+
+  @override
+  String gray(String s) => s;
+}
+
 class _FakeRunProcess {
   String? executable;
   List<String>? args;
   Directory? workingDirectory;
   bool? runInShell;
   Map<String, String>? environment;
+  ProcessStartMode? mode;
   int exitCode = 0;
+  int pid = 4242;
 
   _FakeRunProcess();
 
-  Future<int> call(
+  Future<LaunchProcessResult> call(
     String exe,
     List<String> a, {
     Directory? workingDirectory,
     bool runInShell = false,
     Map<String, String>? environment,
+    ProcessStartMode mode = ProcessStartMode.inheritStdio,
   }) async {
     executable = exe;
     args = a;
     this.workingDirectory = workingDirectory;
     this.runInShell = runInShell;
     this.environment = environment;
-    return exitCode;
+    this.mode = mode;
+    return (
+      pid: pid,
+      exitCode: mode == ProcessStartMode.detached ? null : exitCode,
+    );
   }
 }
 
@@ -127,6 +178,9 @@ void main() {
           offline: false,
           verbose: false,
           extraArgs: [],
+          headless: false,
+          detach: false,
+          force: false,
         ),
         container: container,
         console: const Console(),
@@ -142,7 +196,8 @@ void main() {
     });
 
     test(
-      'Fabric launch invokes java -jar fabric-server-launch.jar nogui',
+      'Fabric launch invokes java -jar fabric-server-launch.jar without nogui '
+      'by default',
       () async {
         writeLock(_lock(loader: ModLoader.fabric));
         File(
@@ -159,6 +214,9 @@ void main() {
             offline: false,
             verbose: false,
             extraArgs: ['--port', '25566'],
+            headless: false,
+            detach: false,
+            force: false,
           ),
           container: container,
           console: const Console(),
@@ -174,9 +232,48 @@ void main() {
         expect(fake.args, contains('-Xms4G'));
         expect(fake.args, contains('-jar'));
         expect(fake.args, contains('fabric-server-launch.jar'));
-        expect(fake.args, contains('nogui'));
+        expect(
+          fake.args,
+          isNot(contains('nogui')),
+          reason:
+              'headless defaults to false; nogui must only appear when the '
+              'user opts in via --headless',
+        );
         expect(fake.args, containsAllInOrder(['--port', '25566']));
         expect(fake.workingDirectory?.path, serverDir.path);
+      },
+    );
+
+    test(
+      'Fabric launch with --headless appends nogui to the JVM args',
+      () async {
+        writeLock(_lock(loader: ModLoader.fabric));
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
+        final fake = _FakeRunProcess();
+
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '4G',
+            memoryMin: '4G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: true,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+
+        expect(fake.args, contains('nogui'));
       },
     );
 
@@ -196,6 +293,9 @@ void main() {
           extraArgs: const [],
           javaPath: '/some/explicit/java',
           allowManagedJava: false,
+          headless: false,
+          detach: false,
+          force: false,
         ),
         container: container,
         console: const Console(),
@@ -224,6 +324,9 @@ void main() {
             offline: false,
             verbose: false,
             extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
           ),
           container: container,
           console: const Console(),
@@ -255,6 +358,9 @@ void main() {
             offline: false,
             verbose: false,
             extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
           ),
           container: container,
           console: const Console(),
@@ -287,6 +393,9 @@ void main() {
             offline: false,
             verbose: false,
             extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
           ),
           container: container,
           console: const Console(),
@@ -298,9 +407,10 @@ void main() {
                 Directory? workingDirectory,
                 bool runInShell = false,
                 Map<String, String>? environment,
+                ProcessStartMode mode = ProcessStartMode.inheritStdio,
               }) async {
                 spawnCalled = true;
-                return 0;
+                return (pid: 1, exitCode: 0);
               },
           doBuild: (_) async => 7,
         );
@@ -322,6 +432,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -355,6 +468,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -390,6 +506,9 @@ void main() {
             offline: false,
             verbose: false,
             extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
           ),
           container: container,
           console: const Console(),
@@ -419,6 +538,9 @@ void main() {
             offline: false,
             verbose: false,
             extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
           ),
           container: container,
           console: const Console(),
@@ -450,6 +572,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: ['--port', '25566'],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -492,6 +617,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -532,6 +660,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -562,6 +693,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -601,6 +735,9 @@ void main() {
               offline: false,
               verbose: false,
               extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
             ),
             container: container,
             console: const Console(),
@@ -613,6 +750,193 @@ void main() {
           ).readAsStringSync();
           expect(body, contains('-Xmx8G'));
           expect(body, contains('-Xms2G'));
+        },
+      );
+
+      test('--headless appends nogui after user-supplied trailing args on the '
+          'run script', () async {
+        writeLock(_lock(loader: ModLoader.forge));
+        if (Platform.isWindows) {
+          File(
+            p.join(serverDir.path, 'run.bat'),
+          ).writeAsStringSync('@echo off\n');
+        } else {
+          File(
+            p.join(serverDir.path, 'run.sh'),
+          ).writeAsStringSync('#!/bin/sh\n');
+        }
+        final fake = _FakeRunProcess();
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '4G',
+            memoryMin: '4G',
+            offline: false,
+            verbose: false,
+            extraArgs: ['--port', '25566'],
+            headless: true,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+        // The args list forwarded to run.bat / run.sh — on POSIX the first
+        // element is the script path passed to bash, so trim it.
+        final scriptArgs = Platform.isWindows
+            ? fake.args!
+            : fake.args!.sublist(1);
+        expect(scriptArgs, containsAllInOrder(['--port', '25566', 'nogui']));
+      });
+    });
+
+    group('detach', () {
+      test('default (detach: false) spawns with inheritStdio mode', () async {
+        writeLock(_lock(loader: ModLoader.fabric));
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
+        final fake = _FakeRunProcess();
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+        expect(fake.mode, ProcessStartMode.inheritStdio);
+      });
+
+      test(
+        '--detach without --headless spawns detached and prints the PID',
+        () async {
+          writeLock(_lock(loader: ModLoader.fabric));
+          File(
+            p.join(serverDir.path, 'fabric-server-launch.jar'),
+          ).writeAsStringSync('FAB');
+          final fake = _FakeRunProcess()..pid = 31415;
+          final captureConsole = _CapturingConsole();
+          final code = await runLaunchServer(
+            options: const LaunchServerOptions(
+              acceptEula: false,
+              autoBuild: false,
+              memoryMax: '2G',
+              memoryMin: '2G',
+              offline: false,
+              verbose: false,
+              extraArgs: [],
+              headless: false,
+              detach: true,
+              force: false,
+            ),
+            container: container,
+            console: captureConsole,
+            io: io,
+            runProcess: fake.call,
+            resolver: fakeResolver,
+          );
+          expect(code, 0);
+          expect(fake.mode, ProcessStartMode.detached);
+          expect(
+            captureConsole.messages.any((m) => m.contains('31415')),
+            isTrue,
+            reason:
+                'detach output should report the PID so the user can kill the '
+                'server manually',
+          );
+        },
+      );
+
+      test(
+        '--detach --headless without --force throws UserError before spawning',
+        () async {
+          writeLock(_lock(loader: ModLoader.fabric));
+          File(
+            p.join(serverDir.path, 'fabric-server-launch.jar'),
+          ).writeAsStringSync('FAB');
+          final fake = _FakeRunProcess();
+          await expectLater(
+            runLaunchServer(
+              options: const LaunchServerOptions(
+                acceptEula: false,
+                autoBuild: false,
+                memoryMax: '2G',
+                memoryMin: '2G',
+                offline: false,
+                verbose: false,
+                extraArgs: [],
+                headless: true,
+                detach: true,
+                force: false,
+              ),
+              container: container,
+              console: const Console(),
+              io: io,
+              runProcess: fake.call,
+              resolver: fakeResolver,
+            ),
+            throwsA(
+              isA<UserError>().having(
+                (e) => e.message,
+                'message',
+                contains('silences the server'),
+              ),
+            ),
+          );
+          expect(
+            fake.mode,
+            isNull,
+            reason: 'validation must reject the combo before spawning',
+          );
+        },
+      );
+
+      test(
+        '--detach --headless --force spawns detached and bypasses validation',
+        () async {
+          writeLock(_lock(loader: ModLoader.fabric));
+          File(
+            p.join(serverDir.path, 'fabric-server-launch.jar'),
+          ).writeAsStringSync('FAB');
+          final fake = _FakeRunProcess();
+          final code = await runLaunchServer(
+            options: const LaunchServerOptions(
+              acceptEula: false,
+              autoBuild: false,
+              memoryMax: '2G',
+              memoryMin: '2G',
+              offline: false,
+              verbose: false,
+              extraArgs: [],
+              headless: true,
+              detach: true,
+              force: true,
+            ),
+            container: container,
+            console: const Console(),
+            io: io,
+            runProcess: fake.call,
+            resolver: fakeResolver,
+          );
+          expect(code, 0);
+          expect(fake.mode, ProcessStartMode.detached);
+          expect(fake.args, contains('nogui'));
         },
       );
     });

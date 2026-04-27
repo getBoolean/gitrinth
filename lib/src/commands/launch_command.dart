@@ -18,7 +18,6 @@ import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/manifest_io.dart';
 import '../service/minecraft_launcher_locator.dart';
-import '../service/server_installer.dart' show ProcessRunner;
 import '../service/symlink_util.dart';
 import 'build_orchestrator.dart';
 
@@ -116,6 +115,36 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
             'Auto-download a matching Eclipse Temurin JDK into the gitrinth '
             'cache when no system JDK satisfies the modpack. Use '
             '--no-managed-java to refuse and require --java/JAVA_HOME.',
+      )
+      ..addFlag(
+        'headless',
+        defaultsTo: false,
+        negatable: false,
+        help:
+            'Pass `nogui` to the server JAR so it runs without the AWT/Swing '
+            'console window. Off by default — opt in for headless hosts.',
+      )
+      ..addFlag(
+        'detach',
+        defaultsTo: false,
+        negatable: false,
+        help:
+            'Spawn the server detached from this terminal so it keeps running '
+            'after the terminal closes. Stdio is closed: no logs in this '
+            'terminal and no stdin (you cannot type `stop` here). gitrinth '
+            'prints the spawned server\'s PID so you can kill it manually '
+            '(`kill <pid>` on POSIX, `taskkill /PID <pid>` on Windows).',
+      )
+      ..addFlag(
+        'force',
+        abbr: 'f',
+        defaultsTo: false,
+        negatable: false,
+        help:
+            'Bypass the safety check that rejects `--detach --headless` '
+            'together. The combo silences the server completely — no '
+            'terminal, no GUI, no stdin — leaving only a manual kill to '
+            'shut it down.',
       );
     addOfflineFlag();
   }
@@ -138,6 +167,9 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
         extraArgs: List<String>.from(argResults!.rest),
         javaPath: argResults!['java'] as String?,
         allowManagedJava: argResults!['managed-java'] as bool,
+        headless: argResults!['headless'] as bool,
+        detach: argResults!['detach'] as bool,
+        force: argResults!['force'] as bool,
       ),
       container: container,
       console: console,
@@ -154,6 +186,9 @@ class LaunchServerOptions {
     required this.offline,
     required this.verbose,
     required this.extraArgs,
+    required this.headless,
+    required this.detach,
+    required this.force,
     this.outputPath,
     this.javaPath,
     this.allowManagedJava = true,
@@ -177,7 +212,38 @@ class LaunchServerOptions {
   /// auto-download a JDK and surfaces a clear error if no system JDK
   /// satisfies the modpack.
   final bool allowManagedJava;
+
+  /// Pass `nogui` to the server JAR / run script so the AWT/Swing
+  /// management console is suppressed. Off by default — opt in for
+  /// headless hosts.
+  final bool headless;
+
+  /// Spawn the server with `ProcessStartMode.detached` so it survives
+  /// the terminal that launched gitrinth. Stdio is closed: no logs and
+  /// no `stop` over stdin.
+  final bool detach;
+
+  /// Bypass the safety check that rejects [detach] + [headless]
+  /// together (the combo silences the server entirely; the only way
+  /// to shut it down is a manual kill against the printed PID).
+  final bool force;
 }
+
+/// Outcome of spawning a child via [LaunchProcessRunner]. In foreground
+/// (`inheritStdio`) mode [exitCode] is non-null and the spawn awaited
+/// the child to exit. In `detached` mode [exitCode] is null because
+/// Dart never delivers it for fully-detached children.
+typedef LaunchProcessResult = ({int pid, int? exitCode});
+
+typedef LaunchProcessRunner =
+    Future<LaunchProcessResult> Function(
+      String executable,
+      List<String> arguments, {
+      Directory? workingDirectory,
+      bool runInShell,
+      Map<String, String>? environment,
+      ProcessStartMode mode,
+    });
 
 /// Public hook so [LaunchServerCommand] can drive the launch flow without a
 /// hard dependency on [Process.start] (tests inject [runProcess]) and without
@@ -187,10 +253,18 @@ Future<int> runLaunchServer({
   required ProviderContainer container,
   required Console console,
   ManifestIo? io,
-  ProcessRunner? runProcess,
+  LaunchProcessRunner? runProcess,
   Future<int> Function(BuildOptions)? doBuild,
   JavaRuntimeResolver? resolver,
 }) async {
+  if (options.detach && options.headless && !options.force) {
+    throw const UserError(
+      '`--detach --headless` together silences the server: no terminal '
+      'logs, no AWT GUI, and no `stop` over stdin. The only way to shut '
+      'it down is a manual `kill`. Pass --force (-f) to acknowledge.',
+    );
+  }
+
   final manifestIo = io ?? ManifestIo();
   final effectiveDoBuild =
       doBuild ??
@@ -255,13 +329,14 @@ Future<int> runLaunchServer({
     memoryMin: options.memoryMin,
     extraArgs: options.extraArgs,
     javaPath: java.path,
+    headless: options.headless,
   );
 
   console.message(
     'Launching ${lock.loader.mods.name} server in ${serverDir.path}...',
   );
 
-  return effectiveRunProcess(
+  final result = await effectiveRunProcess(
     executable,
     args,
     workingDirectory: serverDir,
@@ -270,7 +345,20 @@ Future<int> runLaunchServer({
       base: container.read(environmentProvider),
       javaPath: java.path,
     ),
+    mode: options.detach
+        ? ProcessStartMode.detached
+        : ProcessStartMode.inheritStdio,
   );
+
+  if (options.detach) {
+    console.message(
+      'Server detached as PID ${result.pid}. Kill it manually if you '
+      'need to stop it (`kill ${result.pid}` on POSIX, `taskkill /PID '
+      '${result.pid}` on Windows).',
+    );
+    return exitOk;
+  }
+  return result.exitCode!;
 }
 
 /// Builds the spawn environment so the loader's `run.bat`/`run.sh` (and
@@ -296,67 +384,49 @@ Map<String, String> _spawnEnvironment({
   required String memoryMin,
   required List<String> extraArgs,
   required String javaPath,
+  required bool headless,
 }) {
-  switch (loader) {
-    case ModLoader.vanilla:
-      // Plugin / vanilla server launches use server.jar directly. The
-      // plugin-server install path drops `server.jar` into [serverDir];
-      // pure-vanilla packs would never reach here because `build server`
-      // refuses to install a server binary in that configuration.
-      return (
-        javaPath,
-        [
-          '-Xmx$memoryMax',
-          '-Xms$memoryMin',
-          '-jar',
-          'server.jar',
-          'nogui',
-          ...extraArgs,
-        ],
-        false,
-      );
-    case ModLoader.fabric:
-      return (
-        javaPath,
-        [
-          '-Xmx$memoryMax',
-          '-Xms$memoryMin',
-          '-jar',
-          'fabric-server-launch.jar',
-          'nogui',
-          ...extraArgs,
-        ],
-        false,
-      );
-    case ModLoader.forge:
-    case ModLoader.neoforge:
-      // Modern Forge / NeoForge installers (MC 1.17+) emit run.sh / run.bat;
-      // memory is supplied via user_jvm_args.txt rather than CLI flags so the
-      // run script picks them up.
-      _writeUserJvmArgs(serverDir, memoryMax, memoryMin);
-      if (Platform.isWindows) {
-        final bat = File(p.join(serverDir.path, 'run.bat'));
-        if (bat.existsSync()) {
-          return (bat.path, [...extraArgs], true);
-        }
-      } else {
-        final sh = File(p.join(serverDir.path, 'run.sh'));
-        if (sh.existsSync()) {
-          // Make it executable in case the installer didn't chmod +x.
-          try {
-            Process.runSync('chmod', ['+x', sh.path]);
-          } catch (_) {
-            // Non-fatal; if chmod isn't available the user will see a
-            // clearer error from the spawn step.
-          }
-          return ('bash', [sh.path, ...extraArgs], false);
-        }
-      }
-      throw UserError(
-        '${loader.name} server scripts not found in ${serverDir.path}; '
-        'rebuild or run `gitrinth build server` to populate it.',
-      );
+  final jar = loader.serverLaunchJar;
+  if (jar != null) {
+    return (
+      javaPath,
+      [
+        '-Xmx$memoryMax',
+        '-Xms$memoryMin',
+        '-jar',
+        jar,
+        if (headless) 'nogui',
+        ...extraArgs,
+      ],
+      false,
+    );
   }
+  // Forge / NeoForge: installer-emitted run script. Memory goes via
+  // user_jvm_args.txt; nogui propagates through %* / "$@" to the JVM.
+  _writeUserJvmArgs(serverDir, memoryMax, memoryMin);
+  final scriptArgs = [...extraArgs, if (headless) 'nogui'];
+  if (Platform.isWindows) {
+    final bat = File(p.join(serverDir.path, 'run.bat'));
+    if (bat.existsSync()) {
+      return (bat.path, scriptArgs, true);
+    }
+  } else {
+    final sh = File(p.join(serverDir.path, 'run.sh'));
+    if (sh.existsSync()) {
+      // Make it executable in case the installer didn't chmod +x.
+      try {
+        Process.runSync('chmod', ['+x', sh.path]);
+      } catch (_) {
+        // Non-fatal; if chmod isn't available the user will see a
+        // clearer error from the spawn step.
+      }
+      return ('bash', [sh.path, ...scriptArgs], false);
+    }
+  }
+  throw UserError(
+    '${loader.name} server scripts not found in ${serverDir.path}; '
+    'rebuild or run `gitrinth build server` to populate it.',
+  );
 }
 
 void _writeUserJvmArgs(
@@ -429,22 +499,29 @@ int _parseJvmSize(String input) {
   return (xmx, xms);
 }
 
-Future<int> _defaultRunProcess(
+Future<LaunchProcessResult> _defaultRunProcess(
   String executable,
   List<String> arguments, {
   Directory? workingDirectory,
   bool runInShell = false,
   Map<String, String>? environment,
+  ProcessStartMode mode = ProcessStartMode.inheritStdio,
 }) async {
   final process = await Process.start(
     executable,
     arguments,
     workingDirectory: workingDirectory?.path,
-    mode: ProcessStartMode.inheritStdio,
+    mode: mode,
     runInShell: runInShell,
     environment: environment,
   );
-  return process.exitCode;
+  if (mode == ProcessStartMode.detached) {
+    // Detached children never deliver exitCode to the parent; returning
+    // it here would hang forever. The caller distinguishes outcomes by
+    // checking whether they spawned in detached mode.
+    return (pid: process.pid, exitCode: null);
+  }
+  return (pid: process.pid, exitCode: await process.exitCode);
 }
 
 /// Updates the profile in [profilesFile] whose `lastVersionId` matches
@@ -482,9 +559,7 @@ void _updateInstallerProfile({
           .split(RegExp(r'\s+'))
           .where(
             (t) =>
-                t.isNotEmpty &&
-                !t.startsWith('-Xmx') &&
-                !t.startsWith('-Xms'),
+                t.isNotEmpty && !t.startsWith('-Xmx') && !t.startsWith('-Xms'),
           )
           .toList();
       entry['javaArgs'] = [
@@ -641,7 +716,7 @@ Future<int> runLaunchClient({
   required ProviderContainer container,
   required Console console,
   ManifestIo? io,
-  ProcessRunner? runProcess,
+  LaunchProcessRunner? runProcess,
   Future<int> Function(BuildOptions)? doBuild,
   LoaderBinaryFetcher? fetcher,
   LoaderClientInstaller? clientInstaller,
@@ -800,8 +875,9 @@ Future<int> runLaunchClient({
     '"gitrinth: ${yaml.slug}"; click Play to boot the modpack.',
   );
 
-  return effectiveRunProcess(launcherExe.path, [
+  await effectiveRunProcess(launcherExe.path, [
     '--workDir',
     workDir.absolute.path,
-  ]);
+  ], mode: ProcessStartMode.detached);
+  return exitOk;
 }

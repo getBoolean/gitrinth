@@ -39,6 +39,26 @@ enum PluginLoader {
 /// appears in [LoaderConfig] or in the lock model.
 enum DeclaredPluginLoader { bukkit, folia, paper, spigot, sponge }
 
+/// Runtime entry point for a built server distribution under
+/// `build/server/`. `null` means the loader uses an installer-emitted
+/// run script (`run.bat` / `run.sh`) rather than a single jar.
+///
+/// This is *not* a cache key. The artifact filename written into the
+/// cache by `gitrinth get` is computed elsewhere (see
+/// `_expectedCachedInstallerPath` in `build_orchestrator.dart` and
+/// `LoaderBinaryFetcher`); some loaders ship the same name in both
+/// places (fabric) and some don't (forge/neoforge installer JAR vs
+/// run script).
+extension ModLoaderServerInvocation on ModLoader {
+  String? get serverLaunchJar => switch (this) {
+    ModLoader.vanilla => 'server.jar',
+    ModLoader.fabric => 'fabric-server-launch.jar',
+    ModLoader.forge || ModLoader.neoforge => null,
+  };
+
+  bool get usesServerRunScript => serverLaunchJar == null;
+}
+
 extension PluginLoaderToDeclared on PluginLoader {
   /// Maps a resolved [PluginLoader] back to the value that should be
   /// written to `mods.yaml`. Used by writers (`add_command_editor`,
