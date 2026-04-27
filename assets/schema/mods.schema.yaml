@@ -38,7 +38,7 @@ properties:
     minLength: 1
 
   project:
-    type: [object, "null"]
+    type: [ object, "null" ]
     additionalProperties: false
     description: |
       Modrinth project metadata. Fields map 1:1 to Modrinth's
@@ -46,42 +46,42 @@ properties:
     properties:
 
       body:
-        type: [string, "null"]
+        type: [ string, "null" ]
         description: |
           Long-form description shown on Modrinth. Inline markdown, or
           a path (relative to mods.yaml) to a markdown file.
 
       source_url:
-        type: [string, "null"]
+        type: [ string, "null" ]
         format: uri
         description: Source repository URL.
 
       issues_url:
-        type: [string, "null"]
+        type: [ string, "null" ]
         format: uri
         description: Issue tracker URL.
 
       wiki_url:
-        type: [string, "null"]
+        type: [ string, "null" ]
         format: uri
         description: Documentation URL.
 
       discord_url:
-        type: [string, "null"]
+        type: [ string, "null" ]
         format: uri
         description: Discord invite URL.
 
       license_id:
-        type: [string, "null"]
+        type: [ string, "null" ]
         description: SPDX license identifier (e.g. "MIT", "Apache-2.0").
 
       license_url:
-        type: [string, "null"]
+        type: [ string, "null" ]
         format: uri
         description: License text URL.
 
       categories:
-        type: [array, "null"]
+        type: [ array, "null" ]
         description: Primary Modrinth modpack categories.
         items:
           type: string
@@ -89,7 +89,7 @@ properties:
         uniqueItems: true
 
       additional_categories:
-        type: [array, "null"]
+        type: [ array, "null" ]
         description: Secondary categories — searchable but not shown as primary tags.
         items:
           type: string
@@ -97,7 +97,7 @@ properties:
         uniqueItems: true
 
       client_side:
-        type: [string, "null"]
+        type: [ string, "null" ]
         enum:
           - required
           - optional
@@ -108,7 +108,7 @@ properties:
         description: Client-side compatibility.
 
       server_side:
-        type: [string, "null"]
+        type: [ string, "null" ]
         enum:
           - required
           - optional
@@ -123,24 +123,27 @@ properties:
       URL of the Modrinth-compatible server `gitrinth publish` uploads
       to. Omit (or set `null`) to publish to modrinth.com. Set to
       `none` to disable publishing.
-    type: [string, "null"]
+    type: [ string, "null" ]
     format: uri
 
   loader:
     type: object
     description: |
-      Per-section loaders. `mods` is required; `shaders` and `plugins`
-      are optional and only needed when the corresponding section has
-      entries. `resource_packs` and `data_packs` have a single valid
-      Modrinth loader each (`minecraft`, `datapack`) and are never
-      declared here.
+      Per-section loaders. All sub-fields are optional. Omit
+      `loader.mods` for purely-vanilla or purely-plugin packs; declare
+      `loader.shaders` and `loader.plugins` only when the corresponding
+      section has entries. `resource_packs` and `data_packs` have a
+      single valid Modrinth loader each (`minecraft`, `datapack`) and
+      are never declared here.
 
-      Under plugin loaders (`bukkit`, `folia`, `paper`, `spigot`),
-      `mods` ship client-only regardless of per-side fields; `plugins`
-      ship server-only. `shaders` are always client-only; `sponge`
-      behaves like `forge`/`fabric`/`neoforge`.
-    required:
-      - mods
+      Under bukkit/folia/paper/spigot, `mods` ship client-only
+      regardless of per-side fields; `plugins` ship server-only.
+      Under `sponge`, the concrete server distribution (SpongeForge,
+      SpongeNeo, or SpongeVanilla) is selected from `loader.mods` at
+      `get` time. Server-side Forge / NeoForge mods load alongside
+      plugins on SpongeForge / SpongeNeo; under SpongeVanilla
+      (`plugins: sponge` with `mods: fabric` or no `mods`), mods coerce
+      to client-only. `shaders` are always client-only.
     additionalProperties: false
     properties:
       mods:
@@ -148,19 +151,27 @@ properties:
           Mod loader the modpack targets, optionally with a version tag
           in docker-image style: `<loader>` or `<loader>:<tag>`.
 
-          - Loader: one of `forge`, `fabric`, `neoforge`.
+          - Loader: one of `forge`, `fabric`, `neoforge`, or `vanilla`.
           - Tag (optional): `stable` (default — latest stable loader),
             `latest` (newest of any stability), or a concrete version
             string (e.g. `0.17.3`). Resolved against Modrinth at `get`
-            time and frozen into `mods.lock`.
+            time and frozen into `mods.lock`. `vanilla` carries no tag.
+
+          Omit this field entirely (or write `vanilla`) to declare a
+          pack with no mod runtime — used by purely-vanilla packs and
+          by plugin servers (`loader: { plugins: sponge }`). When this
+          field is omitted, the `mods:` section must be empty (parser-
+          enforced; not expressible in JSON Schema).
 
           Examples: `neoforge`, `fabric:stable`, `fabric:latest`,
-          `fabric:0.17.3`.
+          `fabric:0.17.3`, `vanilla`.
 
           Drives version resolution, Modrinth compatibility, and
           server-binary selection.
-        type: string
-        pattern: ^(forge|fabric|neoforge)(:[^:\s][^:]*)?$
+        oneOf:
+          - type: string
+            pattern: ^(forge|fabric|neoforge)(:[^:\s][^:]*)?$
+          - const: vanilla
       shaders:
         description: |
           Shader loader. Required when the `shaders` section has
@@ -172,13 +183,17 @@ properties:
           - vanilla
       plugins:
         description: |
-          Plugin loader. Deferred in the MVP — accepted by the schema
-          but rejected by the parser until plugin support lands.
+          Plugin loader. Required when the `plugins:` section has
+          entries; otherwise omit. Under `sponge`, the concrete server
+          distribution is resolved from `loader.mods`: `forge` →
+          SpongeForge, `neoforge` → SpongeNeo, `fabric` or omitted →
+          SpongeVanilla. The resolved variant is stored in `mods.lock`.
         enum:
           - bukkit
           - folia
           - paper
           - spigot
+          - sponge
 
   mc-version:
     type: string
@@ -191,12 +206,12 @@ properties:
     pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]*$
 
   tooling:
-    type: [object, "null"]
+    type: [ object, "null" ]
     description: Tooling version constraints.
     additionalProperties: false
     properties:
       gitrinth:
-        type: [string, "null"]
+        type: [ string, "null" ]
         description: Semver range for the gitrinth CLI (e.g. "^1.0.0", ">=1.0.0 <2.0.0").
         minLength: 1
 
@@ -232,7 +247,7 @@ properties:
   plugins:
     description: |
       Server plugins. Same syntax as `mods`. Plugin entries are server
-      side; the parser is expected to default `client` to `unsupported`.
+      side; the parser defaults `client` to `unsupported`.
     oneOf:
       - type: "null"
       - $ref: "#/$defs/modMap"
@@ -438,4 +453,3 @@ $defs:
       pattern: ^[^/\\][^\\]*$
     additionalProperties:
       $ref: "#/$defs/fileEntry"
-

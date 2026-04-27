@@ -31,7 +31,7 @@ void main() {
     group('Forge', () {
       test('forge:stable picks `<mc>-recommended`', () async {
         final v = await resolver.resolve(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           tag: 'stable',
           mcVersion: '1.20.1',
         );
@@ -40,7 +40,7 @@ void main() {
 
       test('forge:latest picks `<mc>-latest`', () async {
         final v = await resolver.resolve(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           tag: 'latest',
           mcVersion: '1.20.1',
         );
@@ -53,7 +53,7 @@ void main() {
         };
         await expectLater(
           resolver.resolve(
-            loader: Loader.forge,
+            loader: ModLoader.forge,
             tag: 'stable',
             mcVersion: '1.21',
           ),
@@ -72,7 +72,7 @@ void main() {
           'promos': {'1.21-latest': '51.0.33'},
         };
         final v = await resolver.resolve(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           tag: 'latest',
           mcVersion: '1.21',
         );
@@ -82,7 +82,7 @@ void main() {
       test('forge:stable errors when MC has no entries at all', () async {
         await expectLater(
           resolver.resolve(
-            loader: Loader.forge,
+            loader: ModLoader.forge,
             tag: 'stable',
             mcVersion: '1.99',
           ),
@@ -99,7 +99,7 @@ void main() {
       test('concrete forge tag validates via maven-metadata.json '
           'and skips promotions', () async {
         final v = await resolver.resolve(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           tag: '47.2.0',
           mcVersion: '1.20.1',
         );
@@ -114,7 +114,7 @@ void main() {
       test('concrete forge tag errors when build is unknown', () async {
         await expectLater(
           resolver.resolve(
-            loader: Loader.forge,
+            loader: ModLoader.forge,
             tag: '99.9.9',
             mcVersion: '1.20.1',
           ),
@@ -135,7 +135,7 @@ void main() {
         };
         await expectLater(
           resolver.resolve(
-            loader: Loader.forge,
+            loader: ModLoader.forge,
             tag: '47.2.0',
             mcVersion: '1.20.4',
           ),
@@ -159,7 +159,7 @@ void main() {
             'versions': ['21.4.50', '21.4.99', '21.4.100-beta'],
           };
           final v = await resolver.resolve(
-            loader: Loader.neoforge,
+            loader: ModLoader.neoforge,
             tag: 'stable',
             mcVersion: '1.21.4',
           );
@@ -173,7 +173,7 @@ void main() {
           'versions': ['21.4.50', '21.4.99', '21.4.100-beta'],
         };
         final v = await resolver.resolve(
-          loader: Loader.neoforge,
+          loader: ModLoader.neoforge,
           tag: 'latest',
           mcVersion: '1.21.4',
         );
@@ -186,7 +186,7 @@ void main() {
           'versions': ['21.0.10', '21.0.42', '21.1.50'],
         };
         final v = await resolver.resolve(
-          loader: Loader.neoforge,
+          loader: ModLoader.neoforge,
           tag: 'stable',
           mcVersion: '1.21',
         );
@@ -202,7 +202,7 @@ void main() {
           };
           await expectLater(
             resolver.resolve(
-              loader: Loader.neoforge,
+              loader: ModLoader.neoforge,
               tag: 'stable',
               mcVersion: '1.21.5',
             ),
@@ -226,7 +226,7 @@ void main() {
           };
           await expectLater(
             resolver.resolve(
-              loader: Loader.neoforge,
+              loader: ModLoader.neoforge,
               tag: 'stable',
               mcVersion: '1.21.4',
             ),
@@ -243,7 +243,7 @@ void main() {
 
       test('concrete neoforge tag with valid prefix succeeds', () async {
         final v = await resolver.resolve(
-          loader: Loader.neoforge,
+          loader: ModLoader.neoforge,
           tag: '21.1.228',
           mcVersion: '1.21.1',
         );
@@ -253,7 +253,7 @@ void main() {
       test('concrete neoforge tag errors when prefix mismatches MC', () async {
         await expectLater(
           resolver.resolve(
-            loader: Loader.neoforge,
+            loader: ModLoader.neoforge,
             tag: '21.1.228',
             mcVersion: '1.21.4',
           ),
@@ -272,7 +272,7 @@ void main() {
         () async {
           await expectLater(
             resolver.resolve(
-              loader: Loader.neoforge,
+              loader: ModLoader.neoforge,
               tag: '21.1.999',
               mcVersion: '1.21.1',
             ),
@@ -285,7 +285,7 @@ void main() {
     group('NeoForge legacy (MC 1.20.1)', () {
       test('neoforge:stable strips 1.20.1- prefix', () async {
         final v = await resolver.resolve(
-          loader: Loader.neoforge,
+          loader: ModLoader.neoforge,
           tag: 'stable',
           mcVersion: '1.20.1',
         );
@@ -307,7 +307,7 @@ void main() {
           ],
         };
         final v = await resolver.resolve(
-          loader: Loader.neoforge,
+          loader: ModLoader.neoforge,
           tag: 'latest',
           mcVersion: '1.20.1',
         );
@@ -318,7 +318,7 @@ void main() {
         'concrete legacy neoforge tag validates against legacy list',
         () async {
           final v = await resolver.resolve(
-            loader: Loader.neoforge,
+            loader: ModLoader.neoforge,
             tag: '47.1.106',
             mcVersion: '1.20.1',
           );
@@ -335,7 +335,7 @@ void main() {
         () async {
           await expectLater(
             resolver.resolve(
-              loader: Loader.neoforge,
+              loader: ModLoader.neoforge,
               tag: '47.1.999',
               mcVersion: '1.20.1',
             ),
@@ -348,7 +348,7 @@ void main() {
     group('Fabric', () {
       test('fabric:stable picks newest stable', () async {
         final v = await resolver.resolve(
-          loader: Loader.fabric,
+          loader: ModLoader.fabric,
           tag: 'stable',
           mcVersion: '1.21.1',
         );
@@ -361,7 +361,7 @@ void main() {
           {'version': '0.17.3', 'stable': true},
         ];
         final v = await resolver.resolve(
-          loader: Loader.fabric,
+          loader: ModLoader.fabric,
           tag: 'latest',
           mcVersion: '1.21.1',
         );
@@ -370,7 +370,7 @@ void main() {
 
       test('concrete fabric tag validates against upstream list', () async {
         final v = await resolver.resolve(
-          loader: Loader.fabric,
+          loader: ModLoader.fabric,
           tag: '0.17.3',
           mcVersion: '1.21.1',
         );
@@ -380,7 +380,7 @@ void main() {
       test('concrete fabric tag errors when version unknown', () async {
         await expectLater(
           resolver.resolve(
-            loader: Loader.fabric,
+            loader: ModLoader.fabric,
             tag: '99.9.9',
             mcVersion: '1.21.1',
           ),
@@ -400,7 +400,7 @@ void main() {
         for (final bad in const ['snapshot-23w14a', '1', '1.x', '2.0.0']) {
           await expectLater(
             resolver.resolve(
-              loader: Loader.neoforge,
+              loader: ModLoader.neoforge,
               tag: 'stable',
               mcVersion: bad,
             ),
@@ -422,7 +422,7 @@ void main() {
         modrinth.fabricLoaderVersions = const [];
         await expectLater(
           resolver.resolve(
-            loader: Loader.fabric,
+            loader: ModLoader.fabric,
             tag: 'stable',
             mcVersion: '1.21.1',
           ),

@@ -42,7 +42,7 @@ void main() {
         );
 
         final id = await ci.installClient(
-          loader: Loader.fabric,
+          loader: ModLoader.fabric,
           mcVersion: '1.21.1',
           loaderVersion: '0.17.3',
           dotMinecraftDir: dotMc,
@@ -91,7 +91,7 @@ void main() {
       );
 
       final id = await ci.installClient(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
         dotMinecraftDir: dotMc,
@@ -118,7 +118,7 @@ void main() {
               }) async => 0,
         );
         final id = await ci.installClient(
-          loader: Loader.neoforge,
+          loader: ModLoader.neoforge,
           mcVersion: '1.21.1',
           loaderVersion: '21.1.50',
           dotMinecraftDir: dotMc,
@@ -154,7 +154,7 @@ void main() {
       );
 
       final id = await ci.installClient(
-        loader: Loader.fabric,
+        loader: ModLoader.fabric,
         mcVersion: '1.21.1',
         loaderVersion: '0.17.3',
         dotMinecraftDir: dotMc,
@@ -178,7 +178,7 @@ void main() {
       );
       await expectLater(
         ci.installClient(
-          loader: Loader.fabric,
+          loader: ModLoader.fabric,
           mcVersion: '1.21.1',
           loaderVersion: '0.17.3',
           dotMinecraftDir: dotMc,
@@ -214,7 +214,7 @@ void main() {
         );
         await expectLater(
           ci.installClient(
-            loader: Loader.fabric,
+            loader: ModLoader.fabric,
             mcVersion: '1.21.1',
             loaderVersion: '0.17.3',
             dotMinecraftDir: dotMc,

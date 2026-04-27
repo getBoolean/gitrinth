@@ -47,14 +47,20 @@ class MrpackFile with MrpackFileMappable {
 
 /// Maps the in-tree `Loader` enum to the dependency key the Modrinth
 /// pack format expects.
-String mrpackLoaderKey(Loader loader) {
+String mrpackLoaderKey(ModLoader loader) {
   switch (loader) {
-    case Loader.forge:
+    case ModLoader.forge:
       return 'forge';
-    case Loader.neoforge:
+    case ModLoader.neoforge:
       return 'neoforge';
-    case Loader.fabric:
+    case ModLoader.fabric:
       return 'fabric-loader';
+    case ModLoader.vanilla:
+      throw StateError(
+        'mrpackLoaderKey called for vanilla; the dependencies block '
+        'must omit the mod-loader entry under vanilla (gate on '
+        'LoaderConfig.hasModRuntime).',
+      );
   }
 }
 

@@ -22,7 +22,7 @@ mods:
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.slug, 'example_pack');
       expect(m.name, 'Example Pack');
-      expect(m.loader.mods, Loader.neoforge);
+      expect(m.loader.mods, ModLoader.neoforge);
       expect(m.loader.shaders, isNull);
       expect(m.mcVersion, '1.21.1');
       expect(m.mods.keys, containsAll(['create', 'jei', 'iris']));
@@ -196,12 +196,12 @@ shaders:
   my-shader: ^1.0.0
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
-      expect(m.loader.mods, Loader.neoforge);
+      expect(m.loader.mods, ModLoader.neoforge);
       expect(m.loader.shaders, ShaderLoader.iris);
       expect(m.shaders['my-shader']!.constraintRaw, '^1.0.0');
     });
 
-    test('rejects loader.plugins as deferred', () {
+    test('parses loader.plugins: paper', () {
       final yaml = '''
 slug: pack
 name: Pack
@@ -212,16 +212,8 @@ loader:
   plugins: paper
 mc-version: 1.21.1
 ''';
-      expect(
-        () => parseModsYaml(yaml, filePath: 'mods.yaml'),
-        throwsA(
-          isA<ValidationError>().having(
-            (e) => e.message,
-            'message',
-            contains('plugin loader support is deferred'),
-          ),
-        ),
-      );
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.loader.plugins, PluginLoader.paper);
     });
 
     test(
@@ -822,25 +814,25 @@ mc-version: 1.21.1
 
     test('bare loader name defaults the version tag to "stable"', () {
       final m = parse('fabric');
-      expect(m.loader.mods, Loader.fabric);
+      expect(m.loader.mods, ModLoader.fabric);
       expect(m.loader.modsVersion, 'stable');
     });
 
     test('explicit :stable parses as stable', () {
       final m = parse('fabric:stable');
-      expect(m.loader.mods, Loader.fabric);
+      expect(m.loader.mods, ModLoader.fabric);
       expect(m.loader.modsVersion, 'stable');
     });
 
     test('explicit :latest parses as latest', () {
       final m = parse('neoforge:latest');
-      expect(m.loader.mods, Loader.neoforge);
+      expect(m.loader.mods, ModLoader.neoforge);
       expect(m.loader.modsVersion, 'latest');
     });
 
     test('concrete version tag parses verbatim', () {
       final m = parse('fabric:0.17.3');
-      expect(m.loader.mods, Loader.fabric);
+      expect(m.loader.mods, ModLoader.fabric);
       expect(m.loader.modsVersion, '0.17.3');
     });
 
@@ -848,7 +840,7 @@ mc-version: 1.21.1
       'quoted scalar with concrete tag round-trips through the YAML loader',
       () {
         final m = parse('"forge:52.0.45"');
-        expect(m.loader.mods, Loader.forge);
+        expect(m.loader.mods, ModLoader.forge);
         expect(m.loader.modsVersion, '52.0.45');
       },
     );
@@ -888,7 +880,7 @@ mc-version: 1.21.1
           isA<ValidationError>().having(
             (e) => e.message,
             'message',
-            contains('not supported in MVP'),
+            contains('not supported'),
           ),
         ),
       );
@@ -908,7 +900,7 @@ data_packs: {}
 shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
-      expect(l.loader.mods, Loader.fabric);
+      expect(l.loader.mods, ModLoader.fabric);
       expect(l.loader.modsVersion, '0.17.3');
     });
 
@@ -927,7 +919,7 @@ data_packs: {}
 shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
-      expect(l.loader.mods, Loader.neoforge);
+      expect(l.loader.mods, ModLoader.neoforge);
       expect(l.loader.modsVersion, 'stable');
     });
 

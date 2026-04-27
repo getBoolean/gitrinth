@@ -8,53 +8,107 @@
 
 part of 'mods_yaml.dart';
 
-class LoaderMapper extends EnumMapper<Loader> {
-  LoaderMapper._();
+class SpongeLoaderMapper extends EnumMapper<SpongeLoader> {
+  SpongeLoaderMapper._();
 
-  static LoaderMapper? _instance;
-  static LoaderMapper ensureInitialized() {
+  static SpongeLoaderMapper? _instance;
+  static SpongeLoaderMapper ensureInitialized() {
     if (_instance == null) {
-      MapperContainer.globals.use(_instance = LoaderMapper._());
+      MapperContainer.globals.use(_instance = SpongeLoaderMapper._());
     }
     return _instance!;
   }
 
-  static Loader fromValue(dynamic value) {
+  static SpongeLoader fromValue(dynamic value) {
     ensureInitialized();
     return MapperContainer.globals.fromValue(value);
   }
 
   @override
-  Loader decode(dynamic value) {
+  SpongeLoader decode(dynamic value) {
     switch (value) {
+      case r'vanilla':
+        return SpongeLoader.vanilla;
       case r'forge':
-        return Loader.forge;
-      case r'fabric':
-        return Loader.fabric;
+        return SpongeLoader.forge;
       case r'neoforge':
-        return Loader.neoforge;
+        return SpongeLoader.neoforge;
       default:
         throw MapperException.unknownEnumValue(value);
     }
   }
 
   @override
-  dynamic encode(Loader self) {
+  dynamic encode(SpongeLoader self) {
     switch (self) {
-      case Loader.forge:
+      case SpongeLoader.vanilla:
+        return r'vanilla';
+      case SpongeLoader.forge:
         return r'forge';
-      case Loader.fabric:
-        return r'fabric';
-      case Loader.neoforge:
+      case SpongeLoader.neoforge:
         return r'neoforge';
     }
   }
 }
 
-extension LoaderMapperExtension on Loader {
+extension SpongeLoaderMapperExtension on SpongeLoader {
   String toValue() {
-    LoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<Loader>(this) as String;
+    SpongeLoaderMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<SpongeLoader>(this) as String;
+  }
+}
+
+class ModLoaderMapper extends EnumMapper<ModLoader> {
+  ModLoaderMapper._();
+
+  static ModLoaderMapper? _instance;
+  static ModLoaderMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = ModLoaderMapper._());
+    }
+    return _instance!;
+  }
+
+  static ModLoader fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  ModLoader decode(dynamic value) {
+    switch (value) {
+      case r'forge':
+        return ModLoader.forge;
+      case r'fabric':
+        return ModLoader.fabric;
+      case r'neoforge':
+        return ModLoader.neoforge;
+      case r'vanilla':
+        return ModLoader.vanilla;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(ModLoader self) {
+    switch (self) {
+      case ModLoader.forge:
+        return r'forge';
+      case ModLoader.fabric:
+        return r'fabric';
+      case ModLoader.neoforge:
+        return r'neoforge';
+      case ModLoader.vanilla:
+        return r'vanilla';
+    }
+  }
+}
+
+extension ModLoaderMapperExtension on ModLoader {
+  String toValue() {
+    ModLoaderMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<ModLoader>(this) as String;
   }
 }
 
@@ -139,6 +193,12 @@ class PluginLoaderMapper extends EnumMapper<PluginLoader> {
         return PluginLoader.paper;
       case r'spigot':
         return PluginLoader.spigot;
+      case r'spongeneo':
+        return PluginLoader.spongeneo;
+      case r'spongeforge':
+        return PluginLoader.spongeforge;
+      case r'spongevanilla':
+        return PluginLoader.spongevanilla;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -155,6 +215,12 @@ class PluginLoaderMapper extends EnumMapper<PluginLoader> {
         return r'paper';
       case PluginLoader.spigot:
         return r'spigot';
+      case PluginLoader.spongeneo:
+        return r'spongeneo';
+      case PluginLoader.spongeforge:
+        return r'spongeforge';
+      case PluginLoader.spongevanilla:
+        return r'spongevanilla';
     }
   }
 }
@@ -243,6 +309,8 @@ class SectionMapper extends EnumMapper<Section> {
         return Section.dataPacks;
       case r'shaders':
         return Section.shaders;
+      case r'plugins':
+        return Section.plugins;
       default:
         throw MapperException.unknownEnumValue(value);
     }
@@ -259,6 +327,8 @@ class SectionMapper extends EnumMapper<Section> {
         return r'dataPacks';
       case Section.shaders:
         return r'shaders';
+      case Section.plugins:
+        return r'plugins';
     }
   }
 }
@@ -327,7 +397,7 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   static LoaderConfigMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = LoaderConfigMapper._());
-      LoaderMapper.ensureInitialized();
+      ModLoaderMapper.ensureInitialized();
       ShaderLoaderMapper.ensureInitialized();
       PluginLoaderMapper.ensureInitialized();
     }
@@ -337,9 +407,9 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   @override
   final String id = 'LoaderConfig';
 
-  static Loader _$mods(LoaderConfig v) => v.mods;
-  static const Field<LoaderConfig, Loader> _f$mods = Field('mods', _$mods);
-  static String _$modsVersion(LoaderConfig v) => v.modsVersion;
+  static ModLoader _$mods(LoaderConfig v) => v.mods;
+  static const Field<LoaderConfig, ModLoader> _f$mods = Field('mods', _$mods);
+  static String? _$modsVersion(LoaderConfig v) => v.modsVersion;
   static const Field<LoaderConfig, String> _f$modsVersion = Field(
     'modsVersion',
     _$modsVersion,
@@ -439,7 +509,7 @@ extension LoaderConfigValueCopy<$R, $Out>
 abstract class LoaderConfigCopyWith<$R, $In extends LoaderConfig, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   $R call({
-    Loader? mods,
+    ModLoader? mods,
     String? modsVersion,
     ShaderLoader? shaders,
     PluginLoader? plugins,
@@ -457,14 +527,14 @@ class _LoaderConfigCopyWithImpl<$R, $Out>
       LoaderConfigMapper.ensureInitialized();
   @override
   $R call({
-    Loader? mods,
-    String? modsVersion,
+    ModLoader? mods,
+    Object? modsVersion = $none,
     Object? shaders = $none,
     Object? plugins = $none,
   }) => $apply(
     FieldCopyWithData({
       if (mods != null) #mods: mods,
-      if (modsVersion != null) #modsVersion: modsVersion,
+      if (modsVersion != $none) #modsVersion: modsVersion,
       if (shaders != $none) #shaders: shaders,
       if (plugins != $none) #plugins: plugins,
     }),
@@ -1183,6 +1253,13 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     opt: true,
     def: const {},
   );
+  static Map<String, ModEntry> _$plugins(ModsYaml v) => v.plugins;
+  static const Field<ModsYaml, Map<String, ModEntry>> _f$plugins = Field(
+    'plugins',
+    _$plugins,
+    opt: true,
+    def: const {},
+  );
   static Map<String, ModEntry> _$projectOverrides(ModsYaml v) =>
       v.projectOverrides;
   static const Field<ModsYaml, Map<String, ModEntry>> _f$projectOverrides =
@@ -1213,6 +1290,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     #resourcePacks: _f$resourcePacks,
     #dataPacks: _f$dataPacks,
     #shaders: _f$shaders,
+    #plugins: _f$plugins,
     #projectOverrides: _f$projectOverrides,
     #files: _f$files,
     #publishTo: _f$publishTo,
@@ -1230,6 +1308,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       resourcePacks: data.dec(_f$resourcePacks),
       dataPacks: data.dec(_f$dataPacks),
       shaders: data.dec(_f$shaders),
+      plugins: data.dec(_f$plugins),
       projectOverrides: data.dec(_f$projectOverrides),
       files: data.dec(_f$files),
       publishTo: data.dec(_f$publishTo),
@@ -1303,6 +1382,8 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get shaders;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
+  get plugins;
+  MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get projectOverrides;
   MapCopyWith<
     $R,
@@ -1322,6 +1403,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
     Map<String, ModEntry>? shaders,
+    Map<String, ModEntry>? plugins,
     Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
     String? publishTo,
@@ -1370,6 +1452,13 @@ class _ModsYamlCopyWithImpl<$R, $Out>
   );
   @override
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
+  get plugins => MapCopyWith(
+    $value.plugins,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(plugins: v),
+  );
+  @override
+  MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get projectOverrides => MapCopyWith(
     $value.projectOverrides,
     (v, t) => v.copyWith.$chain(t),
@@ -1399,6 +1488,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
     Map<String, ModEntry>? shaders,
+    Map<String, ModEntry>? plugins,
     Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
     Object? publishTo = $none,
@@ -1414,6 +1504,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
       if (resourcePacks != null) #resourcePacks: resourcePacks,
       if (dataPacks != null) #dataPacks: dataPacks,
       if (shaders != null) #shaders: shaders,
+      if (plugins != null) #plugins: plugins,
       if (projectOverrides != null) #projectOverrides: projectOverrides,
       if (files != null) #files: files,
       if (publishTo != $none) #publishTo: publishTo,
@@ -1431,6 +1522,7 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     resourcePacks: data.get(#resourcePacks, or: $value.resourcePacks),
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),
     shaders: data.get(#shaders, or: $value.shaders),
+    plugins: data.get(#plugins, or: $value.plugins),
     projectOverrides: data.get(#projectOverrides, or: $value.projectOverrides),
     files: data.get(#files, or: $value.files),
     publishTo: data.get(#publishTo, or: $value.publishTo),

@@ -273,6 +273,14 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       }
     }
 
+    if (section == Section.mods && !existingManifest.loader.hasModRuntime) {
+      throw UserError(
+        'cannot add mod "$slug": loader.mods is not set. Declare a mod '
+        'loader first (e.g. `loader: { mods: neoforge }`) before '
+        'adding mods.',
+      );
+    }
+
     final yamlText = File(io.modsYamlPath).readAsStringSync();
     final updated = injectEntry(
       yamlText,

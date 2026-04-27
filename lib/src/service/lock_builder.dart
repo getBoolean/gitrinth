@@ -6,7 +6,7 @@ part of 'resolve_and_sync.dart';
 ModsLock _buildLock(
   ModsYaml manifest,
   ResolutionResult resolution,
-  String resolvedLoaderVersion,
+  String? resolvedLoaderVersion,
 ) {
   final byKind = <Section, Map<String, LockedEntry>>{
     for (final s in Section.values) s: <String, LockedEntry>{},
@@ -85,6 +85,7 @@ ModsLock _buildLock(
     resourcePacks: byKind[Section.resourcePacks]!,
     dataPacks: byKind[Section.dataPacks]!,
     shaders: byKind[Section.shaders]!,
+    plugins: byKind[Section.plugins]!,
     files: lockedFiles,
   );
 }

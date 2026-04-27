@@ -15,10 +15,10 @@ import '../model/manifest/mods_yaml.dart';
 ///     datapack projects like Terralith under `project_type: mod` with
 ///     `loaders: [datapack]`, so we route them to [Section.dataPacks].
 ///   - `modpack`       → throws (packs can't embed other packs in MVP).
-///   - `plugin`        → throws (plugin support deferred post-MVP).
+///   - `plugin`        → [Section.plugins].
 ///
-/// Throws a [ValidationError] for unhandled / deferred shapes so the caller
-/// can surface a single-line message without a stack trace.
+/// Throws a [ValidationError] for unhandled shapes so the caller can
+/// surface a single-line message without a stack trace.
 Section inferSectionFromProject({
   required String projectType,
   required List<String> loaders,
@@ -42,7 +42,7 @@ Section inferSectionFromProject({
     case 'modpack':
       throw const ValidationError('cannot add a modpack to a modpack.');
     case 'plugin':
-      throw const ValidationError('plugin support is deferred post-MVP.');
+      return Section.plugins;
     default:
       throw ValidationError(
         'unknown Modrinth project_type "$projectType"; cannot infer section.',

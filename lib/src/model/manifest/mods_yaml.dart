@@ -5,13 +5,89 @@ import 'file_entry.dart';
 part 'mods_yaml.mapper.dart';
 
 @MappableEnum()
-enum Loader { forge, fabric, neoforge }
+enum SpongeLoader { vanilla, forge, neoforge }
+
+/// Mod loader the modpack targets. `vanilla` is the "no mod runtime"
+/// sentinel: chosen when `loader.mods` is omitted in `mods.yaml`. Under
+/// `vanilla`, the `mods:` section must be empty (parser-enforced).
+@MappableEnum()
+enum ModLoader { forge, fabric, neoforge, vanilla }
 
 @MappableEnum()
 enum ShaderLoader { iris, optifine, canvas, vanilla }
 
+/// Resolved plugin loader stored in `mods.lock` and used by every
+/// downstream system (server-jar selection, Modrinth filter, side
+/// coercion, pack assembly). User-facing `mods.yaml` declares the
+/// coarser [DeclaredPluginLoader]; the parser resolves it to one of
+/// these seven values using `loader.mods` as input.
 @MappableEnum()
-enum PluginLoader { bukkit, folia, paper, spigot }
+enum PluginLoader {
+  bukkit,
+  folia,
+  paper,
+  spigot,
+  spongeneo,
+  spongeforge,
+  spongevanilla,
+}
+
+/// Plugin loader as declared in `mods.yaml`. The three Sponge
+/// distributions (`spongeforge`, `spongeneo`, `spongevanilla`) are not
+/// distinguished here — the concrete distribution is a function of
+/// `loader.mods` and is resolved at parse time. This enum never
+/// appears in [LoaderConfig] or in the lock model.
+enum DeclaredPluginLoader { bukkit, folia, paper, spigot, sponge }
+
+extension PluginLoaderToDeclared on PluginLoader {
+  /// Maps a resolved [PluginLoader] back to the value that should be
+  /// written to `mods.yaml`. Used by writers (`add_command_editor`,
+  /// `migrate_command`, scaffolder) so the user-facing manifest stays
+  /// in the declared vocabulary.
+  DeclaredPluginLoader toDeclared() => switch (this) {
+    PluginLoader.bukkit => DeclaredPluginLoader.bukkit,
+    PluginLoader.folia => DeclaredPluginLoader.folia,
+    PluginLoader.paper => DeclaredPluginLoader.paper,
+    PluginLoader.spigot => DeclaredPluginLoader.spigot,
+    PluginLoader.spongeforge ||
+    PluginLoader.spongeneo ||
+    PluginLoader.spongevanilla => DeclaredPluginLoader.sponge,
+  };
+}
+
+/// Per-loader behavior knobs. Single source of truth for every
+/// plugin-loader-specific decision — call sites read these properties
+/// instead of switching on [PluginLoader] themselves.
+extension PluginLoaderTraits on PluginLoader {
+  /// True when this server platform also runs server-side mods.
+  /// `spongeforge` and `spongeneo` layer on Forge / NeoForge so mods
+  /// load normally; the bukkit family and `spongevanilla` do not load
+  /// mods at all.
+  bool get runsServerMods =>
+      this == PluginLoader.spongeforge || this == PluginLoader.spongeneo;
+
+  /// Modrinth `loaders` filter token for this loader. Modrinth tags
+  /// every Sponge plugin with the single category `sponge` regardless
+  /// of which Sponge distribution loads it, so the three Sponge values
+  /// collapse to that token; everything else matches the enum name.
+  String get modrinthLoaderToken => switch (this) {
+    PluginLoader.spongeforge ||
+    PluginLoader.spongeneo ||
+    PluginLoader.spongevanilla => 'sponge',
+    _ => name,
+  };
+
+  /// Mod loaders this plugin loader's server runtime accepts. Empty
+  /// means the server is a pure plugin server (no mods load on the
+  /// server). Informational — the parser no longer uses this to
+  /// validate user input; the (declared, mods) -> resolved mapping
+  /// supersedes that check.
+  Set<ModLoader> get compatibleModLoaders => switch (this) {
+    PluginLoader.spongeforge ||
+    PluginLoader.spongeneo => const {ModLoader.forge, ModLoader.neoforge},
+    _ => const <ModLoader>{},
+  };
+}
 
 /// Per-side install state. Mirrors the values mrpack's per-file `env`
 /// block uses, so `.mrpack` output can pass these through verbatim.
@@ -32,40 +108,76 @@ enum SideEnv {
 }
 
 @MappableEnum()
-enum Section { mods, resourcePacks, dataPacks, shaders }
+enum Section { mods, resourcePacks, dataPacks, shaders, plugins }
 
 /// Default per-side install state for entries declared in [section].
 /// Resource packs default to client-only because servers don't ship
 /// resource packs through the `globalpacks` global tree; everything else
 /// defaults to installed on both sides.
-({SideEnv client, SideEnv server}) defaultSidesFor(Section section) =>
-    switch (section) {
-      Section.mods => (client: SideEnv.required, server: SideEnv.required),
-      Section.shaders => (
-        client: SideEnv.required,
-        server: SideEnv.unsupported,
-      ),
-      Section.resourcePacks => (
-        client: SideEnv.optional,
-        server: SideEnv.unsupported,
-      ),
-      Section.dataPacks => (client: SideEnv.required, server: SideEnv.required),
-    };
+({SideEnv client, SideEnv server}) defaultSidesFor(
+  Section section,
+) => switch (section) {
+  Section.mods => (client: SideEnv.required, server: SideEnv.required),
+  Section.shaders => (client: SideEnv.required, server: SideEnv.unsupported),
+  Section.resourcePacks => (
+    client: SideEnv.optional,
+    server: SideEnv.unsupported,
+  ),
+  Section.dataPacks => (client: SideEnv.required, server: SideEnv.required),
+  Section.plugins => (client: SideEnv.unsupported, server: SideEnv.required),
+};
+
+/// Returns [mods] with `server: unsupported` forced on every entry when
+/// [pluginLoader] is a non-mod-running platform (paper/folia/bukkit/
+/// spigot/spongevanilla). `spongeforge`, `spongeneo`, and the no-plugin
+/// case return [mods] unchanged because those platforms run server-side
+/// Forge / NeoForge mods alongside plugins. Single source of truth for
+/// the docs-spec'd "mods are dead weight on a plugin server" rule;
+/// called from the parser and from any future code that materializes
+/// the effective entry shape.
+Map<String, ModEntry> coerceModsForPluginLoader(
+  Map<String, ModEntry> mods,
+  PluginLoader? pluginLoader,
+) {
+  if (pluginLoader == null || pluginLoader.runsServerMods) {
+    return mods;
+  }
+  return {
+    for (final e in mods.entries)
+      e.key: e.value.copyWith(server: SideEnv.unsupported),
+  };
+}
 
 @MappableEnum()
 enum Channel { release, beta, alpha }
 
+/// Per-section loader configuration. Asymmetry between yaml and lock
+/// is the central invariant of this type:
+///
+///   * `mods.yaml` carries the *declared* shape: `loader.plugins` is one
+///     of `bukkit | folia | paper | spigot | sponge`, and `loader.mods`
+///     may be omitted (defaults to [ModLoader.vanilla], "no mod
+///     runtime").
+///   * `mods.lock` carries the *resolved* shape: `loader.plugins` is one
+///     of the seven [PluginLoader] values (the Sponge distribution
+///     picked from `loader.mods`), and `loader.mods` is a concrete
+///     [ModLoader] plus a resolved version (or [ModLoader.vanilla] with
+///     [modsVersion] = null when there is no mod runtime).
+///
+/// [LoaderConfig] itself stores the resolved values; the declared
+/// vocabulary lives in [DeclaredPluginLoader] and never appears here.
 @MappableClass()
 class LoaderConfig with LoaderConfigMappable {
-  final Loader mods;
+  final ModLoader mods;
 
   /// Loader-version tag. In `mods.yaml` this is the user-supplied tag —
   /// `"stable"`, `"latest"`, or a concrete version like `"0.17.3"` (default
   /// `"stable"` when the user omits the `:tag` suffix). In `mods.lock` this
   /// is the resolved concrete version. The resolver compares the two: a
   /// concrete tag in the yaml that already matches the lock skips the
-  /// loader-version network call.
-  final String modsVersion;
+  /// loader-version network call. `null` when [mods] is [ModLoader.vanilla]
+  /// — vanilla has no version tag and no resolution step.
+  final String? modsVersion;
   final ShaderLoader? shaders;
   final PluginLoader? plugins;
 
@@ -75,6 +187,11 @@ class LoaderConfig with LoaderConfigMappable {
     this.shaders,
     this.plugins,
   });
+
+  /// True when the pack declares a real mod loader (forge / fabric /
+  /// neoforge). False under [ModLoader.vanilla] — no mod runtime, no
+  /// Forge/NeoForge installer, no loader-version resolution.
+  bool get hasModRuntime => mods != ModLoader.vanilla;
 }
 
 @MappableClass(discriminatorKey: 'kind')
@@ -143,6 +260,7 @@ class ModsYaml with ModsYamlMappable {
   final Map<String, ModEntry> resourcePacks;
   final Map<String, ModEntry> dataPacks;
   final Map<String, ModEntry> shaders;
+  final Map<String, ModEntry> plugins;
   final Map<String, ModEntry> projectOverrides;
 
   /// Loose file declarations from the top-level `files:` section.
@@ -167,6 +285,7 @@ class ModsYaml with ModsYamlMappable {
     this.resourcePacks = const {},
     this.dataPacks = const {},
     this.shaders = const {},
+    this.plugins = const {},
     this.projectOverrides = const {},
     this.files = const {},
     this.publishTo,
@@ -182,6 +301,8 @@ class ModsYaml with ModsYamlMappable {
         return dataPacks;
       case Section.shaders:
         return shaders;
+      case Section.plugins:
+        return plugins;
     }
   }
 }

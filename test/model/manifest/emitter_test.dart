@@ -7,7 +7,7 @@ import 'package:test/test.dart';
 void main() {
   ModsLock sample() => const ModsLock(
     gitrinthVersion: '0.1.0',
-    loader: LoaderConfig(mods: Loader.neoforge),
+    loader: LoaderConfig(mods: ModLoader.neoforge),
     mcVersion: '1.21.1',
     mods: {
       'create': LockedEntry(
@@ -76,7 +76,7 @@ void main() {
   test('game-versions round-trips through emit -> parse -> emit', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: Loader.neoforge),
+      loader: LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
         'appleskin': LockedEntry(
@@ -112,7 +112,7 @@ void main() {
   test('accepts-mc round-trips through emit -> parse -> emit', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: Loader.neoforge),
+      loader: LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
         'appleskin': LockedEntry(
@@ -147,7 +147,7 @@ void main() {
   test('emits client/server lines and round-trips through parse', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
+      loader: LoaderConfig(mods: ModLoader.fabric, modsVersion: '0.17.3'),
       mcVersion: '1.21.1',
       mods: {
         'distanthorizons': LockedEntry(
@@ -188,7 +188,7 @@ void main() {
   test('dependency: enum round-trips through emit -> parse -> emit', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: Loader.neoforge),
+      loader: LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
         'create': LockedEntry(
@@ -223,7 +223,7 @@ void main() {
   test('emits and round-trips a files: section', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: Loader.neoforge),
+      loader: LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       files: {
         'config/sodium-options.json': LockedFileEntry(

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:riverpod/riverpod.dart';
 
+import '../service/build_tools_runner.dart';
 import '../service/cache.dart';
 import '../service/cache_root.dart';
 import '../service/console.dart';
@@ -11,7 +12,10 @@ import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/loader_version_resolver.dart';
 import '../service/minecraft_launcher_locator.dart';
+import '../service/paper_api_client.dart';
 import '../service/server_installer.dart';
+import '../service/sponge_api_client.dart';
+import '../service/vanilla_server_source.dart';
 import '../service/modrinth_api.dart';
 import '../service/modrinth_auth_interceptor.dart';
 import '../service/modrinth_error_interceptor.dart';
@@ -127,6 +131,14 @@ final javaRuntimeResolverProvider = Provider<JavaRuntimeResolver>(
   ),
 );
 
+final vanillaServerSourceProvider = Provider<VanillaServerSource>(
+  (ref) => VanillaServerSource(
+    dio: ref.read(dioProvider),
+    downloader: ref.read(downloaderProvider),
+    cache: ref.read(cacheProvider),
+  ),
+);
+
 final serverInstallerProvider = Provider<ServerInstaller>(
   (ref) => ServerInstaller(
     environment: ref.read(environmentProvider),
@@ -144,5 +156,28 @@ final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(
     environment: ref.read(environmentProvider),
     resolver: ref.read(javaRuntimeResolverProvider),
     console: ref.read(consoleProvider),
+  ),
+);
+
+final paperApiClientProvider = Provider<PaperApiClient>(
+  (ref) => PaperApiClient(
+    dio: ref.read(dioProvider),
+    environment: ref.read(environmentProvider),
+  ),
+);
+
+final spongeApiClientProvider = Provider<SpongeApiClient>(
+  (ref) => SpongeApiClient(
+    dio: ref.read(dioProvider),
+    environment: ref.read(environmentProvider),
+  ),
+);
+
+final buildToolsRunnerProvider = Provider<BuildToolsRunner>(
+  (ref) => BuildToolsRunner(
+    downloader: ref.read(downloaderProvider),
+    cache: ref.read(cacheProvider),
+    resolver: ref.read(javaRuntimeResolverProvider),
+    environment: ref.read(environmentProvider),
   ),
 );

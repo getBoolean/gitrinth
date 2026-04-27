@@ -21,7 +21,7 @@ Deferred MVP work:
 
 - [x] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
 - [ ] [Hosted source support](curseforge-bridge.md#hosted-modrinth-labrinth)
-- [ ] [Plugin-loader support](#plugin-loader-support)
+- [x] [Plugin-loader support](#plugin-loader-support)
 - [x] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)
 - [x] [`build` auto-downloads server binary](#build-auto-downloads-server-binary)
@@ -208,14 +208,16 @@ land independently of the CF API client.
 
 ## Plugin-loader support
 
-Add `bukkit`, `folia`, `paper`, `spigot` to `loader.mods`, and ship the
-`plugins:` section. Under plugin loaders, `mods` ship client-only
-regardless of `environment`, `plugins` ship server-only, and shaders
-stay client-only. The schema already permits `loader.plugins`; the
-parser currently rejects these values.
-
-Touches: [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart),
-archive builder, [`mods-yaml.md`](mods-yaml.md).
+Shipped. `loader.plugins` now accepts `bukkit`, `folia`, `paper`,
+`spigot`, `spongeforge`, `spongeneo`, and `spongevanilla`; the
+`plugins:` section routes through the parser, lock builder,
+build/pack assemblers, and Modrinth filters. Under
+`bukkit`/`folia`/`paper`/`spigot`/`spongevanilla` mods are coerced
+to server-unsupported; under `spongeforge` / `spongeneo` mods keep
+their per-side state. `gitrinth build server` fetches the matching
+server jar — Paper / Folia from the PaperMC API, the three Sponge
+variants from the SpongePowered downloads API, and Spigot / Bukkit
+by running SpigotMC's `BuildTools.jar` locally on first build.
 
 ## Deferred global options
 

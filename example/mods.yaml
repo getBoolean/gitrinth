@@ -35,7 +35,7 @@ loader:
   # here.
   mods: neoforge:stable # Enum: forge, fabric, neoforge.
   shaders: iris # Enum: iris, optifine, canvas, vanilla.
-  # plugins: sponge # Enum: sponge, bukkit, folia, paper, spigot. Deferred until plugin support lands.
+  # plugins: sponge # Enum: sponge, bukkit, folia, paper, spigot.
 
 mc-version: 1.21.1 # Exact version only — no ranges.
 

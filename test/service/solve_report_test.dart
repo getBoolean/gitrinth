@@ -55,7 +55,7 @@ ModsLock _lock({
 }) {
   return ModsLock(
     gitrinthVersion: '0.0.0',
-    loader: const LoaderConfig(mods: Loader.neoforge),
+    loader: const LoaderConfig(mods: ModLoader.neoforge),
     mcVersion: '1.21.1',
     mods: mods,
     resourcePacks: resourcePacks,

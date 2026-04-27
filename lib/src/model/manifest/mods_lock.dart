@@ -128,6 +128,7 @@ class ModsLock with ModsLockMappable {
   final Map<String, LockedEntry> resourcePacks;
   final Map<String, LockedEntry> dataPacks;
   final Map<String, LockedEntry> shaders;
+  final Map<String, LockedEntry> plugins;
 
   /// Loose-file entries forwarded from `mods.yaml`'s `files:` section.
   /// Keyed by destination path. Outside the [Section] taxonomy.
@@ -141,6 +142,7 @@ class ModsLock with ModsLockMappable {
     this.resourcePacks = const {},
     this.dataPacks = const {},
     this.shaders = const {},
+    this.plugins = const {},
     this.files = const {},
   });
 
@@ -149,6 +151,7 @@ class ModsLock with ModsLockMappable {
     yield* resourcePacks.entries;
     yield* dataPacks.entries;
     yield* shaders.entries;
+    yield* plugins.entries;
   }
 
   Map<String, LockedEntry> sectionFor(Section section) {
@@ -161,6 +164,8 @@ class ModsLock with ModsLockMappable {
         return dataPacks;
       case Section.shaders:
         return shaders;
+      case Section.plugins:
+        return plugins;
     }
   }
 }

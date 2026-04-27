@@ -44,10 +44,18 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
   final name = _requireString(map, 'name', filePath);
   final version = _requireString(map, 'version', filePath);
   final description = _requireString(map, 'description', filePath);
-  final loader = _parseLoaderConfig(map['loader'], filePath);
+  final loader = _parseLoaderConfigYaml(map['loader'], filePath);
   final mcVersion = _requireString(map, 'mc-version', filePath);
 
   final mods = _parseSection(map['mods'], 'mods', filePath, Section.mods);
+  if (mods.isNotEmpty && !loader.hasModRuntime) {
+    throw _err(
+      "$filePath: mods: section has ${mods.length} "
+      "${mods.length == 1 ? 'entry' : 'entries'} but loader.mods is "
+      'not set. Declare a mod loader (forge / fabric / neoforge), or '
+      'remove the mods entries.',
+    );
+  }
   final resourcePacks = _parseSection(
     map['resource_packs'],
     'resource_packs',
@@ -65,6 +73,12 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     'shaders',
     filePath,
     Section.shaders,
+  );
+  final plugins = _parseSection(
+    map['plugins'],
+    'plugins',
+    filePath,
+    Section.plugins,
   );
   // The legacy `overrides:` key was renamed to `project_overrides:`
   // in v2; surface a clear migration error rather than silently
@@ -108,6 +122,16 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     );
   }
 
+  if (plugins.isNotEmpty && loader.plugins == null) {
+    throw _err(
+      "$filePath: manifest has entries under 'plugins:' but no "
+      "'loader.plugins' declared. Add e.g. `plugins: paper` under "
+      'the `loader:` object.',
+    );
+  }
+
+  final coercedMods = coerceModsForPluginLoader(mods, loader.plugins);
+
   return ModsYaml(
     slug: slug,
     name: name,
@@ -115,10 +139,11 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     description: description,
     loader: loader,
     mcVersion: mcVersion,
-    mods: mods,
+    mods: coercedMods,
     resourcePacks: resourcePacks,
     dataPacks: dataPacks,
     shaders: shaders,
+    plugins: plugins,
     projectOverrides: projectOverrides,
     files: files,
     publishTo: publishTo,
@@ -160,7 +185,7 @@ ProjectOverrides parseProjectOverrides(
 ModsLock parseModsLock(String yamlText, {required String filePath}) {
   final map = _loadYamlMap(yamlText, filePath);
   final gitrinthVersion = _requireString(map, 'gitrinth-version', filePath);
-  final loader = _parseLoaderConfig(map['loader'], filePath);
+  final loader = _parseLoaderConfigLock(map['loader'], filePath);
   final mcVersion = _requireString(map, 'mc-version', filePath);
   final mods = _parseLockSection(map['mods'], 'mods', filePath);
   final resourcePacks = _parseLockSection(
@@ -174,12 +199,20 @@ ModsLock parseModsLock(String yamlText, {required String filePath}) {
     filePath,
   );
   final shaders = _parseLockSection(map['shaders'], 'shaders', filePath);
+  final plugins = _parseLockSection(map['plugins'], 'plugins', filePath);
   final files = _parseLockFilesSection(map['files'], filePath);
 
   if (shaders.isNotEmpty && loader.shaders == null) {
     throw _err(
       "$filePath: lockfile has entries under 'shaders:' but no "
       "'loader.shaders' declared.",
+    );
+  }
+
+  if (plugins.isNotEmpty && loader.plugins == null) {
+    throw _err(
+      "$filePath: lockfile has entries under 'plugins:' but no "
+      "'loader.plugins' declared.",
     );
   }
 
@@ -191,6 +224,7 @@ ModsLock parseModsLock(String yamlText, {required String filePath}) {
     resourcePacks: resourcePacks,
     dataPacks: dataPacks,
     shaders: shaders,
+    plugins: plugins,
     files: files,
   );
 }

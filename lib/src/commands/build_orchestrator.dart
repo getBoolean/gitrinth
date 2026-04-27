@@ -13,8 +13,10 @@ import '../service/cache.dart';
 import '../service/console.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/manifest_io.dart';
+import '../service/plugin_server_source.dart';
 import '../service/resolve_and_sync.dart';
 import '../service/server_installer.dart';
+import '../service/vanilla_server_source.dart';
 import '../service/solve_report.dart';
 import '../version.dart';
 import 'build_assembler.dart';
@@ -136,22 +138,135 @@ Future<int> runBuild({
     final serverDir = Directory(
       p.join(outputDir.path, envDirName(BuildEnv.server)),
     );
-    await _installServerBinary(
-      lock: lock,
-      cache: cache,
-      serverDir: serverDir,
-      fetcher: container.read(loaderBinaryFetcherProvider),
-      installer: container.read(serverInstallerProvider),
-      skipDownload: options.skipDownload,
-      offline: options.offline,
-      javaPath: options.javaPath,
-      allowManagedJava: options.allowManagedJava,
-      verbose: options.verbose,
-      console: console,
-    );
+    final pluginLoader = lock.loader.plugins;
+    if (pluginLoader != null) {
+      await _installPluginServerBinary(
+        lock: lock,
+        pluginLoader: pluginLoader,
+        cache: cache,
+        serverDir: serverDir,
+        installer: container.read(serverInstallerProvider),
+        source: PluginServerSource.forLoader(
+          pluginLoader,
+          paperApi: container.read(paperApiClientProvider),
+          spongeApi: container.read(spongeApiClientProvider),
+          buildTools: container.read(buildToolsRunnerProvider),
+          cache: cache,
+          downloader: container.read(downloaderProvider),
+        ),
+        offline: options.offline,
+        skipDownload: options.skipDownload,
+        javaPath: options.javaPath,
+        allowManagedJava: options.allowManagedJava,
+        console: console,
+      );
+    } else if (lock.loader.hasModRuntime) {
+      await _installServerBinary(
+        lock: lock,
+        cache: cache,
+        serverDir: serverDir,
+        fetcher: container.read(loaderBinaryFetcherProvider),
+        installer: container.read(serverInstallerProvider),
+        skipDownload: options.skipDownload,
+        offline: options.offline,
+        javaPath: options.javaPath,
+        allowManagedJava: options.allowManagedJava,
+        verbose: options.verbose,
+        console: console,
+      );
+    } else {
+      await _installVanillaServerBinary(
+        lock: lock,
+        serverDir: serverDir,
+        installer: container.read(serverInstallerProvider),
+        source: container.read(vanillaServerSourceProvider),
+        offline: options.offline,
+        skipDownload: options.skipDownload,
+        javaPath: options.javaPath,
+        allowManagedJava: options.allowManagedJava,
+        console: console,
+      );
+    }
   }
 
   return exitOk;
+}
+
+Future<void> _installPluginServerBinary({
+  required ModsLock lock,
+  required PluginLoader pluginLoader,
+  required GitrinthCache cache,
+  required Directory serverDir,
+  required ServerInstaller installer,
+  required PluginServerSource source,
+  required bool offline,
+  required bool skipDownload,
+  required String? javaPath,
+  required bool allowManagedJava,
+  required Console console,
+}) async {
+  final mcVersion = lock.mcVersion;
+
+  final jar = await source.fetchServerJar(
+    mcVersion: mcVersion,
+    offline: offline || skipDownload,
+    console: console,
+    javaPath: javaPath,
+    allowManagedJava: allowManagedJava,
+  );
+
+  await installer.installServer(
+    loader: lock.loader.mods,
+    mcVersion: mcVersion,
+    loaderVersion: lock.loader.modsVersion,
+    outputDir: serverDir,
+    installerOrServerJar: jar,
+    offline: offline,
+    javaPath: javaPath,
+    allowManagedJava: allowManagedJava,
+    pluginServerJar: jar,
+    pluginInstallMarker: source.installMarker,
+  );
+  // The plugin-loader path runs even when loader.mods is vanilla
+  // (e.g. paper, or sponge resolved to spongevanilla), so the server
+  // installer must accept a null loaderVersion. See server_installer.dart.
+  console.message(
+    'Installed ${pluginLoader.name} server binary into ${serverDir.path}.',
+  );
+}
+
+Future<void> _installVanillaServerBinary({
+  required ModsLock lock,
+  required Directory serverDir,
+  required ServerInstaller installer,
+  required VanillaServerSource source,
+  required bool offline,
+  required bool skipDownload,
+  required String? javaPath,
+  required bool allowManagedJava,
+  required Console console,
+}) async {
+  final mcVersion = lock.mcVersion;
+  final jar = await source.fetchServerJar(
+    mcVersion: mcVersion,
+    offline: offline || skipDownload,
+  );
+  await installer.installServer(
+    loader: lock.loader.mods,
+    mcVersion: mcVersion,
+    loaderVersion: null,
+    outputDir: serverDir,
+    installerOrServerJar: jar,
+    offline: offline,
+    javaPath: javaPath,
+    allowManagedJava: allowManagedJava,
+    pluginServerJar: jar,
+    pluginInstallMarker: VanillaServerSource.installMarker,
+  );
+  console.message(
+    'Installed vanilla Minecraft $mcVersion server binary into '
+    '${serverDir.path}.',
+  );
 }
 
 Future<void> _installServerBinary({
@@ -169,7 +284,9 @@ Future<void> _installServerBinary({
 }) async {
   final loader = lock.loader.mods;
   final mcVersion = lock.mcVersion;
-  final loaderVersion = lock.loader.modsVersion;
+  // Caller already gated on `hasModRuntime`, so the lock has a
+  // resolved concrete loader version.
+  final loaderVersion = lock.loader.modsVersion!;
 
   if (skipDownload) {
     final cachedPath = _expectedCachedInstallerPath(
@@ -211,19 +328,24 @@ Future<void> _installServerBinary({
 
 String _expectedCachedInstallerPath({
   required GitrinthCache cache,
-  required Loader loader,
+  required ModLoader loader,
   required String mcVersion,
   required String loaderVersion,
 }) {
   switch (loader) {
-    case Loader.forge:
+    case ModLoader.vanilla:
+      throw StateError(
+        '_expectedCachedInstallerPath called for vanilla; gate on '
+        'LoaderConfig.hasModRuntime.',
+      );
+    case ModLoader.forge:
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
         loaderVersion: loaderVersion,
         filename: 'forge-$mcVersion-$loaderVersion-installer.jar',
       );
-    case Loader.neoforge:
+    case ModLoader.neoforge:
       final filename = mcVersion == '1.20.1'
           ? 'forge-$mcVersion-$loaderVersion-installer.jar'
           : 'neoforge-$loaderVersion-installer.jar';
@@ -233,7 +355,7 @@ String _expectedCachedInstallerPath({
         loaderVersion: loaderVersion,
         filename: filename,
       );
-    case Loader.fabric:
+    case ModLoader.fabric:
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,

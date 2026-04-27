@@ -170,6 +170,15 @@ ModEntry _parseEntry(
       );
     }
   }
+  if (section == Section.plugins) {
+    if (server == SideEnv.unsupported) {
+      throw _err(
+        '$filePath: $sectionName/$slug plugins must install on the '
+        'server (`server: required` or `server: optional`); plugins do '
+        'not run client-side.',
+      );
+    }
+  }
   if (client == SideEnv.unsupported && server == SideEnv.unsupported) {
     throw _err(
       '$filePath: $sectionName/$slug has both sides set to `unsupported`; '

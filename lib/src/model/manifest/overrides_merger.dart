@@ -28,6 +28,7 @@ Future<MergedManifest> applyOverrides(
   final resourcePacks = _applyTo(base.resourcePacks, merged);
   final dataPacks = _applyTo(base.dataPacks, merged);
   final shaders = _applyTo(base.shaders, merged);
+  final plugins = _applyTo(base.plugins, merged);
 
   // Materialize purely-transitive overrides — slugs the user wrote
   // into project_overrides: but never declared in any project section
@@ -39,7 +40,8 @@ Future<MergedManifest> applyOverrides(
         base.mods.containsKey(slug) ||
         base.resourcePacks.containsKey(slug) ||
         base.dataPacks.containsKey(slug) ||
-        base.shaders.containsKey(slug);
+        base.shaders.containsKey(slug) ||
+        base.plugins.containsKey(slug);
     if (alreadyDeclared) continue;
     final section = await inferSectionForTransitive(slug);
     final synthesized = ModEntry(
@@ -64,6 +66,9 @@ Future<MergedManifest> applyOverrides(
       case Section.shaders:
         shaders[slug] = synthesized;
         break;
+      case Section.plugins:
+        plugins[slug] = synthesized;
+        break;
     }
   }
 
@@ -78,6 +83,7 @@ Future<MergedManifest> applyOverrides(
     resourcePacks: resourcePacks,
     dataPacks: dataPacks,
     shaders: shaders,
+    plugins: plugins,
     projectOverrides: merged,
     files: base.files,
   );

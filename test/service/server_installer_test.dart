@@ -39,7 +39,7 @@ void main() {
             },
       );
       await installer.installServer(
-        loader: Loader.fabric,
+        loader: ModLoader.fabric,
         mcVersion: '1.21.1',
         loaderVersion: '0.17.3',
         outputDir: outputDir,
@@ -71,7 +71,7 @@ void main() {
               },
         );
         await installer.installServer(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           mcVersion: '1.21.1',
           loaderVersion: '52.1.5',
           outputDir: outputDir,
@@ -105,7 +105,7 @@ void main() {
             },
       );
       await installer.installServer(
-        loader: Loader.neoforge,
+        loader: ModLoader.neoforge,
         mcVersion: '1.21.1',
         loaderVersion: '21.1.50',
         outputDir: outputDir,
@@ -132,7 +132,7 @@ void main() {
             },
       );
       await installer.installServer(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
         outputDir: outputDir,
@@ -141,7 +141,7 @@ void main() {
       );
       expect(callCount, 1);
       await installer.installServer(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
         outputDir: outputDir,
@@ -164,7 +164,7 @@ void main() {
       );
       await expectLater(
         installer.installServer(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           mcVersion: '1.21.1',
           loaderVersion: '52.1.5',
           outputDir: outputDir,
@@ -206,7 +206,7 @@ void main() {
       );
       await expectLater(
         installer.installServer(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           mcVersion: '1.21.1',
           loaderVersion: '52.1.5',
           outputDir: outputDir,
@@ -245,7 +245,7 @@ void main() {
             },
       );
       await installer.installServer(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
         outputDir: outputDir,

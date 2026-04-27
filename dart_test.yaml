@@ -1,0 +1,4 @@
+tags:
+  network:
+    # Live-API end-to-end tests (PaperMC, SpongePowered). Excluded by
+    # default; opt in with `dart test --tags network`.

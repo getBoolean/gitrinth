@@ -137,17 +137,29 @@ class MigrateLoaderCommand extends GitrinthCommand with OfflineFlag {
   }
 }
 
-(Loader, String) _parseLoaderArg(String raw) {
+(ModLoader, String?) _parseLoaderArg(String raw) {
   final colon = raw.indexOf(':');
   final namePart = (colon < 0 ? raw : raw.substring(0, colon)).toLowerCase();
-  final tagPart = colon < 0 ? 'stable' : raw.substring(colon + 1);
-  if (tagPart.isEmpty) {
+  final tagPart = colon < 0 ? null : raw.substring(colon + 1);
+
+  if (namePart == 'vanilla') {
+    if (tagPart != null) {
+      throw UsageError(
+        'migrate loader: "vanilla" must not carry a version tag '
+        '(write `migrate loader vanilla`).',
+      );
+    }
+    return (ModLoader.vanilla, null);
+  }
+
+  final effectiveTag = tagPart ?? 'stable';
+  if (tagPart != null && tagPart.isEmpty) {
     throw UsageError(
       'migrate loader: "$raw" has an empty tag '
       '(use `<loader>` or `<loader>:<version|stable|latest>`).',
     );
   }
-  if (tagPart.contains(':')) {
+  if (effectiveTag.contains(':')) {
     throw UsageError(
       'migrate loader: "$raw" has more than one `:` '
       '(expected `<loader>` or `<loader>:<version|stable|latest>`).',
@@ -155,22 +167,22 @@ class MigrateLoaderCommand extends GitrinthCommand with OfflineFlag {
   }
   switch (namePart) {
     case 'forge':
-      return (Loader.forge, tagPart);
+      return (ModLoader.forge, effectiveTag);
     case 'fabric':
-      return (Loader.fabric, tagPart);
+      return (ModLoader.fabric, effectiveTag);
     case 'neoforge':
-      return (Loader.neoforge, tagPart);
+      return (ModLoader.neoforge, effectiveTag);
     default:
       throw UsageError(
         'migrate loader: "$namePart" is not a supported loader '
-        '(allowed: forge, fabric, neoforge).',
+        '(allowed: forge, fabric, neoforge, vanilla).',
       );
   }
 }
 
 Future<int> _runMigrate({
   required String? newMcVersion,
-  required Loader? newLoader,
+  required ModLoader? newLoader,
   required String? newLoaderTag,
   required bool dryRun,
   required bool offline,
@@ -179,6 +191,15 @@ Future<int> _runMigrate({
   final console = command.console;
   final io = ManifestIo();
   final manifest = io.readModsYaml();
+
+  if (newLoader == ModLoader.vanilla && manifest.mods.isNotEmpty) {
+    throw UserError(
+      'migrate loader: cannot switch to `vanilla` while the `mods:` '
+      'section has ${manifest.mods.length} '
+      "${manifest.mods.length == 1 ? 'entry' : 'entries'}. Remove "
+      'them or migrate to a real mod loader (forge / fabric / neoforge).',
+    );
+  }
 
   final mutated = _applyTarget(
     manifest,
@@ -196,7 +217,10 @@ Future<int> _runMigrate({
   final lost = <(Section, String)>{};
   final persistentNotFound = <(Section, String)>{};
 
-  if (offline) {
+  if (targetLoader == ModLoader.vanilla) {
+    // No mod runtime — `mods:` is empty (checked above), so there is
+    // nothing to re-resolve under the new loader.
+  } else if (offline) {
     for (final section in Section.values) {
       manifest.sectionEntries(section).forEach((slug, entry) {
         if (entry.source is! ModrinthEntrySource) return;
@@ -340,10 +364,15 @@ Future<int> _runMigrate({
       newValue: newMcVersion,
     );
   } else {
-    final tag = newLoaderTag ?? 'stable';
-    final loaderValue = tag == 'stable'
-        ? newLoader!.name
-        : '${newLoader!.name}:$tag';
+    final String loaderValue;
+    if (newLoader == ModLoader.vanilla) {
+      loaderValue = 'vanilla';
+    } else {
+      final tag = newLoaderTag ?? 'stable';
+      loaderValue = tag == 'stable'
+          ? newLoader!.name
+          : '${newLoader!.name}:$tag';
+    }
     yamlText = updateTopLevelScalar(
       yamlText,
       path: const ['loader', 'mods'],
@@ -432,18 +461,40 @@ Future<int> _runMigrate({
 ModsYaml _applyTarget(
   ModsYaml manifest, {
   required String? newMcVersion,
-  required Loader? newLoader,
+  required ModLoader? newLoader,
   required String? newLoaderTag,
 }) {
   if (newMcVersion != null) {
     return manifest.copyWith(mcVersion: newMcVersion);
   }
+  // Re-resolve the plugin loader under the new mod loader: a sponge
+  // pack switching from forge to fabric becomes spongevanilla. The
+  // declared yaml value (`plugins: sponge`) doesn't change on disk;
+  // only the in-memory resolution does.
+  final declared = manifest.loader.plugins?.toDeclared();
+  PluginLoader? resolvedPlugins;
+  if (declared != null) {
+    resolvedPlugins = switch (declared) {
+      DeclaredPluginLoader.bukkit => PluginLoader.bukkit,
+      DeclaredPluginLoader.folia => PluginLoader.folia,
+      DeclaredPluginLoader.paper => PluginLoader.paper,
+      DeclaredPluginLoader.spigot => PluginLoader.spigot,
+      DeclaredPluginLoader.sponge => switch (newLoader!) {
+        ModLoader.forge => PluginLoader.spongeforge,
+        ModLoader.neoforge => PluginLoader.spongeneo,
+        ModLoader.fabric || ModLoader.vanilla => PluginLoader.spongevanilla,
+      },
+    };
+  }
+
   return manifest.copyWith(
     loader: LoaderConfig(
       mods: newLoader!,
-      modsVersion: newLoaderTag ?? 'stable',
+      modsVersion: newLoader == ModLoader.vanilla
+          ? null
+          : (newLoaderTag ?? 'stable'),
       shaders: manifest.loader.shaders,
-      plugins: manifest.loader.plugins,
+      plugins: resolvedPlugins,
     ),
   );
 }
@@ -463,10 +514,11 @@ ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {
 
 String _summaryTarget(
   String? newMcVersion,
-  Loader? newLoader,
+  ModLoader? newLoader,
   String? newLoaderTag,
 ) {
   if (newMcVersion != null) return 'mc-version $newMcVersion';
+  if (newLoader == ModLoader.vanilla) return 'loader vanilla';
   final tag = newLoaderTag ?? 'stable';
   return 'loader ${newLoader!.name}:$tag';
 }

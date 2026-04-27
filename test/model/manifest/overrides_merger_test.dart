@@ -9,7 +9,7 @@ void main() {
     name: 'Pack',
     version: '0.1.0',
     description: 'x',
-    loader: const LoaderConfig(mods: Loader.neoforge),
+    loader: const LoaderConfig(mods: ModLoader.neoforge),
     mcVersion: '1.21.1',
     mods: {
       'jei': const ModEntry(slug: 'jei', constraintRaw: '^19.0.0'),
@@ -145,7 +145,7 @@ void main() {
       name: 'Pack',
       version: '0.1.0',
       description: 'x',
-      loader: const LoaderConfig(mods: Loader.neoforge),
+      loader: const LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
         'jei': const ModEntry(

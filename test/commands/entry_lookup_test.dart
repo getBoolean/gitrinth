@@ -1,8 +1,7 @@
-import 'package:test/test.dart';
-
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/commands/entry_lookup.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
+import 'package:test/test.dart';
 
 ModsYaml _manifest({
   Map<String, ModEntry> mods = const {},
@@ -14,7 +13,7 @@ ModsYaml _manifest({
   name: 'pack',
   version: '0.1.0',
   description: '',
-  loader: const LoaderConfig(mods: Loader.fabric),
+  loader: const LoaderConfig(mods: ModLoader.fabric),
   mcVersion: '1.21',
   mods: mods,
   resourcePacks: resourcePacks,

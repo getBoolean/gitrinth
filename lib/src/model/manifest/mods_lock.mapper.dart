@@ -797,6 +797,13 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
     opt: true,
     def: const {},
   );
+  static Map<String, LockedEntry> _$plugins(ModsLock v) => v.plugins;
+  static const Field<ModsLock, Map<String, LockedEntry>> _f$plugins = Field(
+    'plugins',
+    _$plugins,
+    opt: true,
+    def: const {},
+  );
   static Map<String, LockedFileEntry> _$files(ModsLock v) => v.files;
   static const Field<ModsLock, Map<String, LockedFileEntry>> _f$files = Field(
     'files',
@@ -814,6 +821,7 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
     #resourcePacks: _f$resourcePacks,
     #dataPacks: _f$dataPacks,
     #shaders: _f$shaders,
+    #plugins: _f$plugins,
     #files: _f$files,
   };
 
@@ -826,6 +834,7 @@ class ModsLockMapper extends ClassMapperBase<ModsLock> {
       resourcePacks: data.dec(_f$resourcePacks),
       dataPacks: data.dec(_f$dataPacks),
       shaders: data.dec(_f$shaders),
+      plugins: data.dec(_f$plugins),
       files: data.dec(_f$files),
     );
   }
@@ -919,6 +928,13 @@ abstract class ModsLockCopyWith<$R, $In extends ModsLock, $Out>
   MapCopyWith<
     $R,
     String,
+    LockedEntry,
+    LockedEntryCopyWith<$R, LockedEntry, LockedEntry>
+  >
+  get plugins;
+  MapCopyWith<
+    $R,
+    String,
     LockedFileEntry,
     LockedFileEntryCopyWith<$R, LockedFileEntry, LockedFileEntry>
   >
@@ -931,6 +947,7 @@ abstract class ModsLockCopyWith<$R, $In extends ModsLock, $Out>
     Map<String, LockedEntry>? resourcePacks,
     Map<String, LockedEntry>? dataPacks,
     Map<String, LockedEntry>? shaders,
+    Map<String, LockedEntry>? plugins,
     Map<String, LockedFileEntry>? files,
   });
   ModsLockCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -999,6 +1016,18 @@ class _ModsLockCopyWithImpl<$R, $Out>
   MapCopyWith<
     $R,
     String,
+    LockedEntry,
+    LockedEntryCopyWith<$R, LockedEntry, LockedEntry>
+  >
+  get plugins => MapCopyWith(
+    $value.plugins,
+    (v, t) => v.copyWith.$chain(t),
+    (v) => call(plugins: v),
+  );
+  @override
+  MapCopyWith<
+    $R,
+    String,
     LockedFileEntry,
     LockedFileEntryCopyWith<$R, LockedFileEntry, LockedFileEntry>
   >
@@ -1016,6 +1045,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
     Map<String, LockedEntry>? resourcePacks,
     Map<String, LockedEntry>? dataPacks,
     Map<String, LockedEntry>? shaders,
+    Map<String, LockedEntry>? plugins,
     Map<String, LockedFileEntry>? files,
   }) => $apply(
     FieldCopyWithData({
@@ -1026,6 +1056,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
       if (resourcePacks != null) #resourcePacks: resourcePacks,
       if (dataPacks != null) #dataPacks: dataPacks,
       if (shaders != null) #shaders: shaders,
+      if (plugins != null) #plugins: plugins,
       if (files != null) #files: files,
     }),
   );
@@ -1038,6 +1069,7 @@ class _ModsLockCopyWithImpl<$R, $Out>
     resourcePacks: data.get(#resourcePacks, or: $value.resourcePacks),
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),
     shaders: data.get(#shaders, or: $value.shaders),
+    plugins: data.get(#plugins, or: $value.plugins),
     files: data.get(#files, or: $value.files),
   );
 

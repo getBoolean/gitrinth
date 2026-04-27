@@ -31,7 +31,7 @@ class LoaderClientInstaller {
        _console = console ?? const Console();
 
   Future<String> installClient({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
     required Directory dotMinecraftDir,
@@ -125,29 +125,39 @@ class LoaderClientInstaller {
   /// The `lastVersionId` the launcher uses for the freshly-installed profile.
   /// Must match what the installer writes to `<dotMc>/versions/`.
   static String expectedClientVersionId({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
   }) {
     switch (loader) {
-      case Loader.fabric:
+      case ModLoader.vanilla:
+        throw StateError(
+          'expectedClientVersionId called for vanilla; gate on '
+          'LoaderConfig.hasModRuntime.',
+        );
+      case ModLoader.fabric:
         return 'fabric-loader-$loaderVersion-$mcVersion';
-      case Loader.forge:
+      case ModLoader.forge:
         return '$mcVersion-forge-$loaderVersion';
-      case Loader.neoforge:
+      case ModLoader.neoforge:
         return 'neoforge-$loaderVersion';
     }
   }
 
   List<String> _installArgs({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
     required File installerJar,
     required Directory dotMinecraftDir,
   }) {
     switch (loader) {
-      case Loader.fabric:
+      case ModLoader.vanilla:
+        throw StateError(
+          '_installArgs called for vanilla; gate on '
+          'LoaderConfig.hasModRuntime.',
+        );
+      case ModLoader.fabric:
         return [
           '-jar',
           installerJar.path,
@@ -159,8 +169,8 @@ class LoaderClientInstaller {
           '-loader',
           loaderVersion,
         ];
-      case Loader.forge:
-      case Loader.neoforge:
+      case ModLoader.forge:
+      case ModLoader.neoforge:
         return [
           '-jar',
           installerJar.path,

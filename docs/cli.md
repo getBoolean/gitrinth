@@ -611,11 +611,29 @@ Omit it (or pass `both`) to build client and server together.
 Partitioning follows
 [`environment`](mods-yaml.md#per-mod-environment): default `both`;
 shaders are client-only; [`plugins`](mods-yaml.md#plugins) are
-server-only. Under plugin loaders (`bukkit`, `folia`, `paper`,
-`spigot`), [`mods`](mods-yaml.md#mods) are forced client-only;
+server-only. Under `bukkit` / `folia` / `paper` / `spigot`, or
+under `sponge` resolved to SpongeVanilla,
+[`mods`](mods-yaml.md#mods) are forced client-only; under `sponge`
+resolved to SpongeForge / SpongeNeo (i.e. `loader.mods` is `forge` or
+`neoforge`), mods keep their declared per-side state because those
+server distributions run Forge / NeoForge mods alongside plugins.
 [`resource_packs`](mods-yaml.md#resource_packs) and
-[`data_packs`](mods-yaml.md#data_packs) partition normally. See
+[`data_packs`](mods-yaml.md#data_packs) partition normally under
+every plugin loader. See
 [Plugin loaders](mods-yaml.md#plugin-loaders).
+
+When `loader.plugins` is set, `gitrinth build server` fetches the
+matching plugin server jar instead of the Forge / NeoForge / Fabric
+installer: Paper / Folia from the PaperMC API, the resolved Sponge
+distribution (SpongeForge / SpongeNeo / SpongeVanilla) from the
+SpongePowered downloads API, and Spigot / Bukkit by running
+SpigotMC's `BuildTools.jar` locally on first build (requires `git`
+and Java; takes several minutes; result is cached for re-use).
+
+When neither `loader.plugins` nor a real `loader.mods` is declared
+(pure-vanilla pack), `gitrinth build server` downloads the official
+Mojang `server.jar` for the pack's `mc-version` from
+`piston-meta.mojang.com`.
 
 #### Prune behavior
 

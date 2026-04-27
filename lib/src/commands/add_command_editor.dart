@@ -18,12 +18,14 @@ String sectionKeyFor(Section section) {
       return 'data_packs';
     case Section.shaders:
       return 'shaders';
+    case Section.plugins:
+      return 'plugins';
   }
 }
 
 /// Allowed values for the `--type` flag on `add`, `pin`, and `unpin`.
 /// Mirrors Modrinth's `project_type` naming (singular, lowercase).
-const typeFlagValues = ['mod', 'resourcepack', 'datapack', 'shader'];
+const typeFlagValues = ['mod', 'resourcepack', 'datapack', 'shader', 'plugin'];
 
 /// Maps a `--type` flag value to its [Section]. Returns `null` when [raw] is
 /// null (flag not passed). Unknown values should already have been rejected
@@ -41,6 +43,8 @@ Section? sectionFromTypeFlag(String? raw) {
       return Section.dataPacks;
     case 'shader':
       return Section.shaders;
+    case 'plugin':
+      return Section.plugins;
     default:
       throw ValidationError('unknown --type value: "$raw"');
   }

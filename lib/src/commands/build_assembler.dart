@@ -55,6 +55,8 @@ String? buildSubdirFor(Section section, BuildEnv env, LockedEntry entry) {
       return isOptional
           ? 'global_packs/optional_resources'
           : 'global_packs/required_resources';
+    case Section.plugins:
+      return 'plugins';
   }
 }
 
@@ -66,6 +68,7 @@ String mrpackSubdirFor(Section section) => switch (section) {
   Section.resourcePacks => 'resourcepacks',
   Section.dataPacks => 'datapacks',
   Section.shaders => 'shaderpacks',
+  Section.plugins => 'plugins',
 };
 
 String resolveSourcePath(

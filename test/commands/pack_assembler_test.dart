@@ -13,13 +13,13 @@ ModsYaml _yaml({String slug = 'pack', String version = '0.1.0'}) {
     name: 'Pack',
     version: version,
     description: 'a pack',
-    loader: const LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
+    loader: const LoaderConfig(mods: ModLoader.fabric, modsVersion: '0.17.3'),
     mcVersion: '1.21.1',
   );
 }
 
 ModsLock _lock({
-  Loader loader = Loader.fabric,
+  ModLoader loader = ModLoader.fabric,
   String loaderVersion = '0.17.3',
   String mcVersion = '1.21.1',
   Map<String, LockedEntry> mods = const {},
@@ -103,13 +103,13 @@ LockedEntry _path({
 void main() {
   group('mrpackLoaderKey', () {
     test('forge -> "forge"', () {
-      expect(mrpackLoaderKey(Loader.forge), 'forge');
+      expect(mrpackLoaderKey(ModLoader.forge), 'forge');
     });
     test('neoforge -> "neoforge"', () {
-      expect(mrpackLoaderKey(Loader.neoforge), 'neoforge');
+      expect(mrpackLoaderKey(ModLoader.neoforge), 'neoforge');
     });
     test('fabric -> "fabric-loader"', () {
-      expect(mrpackLoaderKey(Loader.fabric), 'fabric-loader');
+      expect(mrpackLoaderKey(ModLoader.fabric), 'fabric-loader');
     });
   });
 
@@ -542,7 +542,7 @@ void main() {
     test('loader-key map is respected per-loader', () {
       final forge = buildIndex(
         yaml: _yaml(),
-        lock: _lock(loader: Loader.forge, loaderVersion: '52.0.45'),
+        lock: _lock(loader: ModLoader.forge, loaderVersion: '52.0.45'),
         target: PackTarget.combined,
         publishable: false,
       );
@@ -550,7 +550,7 @@ void main() {
 
       final neoforge = buildIndex(
         yaml: _yaml(),
-        lock: _lock(loader: Loader.neoforge, loaderVersion: '21.1.50'),
+        lock: _lock(loader: ModLoader.neoforge, loaderVersion: '21.1.50'),
         target: PackTarget.combined,
         publishable: false,
       );
@@ -888,7 +888,7 @@ void main() {
   group('collectOverrides files: section', () {
     ModsLock filesLock(Map<String, LockedFileEntry> files) => ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: const LoaderConfig(mods: Loader.fabric, modsVersion: '0.17.3'),
+      loader: const LoaderConfig(mods: ModLoader.fabric, modsVersion: '0.17.3'),
       mcVersion: '1.21.1',
       files: files,
     );
@@ -1058,7 +1058,7 @@ void main() {
         final lock = ModsLock(
           gitrinthVersion: '0.1.0',
           loader: const LoaderConfig(
-            mods: Loader.fabric,
+            mods: ModLoader.fabric,
             modsVersion: '0.17.3',
           ),
           mcVersion: '1.21.1',

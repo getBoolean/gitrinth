@@ -16,6 +16,7 @@ import '../service/cache.dart';
 import '../service/console.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth_api.dart';
+import 'version_picker.dart';
 
 class OutdatedCommand extends GitrinthCommand with OfflineFlag {
   @override
@@ -91,7 +92,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           locked: locked,
           manifestEntry: manifestEntry,
           mcVersion: lock.mcVersion,
-          loaderName: lock.loader.mods.name,
+          loaderConfig: lock.loader,
           api: api,
           cache: cache,
           offline: offline,
@@ -115,7 +116,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     required LockedEntry locked,
     required ModEntry? manifestEntry,
     required String mcVersion,
-    required String loaderName,
+    required LoaderConfig loaderConfig,
     required ModrinthApi api,
     required GitrinthCache cache,
     required bool offline,
@@ -154,7 +155,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
 
     final acceptsMc = manifestEntry?.acceptsMc ?? const <String>[];
     final gameVersions = <String>{mcVersion, ...acceptsMc}.toList();
-    final loaderFilter = _filterForSection(section, loaderName);
+    final loaderFilter = filterLoadersForSection(loaderConfig, section);
     final channel = manifestEntry?.channel ?? Channel.alpha;
     final constraint = _safeParseConstraint(manifestEntry?.constraintRaw);
 
@@ -243,21 +244,6 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     if (isNotFoundMarker(raw)) return 'not-found';
     if (isDisabledByConflictMarker(raw)) return 'disabled-by-conflict';
     return null;
-  }
-
-  List<String>? _filterForSection(Section section, String loaderName) {
-    switch (section) {
-      case Section.mods:
-        return [loaderName];
-      case Section.shaders:
-        // Shader project type uses the shader-loader tag; we don't have
-        // it here on the lock side, so leave the filter open.
-        return null;
-      case Section.resourcePacks:
-        return const ['minecraft'];
-      case Section.dataPacks:
-        return const ['datapack'];
-    }
   }
 
   void _printJson(List<_Row> rows) {

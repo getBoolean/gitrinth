@@ -67,19 +67,24 @@ class LoaderVersionResolver {
   /// [mcVersion] is required for Forge and NeoForge resolution which is
   /// per-Minecraft-version. Fabric ignores it.
   Future<String> resolve({
-    required Loader loader,
+    required ModLoader loader,
     required String tag,
     required String mcVersion,
   }) async {
     switch (loader) {
-      case Loader.fabric:
+      case ModLoader.fabric:
         return _resolveFabric(tag);
-      case Loader.forge:
+      case ModLoader.forge:
         return _resolveForge(tag, mcVersion);
-      case Loader.neoforge:
+      case ModLoader.neoforge:
         return mcVersion == '1.20.1'
             ? _resolveNeoforgeLegacy(tag)
             : _resolveNeoforge(tag, mcVersion);
+      case ModLoader.vanilla:
+        throw StateError(
+          'loader-version resolution is not defined for vanilla; '
+          'callers must guard with LoaderConfig.hasModRuntime.',
+        );
     }
   }
 
@@ -170,7 +175,7 @@ class LoaderVersionResolver {
   }
 
   Future<String> _resolveNeoforge(String tag, String mcVersion) async {
-    final parsed = _parseMcMinorPatch(mcVersion, Loader.neoforge, tag);
+    final parsed = _parseMcMinorPatch(mcVersion, ModLoader.neoforge, tag);
     final prefix = '${parsed.minor}.${parsed.patch}.';
     final body = await _fetchJson(_neoforgeVersionsUrl, 'maven.neoforged.net');
     final versions = _neoforgeVersionList(body);
@@ -283,7 +288,7 @@ class LoaderVersionResolver {
   /// derivation path.
   ({int minor, int patch}) _parseMcMinorPatch(
     String mc,
-    Loader loader,
+    ModLoader loader,
     String tag,
   ) {
     final Version v;

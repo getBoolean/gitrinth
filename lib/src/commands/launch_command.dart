@@ -290,7 +290,7 @@ Map<String, String> _spawnEnvironment({
 }
 
 (String executable, List<String> args, bool runInShell) _serverLaunchCommand({
-  required Loader loader,
+  required ModLoader loader,
   required Directory serverDir,
   required String memoryMax,
   required String memoryMin,
@@ -298,7 +298,24 @@ Map<String, String> _spawnEnvironment({
   required String javaPath,
 }) {
   switch (loader) {
-    case Loader.fabric:
+    case ModLoader.vanilla:
+      // Plugin / vanilla server launches use server.jar directly. The
+      // plugin-server install path drops `server.jar` into [serverDir];
+      // pure-vanilla packs would never reach here because `build server`
+      // refuses to install a server binary in that configuration.
+      return (
+        javaPath,
+        [
+          '-Xmx$memoryMax',
+          '-Xms$memoryMin',
+          '-jar',
+          'server.jar',
+          'nogui',
+          ...extraArgs,
+        ],
+        false,
+      );
+    case ModLoader.fabric:
       return (
         javaPath,
         [
@@ -311,8 +328,8 @@ Map<String, String> _spawnEnvironment({
         ],
         false,
       );
-    case Loader.forge:
-    case Loader.neoforge:
+    case ModLoader.forge:
+    case ModLoader.neoforge:
       // Modern Forge / NeoForge installers (MC 1.17+) emit run.sh / run.bat;
       // memory is supplied via user_jvm_args.txt rather than CLI flags so the
       // run script picks them up.
@@ -590,6 +607,13 @@ Future<int> runLaunchClient({
       'or drop --no-build.',
     );
   }
+  if (!lock.loader.hasModRuntime) {
+    throw const UserError(
+      'launch client: pack has no mod runtime (loader.mods is vanilla). '
+      'gitrinth does not install vanilla Minecraft launchers; use the '
+      'official launcher to play this pack.',
+    );
+  }
 
   final outputDir = Directory(
     p.normalize(
@@ -644,7 +668,7 @@ Future<int> runLaunchClient({
   final installerJar = await effectiveFetcher.fetchClientInstaller(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
-    loaderVersion: lock.loader.modsVersion,
+    loaderVersion: lock.loader.modsVersion!,
   );
 
   // Install the loader into the cache workdir so versions/, libraries/,
@@ -654,7 +678,7 @@ Future<int> runLaunchClient({
   final lastVersionId = await effectiveClientInstaller.installClient(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
-    loaderVersion: lock.loader.modsVersion,
+    loaderVersion: lock.loader.modsVersion!,
     dotMinecraftDir: workDir,
     installerJar: installerJar,
     offline: options.offline,

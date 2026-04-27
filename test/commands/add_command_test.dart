@@ -1107,4 +1107,74 @@ mods:
       expect(readYaml(), contains('rei:'));
     });
   });
+
+  group('plugins section', () {
+    test(
+      'plugin project routes to plugins: section under loader.plugins',
+      () async {
+        modrinth.registerVersion(
+          slug: 'luckperms',
+          versionNumber: '5.4.0',
+          versionType: 'release',
+          loader: 'paper',
+        );
+        modrinth.projects['luckperms']!['project_type'] = 'plugin';
+
+        await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: "neoforge:21.1.50"
+  plugins: paper
+mc-version: 1.21.1
+''');
+
+        final out = await runCli([
+          '-C',
+          packDir.path,
+          'add',
+          'luckperms',
+        ], environment: env());
+        expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+        final yaml = readYaml();
+        expect(yaml, contains('plugins:'));
+        expect(yaml, contains('luckperms: ^5.4.0'));
+      },
+    );
+  });
+
+  group('mods without a mod loader', () {
+    test('add to mods: errors when loader.mods is unset', () async {
+      modrinth.registerVersion(
+        slug: 'sodium',
+        versionNumber: '1.0.0',
+        versionType: 'release',
+      );
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  plugins: paper
+mc-version: 1.21.1
+''');
+
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'add',
+        'sodium',
+      ], environment: env());
+      expect(out.exitCode, isNot(0));
+      expect(
+        out.stderr + out.stdout,
+        allOf(contains('loader.mods is not set'), contains('sodium')),
+      );
+      final yaml = readYaml();
+      expect(yaml, isNot(contains('sodium')));
+    });
+  });
 }

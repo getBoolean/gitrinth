@@ -57,7 +57,7 @@ void main() {
     'loaderArtifactPath uses loaders/<loader>/<mc>/<loaderVersion>/<filename>',
     () {
       final path = cache.loaderArtifactPath(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
         filename: 'forge-installer.jar',
@@ -79,7 +79,7 @@ void main() {
   test('loaderArtifactPath spells loader names with their enum name', () {
     expect(
       cache.loaderArtifactPath(
-        loader: Loader.fabric,
+        loader: ModLoader.fabric,
         mcVersion: '1.20.4',
         loaderVersion: '0.16.10',
         filename: 'fabric-server-launch.jar',
@@ -95,7 +95,7 @@ void main() {
     );
     expect(
       cache.loaderArtifactPath(
-        loader: Loader.neoforge,
+        loader: ModLoader.neoforge,
         mcVersion: '1.21.1',
         loaderVersion: '21.1.50',
         filename: 'neoforge-21.1.50-installer.jar',

@@ -82,10 +82,10 @@ void main() {
       );
     });
 
-    test('plugin throws ValidationError (deferred post-MVP)', () {
+    test('plugin -> plugins', () {
       expect(
-        () => inferSectionFromProject(projectType: 'plugin', loaders: const []),
-        throwsA(isA<ValidationError>()),
+        inferSectionFromProject(projectType: 'plugin', loaders: const []),
+        Section.plugins,
       );
     });
 

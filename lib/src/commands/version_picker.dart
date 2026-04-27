@@ -54,19 +54,30 @@ Future<modrinth.Version?> pickLatestReleaseVersion({
 
 /// Maps a [Section] to the `loaders=` filter array gitrinth uses when
 /// listing Modrinth versions for that section. Mods use the loader
-/// declared in `mods.yaml`; shaders use the declared shader loader if
-/// any; resource packs and data packs use Modrinth's fixed sentinel
-/// values.
+/// declared in `mods.yaml`; shaders and plugins use the declared
+/// shader/plugin loader if any; resource packs and data packs use
+/// Modrinth's fixed sentinel values. Single source of truth — callers
+/// route through this helper instead of switching on [Section]
+/// themselves.
 List<String>? filterLoadersForSection(LoaderConfig config, Section section) {
   switch (section) {
     case Section.mods:
-      return [config.mods.name];
+      // No mod runtime — there is nothing to filter against. Modrinth
+      // has no `vanilla` loader token; null tells the caller to skip
+      // resolution for the mods section. The parser already rejects
+      // populated `mods:` entries under vanilla, so this branch is
+      // only ever hit by code that walks every section unconditionally.
+      return config.hasModRuntime ? [config.mods.name] : null;
     case Section.shaders:
       return config.shaders == null ? null : [config.shaders!.name];
     case Section.resourcePacks:
       return const ['minecraft'];
     case Section.dataPacks:
       return const ['datapack'];
+    case Section.plugins:
+      return config.plugins == null
+          ? null
+          : [config.plugins!.modrinthLoaderToken];
   }
 }
 
@@ -90,9 +101,11 @@ String caretOrPinFallback(String latest) {
 String? loaderNameForSection(LoaderConfig config, Section section) {
   switch (section) {
     case Section.mods:
-      return config.mods.name;
+      return config.hasModRuntime ? config.mods.name : null;
     case Section.shaders:
       return config.shaders?.name;
+    case Section.plugins:
+      return config.plugins?.modrinthLoaderToken;
     case Section.resourcePacks:
     case Section.dataPacks:
       return null;

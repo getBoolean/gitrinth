@@ -20,6 +20,7 @@ import '../model/resolver/resolver.dart';
 import '../model/resolver/result.dart';
 import '../model/resolver/version_selection.dart';
 import '../version.dart';
+import '../commands/version_picker.dart';
 import 'cache.dart';
 import 'console.dart';
 import 'downloader.dart';
@@ -175,14 +176,16 @@ Future<ResolveSyncResult> resolveAndSync({
   // precisely to drift). For concrete tags that already match the lock,
   // skip even the passthrough — the lock is the cache. Under --offline,
   // `stable`/`latest` falls back to the lock's concrete version.
-  final resolvedLoaderVersion = await _resolveLoaderVersion(
-    loaderResolver: loaderResolver,
-    loaderConfig: loaderConfig,
-    mcVersion: mc,
-    existingLock: existingLock,
-    offline: offline,
-    console: console,
-  );
+  final String? resolvedLoaderVersion = loaderConfig.hasModRuntime
+      ? await _resolveLoaderVersion(
+          loaderResolver: loaderResolver,
+          loaderConfig: loaderConfig,
+          mcVersion: mc,
+          existingLock: existingLock,
+          offline: offline,
+          console: console,
+        )
+      : null;
 
   final slugToSection = <String, Section>{};
   for (final section in Section.values) {
@@ -191,25 +194,12 @@ Future<ResolveSyncResult> resolveAndSync({
     }
   }
 
-  List<String>? filterForSection(Section section) {
-    switch (section) {
-      case Section.mods:
-        return [loaderConfig.mods.name];
-      case Section.shaders:
-        return [loaderConfig.shaders!.name];
-      case Section.resourcePacks:
-        return const ['minecraft'];
-      case Section.dataPacks:
-        return const ['datapack'];
-    }
-  }
-
   final versionsPerSlug = <String, List<modrinth.Version>>{};
 
   final resolver = Resolver(
     listVersions: (slug) async {
       final section = slugToSection[slug] ?? Section.mods;
-      final loaderFilter = filterForSection(section);
+      final loaderFilter = filterLoadersForSection(loaderConfig, section);
       final entry = merged.sectionEntries(section)[slug];
       final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
 
@@ -273,7 +263,7 @@ Future<ResolveSyncResult> resolveAndSync({
     final entry = e.value;
     if (entry.source is! ModrinthEntrySource) continue;
     final section = slugToSection[slug] ?? Section.mods;
-    final loaderFilter = filterForSection(section);
+    final loaderFilter = filterLoadersForSection(loaderConfig, section);
     final gameVersions = <String>{mc, ...entry.acceptsMc}.toList();
     final List<modrinth.Version> candidates;
     if (offline) {
@@ -583,7 +573,9 @@ Future<String> _resolveLoaderVersion({
   required bool offline,
   required Console console,
 }) async {
-  final tag = loaderConfig.modsVersion;
+  // Caller guarantees `loaderConfig.hasModRuntime`, so the version is
+  // populated for forge/fabric/neoforge.
+  final tag = loaderConfig.modsVersion!;
   final lockedSameLoader = existingLock?.loader.mods == loaderConfig.mods;
   final lockedVersion = existingLock?.loader.modsVersion;
   final tagIsConcrete = tag != 'stable' && tag != 'latest';
@@ -633,6 +625,7 @@ ModsLock? _stripLockPins(ModsLock? existingLock, Set<String> freshSlugs) {
     resourcePacks: strip(existingLock.resourcePacks),
     dataPacks: strip(existingLock.dataPacks),
     shaders: strip(existingLock.shaders),
+    plugins: strip(existingLock.plugins),
   );
 }
 
@@ -653,5 +646,6 @@ ModsYaml _relaxManifestConstraints(ModsYaml merged, Set<String> relax) {
     resourcePacks: relaxSection(merged.resourcePacks),
     dataPacks: relaxSection(merged.dataPacks),
     shaders: relaxSection(merged.shaders),
+    plugins: relaxSection(merged.plugins),
   );
 }

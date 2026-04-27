@@ -23,6 +23,8 @@ class GitrinthCache {
   String get loadersRoot => p.normalize(p.join(root, 'loaders'));
   String get launchersRoot => p.normalize(p.join(root, 'launchers'));
   String get runtimesRoot => p.normalize(p.join(root, 'runtimes'));
+  String get pluginServersRoot => p.normalize(p.join(root, 'plugin-servers'));
+  String get buildToolsCacheRoot => p.normalize(p.join(root, 'build-tools'));
 
   /// Path to a `_unverified` staging file under [urlRoot] for a
   /// url:-sourced artifact whose sha512 isn't yet known. Used by
@@ -66,12 +68,27 @@ class GitrinthCache {
   /// fabric-server-launch.jar, etc.) lives. Keyed by `(loader, mcVersion,
   /// loaderVersion)` so the same modpack rebuilt twice never re-downloads.
   String loaderArtifactPath({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
     required String filename,
   }) {
     return p.join(loadersRoot, loader.name, mcVersion, loaderVersion, filename);
+  }
+
+  /// Path where a plugin-loader server jar (Paper, Folia, SpongeForge,
+  /// SpongeNeo, Spigot, CraftBukkit) lives. Keyed by `(artifactKey,
+  /// mcVersion, version, filename)` so re-runs hit the cache. The
+  /// generic `artifactKey` (`paper`/`folia`/`spongeforge`/`spongeneo`/
+  /// `spigot`/`craftbukkit`) lets each [PluginServerSource] strategy
+  /// pick its own taxonomy without a switch here.
+  String pluginServerJarPath({
+    required String artifactKey,
+    required String mcVersion,
+    required String version,
+    required String filename,
+  }) {
+    return p.join(pluginServersRoot, artifactKey, mcVersion, version, filename);
   }
 
   /// Path where a Modrinth-sourced artifact should live.

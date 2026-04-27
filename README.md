@@ -77,26 +77,61 @@ Run `gitrinth <command> --help` for options. Every mutating command accepts
 
 #### Loader support
 
-Fabric, Forge, and NeoForge are the only supported mod loaders. Specify which loader and version you want in `mods.yaml`.
-
-All shader loaders are supported: Iris, Optifine, Canvas, and Vanilla.
-
-Plugin support is not yet implemented.
+Fabric, Forge, and NeoForge are the supported mod loaders. All shader
+loaders are supported: Iris, Optifine, Canvas, and Vanilla.
 
 ```yaml
 mc-version: 1.21.1
 loader:
-  # Choose from forge, fabric, or neoforge
-  # For the version, specify an exact version or use
-  # "latest"/"stable" for the latest/latest stable release.
+  # forge | fabric | neoforge. The version tag is optional; `latest` /
+  # `stable` track the newest / newest-stable release.
   mods: neoforge:stable
 
-  # Choose a shader loader (Use iris for Iris/Sodium)
+  # iris | optifine | canvas | vanilla. Required when `shaders:` has
+  # entries.
   shaders: iris
-
-  # Plugin support is coming soon
-  # plugins: sponge
 ```
+
+#### Plugin support
+
+`loader.plugins` accepts `bukkit`, `folia`, `paper`, `spigot`, and
+`sponge`. Plugin entries go under a `plugins:` section with the same
+syntax as `mods:`. `loader.mods` is **optional** — omit it for
+plugin-only or pure-vanilla packs.
+
+Pure plugin servers (paper / folia / bukkit / spigot, and `sponge`
+when `loader.mods` is `fabric` or omitted) force every `mods:` entry
+to `server: unsupported` — client modpack ships them, server jar
+doesn't. `sponge` resolves at lock time to the concrete distribution
+based on `loader.mods`: `forge` → SpongeForge (server-side Forge mods
+load alongside plugins), `neoforge` → SpongeNeo, `fabric` or omitted
+→ SpongeVanilla.
+
+```yaml
+# Plugin-only server (no mod runtime).
+loader:
+  plugins: paper
+mc-version: 1.21.1
+plugins:
+  luckperms: ^5.5.17
+```
+
+```yaml
+# Sponge — resolves to SpongeForge; mods alongside plugins.
+loader:
+  mods: forge
+  plugins: sponge
+mc-version: 1.21.1
+mods:
+  create: ^6.0.10+mc1.21.1
+plugins:
+  chunky: ^1.4.40
+```
+
+`build server` fetches the server jar from PaperMC / SpongePowered, or
+runs SpigotMC `BuildTools.jar` locally for spigot/bukkit (needs `git`
+and Java; cached after first build). Full spec:
+[Plugin loaders](./docs/mods-yaml.md#plugin-loaders).
 
 #### Adding mods by semantic version constraints
 
@@ -221,50 +256,50 @@ metadata fetches at a local fake server.
 
 ### Locations & credentials
 
-| Variable                   | Used by                  | Purpose                                                                                                                                                                          |
-|----------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `GITRINTH_CACHE`           | every command            | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                                   |
-| `GITRINTH_CONFIG`          | every command            | Override the user config file path. `--config` wins.                                                                                                                             |
-| `GITRINTH_MODRINTH_URL`    | every command            | Override the default Modrinth API base URL. Used to point at a self-hosted labrinth instance for the default host.                                                               |
-| `GITRINTH_TOKEN`           | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix). Other hosts always use the token stored via `gitrinth modrinth token add`.              |
-| `HOME` / `USERPROFILE`     | every command            | Resolves the default cache root and user config path. `USERPROFILE` is consulted on Windows; `HOME` everywhere else.                                                             |
+| Variable                | Used by       | Purpose                                                                                                                                                             |
+|-------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_CACHE`        | every command | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                      |
+| `GITRINTH_CONFIG`       | every command | Override the user config file path. `--config` wins.                                                                                                                |
+| `GITRINTH_MODRINTH_URL` | every command | Override the default Modrinth API base URL. Used to point at a self-hosted labrinth instance for the default host.                                                  |
+| `GITRINTH_TOKEN`        | every command | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix). Other hosts always use the token stored via `gitrinth modrinth token add`. |
+| `HOME` / `USERPROFILE`  | every command | Resolves the default cache root and user config path. `USERPROFILE` is consulted on Windows; `HOME` everywhere else.                                                |
 
 ### Java runtime
 
-| Variable                   | Used by                  | Purpose                                                                                                                                                                          |
-|----------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `JAVA_HOME`                | `launch` / `build`       | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc-version`. Stale system-wide values fall through to the auto-managed JDK.           |
-| `GITRINTH_JAVA_METADATA_URL` | `launch` / `build`     | Override the Adoptium feature-releases URL template used to fetch the auto-managed JDK.                                                                                          |
+| Variable                     | Used by            | Purpose                                                                                                                                                                |
+|------------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `JAVA_HOME`                  | `launch` / `build` | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc-version`. Stale system-wide values fall through to the auto-managed JDK. |
+| `GITRINTH_JAVA_METADATA_URL` | `launch` / `build` | Override the Adoptium feature-releases URL template used to fetch the auto-managed JDK.                                                                                |
 
 ### Loader metadata overrides
 
 Useful for offline / mirrored / fake-test builds. All default to the
 canonical upstream URLs.
 
-| Variable                                | Replaces                                                                  |
-|-----------------------------------------|---------------------------------------------------------------------------|
-| `GITRINTH_FABRIC_META_URL`              | `https://meta.fabricmc.net/v2/versions/loader`                            |
-| `GITRINTH_FORGE_PROMOTIONS_URL`         | `https://files.minecraftforge.net/.../promotions_slim.json`               |
-| `GITRINTH_FORGE_VERSIONS_URL`           | Forge `maven-metadata.json` for concrete-tag validation.                  |
-| `GITRINTH_FORGE_INSTALLER_URL`          | Forge installer-jar URL template (`{mc}` / `{v}` placeholders).           |
-| `GITRINTH_NEOFORGE_VERSIONS_URL`        | Modern NeoForge versions endpoint (MC ≥ 1.20.2).                          |
-| `GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL` | Legacy NeoForge versions endpoint (MC 1.20.1).                            |
-| `GITRINTH_NEOFORGE_INSTALLER_URL`       | Modern NeoForge installer-jar URL template (`{v}` placeholder).           |
-| `GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL`| Legacy NeoForge installer-jar URL template (`{mc}` / `{v}` placeholders). |
+| Variable                                 | Replaces                                                                  |
+|------------------------------------------|---------------------------------------------------------------------------|
+| `GITRINTH_FABRIC_META_URL`               | `https://meta.fabricmc.net/v2/versions/loader`                            |
+| `GITRINTH_FORGE_PROMOTIONS_URL`          | `https://files.minecraftforge.net/.../promotions_slim.json`               |
+| `GITRINTH_FORGE_VERSIONS_URL`            | Forge `maven-metadata.json` for concrete-tag validation.                  |
+| `GITRINTH_FORGE_INSTALLER_URL`           | Forge installer-jar URL template (`{mc}` / `{v}` placeholders).           |
+| `GITRINTH_NEOFORGE_VERSIONS_URL`         | Modern NeoForge versions endpoint (MC ≥ 1.20.2).                          |
+| `GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL`  | Legacy NeoForge versions endpoint (MC 1.20.1).                            |
+| `GITRINTH_NEOFORGE_INSTALLER_URL`        | Modern NeoForge installer-jar URL template (`{v}` placeholder).           |
+| `GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL` | Legacy NeoForge installer-jar URL template (`{mc}` / `{v}` placeholders). |
 
 ### Minecraft launcher discovery (`launch client`)
 
-| Variable                          | Purpose                                                                                                                            |
-|-----------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `GITRINTH_LAUNCHER`               | Absolute path to the Minecraft Launcher executable. Bypasses the per-OS search.                                                    |
-| `GITRINTH_LAUNCHER_SEARCH_PATHS`  | `;`-separated (Windows) or `:`-separated paths searched before the per-OS defaults.                                                |
+| Variable                         | Purpose                                                                             |
+|----------------------------------|-------------------------------------------------------------------------------------|
+| `GITRINTH_LAUNCHER`              | Absolute path to the Minecraft Launcher executable. Bypasses the per-OS search.     |
+| `GITRINTH_LAUNCHER_SEARCH_PATHS` | `;`-separated (Windows) or `:`-separated paths searched before the per-OS defaults. |
 
 ### Output / network
 
-| Variable                      | Purpose                                                                                                                                                          |
-|-------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `NO_COLOR`                    | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                                                  |
-| `HTTPS_PROXY` / `HTTP_PROXY`  | Standard proxy variables, honoured by every HTTP request through the shared Dio client.                                                                          |
+| Variable                     | Purpose                                                                                 |
+|------------------------------|-----------------------------------------------------------------------------------------|
+| `NO_COLOR`                   | Disable ANSI colour. `--color` overrides; `--no-color` matches.                         |
+| `HTTPS_PROXY` / `HTTP_PROXY` | Standard proxy variables, honoured by every HTTP request through the shared Dio client. |
 
 ## Contributing
 

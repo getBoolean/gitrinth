@@ -47,17 +47,38 @@ class ServerInstaller {
        _console = console ?? const Console();
 
   Future<void> installServer({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String? loaderVersion,
     required Directory outputDir,
     required File installerOrServerJar,
     required bool offline,
     String? javaPath,
     bool allowManagedJava = true,
     bool verbose = false,
+    File? pluginServerJar,
+    String? pluginInstallMarker,
   }) async {
+    // Plugin-loader installs don't use [loader] / [loaderVersion]; the
+    // mod-loader path requires both, so a null version there is a bug.
+    assert(
+      pluginServerJar != null ||
+          (loader != ModLoader.vanilla && loaderVersion != null),
+      'mod-loader install requires a real loader and a concrete version',
+    );
     outputDir.createSync(recursive: true);
+
+    if (pluginServerJar != null && pluginInstallMarker != null) {
+      final marker = File(
+        p.join(outputDir.path, '.gitrinth-installed-$pluginInstallMarker'),
+      );
+      if (marker.existsSync()) return;
+      final destJar = p.join(outputDir.path, 'server.jar');
+      pluginServerJar.copySync(destJar);
+      _writeStartScripts(outputDir);
+      marker.writeAsStringSync(DateTime.now().toIso8601String());
+      return;
+    }
 
     final marker = File(
       p.join(
@@ -68,12 +89,18 @@ class ServerInstaller {
     if (marker.existsSync()) return;
 
     switch (loader) {
-      case Loader.fabric:
+      case ModLoader.vanilla:
+        throw StateError(
+          'installServer: mod-loader path entered with vanilla loader; '
+          'caller must dispatch through the plugin-server path or guard '
+          'on hasModRuntime.',
+        );
+      case ModLoader.fabric:
         installerOrServerJar.copySync(
           p.join(outputDir.path, 'fabric-server-launch.jar'),
         );
-      case Loader.forge:
-      case Loader.neoforge:
+      case ModLoader.forge:
+      case ModLoader.neoforge:
         if (offline) {
           throw UserError(
             '${loader.name} server install requires running its installer '
@@ -149,6 +176,18 @@ class ServerInstaller {
   /// `PATH` or `JAVA_HOME`.
   Map<String, String> _spawnEnvironment(String javaPath) =>
       java_env.spawnEnvironment(_environment, p.dirname(javaPath));
+
+  void _writeStartScripts(Directory outputDir) {
+    File(p.join(outputDir.path, 'start.sh')).writeAsStringSync(
+      '#!/usr/bin/env bash\n'
+      'set -euo pipefail\n'
+      'exec java -Xmx2G -Xms1G -jar server.jar nogui "\$@"\n',
+    );
+    File(p.join(outputDir.path, 'start.bat')).writeAsStringSync(
+      '@echo off\r\n'
+      'java -Xmx2G -Xms1G -jar server.jar nogui %*\r\n',
+    );
+  }
 }
 
 /// Spawns a loader installer with verbosity-aware stdio handling. When

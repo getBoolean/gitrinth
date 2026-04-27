@@ -16,7 +16,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-ModsLock _lock({Loader loader = Loader.fabric}) => ModsLock(
+ModsLock _lock({ModLoader loader = ModLoader.fabric}) => ModsLock(
   gitrinthVersion: '0.1.0',
   loader: LoaderConfig(mods: loader, modsVersion: '0.17.3'),
   mcVersion: '1.21.1',
@@ -25,7 +25,7 @@ ModsLock _lock({Loader loader = Loader.fabric}) => ModsLock(
 class _FakeFetcher implements LoaderBinaryFetcher {
   final File jar;
   bool called = false;
-  Loader? loader;
+  ModLoader? loader;
   String? mc;
   String? lv;
 
@@ -33,7 +33,7 @@ class _FakeFetcher implements LoaderBinaryFetcher {
 
   @override
   Future<File> fetchClientInstaller({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
   }) async {
@@ -46,7 +46,7 @@ class _FakeFetcher implements LoaderBinaryFetcher {
 
   @override
   Future<File> fetchServerArtifact({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
   }) async {
@@ -65,7 +65,7 @@ class _FakeClientInstaller implements LoaderClientInstaller {
 
   @override
   Future<String> installClient({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
     required Directory dotMinecraftDir,
@@ -389,7 +389,7 @@ class _CountingFetcher implements LoaderBinaryFetcher {
 
   @override
   Future<File> fetchClientInstaller({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
   }) async {
@@ -399,7 +399,7 @@ class _CountingFetcher implements LoaderBinaryFetcher {
 
   @override
   Future<File> fetchServerArtifact({
-    required Loader loader,
+    required ModLoader loader,
     required String mcVersion,
     required String loaderVersion,
   }) async {

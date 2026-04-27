@@ -27,7 +27,7 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`description`](#description)             | yes      | Short, public-facing tagline.                                                                                                                                                                                                          |
 | [`project`](#project)                     | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                                                                                  |
 | [`publish_to`](#publish_to)               | no       | Where the modpack publishes to.                                                                                                                                                                                                        |
-| [`loader`](#loader)                       | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` deferred.                                                                                                         |
+| [`loader`](#loader)                       | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` required when the `plugins:` section has entries.                                                                 |
 | [`mc-version`](#mc-version)               | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                                                                                       |
 | [`tooling`](#tooling)                     | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                                                                              |
 | [`mods`](#mods)                           | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled.                                               |
@@ -98,13 +98,92 @@ data_packs:
 shaders:
   complementary-shaders: ^4.7.2
 
-plugins:
-  luckperms: ^5.4.0
-
 project_overrides:
   jei:
     version: 19.27.0.340
 ```
+
+### Example: pure plugin server (Paper)
+
+`mods:` entries are auto-coerced to `server: unsupported`. See
+[Plugin loaders](#plugin-loaders).
+
+```yaml
+slug: example_paper_pack
+name: Example Paper Pack
+version: 0.1.0
+description: Paper server with client-side QoL mods.
+
+loader:
+  mods: neoforge
+  plugins: paper
+mc-version: 1.21.1
+
+mods:
+  sodium: ^0.6.2
+
+plugins:
+  luckperms: ^5.5.17
+```
+
+### Example: mods + plugins (Sponge)
+
+Under `loader.plugins: sponge`, the concrete server distribution
+(SpongeForge, SpongeNeo, or SpongeVanilla) is selected at lock time
+from `loader.mods`:
+
+| `loader.mods` | resolved server | server-side mods? |
+|---|---|---|
+| `forge` | SpongeForge | yes (Forge mods load alongside plugins) |
+| `neoforge` | SpongeNeo | yes (NeoForge mods load alongside plugins) |
+| `fabric` | SpongeVanilla | no — Fabric mods coerce to client-only |
+| omitted / `vanilla` | SpongeVanilla | no |
+
+`mods:` entries keep their declared per-side state under
+SpongeForge / SpongeNeo; under SpongeVanilla they are coerced to
+`server: unsupported` automatically.
+
+```yaml
+slug: example_sponge_pack
+name: Example SpongeForge Pack
+version: 0.1.0
+description: Forge tech pack with Sponge plugins.
+
+loader:
+  mods: forge
+  plugins: sponge
+mc-version: 1.21.1
+
+mods:
+  create: ^6.0.10+mc1.21.1
+
+plugins:
+  chunky: ^1.4.40
+```
+
+### Example: plugin-only pack (no mod runtime)
+
+Omit `loader.mods` to declare a pack with no mod runtime. Useful for
+purely-plugin servers and for vanilla packs that only ship resource
+packs / shaders.
+
+```yaml
+slug: chunky_pack
+name: Chunky-Only Server
+version: 0.1.0
+description: Plugin server, no mods.
+
+loader:
+  plugins: paper
+mc-version: 1.21.1
+
+plugins:
+  chunky: ^1.4.40
+```
+
+`mods.lock` records `loader.mods: vanilla` for this pack. Adding any
+entry under `mods:` while `loader.mods` is unset is a parse error —
+declare a real mod loader first.
 
 ## Details
 
@@ -365,15 +444,21 @@ Recognised keys:
 
 | Key              | Required                                                           | Values                                   |
 |------------------|--------------------------------------------------------------------|------------------------------------------|
-| `loader.mods`    | **Yes.**                                                           | `forge`, `fabric`, `neoforge` (MVP).     |
-| `loader.shaders` | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`. |
-| `loader.plugins` | Deferred — accepted by the schema, rejected by the CLI in the MVP. | `bukkit`, `folia`, `paper`, `spigot`.    |
+| `loader.mods`    | Optional. Defaults to `vanilla` (no mod runtime).                  | `forge`, `fabric`, `neoforge`, `vanilla`.                                                                     |
+| `loader.shaders` | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`.                                                                      |
+| `loader.plugins` | When [`plugins:`](#plugins) has entries.                           | `bukkit`, `folia`, `paper`, `spigot`, `sponge`.                                                               |
 
 `resource_packs` and `data_packs` each have a single valid Modrinth
 loader (`minecraft` and `datapack` respectively), so they are not
 declared under `loader`.
 
-`loader.mods` has three roles:
+`loader.mods` is **optional** and defaults to `vanilla` — the "no mod
+runtime" sentinel — when omitted. Use this for purely-vanilla packs
+and for plugin servers that do not run mods. Adding any entry under
+`mods:` while `loader.mods` is unset is a parse error: declare a real
+mod loader (`forge` / `fabric` / `neoforge`) before adding mods.
+
+When set to a real mod loader, `loader.mods` has three roles:
 
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods) and [`project_overrides`](#project_overrides) (when
@@ -409,17 +494,35 @@ is a parse error. `gitrinth` rejects any value outside the enums above.
 
 #### Plugin loaders
 
-`bukkit`, `folia`, `paper`, and `spigot` (set via `loader.plugins`
-when plugin support lands) are plugin-based server platforms — they
-do not run Forge/Fabric-style client mods. Under one of these loaders:
+`bukkit`, `folia`, `paper`, `spigot`, and `sponge` are the
+plugin-based server platforms set via `loader.plugins`.
 
-- Every entry under [`mods`](#mods) is bundled into the **client-side
-  modpack only**, regardless of any per-mod
-  [per-side install state](#sides-client--server) value. (Mods do not load on a
-  plugin server, so shipping them to the server side would be dead
-  weight.)
-- [`plugins`](#plugins) ship to the server distribution — always, the
-  same as under every other loader.
+`bukkit` / `folia` / `paper` / `spigot` are pure plugin servers —
+they do not run Forge/Fabric-style mods.
+
+`sponge` resolves to one of three concrete server distributions at
+lock time, based on `loader.mods`:
+
+- `loader.mods: forge` → SpongeForge (server-side Forge mods load
+  alongside plugins).
+- `loader.mods: neoforge` → SpongeNeo (server-side NeoForge mods load
+  alongside plugins).
+- `loader.mods: fabric` or omitted → SpongeVanilla (no server-side
+  mods; Sponge has no Fabric distribution, so under Fabric the
+  client-side Fabric mods are coerced server-unsupported).
+
+`mods.lock` records the resolved variant
+(`spongeforge` / `spongeneo` / `spongevanilla`).
+
+Under `bukkit` / `folia` / `paper` / `spigot` / `sponge` resolved to
+SpongeVanilla:
+
+- Every entry under [`mods`](#mods) is forced to **client-only**,
+  regardless of any per-mod
+  [per-side install state](#sides-client--server) value. (Mods do not load on
+  pure plugin servers, so shipping them to the server side would be
+  dead weight.)
+- [`plugins`](#plugins) ship to the server distribution — always.
 - [`resource_packs`](#resource_packs) and [`data_packs`](#data_packs)
   behave the same way they do under `forge`/`fabric`/`neoforge` — data
   packs are world-level content that plugin servers load natively, and
@@ -428,8 +531,32 @@ do not run Forge/Fabric-style client mods. Under one of these loaders:
 - [`shaders`](#shaders) remain client-only, the same as under every
   other loader.
 
-`forge`, `fabric`, `neoforge`, and `sponge` apply no such override:
+Under `sponge` resolved to SpongeForge / SpongeNeo
+(`loader.mods` is `forge` or `neoforge`):
+
+- [`mods`](#mods) keep their declared [per-side install
+  state](#sides-client--server) — server-side Forge / NeoForge mods
+  ship to the server distribution and load alongside plugins.
+- [`plugins`](#plugins) ship to the server distribution.
+- Resource packs, data packs, and shaders behave as above.
+
+`forge`, `fabric`, and `neoforge` apply no such override:
 every entry honours its declared [per-side install state](#sides-client--server).
+
+Spigot and Bukkit server jars are produced by SpigotMC's
+`BuildTools.jar` on first build (gitrinth downloads `BuildTools.jar`
+once into the cache and runs it locally). BuildTools requires `git`
+and a JDK, takes several minutes to compile sources, and the produced
+jar is cached for re-use on subsequent builds. Paper, Folia, and the
+three Sponge variants are downloaded as pre-built jars from upstream.
+
+#### Pure-vanilla server
+
+A pack with neither `loader.plugins` nor a real `loader.mods` declares
+no mod runtime and no plugin runtime — `gitrinth build server`
+downloads the official Mojang `server.jar` for the pack's `mc-version`
+from `piston-meta.mojang.com`. Useful for vanilla servers that ship
+only resource packs / data packs / loose `files:` entries.
 
 ### `mc-version`
 
@@ -971,8 +1098,8 @@ server: required` — the inverse of shaders.
 
 ```yaml
 plugins:
-  luckperms: ^5.4.0
-  worldedit: ^7.3.0
+  luckperms: ^5.5.17
+  worldedit: ^7.4.2
 ```
 
 ### `project_overrides`

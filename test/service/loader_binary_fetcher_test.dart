@@ -57,7 +57,7 @@ void main() {
       fake.forgeInstallerBytes['1.21.1-52.1.5'] = bytes;
 
       final file = await fetcher.fetchServerArtifact(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
       );
@@ -81,7 +81,7 @@ void main() {
       fake.neoforgeInstallerBytes['21.1.50'] = bytes;
 
       final file = await fetcher.fetchServerArtifact(
-        loader: Loader.neoforge,
+        loader: ModLoader.neoforge,
         mcVersion: '1.21.1',
         loaderVersion: '21.1.50',
       );
@@ -105,7 +105,7 @@ void main() {
       fake.neoforgeLegacyInstallerBytes['1.20.1-47.1.106'] = bytes;
 
       final file = await fetcher.fetchServerArtifact(
-        loader: Loader.neoforge,
+        loader: ModLoader.neoforge,
         mcVersion: '1.20.1',
         loaderVersion: '47.1.106',
       );
@@ -129,7 +129,7 @@ void main() {
       fake.fabricServerJarBytes['1.21.1/0.17.3'] = bytes;
 
       final file = await fetcher.fetchServerArtifact(
-        loader: Loader.fabric,
+        loader: ModLoader.fabric,
         mcVersion: '1.21.1',
         loaderVersion: '0.17.3',
       );
@@ -153,7 +153,7 @@ void main() {
       fake.forgeInstallerBytes['1.21.1-52.1.5'] = bytes;
 
       await fetcher.fetchServerArtifact(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
       );
@@ -164,7 +164,7 @@ void main() {
       expect(hitsAfterFirst, 1);
 
       await fetcher.fetchServerArtifact(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
       );
@@ -183,7 +183,7 @@ void main() {
 
         await expectLater(
           fetcher.fetchServerArtifact(
-            loader: Loader.forge,
+            loader: ModLoader.forge,
             mcVersion: '1.21.1',
             loaderVersion: '52.1.5',
           ),
@@ -205,7 +205,7 @@ void main() {
         fake.fabricInstallerBytes['1.0.1'] = bytes;
 
         final file = await fetcher.fetchClientInstaller(
-          loader: Loader.fabric,
+          loader: ModLoader.fabric,
           mcVersion: '1.21.1',
           loaderVersion: '0.17.3',
         );
@@ -222,12 +222,12 @@ void main() {
         fake.forgeInstallerBytes['1.21.1-52.1.5'] = bytes;
 
         final clientFile = await fetcher.fetchClientInstaller(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           mcVersion: '1.21.1',
           loaderVersion: '52.1.5',
         );
         final serverFile = await fetcher.fetchServerArtifact(
-          loader: Loader.forge,
+          loader: ModLoader.forge,
           mcVersion: '1.21.1',
           loaderVersion: '52.1.5',
         );
@@ -246,7 +246,7 @@ void main() {
         },
       );
       final file = await envFetcher.fetchServerArtifact(
-        loader: Loader.forge,
+        loader: ModLoader.forge,
         mcVersion: '1.21.1',
         loaderVersion: '52.1.5',
       );

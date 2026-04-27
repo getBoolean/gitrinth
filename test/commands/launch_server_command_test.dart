@@ -13,7 +13,10 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
 import 'package:test/test.dart';
 
-ModsLock _lock({Loader loader = Loader.fabric, String mcVersion = '1.21.1'}) {
+ModsLock _lock({
+  ModLoader loader = ModLoader.fabric,
+  String mcVersion = '1.21.1',
+}) {
   return ModsLock(
     gitrinthVersion: '0.1.0',
     loader: LoaderConfig(mods: loader, modsVersion: '0.17.3'),
@@ -141,7 +144,7 @@ void main() {
     test(
       'Fabric launch invokes java -jar fabric-server-launch.jar nogui',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         File(
           p.join(serverDir.path, 'fabric-server-launch.jar'),
         ).writeAsStringSync('FAB');
@@ -178,7 +181,7 @@ void main() {
     );
 
     test('--java and --no-managed-java flow through to the resolver', () async {
-      writeLock(_lock(loader: Loader.fabric));
+      writeLock(_lock(loader: ModLoader.fabric));
       File(
         p.join(serverDir.path, 'fabric-server-launch.jar'),
       ).writeAsStringSync('FAB');
@@ -208,7 +211,7 @@ void main() {
     test(
       'Fabric launch does not write eula.txt without --accept-eula',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         File(
           p.join(serverDir.path, 'fabric-server-launch.jar'),
         ).writeAsStringSync('FAB');
@@ -235,7 +238,7 @@ void main() {
     test(
       'autoBuild=true delegates to doBuild with env=server before launching',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         File(
           p.join(serverDir.path, 'fabric-server-launch.jar'),
         ).writeAsStringSync('FAB');
@@ -273,7 +276,7 @@ void main() {
     test(
       'autoBuild failure short-circuits before spawning the server',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         var spawnCalled = false;
         final code = await runLaunchServer(
           options: const LaunchServerOptions(
@@ -340,7 +343,7 @@ void main() {
     test(
       'missing build/server when --no-build surfaces a clear UserError',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         serverDir.deleteSync(recursive: true);
         await expectLater(
           runLaunchServer(
@@ -373,7 +376,7 @@ void main() {
     test(
       '--memory-max only sets Xmx; Xms falls back to --memory default',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         File(
           p.join(serverDir.path, 'fabric-server-launch.jar'),
         ).writeAsStringSync('FAB');
@@ -402,7 +405,7 @@ void main() {
     test(
       '--memory + --memory-max: max wins for Xmx, --memory wins for Xms',
       () async {
-        writeLock(_lock(loader: Loader.fabric));
+        writeLock(_lock(loader: ModLoader.fabric));
         File(
           p.join(serverDir.path, 'fabric-server-launch.jar'),
         ).writeAsStringSync('FAB');
@@ -432,7 +435,7 @@ void main() {
       test(
         'on POSIX, Forge launch shells out to bash run.sh',
         () async {
-          writeLock(_lock(loader: Loader.forge));
+          writeLock(_lock(loader: ModLoader.forge));
           File(p.join(serverDir.path, 'run.sh'))
             ..writeAsStringSync('#!/bin/sh\n')
             ..renameSync(p.join(serverDir.path, 'run.sh'));
@@ -475,7 +478,7 @@ void main() {
       test(
         'on Windows, Forge launch shells out to run.bat',
         () async {
-          writeLock(_lock(loader: Loader.forge));
+          writeLock(_lock(loader: ModLoader.forge));
           File(
             p.join(serverDir.path, 'run.bat'),
           ).writeAsStringSync('@echo off\n');
@@ -511,7 +514,7 @@ void main() {
       test(
         'preserves non-Xmx lines in user_jvm_args.txt',
         () async {
-          writeLock(_lock(loader: Loader.forge));
+          writeLock(_lock(loader: ModLoader.forge));
           // POSIX-only: Windows uses run.bat without preserving args
           if (Platform.isWindows) return;
           File(
@@ -548,7 +551,7 @@ void main() {
       );
 
       test('missing run.sh / run.bat surfaces a clear UserError', () async {
-        writeLock(_lock(loader: Loader.forge));
+        writeLock(_lock(loader: ModLoader.forge));
         await expectLater(
           runLaunchServer(
             options: const LaunchServerOptions(
@@ -579,7 +582,7 @@ void main() {
       test(
         'mismatched memoryMax/memoryMin write through to user_jvm_args.txt',
         () async {
-          writeLock(_lock(loader: Loader.forge));
+          writeLock(_lock(loader: ModLoader.forge));
           if (Platform.isWindows) {
             File(
               p.join(serverDir.path, 'run.bat'),
