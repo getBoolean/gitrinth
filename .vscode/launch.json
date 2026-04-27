@@ -46,7 +46,8 @@
                 "server",
                 "--directory=example/example_neoforge",
                 "--accept-eula",
-                "--memory=4G"
+                "--memory=4G",
+                "--detach"
             ]
         }
     ]
