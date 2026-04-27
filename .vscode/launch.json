@@ -5,27 +5,45 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Neoforge Client",
+            "name": "Neoforge: Get",
             "request": "launch",
             "type": "dart",
-            "cwd": "example/example_neoforge",
+            "program": "bin/gitrinth.dart",
             "args": [
-                "run",
-                "gitrinth",
-                "launch",
-                "client"
+                "get",
+                "--directory=example/example_neoforge"
             ]
         },
         {
-            "name": "Neoforge Server",
+            "name": "Neoforge: Build",
             "request": "launch",
             "type": "dart",
-            "cwd": "example/example_neoforge",
+            "program": "bin/gitrinth.dart",
             "args": [
-                "run",
-                "gitrinth",
+                "build",
+                "--directory=example/example_neoforge"
+            ]
+        },
+        {
+            "name": "Neoforge: Launch Client",
+            "request": "launch",
+            "type": "dart",
+            "program": "bin/gitrinth.dart",
+            "args": [
                 "launch",
-                "server"
+                "client",
+                "--directory=example/example_neoforge"
+            ]
+        },
+        {
+            "name": "Neoforge: Launch Server",
+            "request": "launch",
+            "type": "dart",
+            "program": "bin/gitrinth.dart",
+            "args": [
+                "launch",
+                "server",
+                "--directory=example/example_neoforge"
             ]
         }
     ]
