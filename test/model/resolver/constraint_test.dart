@@ -20,23 +20,19 @@ void main() {
       expect(c.allows(Version.parse('5.9.0')), isFalse);
     });
 
-    test('caret on bare MMP admits <mmp>-<label> Modrinth release tags', () {
-      // Modrinth uses `<mmp>-<label>` as a release label (Faithful 32x:
-      // `1.21.1-december-2025`). Standard semver puts pre-release
-      // versions BELOW their base, which would make `^1.21.1` skip
-      // every `1.21.1-*` and pick a higher-MMP candidate even when its
-      // publish date is older. The Modrinth-aware caret admits these.
+    test('caret on bare MMP admits `<mmp>-<label>` Modrinth tags', () {
+      // Modrinth-aware caret admits `1.21.1-*` labels.
       final c = parseConstraint('^1.21.1');
       expect(c.allows(parseModrinthVersion('1.21.1')), isTrue);
       expect(c.allows(parseModrinthVersion('1.21.1-april-2025')), isTrue);
       expect(c.allows(parseModrinthVersion('1.21.1-december-2025')), isTrue);
-      // Higher-MMP labels still admitted (under the caret ceiling).
+      // Higher-MMP labels still fit under the caret.
       expect(c.allows(parseModrinthVersion('1.21.3-june-2025')), isTrue);
       expect(c.allows(parseModrinthVersion('1.22.0')), isTrue);
-      // Major bump still excluded.
+      // Major bump stays excluded.
       expect(c.allows(parseModrinthVersion('2.0.0')), isFalse);
       expect(c.allows(parseModrinthVersion('2.0.0-pre')), isFalse);
-      // Earlier major still excluded.
+      // Earlier versions stay excluded.
       expect(c.allows(parseModrinthVersion('1.20.4')), isFalse);
     });
 
@@ -54,11 +50,7 @@ void main() {
     });
 
     test('semver pin (no build metadata) matches tag-only candidates', () {
-      // `6.0.10` has empty numeric-build-prefix. It matches candidates
-      // whose numeric prefix is also empty — bare `6.0.10` and
-      // tag-only variants like `6.0.10+mc1.21.1`. A candidate carrying
-      // a real build number (e.g. `+340`) has a distinct numeric
-      // prefix and does NOT match.
+      // Bare `6.0.10` matches tag-only variants, not real build numbers.
       final c = parseConstraint('6.0.10');
       expect(c.allows(Version.parse('6.0.10+mc1.21.1')), isTrue);
       expect(c.allows(Version.parse('6.0.10+340')), isFalse);
@@ -68,8 +60,7 @@ void main() {
     test(
       'semver pin with tag metadata (+mc...) still matches bare candidate',
       () {
-        // `+mc1.21.1` contains non-numeric segments → treated as tag
-        // metadata → constraint is semver-only exact.
+        // `+mc1.21.1` is treated as tag metadata.
         final c = parseConstraint('6.0.10+mc1.21.1');
         expect(c.allows(Version.parse('6.0.10')), isTrue);
         expect(c.allows(Version.parse('6.0.10+mc1.21.1')), isTrue);
@@ -79,8 +70,7 @@ void main() {
     );
 
     test('build-number pin (+340) rejects candidates with different build', () {
-      // All-numeric build segments indicate a real build number → strict
-      // exact match (behaviour of pub_semver's Version equality).
+      // Numeric build segments mean a strict build-number match.
       final c = parseConstraint('19.27.0+340');
       expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
       expect(c.allows(Version.parse('19.27.0+341')), isFalse);
@@ -96,23 +86,19 @@ void main() {
     test(
       'semver pin `3.0.1-b` matches any `3.0.1-b-<mc>` Modrinth variant',
       () {
-        // Key user-visible behaviour: pinning to the pre-release label (no
-        // MC tail) should match every `-b-<mc>` file Modrinth ships in
-        // that beta family. Tag metadata on the candidate is informational.
+        // `3.0.1-b` should match every `3.0.1-b-<mc>` variant.
         final c = parseConstraint('3.0.1-b');
         expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
         expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.2')), isTrue);
         expect(c.allows(parseModrinthVersion('3.0.1-b-1.20.4')), isTrue);
-        // But different pre-release labels (or no pre-release) stay out.
+        // Different labels still stay out.
         expect(c.allows(parseModrinthVersion('3.0.1')), isFalse);
         expect(c.allows(parseModrinthVersion('3.0.1-a-1.21.1')), isFalse);
       },
     );
 
     test('exact pin on an arbitrary string works (matches itself)', () {
-      // Some Modrinth mods publish non-semver version strings. An
-      // exact pin has a well-defined meaning against them — match
-      // iff the raw string is the same. No ValidationError.
+      // Exact pins can still match non-semver strings by raw value.
       final c = parseConstraint('completely-arbitrary-name');
       expect(
         c.allows(parseModrinthVersionBestEffort('completely-arbitrary-name')),
@@ -125,8 +111,7 @@ void main() {
     });
 
     test('caret on an unparseable base raises ValidationError', () {
-      // Carets derive their upper bound by bumping major — that's
-      // meaningless for arbitrary-string versions. Reject at parse time.
+      // Carets need semver so they can derive an upper bound.
       expect(
         () => parseConstraint('^not-a-version'),
         throwsA(isA<ValidationError>()),
@@ -160,8 +145,7 @@ void main() {
       });
 
       test('whitespace between operator and version is tolerated', () {
-        // The example mods.yaml uses `>=1.0.0 < 2.0.0` (note the space
-        // after `<`); both spellings must parse identically.
+        // Both spaced and unspaced forms should parse the same.
         final tight = parseConstraint('>=1.0.0 <3.0.0');
         final spaced = parseConstraint('>=1.0.0 < 3.0.0');
         for (final v in const ['1.0.0', '2.5.0', '3.0.0']) {
@@ -212,9 +196,7 @@ void main() {
 
       test('> (strict) does NOT admit the boundary version itself, even with '
           'the `-0` widening trick', () {
-        // Internal regression check: widening would push `>1.0.0` down to
-        // `>1.0.0-0`, which silently re-admits `1.0.0`. The implementation
-        // applies widening only on `>=`.
+        // Widening only applies to `>=`, not `>`.
         final c = parseConstraint('>1.0.0');
         expect(c.allows(Version.parse('1.0.0')), isFalse);
         expect(c.allows(Version.parse('1.0.1')), isTrue);
@@ -224,7 +206,7 @@ void main() {
         final c = parseConstraint('>=1.21.1-rc1 <2.0.0');
         expect(c.allows(Version.parse('1.21.1-rc1')), isTrue);
         expect(c.allows(Version.parse('1.21.1')), isTrue);
-        // Pre-release lower than the supplied label is excluded.
+        // Earlier pre-releases stay excluded.
         expect(c.allows(Version.parse('1.21.0')), isFalse);
       });
 
@@ -237,10 +219,7 @@ void main() {
       });
 
       test('range on four-segment numeric version', () {
-        // pub_semver ignores build metadata for ordering, so a range bound
-        // discriminates at the MMP level only — same loss of build-number
-        // fidelity the caret form has on 4-segment versions. To pin a
-        // specific build, use the exact-pin form.
+        // Range bounds ignore build metadata, like the caret form.
         final c = parseConstraint('>=19.27.0.340');
         expect(c.allows(parseModrinthVersion('19.27.0.340')), isTrue);
         expect(c.allows(parseModrinthVersion('19.27.1.0')), isTrue);
@@ -251,8 +230,7 @@ void main() {
       test(
         'tag metadata (+mc...) on bounds is stripped — same as caret form',
         () {
-          // `+mc1.21` is informational tag metadata. A bound `>=1.0.0+mc1.21`
-          // should behave the same as `>=1.0.0` (not constrain the tag).
+          // `+mc1.21` is informational tag metadata.
           final tagged = parseConstraint('>=1.0.0+mc1.21 <2.0.0');
           final bare = parseConstraint('>=1.0.0 <2.0.0');
           for (final v in const ['1.0.0', '1.0.0+mc1.21.1', '1.5.0+mc1.21']) {
@@ -407,7 +385,7 @@ void main() {
     });
 
     test(
-      'returns null for non-channel tokens (falls through to constraint)',
+      'returns null for non-channel tokens',
       () {
         expect(parseChannelToken('^1.0.0'), isNull);
         expect(parseChannelToken('1.2.3'), isNull);
@@ -417,17 +395,13 @@ void main() {
     );
 
     test('rejects unknown channel-shaped tokens', () {
-      // Unknown tokens return null; the caller (parser) raises ValidationError
-      // when it required a channel.
+      // Unknown tokens return null.
       expect(parseChannelToken('nightly'), isNull);
       expect(parseChannelToken('stable'), isNull);
     });
   });
 
-  // Covers every mod-version-string shape mentioned in docs/mods-yaml.md, in
-  // both exact and caret forms. The doc promises all of these "just work"
-  // because `gitrinth` "doesn't constrain the format" — these tests pin that
-  // promise so a future parser change can't silently break one of them.
+  // Covers the documented version-string variants in both exact and caret form.
   group('version variants documented in docs/mods-yaml.md', () {
     group('exact form (parseModrinthVersion)', () {
       test('plain three-segment semver', () {
@@ -484,11 +458,7 @@ void main() {
       });
 
       test('Distant Horizons beta pre-release (3.0.1-b-1.21.1)', () {
-        // Beta releases for Distant Horizons use a `-b-<mc>` convention.
-        // The parser splits out the MC-version tail into build metadata
-        // so the pre-release is just `[b]` — not `[b-1, 21, 1]` — which
-        // lets semver pins of the form `3.0.1-b` match any `3.0.1-b-<mc>`
-        // variant the author ships.
+        // Split the MC tail into build metadata so `3.0.1-b` matches.
         final v = parseModrinthVersion('3.0.1-b-1.21.1');
         expect(v.major, 3);
         expect(v.minor, 0);
@@ -499,8 +469,7 @@ void main() {
 
       test('Modrinth `-<label>-<mc>` tail ignored when label-tail is single '
           'numeric (not an MC version)', () {
-        // `1.21.1-december-2025` looks superficially similar but `2025` is
-        // a single number, not an MC version. Parser must NOT split it.
+        // `2025` is not an MC version tail, so do not split it.
         final v = parseModrinthVersion('1.21.1-december-2025');
         expect(v.preRelease, ['december-2025']);
         expect(v.build, isEmpty);
@@ -573,10 +542,7 @@ void main() {
       });
 
       test('caret on Distant Horizons beta pre-release (^3.0.1-b-1.21.1)', () {
-        // The `+mc.1.21.1` tail is tag metadata, so `parseConstraint`
-        // strips it from the caret bound: `^3.0.1-b-1.21.1` resolves to
-        // `compatibleWith(3.0.1-b)`, matching the whole beta family
-        // (with or without MC tag) plus any later stable 3.x release.
+        // Strip the MC tail from the caret bound.
         final c = parseConstraint('^3.0.1-b-1.21.1');
         expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
         expect(c.allows(parseModrinthVersion('3.0.1-b')), isTrue);
@@ -586,12 +552,7 @@ void main() {
 
       test('caret on truncated pre-release (^3.0.1-b) matches richer betas '
           'like 3.0.1-b-1.21.1', () {
-        // Under our parser both `3.0.1-b` and `3.0.1-b-1.21.1` have
-        // preRelease `[b]`; the latter just adds build metadata. That
-        // makes `^3.0.1-b` a useful shorthand: its lower bound is the
-        // bare pre-release and the caret range reaches up to the next
-        // major, so every `3.0.1-b-<mc>` variant and every later stable
-        // 3.x release falls inside.
+        // `3.0.1-b-1.21.1` shares the same pre-release and only adds build metadata.
         final c = parseConstraint('^3.0.1-b');
         expect(c.allows(parseModrinthVersion('3.0.1-b')), isTrue);
         expect(c.allows(parseModrinthVersion('3.0.1-b-1.21.1')), isTrue);
@@ -653,10 +614,7 @@ void main() {
     });
 
     test('parseConstraint(disabled-by-conflict) explains how to retry', () {
-      // Resolver-side callers filter the marker out before parseConstraint
-      // ever sees it. This branch is the safety net for entries that
-      // somehow reach the parser (manual edit, schema-validation error
-      // path) — the message must point the user at the retry commands.
+      // Safety net if the marker reaches the parser.
       expect(
         () => parseConstraint(disabledByConflictMarker),
         throwsA(

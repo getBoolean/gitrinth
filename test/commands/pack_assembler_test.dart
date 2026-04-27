@@ -138,7 +138,7 @@ void main() {
         'server': 'optional',
       });
     });
-    test('asymmetric optional/required passes through verbatim', () {
+    test('asymmetric optional/required passes through', () {
       expect(mrpackEnvFor(SideEnv.optional, SideEnv.required), {
         'client': 'optional',
         'server': 'required',
@@ -206,7 +206,7 @@ void main() {
       expect(shader.env, {'client': 'required', 'server': 'unsupported'});
     });
 
-    test('uses LockedFile.url verbatim when present (no canonical synth)', () {
+    test('uses LockedFile.url as-is when present', () {
       final lock = _lock(
         mods: {
           'sodium': _modrinth(
@@ -506,7 +506,7 @@ void main() {
     });
 
     test(
-      'combined target keeps every entry (regression of pre-split behavior)',
+      'combined target keeps every entry',
       () {
         final lock = _lock(
           mods: {
@@ -1008,9 +1008,8 @@ void main() {
       expect(plan.hasModOverrides, isFalse);
     });
 
-    test('rejects `..` segments in destination as defense-in-depth', () {
-      // Schema/parser already block this; the assembler re-asserts in
-      // case a stale or hand-written lock smuggles one through.
+    test('rejects `..` segments in destination', () {
+      // Re-check in case a stale or hand-written lock contains one.
       final lock = filesLock({
         '../escape.txt': const LockedFileEntry(
           destination: '../escape.txt',
@@ -1034,7 +1033,7 @@ void main() {
       );
     });
 
-    test('rejects absolute destination as defense-in-depth', () {
+    test('rejects absolute destination', () {
       final lock = filesLock({
         '/etc/foo.toml': const LockedFileEntry(
           destination: '/etc/foo.toml',
@@ -1077,8 +1076,7 @@ void main() {
           target: PackTarget.combined,
         );
         expect(plan.hasModOverrides, isTrue, reason: 'mod entry sets the flag');
-        // Verify both mod and files entries are in the plan, with the
-        // mod entry tagged Section.mods and the files entry tagged null.
+        // Both the mod and files entries should be present.
         final modEntry = plan.entries.firstWhere((e) => e.slug == 'local-mod');
         final fileEntry = plan.entries.firstWhere(
           (e) => e.slug == 'config/options.txt',

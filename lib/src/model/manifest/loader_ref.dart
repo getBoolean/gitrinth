@@ -1,31 +1,16 @@
 import 'mods_yaml.dart';
 
-/// All loader names accepted by [parseLoaderRef], in the order shown
-/// to humans (CLI help, shell-completion candidates, error messages).
-/// `vanilla` last because it's the no-mod-runtime sentinel rather than
-/// a real loader.
+/// Loader names accepted by [parseLoaderRef].
+/// `vanilla` stays last because it is the no-mod-runtime sentinel.
 const List<String> loaderRefNames = ['forge', 'fabric', 'neoforge', 'vanilla'];
 
-/// Result of [parseLoaderRef]: the resolved [ModLoader] plus the
-/// version tag the user supplied (or `null` if omitted). For
-/// [ModLoader.vanilla] the tag is always `null` — the parser rejects
-/// `vanilla:<anything>`.
+/// Result of [parseLoaderRef].
+/// For [ModLoader.vanilla], the tag is always `null`.
 typedef LoaderRef = (ModLoader loader, String? tag);
 
-/// Parses a `loader` or `loader:tag` reference (the docker-image
-/// style shared by `loader.mods` in `mods.yaml`, `migrate loader`,
-/// and `gitrinth create --loader`).
-///
-/// Single source of truth for the form so the three call sites can't
-/// drift on accepted spellings or error wording. Each caller supplies
-/// its own [onError] to wrap the message in the appropriate exception
-/// type (`ValidationError`, `UsageError`, ...) and to prepend its
-/// context (file path, command name, flag name, ...). [onError] must
-/// not return.
-///
-/// Tag handling: a missing tag returns `null` and the caller substitutes
-/// its own default (the yaml parser defaults to `stable`; `migrate
-/// loader` and the lockfile keep `null` until resolved).
+/// Parses a `loader` or `loader:tag` reference.
+/// Shared by `mods.yaml`, `migrate loader`, and `create --loader`.
+/// Missing tags return `null`; callers choose their own default.
 LoaderRef parseLoaderRef(String raw, Never Function(String message) onError) {
   final colon = raw.indexOf(':');
   final namePart = (colon < 0 ? raw : raw.substring(0, colon)).toLowerCase();

@@ -4,9 +4,7 @@ import 'mods_yaml.dart';
 
 part 'mrpack_index.mapper.dart';
 
-/// Top-level shape of `modrinth.index.json` inside a `.mrpack` archive.
-/// Field names match the Modrinth pack spec verbatim — they're emitted
-/// as-is into the JSON.
+/// Top-level `modrinth.index.json` shape.
 @MappableClass()
 class MrpackIndex with MrpackIndexMappable {
   final String game;
@@ -45,8 +43,7 @@ class MrpackFile with MrpackFileMappable {
   });
 }
 
-/// Maps the in-tree `Loader` enum to the dependency key the Modrinth
-/// pack format expects.
+/// Maps [ModLoader] to the Modrinth dependency key.
 String mrpackLoaderKey(ModLoader loader) {
   switch (loader) {
     case ModLoader.forge:
@@ -64,9 +61,7 @@ String mrpackLoaderKey(ModLoader loader) {
   }
 }
 
-/// Maps a per-side install state pair to the per-file `env` map used by
-/// `modrinth.index.json`. Both sides pass through verbatim — [SideEnv]
-/// values share names with the strings mrpack expects.
+/// Maps per-side install state to a mrpack `env` map.
 Map<String, String> mrpackEnvFor(SideEnv client, SideEnv server) => {
   'client': client.name,
   'server': server.name,

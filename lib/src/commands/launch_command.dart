@@ -13,7 +13,9 @@ import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/console.dart';
 import '../service/cache.dart';
+import '../service/java_runtime_fetcher.dart';
 import '../service/java_runtime_resolver.dart';
+import '../service/jvm_gc.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
 import '../service/manifest_io.dart';
@@ -129,11 +131,11 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
         defaultsTo: false,
         negatable: false,
         help:
-            'Spawn the server detached from this terminal so it keeps running '
-            'after the terminal closes. Stdio is closed: no logs in this '
-            'terminal and no stdin (you cannot type `stop` here). gitrinth '
-            'prints the spawned server\'s PID so you can kill it manually '
-            '(`kill <pid>` on POSIX, `taskkill /PID <pid>` on Windows).',
+            'Spawn the server detached so it survives this terminal closing. '
+            'POSIX: stdio is closed (no logs, no stdin). Windows: the JVM '
+            'gets its own console window with logs and `stop`. gitrinth '
+            'prints the PID either way (`kill <pid>` / `taskkill /PID '
+            '<pid>`).',
       )
       ..addFlag(
         'force',
@@ -141,10 +143,9 @@ class LaunchServerCommand extends GitrinthCommand with OfflineFlag {
         defaultsTo: false,
         negatable: false,
         help:
-            'Bypass the safety check that rejects `--detach --headless` '
-            'together. The combo silences the server completely — no '
-            'terminal, no GUI, no stdin — leaving only a manual kill to '
-            'shut it down.',
+            'Bypass the POSIX-only check that rejects `--detach --headless` '
+            'together (no terminal, no GUI, no stdin → manual kill only). '
+            'No-op on Windows: the JVM\'s own console keeps logs and `stop`.',
       );
     addOfflineFlag();
   }
@@ -218,14 +219,12 @@ class LaunchServerOptions {
   /// headless hosts.
   final bool headless;
 
-  /// Spawn the server with `ProcessStartMode.detached` so it survives
-  /// the terminal that launched gitrinth. Stdio is closed: no logs and
-  /// no `stop` over stdin.
+  /// Spawn via `ProcessStartMode.detached`. POSIX closes stdio.
+  /// Windows gives `java.exe` its own console with logs and stdin.
   final bool detach;
 
-  /// Bypass the safety check that rejects [detach] + [headless]
-  /// together (the combo silences the server entirely; the only way
-  /// to shut it down is a manual kill against the printed PID).
+  /// Acknowledge POSIX [detach] + [headless] (no logs, no GUI, no stdin).
+  /// No-op on Windows.
   final bool force;
 }
 
@@ -257,11 +256,14 @@ Future<int> runLaunchServer({
   Future<int> Function(BuildOptions)? doBuild,
   JavaRuntimeResolver? resolver,
 }) async {
-  if (options.detach && options.headless && !options.force) {
+  // Windows gets a fresh JVM console, so only gate this on POSIX.
+  if (!Platform.isWindows &&
+      options.detach &&
+      options.headless &&
+      !options.force) {
     throw const UserError(
-      '`--detach --headless` together silences the server: no terminal '
-      'logs, no AWT GUI, and no `stop` over stdin. The only way to shut '
-      'it down is a manual `kill`. Pass --force (-f) to acknowledge.',
+      'On POSIX, `--detach --headless` silences the server (no logs, no '
+      'AWT, no stdin) — manual kill only. Pass --force (-f) to acknowledge.',
     );
   }
 
@@ -328,7 +330,8 @@ Future<int> runLaunchServer({
     memoryMax: options.memoryMax,
     memoryMin: options.memoryMin,
     extraArgs: options.extraArgs,
-    javaPath: java.path,
+    javaPath: java.binary.path,
+    javaMajor: java.majorVersion,
     headless: options.headless,
   );
 
@@ -343,7 +346,7 @@ Future<int> runLaunchServer({
     runInShell: useShell,
     environment: _spawnEnvironment(
       base: container.read(environmentProvider),
-      javaPath: java.path,
+      javaPath: java.binary.path,
     ),
     mode: options.detach
         ? ProcessStartMode.detached
@@ -384,6 +387,7 @@ Map<String, String> _spawnEnvironment({
   required String memoryMin,
   required List<String> extraArgs,
   required String javaPath,
+  required int javaMajor,
   required bool headless,
 }) {
   final jar = loader.serverLaunchJar;
@@ -391,6 +395,7 @@ Map<String, String> _spawnEnvironment({
     return (
       javaPath,
       [
+        ...gcFlagsForJavaMajor(javaMajor),
         '-Xmx$memoryMax',
         '-Xms$memoryMin',
         '-jar',
@@ -401,9 +406,8 @@ Map<String, String> _spawnEnvironment({
       false,
     );
   }
-  // Forge / NeoForge: installer-emitted run script. Memory goes via
-  // user_jvm_args.txt; nogui propagates through %* / "$@" to the JVM.
-  _writeUserJvmArgs(serverDir, memoryMax, memoryMin);
+  // Forge / NeoForge: write JVM args to user_jvm_args.txt.
+  _writeUserJvmArgs(serverDir, memoryMax, memoryMin, javaMajor);
   final scriptArgs = [...extraArgs, if (headless) 'nogui'];
   if (Platform.isWindows) {
     final bat = File(p.join(serverDir.path, 'run.bat'));
@@ -433,19 +437,26 @@ void _writeUserJvmArgs(
   Directory serverDir,
   String memoryMax,
   String memoryMin,
+  int javaMajor,
 ) {
   final file = File(p.join(serverDir.path, 'user_jvm_args.txt'));
-  // Preserve any existing non-Xmx/-Xms lines; only rewrite the heap entries
-  // so power-users can keep custom GC flags.
+  // Replace gitrinth-owned heap/GC tokens; keep everything else.
   final keep = <String>[];
   if (file.existsSync()) {
     for (final raw in file.readAsLinesSync()) {
       final t = raw.trim();
       if (t.startsWith('-Xmx') || t.startsWith('-Xms')) continue;
+      if (t.startsWith('-XX:+Use') && t.endsWith('GC')) continue;
+      if (t == '-XX:+UnlockExperimentalVMOptions') continue;
       keep.add(raw);
     }
   }
-  final out = <String>[...keep, '-Xmx$memoryMax', '-Xms$memoryMin'];
+  final out = <String>[
+    ...keep,
+    ...gcFlagsForJavaMajor(javaMajor),
+    '-Xmx$memoryMax',
+    '-Xms$memoryMin',
+  ];
   file.writeAsStringSync('${out.join('\n')}\n');
 }
 
@@ -525,16 +536,16 @@ Future<LaunchProcessResult> _defaultRunProcess(
 }
 
 /// Updates the profile in [profilesFile] whose `lastVersionId` matches
-/// [lastVersionId]: renames it to [newName], and — when [memoryMax] and
-/// [memoryMin] are both set — rewrites its `javaArgs` to inject `-Xmx` /
-/// `-Xms` while preserving any pre-existing non-heap tokens (so users who
-/// added e.g. `-XX:+UseG1GC` via the launcher GUI keep their flags).
-/// No-op if the file is missing/malformed or no profile matches — the
-/// launcher still works either way; this is best-effort.
+/// [lastVersionId]: renames it to [newName] and optionally rewrites
+/// `javaArgs`. When [javaMajor] is set, injects matching GC flags.
+/// When [memoryMax] and [memoryMin] are set, injects `-Xmx` / `-Xms`.
+/// Existing heap and GC tokens are stripped first. Other tokens stay.
+/// No-op if the file is missing, malformed, or no profile matches.
 void _updateInstallerProfile({
   required File profilesFile,
   required String lastVersionId,
   required String newName,
+  int? javaMajor,
   String? memoryMax,
   String? memoryMin,
 }) {
@@ -549,23 +560,30 @@ void _updateInstallerProfile({
   }
   final profiles = root['profiles'];
   if (profiles is! Map) return;
+  final injectMemory = memoryMax != null && memoryMin != null;
+  final injectGc = javaMajor != null;
   for (final entry in profiles.values) {
     if (entry is! Map) continue;
     if (entry['lastVersionId'] != lastVersionId) continue;
     entry['name'] = newName;
-    if (memoryMax != null && memoryMin != null) {
+    if (injectGc || injectMemory) {
       final existing = entry['javaArgs'];
       final preserved = (existing is String ? existing : '')
           .split(RegExp(r'\s+'))
           .where(
             (t) =>
-                t.isNotEmpty && !t.startsWith('-Xmx') && !t.startsWith('-Xms'),
+                t.isNotEmpty &&
+                !t.startsWith('-Xmx') &&
+                !t.startsWith('-Xms') &&
+                !(t.startsWith('-XX:+Use') && t.endsWith('GC')) &&
+                t != '-XX:+UnlockExperimentalVMOptions',
           )
           .toList();
       entry['javaArgs'] = [
         ...preserved,
-        '-Xmx$memoryMax',
-        '-Xms$memoryMin',
+        if (injectGc) ...gcFlagsForJavaMajor(javaMajor),
+        if (injectMemory) '-Xmx$memoryMax',
+        if (injectMemory) '-Xms$memoryMin',
       ].join(' ');
     }
   }
@@ -854,16 +872,16 @@ Future<int> runLaunchClient({
     verbose: options.verbose,
   );
 
-  // The loader installer auto-injects a profile with a generic name
-  // (e.g. "NeoForge"). Rename it to "gitrinth: <slug>" so the launcher GUI
-  // identifies which modpack this workDir belongs to. Match by
-  // lastVersionId so we don't depend on the installer's chosen key. When
-  // the user passed --memory, also inject -Xmx/-Xms into the profile's
-  // javaArgs so the launcher uses gitrinth's heap sizing.
+  // Rename the installer-created profile and refresh managed GC/heap args.
+  final javaMajor = JavaRuntimeFetcher.requiredFeatureFor(
+    lock.mcVersion,
+    console: console,
+  );
   _updateInstallerProfile(
     profilesFile: File(p.join(workDir.path, 'launcher_profiles.json')),
     lastVersionId: lastVersionId,
     newName: 'gitrinth: ${yaml.slug}',
+    javaMajor: javaMajor,
     memoryMax: options.memoryMax,
     memoryMin: options.memoryMin,
   );

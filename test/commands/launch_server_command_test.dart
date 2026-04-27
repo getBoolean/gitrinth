@@ -24,20 +24,19 @@ ModsLock _lock({
   );
 }
 
-/// Stub resolver that returns a fixed `java` path without probing the host.
-/// All launch-server tests use this so they don't depend on the real JDK
-/// installed on the CI machine.
+/// Stub resolver with a fixed `java` path and major version.
 class _FakeResolver implements JavaRuntimeResolver {
   final String javaPath;
+  final int majorVersion;
   String? lastMcVersion;
   String? lastExplicitPath;
   bool? lastAllowManaged;
   bool? lastOffline;
 
-  _FakeResolver({required this.javaPath});
+  _FakeResolver({required this.javaPath, this.majorVersion = 21});
 
   @override
-  Future<File> resolve({
+  Future<({File binary, int majorVersion})> resolve({
     required String mcVersion,
     String? explicitPath,
     bool allowManaged = true,
@@ -47,17 +46,14 @@ class _FakeResolver implements JavaRuntimeResolver {
     lastExplicitPath = explicitPath;
     lastAllowManaged = allowManaged;
     lastOffline = offline;
-    return File(javaPath);
+    return (binary: File(javaPath), majorVersion: majorVersion);
   }
 
   @override
   Future<int?> probeMajorVersion(String javaPath) async => null;
 }
 
-/// Captures `console.message(...)` calls so detach-mode tests can
-/// assert on the printed PID/kill instructions without spying on
-/// stdout. Other Console methods (warn/io/etc.) fall back to silent
-/// no-ops because the launch flow only uses [message].
+/// Captures `console.message(...)` for detach-mode assertions.
 class _CapturingConsole implements Console {
   final List<String> messages = [];
 
@@ -228,7 +224,16 @@ void main() {
         expect(fake.executable, isNotNull);
         // Fabric runs the resolved JDK directly (not run.sh / run.bat).
         expect(fake.executable, fakeResolver.javaPath);
-        expect(fake.args, contains('-Xmx4G'));
+        // GC flags should come before heap flags.
+        final gcIdx = fake.args!.indexOf('-XX:+UseZGC');
+        final xmxIdx = fake.args!.indexOf('-Xmx4G');
+        expect(
+          gcIdx,
+          isNonNegative,
+          reason:
+              'ZGC should be injected before heap flags',
+        );
+        expect(xmxIdx, greaterThan(gcIdx));
         expect(fake.args, contains('-Xms4G'));
         expect(fake.args, contains('-jar'));
         expect(fake.args, contains('fabric-server-launch.jar'));
@@ -276,6 +281,54 @@ void main() {
         expect(fake.args, contains('nogui'));
       },
     );
+
+    test('Fabric on JDK 17 injects Shenandoah', () async {
+      writeLock(_lock(loader: ModLoader.fabric, mcVersion: '1.20.4'));
+      File(
+        p.join(serverDir.path, 'fabric-server-launch.jar'),
+      ).writeAsStringSync('FAB');
+      final j17Resolver = _FakeResolver(
+        javaPath: p.join(tempRoot.path, 'fake17', 'bin', 'java'),
+        majorVersion: 17,
+      );
+      final fake = _FakeRunProcess();
+
+      await runLaunchServer(
+        options: const LaunchServerOptions(
+          acceptEula: false,
+          autoBuild: false,
+          memoryMax: '2G',
+          memoryMin: '2G',
+          offline: false,
+          verbose: false,
+          extraArgs: [],
+          headless: false,
+          detach: false,
+          force: false,
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess: fake.call,
+        resolver: j17Resolver,
+      );
+
+      expect(
+        fake.args,
+        contains('-XX:+UseShenandoahGC'),
+        reason: 'JDK 17 should use Shenandoah',
+      );
+      expect(
+        fake.args,
+        isNot(contains('-XX:+UseZGC')),
+        reason: 'ZGC is reserved for JDK 21+',
+      );
+      expect(
+        fake.args,
+        isNot(contains('-XX:+UnlockExperimentalVMOptions')),
+        reason: 'Shenandoah does not need the unlock flag on JDK 15+',
+      );
+    });
 
     test('--java and --no-managed-java flow through to the resolver', () async {
       writeLock(_lock(loader: ModLoader.fabric));
@@ -454,7 +507,7 @@ void main() {
     );
 
     test(
-      'missing build/server when --no-build surfaces a clear UserError',
+      'missing build/server with --no-build throws UserError',
       () async {
         writeLock(_lock(loader: ModLoader.fabric));
         serverDir.deleteSync(recursive: true);
@@ -640,7 +693,7 @@ void main() {
       );
 
       test(
-        'preserves non-Xmx lines in user_jvm_args.txt',
+        'rewrites user_jvm_args.txt with managed GC and heap flags',
         () async {
           writeLock(_lock(loader: ModLoader.forge));
           // POSIX-only: Windows uses run.bat without preserving args
@@ -673,7 +726,10 @@ void main() {
           final body = File(
             p.join(serverDir.path, 'user_jvm_args.txt'),
           ).readAsStringSync();
-          expect(body, contains('-XX:+UseG1GC'));
+          // Drop old GC flags.
+          expect(body, isNot(contains('-XX:+UseG1GC')));
+          expect(body, contains('-XX:+UseZGC'));
+          // Keep unrelated lines.
           expect(body, contains('# comment'));
           expect(body, contains('-Xmx8G'));
           expect(body, isNot(contains('-Xmx512M')));
@@ -681,7 +737,104 @@ void main() {
         skip: Platform.isWindows ? 'POSIX-only' : null,
       );
 
-      test('missing run.sh / run.bat surfaces a clear UserError', () async {
+      test(
+        'JDK 17 modpack writes Shenandoah (no unlock) into user_jvm_args.txt',
+        () async {
+          writeLock(_lock(loader: ModLoader.forge, mcVersion: '1.20.4'));
+          if (Platform.isWindows) {
+            File(
+              p.join(serverDir.path, 'run.bat'),
+            ).writeAsStringSync('@echo off\n');
+          } else {
+            File(
+              p.join(serverDir.path, 'run.sh'),
+            ).writeAsStringSync('#!/bin/sh\n');
+          }
+          final j17Resolver = _FakeResolver(
+            javaPath: p.join(tempRoot.path, 'fake17', 'bin', 'java'),
+            majorVersion: 17,
+          );
+          await runLaunchServer(
+            options: const LaunchServerOptions(
+              acceptEula: false,
+              autoBuild: false,
+              memoryMax: '4G',
+              memoryMin: '4G',
+              offline: false,
+              verbose: false,
+              extraArgs: [],
+              headless: false,
+              detach: false,
+              force: false,
+            ),
+            container: container,
+            console: const Console(),
+            io: io,
+            runProcess: _FakeRunProcess().call,
+            resolver: j17Resolver,
+          );
+          final body = File(
+            p.join(serverDir.path, 'user_jvm_args.txt'),
+          ).readAsStringSync();
+          expect(body, contains('-XX:+UseShenandoahGC'));
+          expect(body, isNot(contains('-XX:+UseZGC')));
+          expect(body, isNot(contains('-XX:+UnlockExperimentalVMOptions')));
+        },
+      );
+
+      test('JDK 8-14 writes unlock + Shenandoah without duplicates', () async {
+        writeLock(_lock(loader: ModLoader.forge, mcVersion: '1.16.5'));
+        if (Platform.isWindows) {
+          File(
+            p.join(serverDir.path, 'run.bat'),
+          ).writeAsStringSync('@echo off\n');
+        } else {
+          File(
+            p.join(serverDir.path, 'run.sh'),
+          ).writeAsStringSync('#!/bin/sh\n');
+        }
+        // Existing unlock token should be replaced, not duplicated.
+        File(p.join(serverDir.path, 'user_jvm_args.txt')).writeAsStringSync(
+          '-XX:+UnlockExperimentalVMOptions\n-Dlog4j2.formatMsgNoLookups=true\n',
+        );
+        final j11Resolver = _FakeResolver(
+          javaPath: p.join(tempRoot.path, 'fake11', 'bin', 'java'),
+          majorVersion: 11,
+        );
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: _FakeRunProcess().call,
+          resolver: j11Resolver,
+        );
+        final body = File(
+          p.join(serverDir.path, 'user_jvm_args.txt'),
+        ).readAsStringSync();
+        expect(body, contains('-XX:+UnlockExperimentalVMOptions'));
+        expect(body, contains('-XX:+UseShenandoahGC'));
+        expect(body, contains('-Dlog4j2.formatMsgNoLookups=true'));
+        // Keep a single unlock token.
+        expect(
+          '-XX:+UnlockExperimentalVMOptions'.allMatches(body).length,
+          1,
+          reason: 'no duplicate unlock line after rewrite',
+        );
+      });
+
+      test('missing run.sh / run.bat throws UserError', () async {
         writeLock(_lock(loader: ModLoader.forge));
         await expectLater(
           runLaunchServer(
@@ -864,7 +1017,7 @@ void main() {
       );
 
       test(
-        '--detach --headless without --force throws UserError before spawning',
+        'POSIX: --detach --headless without --force throws before spawn',
         () async {
           writeLock(_lock(loader: ModLoader.fabric));
           File(
@@ -905,6 +1058,42 @@ void main() {
             reason: 'validation must reject the combo before spawning',
           );
         },
+        // Windows gets a separate JVM console.
+        skip: Platform.isWindows ? 'POSIX-only gate' : null,
+      );
+
+      test(
+        'Windows: --detach --headless without --force is allowed',
+        () async {
+          writeLock(_lock(loader: ModLoader.fabric));
+          File(
+            p.join(serverDir.path, 'fabric-server-launch.jar'),
+          ).writeAsStringSync('FAB');
+          final fake = _FakeRunProcess();
+          final code = await runLaunchServer(
+            options: const LaunchServerOptions(
+              acceptEula: false,
+              autoBuild: false,
+              memoryMax: '2G',
+              memoryMin: '2G',
+              offline: false,
+              verbose: false,
+              extraArgs: [],
+              headless: true,
+              detach: true,
+              force: false,
+            ),
+            container: container,
+            console: const Console(),
+            io: io,
+            runProcess: fake.call,
+            resolver: fakeResolver,
+          );
+          expect(code, 0);
+          expect(fake.mode, ProcessStartMode.detached);
+          expect(fake.args, contains('nogui'));
+        },
+        skip: !Platform.isWindows ? 'Windows-only behavior' : null,
       );
 
       test(

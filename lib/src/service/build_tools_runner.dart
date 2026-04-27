@@ -159,12 +159,14 @@ class BuildToolsRunner {
   }) async {
     final r = _resolver;
     if (r != null) {
-      return r.resolve(
+      // BuildTools only needs the binary.
+      final resolved = await r.resolve(
         mcVersion: mcVersion,
         explicitPath: javaPath,
         allowManaged: allowManagedJava,
         offline: offline,
       );
+      return resolved.binary;
     }
     if (javaPath != null && javaPath.isNotEmpty) return File(javaPath);
     final binName = Platform.isWindows ? 'java.exe' : 'java';

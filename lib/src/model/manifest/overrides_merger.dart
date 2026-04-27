@@ -1,16 +1,9 @@
 import 'mods_yaml.dart';
 import 'project_overrides.dart';
 
-/// Merges the standalone `project_overrides.yaml` into the in-file
-/// `project_overrides:` map (standalone wins on conflicts), then applies
-/// the merged override onto the matching entry in
-/// `mods`/`resource_packs`/`data_packs`/`shaders`. Purely-transitive
-/// overrides — slugs not declared in any section — are synthesized into
-/// the section returned by [inferSectionForTransitive].
-///
-/// Returns a [MergedManifest]. Pure on its own; the I/O it might need
-/// for transitive section inference is delegated to the supplied
-/// closure.
+/// Merges standalone and inline project overrides, then applies them to
+/// declared entries. Undeclared override slugs are synthesized into the
+/// section returned by [inferSectionForTransitive].
 Future<MergedManifest> applyOverrides(
   ModsYaml base,
   ProjectOverrides extra, {
@@ -30,9 +23,7 @@ Future<MergedManifest> applyOverrides(
   final shaders = _applyTo(base.shaders, merged);
   final plugins = _applyTo(base.plugins, merged);
 
-  // Materialize purely-transitive overrides — slugs the user wrote
-  // into project_overrides: but never declared in any project section
-  // — into the section matching their Modrinth project type.
+  // Materialize undeclared override slugs into their inferred section.
   for (final e in merged.entries) {
     final slug = e.key;
     final ov = e.value;
@@ -91,21 +82,17 @@ Future<MergedManifest> applyOverrides(
   return MergedManifest(manifest: mergedManifest, overrideEntries: merged);
 }
 
-/// Result of [applyOverrides]: the post-merge manifest plus the
-/// information the resolver needs to honor sticky overrides.
+/// Result of [applyOverrides].
 class MergedManifest {
-  /// Manifest with override entries applied to existing slugs and
-  /// purely-transitive override slugs synthesized into the section
-  /// returned by `inferSectionForTransitive`.
+  /// Manifest after applying overrides.
   final ModsYaml manifest;
 
-  /// Slug → effective override entry (in-file ∪ standalone, standalone
-  /// wins on conflicts).
+  /// Effective override entry by slug.
   final Map<String, ModEntry> overrideEntries;
 
   const MergedManifest({required this.manifest, required this.overrideEntries});
 
-  /// `overrideEntries.keys.toSet()`. Cached on first access.
+  /// Convenience set of overridden slugs.
   Set<String> get overriddenSlugs => overrideEntries.keys.toSet();
 }
 
@@ -121,11 +108,7 @@ Map<String, ModEntry> _applyTo(
       result[slug] = entry;
       return;
     }
-    // Override replaces version + source for this entry; per-side
-    // install state is overridden whenever the override declared a
-    // non-default value. A `gitrinth:` marker on the base entry is
-    // replaced entirely — overrides are user intent and bypass the
-    // disabled-by-conflict / not-found state.
+    // Override version/source, and replace any transient gitrinth marker.
     result[slug] = ModEntry(
       slug: slug,
       constraintRaw: ov.constraintRaw ?? entry.constraintRaw,

@@ -16,9 +16,7 @@ import 'package:test/test.dart';
 
 import '../helpers/fake_modrinth.dart';
 
-/// Builds a tiny ZIP that mimics an Adoptium JDK layout with
-/// `<top>/bin/<binary>` so the fetcher's binary discovery has something
-/// to find.
+/// Tiny ZIP with `<top>/bin/<binary>`.
 Uint8List buildFakeJdkZip({
   required String top,
   required String binaryName,
@@ -37,8 +35,7 @@ Uint8List buildFakeJdkZip({
   return Uint8List.fromList(encoded);
 }
 
-/// Same idea as [buildFakeJdkZip] but for macOS layout: the binary lives
-/// under `<top>/Contents/Home/bin/java`.
+/// macOS variant with `Contents/Home/bin/java`.
 Uint8List buildFakeMacJdkTarGz({
   required String top,
   String binaryContents = 'FAKE-JAVA-MAC',
@@ -104,8 +101,7 @@ void main() {
         offline = false;
         dio = Dio()..interceptors.add(OfflineGuardInterceptor(() => offline));
         downloader = Downloader(dio: dio, cache: cache);
-        // Default test platform: Windows x64. Tests that need a different
-        // platform set debugHostPlatformOverride at the top of the test.
+        // Default test platform: Windows x64.
         debugHostPlatformOverride = const HostPlatform(
           os: 'windows',
           arch: 'x64',
@@ -160,8 +156,7 @@ void main() {
         ];
       }
 
-      test('happy path: empty cache -> downloads, extracts, caches, returns '
-          'bin/java', () async {
+      test('empty cache downloads, extracts, and returns bin/java', () async {
         final zipBytes = buildFakeJdkZip(
           top: 'jdk-21.0.5+11',
           binaryName: 'java.exe',
@@ -235,8 +230,8 @@ void main() {
         expect(first.path, second.path);
       });
 
-      test('sentinel-without-binary recovery: re-downloads cleanly', () async {
-        // Pre-write a sentinel into the target dir without a java binary.
+      test('stale sentinel without a binary re-downloads cleanly', () async {
+        // Seed a sentinel without a java binary.
         final dir = Directory(
           p.join(
             tempCacheRoot.path,
@@ -269,8 +264,7 @@ void main() {
 
         final java = await fetcher.ensureRuntime(21);
         expect(java.existsSync(), isTrue);
-        // The stale sentinel was removed and a new one matches the
-        // fresh fullVersion suffix.
+        // Replace the stale sentinel.
         expect(
           File(
             p.join(dir.path, '.gitrinth-installed-temurin-21.0.5+11'),
@@ -316,8 +310,7 @@ void main() {
           top: 'jdk-21',
           binaryName: 'java.exe',
         );
-        // Register metadata pointing at the real binary but with a
-        // checksum for OTHER bytes.
+        // Point metadata at the real binary with the wrong checksum.
         final binaryKey = '21-windows-x64.zip';
         fake.adoptiumBinaryBytes[binaryKey] = realBytes;
         fake.adoptiumMetadata['21-windows-x64'] = [
@@ -355,7 +348,7 @@ void main() {
         final dir = Directory(
           p.join(tempCacheRoot.path, 'runtimes', 'temurin', '21'),
         );
-        // Either dir doesn't exist (early failure) or it has no sentinel.
+        // Either the dir is absent or it has no sentinel.
         if (dir.existsSync()) {
           for (final entity in dir.listSync(recursive: true)) {
             if (entity is File &&

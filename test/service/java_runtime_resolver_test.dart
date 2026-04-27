@@ -15,10 +15,7 @@ import 'package:test/test.dart';
 import '../helpers/fake_modrinth.dart';
 import 'java_runtime_fetcher_test.dart' show buildFakeJdkZip;
 
-/// Builds a [JavaProber] that returns canned major versions keyed by
-/// the absolute path passed in. Returns null for any unrecognized path
-/// (mimics the real prober when `java -version` fails or output is
-/// unparseable).
+/// [JavaProber] stub keyed by absolute path.
 JavaProber stubProber(Map<String, int?> table) {
   return (String path) async => table[path];
 }
@@ -43,8 +40,7 @@ void main() {
       cache = GitrinthCache(root: cacheRoot.path);
       cache.ensureRoot();
 
-      // Two stub `java` binaries representing different installed JDKs.
-      // The prober map decides what version they "are."
+      // Two stub `java` binaries; the prober decides their versions.
       pathDir = Directory(p.join(tempRoot.path, 'fakebin'))..createSync();
       path21Java = File(p.join(pathDir.path, 'java21.exe'))
         ..writeAsStringSync('STUB');
@@ -61,8 +57,7 @@ void main() {
         downloader: downloader,
         metadataUrlTemplate: fake.adoptiumMetadataUrlTemplate,
       );
-      // Default test platform: Windows x64. Tests that need Linux or
-      // macOS set debugHostPlatformOverride at the top of the test.
+      // Default test platform: Windows x64.
       debugHostPlatformOverride = const HostPlatform(
         os: 'windows',
         arch: 'x64',
@@ -86,7 +81,12 @@ void main() {
         mcVersion: '1.21.1',
         explicitPath: path21Java.path,
       );
-      expect(result.path, path21Java.path);
+      expect(result.binary.path, path21Java.path);
+      expect(
+        result.majorVersion,
+        21,
+        reason: 'explicit-path resolution surfaces the probed major version',
+      );
     });
 
     test(
@@ -126,7 +126,8 @@ void main() {
         mcVersion: '1.21.1',
         explicitPath: jdkHome.path,
       );
-      expect(result.path, binary.path);
+      expect(result.binary.path, binary.path);
+      expect(result.majorVersion, 21);
     });
 
     test('--java to nonexistent path -> UserError "no such file"', () async {
@@ -163,13 +164,13 @@ void main() {
           probe: stubProber({binary.path: 21}),
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.path, binary.path);
+        expect(result.binary.path, binary.path);
+        expect(result.majorVersion, 21);
       },
     );
 
     test(
-      'JAVA_HOME mismatch with managed allowed: soft-falls through to '
-      'auto-fetch (so a stale system JAVA_HOME does not block the user)',
+      'JAVA_HOME mismatch with managed Java falls through to auto-fetch',
       () async {
         final jdkHome = Directory(p.join(tempRoot.path, 'jh17a'))..createSync();
         Directory(p.join(jdkHome.path, 'bin')).createSync();
@@ -202,8 +203,14 @@ void main() {
           probe: stubProber({binary.path: 17}),
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.path, contains('runtimes'));
-        expect(result.path, contains(p.join('temurin', '21')));
+        expect(result.binary.path, contains('runtimes'));
+        expect(result.binary.path, contains(p.join('temurin', '21')));
+        expect(
+          result.majorVersion,
+          21,
+          reason:
+              'managed fetch returns the requested feature version',
+        );
       },
     );
 
@@ -237,7 +244,7 @@ void main() {
     test(
       'cached gitrinth Temurin is used ahead of PATH when JAVA_HOME is unset',
       () async {
-        // Pre-populate the cache via the real fetcher with a fake JDK.
+        // Seed the managed cache with a fake JDK.
         final zipBytes = buildFakeJdkZip(
           top: 'jdk-21-fake',
           binaryName: 'java.exe',
@@ -269,12 +276,17 @@ void main() {
           },
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.path, contains('runtimes'));
-        expect(result.path, contains(p.join('temurin', '21')));
+        expect(result.binary.path, contains('runtimes'));
+        expect(result.binary.path, contains(p.join('temurin', '21')));
+        expect(
+          result.majorVersion,
+          21,
+          reason: 'cached managed runtime returns the requested feature',
+        );
         expect(
           pathProbed,
           isFalse,
-          reason: 'cached Temurin should preempt PATH probing',
+          reason: 'cached Temurin should win before PATH',
         );
       },
     );
@@ -293,12 +305,17 @@ void main() {
           probe: stubProber({realJava.path: 21}),
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.path, realJava.path);
+        expect(result.binary.path, realJava.path);
+        expect(
+          result.majorVersion,
+          21,
+          reason: 'PATH resolution surfaces the probed major version',
+        );
       },
     );
 
     test(
-      'PATH java with wrong version + online -> falls through to fetcher',
+      'PATH java with wrong version falls through to fetcher',
       () async {
         final pathDir2 = Directory(p.join(tempRoot.path, 'path17'))
           ..createSync();
@@ -331,7 +348,8 @@ void main() {
           probe: stubProber({java17.path: 17}),
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.path, contains('runtimes'));
+        expect(result.binary.path, contains('runtimes'));
+        expect(result.majorVersion, 21);
       },
     );
 
@@ -402,12 +420,10 @@ void main() {
           probe: stubProber({java.path: 21}),
         );
         final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.path, java.path);
+        expect(result.binary.path, java.path);
+        expect(result.majorVersion, 21);
       },
-      // Real temp paths on Windows contain `C:`, which collides with the
-      // `:` PATH separator. On macOS, the resolver's macOS-bundle probe
-      // would short-circuit before the linux split runs. Restrict to a
-      // real Linux runner where the behavior is exercised naturally.
+      // Restrict to Linux so `:` splitting is exercised naturally.
       testOn: 'linux',
     );
 

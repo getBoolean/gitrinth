@@ -4,8 +4,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
-/// In-process Modrinth-shaped HTTP server used by tests. Spawns on
-/// 127.0.0.1:0 (free port). Routes:
+/// In-process Modrinth-like test server. Routes:
 ///   - GET /v2/project/{slug}             -> canned project json
 ///   - GET /v2/project/{slug}/version     -> list of canned versions
 ///   - GET /v2/project/{slug}/check       -> 200 + `{"id": ...}` if taken,
@@ -23,14 +22,10 @@ class FakeModrinth {
   final Map<String, List<Map<String, dynamic>>> versions;
   final Map<String, Uint8List> artifacts;
 
-  /// Slugs that should report as already taken on `/v2/project/<slug>/check`,
-  /// in addition to anything in [projects]. Tests that want to assert collision
-  /// behavior without registering a full project body use this.
+  /// Extra slugs treated as taken by `/v2/project/<slug>/check`.
   final Set<String> _takenSlugs = <String>{};
 
-  /// Minecraft versions returned by `/v2/tag/game_version`. Default
-  /// includes the versions used in the test fixtures so existing tests
-  /// keep passing without configuring this explicitly.
+  /// Versions returned by `/v2/tag/game_version`.
   List<Map<String, dynamic>> gameVersions = [
     {
       'version': '1.21.1',
@@ -52,21 +47,16 @@ class FakeModrinth {
     },
   ];
 
-  /// Last query-parameter map seen on `GET /v2/project/<slug>/version`,
-  /// keyed by slug. Tests can assert which `loaders`/`game_versions`
-  /// filters the CLI sent (or didn't send) for a given request.
+  /// Last `GET /v2/project/<slug>/version` query, keyed by slug.
   final Map<String, Map<String, String>> lastVersionQuery = {};
 
-  /// Tokens accepted by `GET /v2/user`. Map value is the username
-  /// returned in the response body. Add via [registerToken]; any
-  /// `Authorization` header not present here yields 401.
+  /// Tokens accepted by `GET /v2/user`.
   final Map<String, String> _knownTokens = <String, String>{};
 
   /// Last `Authorization` header seen on a request, by path.
   final Map<String, String?> lastAuthorization = <String, String?>{};
 
-  /// Number of times each route has been requested. Tests can assert
-  /// that mc-version validation only fires when expected (one-shot rule).
+  /// Request count by route.
   final Map<String, int> requestCounts = {};
 
   FakeModrinth({
@@ -80,15 +70,11 @@ class FakeModrinth {
   String get baseUrl => 'http://127.0.0.1:${_server.port}/v2';
   String get downloadBaseUrl => 'http://127.0.0.1:${_server.port}/downloads';
 
-  /// URL for the fake fabric-meta loader-list response. Tests pass this
-  /// via the `GITRINTH_FABRIC_META_URL` env var to keep the resolver off
-  /// the real fabricmc.net.
+  /// Fake fabric-meta loader-list URL.
   String get fabricMetaUrl =>
       'http://127.0.0.1:${_server.port}/fabric/v2/versions/loader';
 
-  /// Newest-first list returned by the fake fabric-meta endpoint. Each
-  /// entry needs at least `version` (String) and `stable` (bool); other
-  /// fields are ignored by the resolver.
+  /// Newest-first fabric-meta response.
   List<Map<String, dynamic>> fabricLoaderVersions = [
     {'version': '0.17.3', 'stable': true},
     {'version': '0.17.2-beta.1', 'stable': false},
@@ -99,125 +85,92 @@ class FakeModrinth {
   String get forgePromotionsUrl =>
       'http://127.0.0.1:${_server.port}/forge/promotions_slim.json';
 
-  /// URL for the fake Forge maven-metadata endpoint (concrete-tag validation).
+  /// Fake Forge maven-metadata URL.
   String get forgeVersionsUrl =>
       'http://127.0.0.1:${_server.port}/forge/maven-metadata.json';
 
-  /// URL for the fake NeoForge modern versions endpoint.
+  /// Fake modern NeoForge versions URL.
   String get neoforgeVersionsUrl =>
       'http://127.0.0.1:${_server.port}/neoforge/versions';
 
-  /// URL for the fake NeoForge legacy (MC 1.20.1) versions endpoint.
+  /// Fake legacy NeoForge versions URL.
   String get neoforgeLegacyVersionsUrl =>
       'http://127.0.0.1:${_server.port}/neoforge-legacy/versions';
 
-  /// Template URL for the fake Forge installer endpoint, with `{mc}` and
-  /// `{v}` placeholders that mirror the real maven.minecraftforge.net path
-  /// shape (`<root>/<mc>-<v>/forge-<mc>-<v>-installer.jar`). Tests pass this
-  /// to [LoaderBinaryFetcher] so the cache exercise hits this server instead
-  /// of upstream.
+  /// Fake Forge installer URL template.
   String get forgeInstallerUrlTemplate =>
       'http://127.0.0.1:${_server.port}/forge-installer/'
       '{mc}-{v}/forge-{mc}-{v}-installer.jar';
 
-  /// Template URL for the fake NeoForge installer endpoint (modern, MC ≥
-  /// 1.20.2). `{v}` placeholder mirrors `<root>/<v>/neoforge-<v>-installer.jar`.
+  /// Fake modern NeoForge installer URL template.
   String get neoforgeInstallerUrlTemplate =>
       'http://127.0.0.1:${_server.port}/neoforge-installer/'
       '{v}/neoforge-{v}-installer.jar';
 
-  /// Template URL for the fake NeoForge legacy installer endpoint (MC 1.20.1).
-  /// `{mc}` and `{v}` placeholders mirror the real
-  /// `<root>/<mc>-<v>/forge-<mc>-<v>-installer.jar` shape.
+  /// Fake legacy NeoForge installer URL template.
   String get neoforgeLegacyInstallerUrlTemplate =>
       'http://127.0.0.1:${_server.port}/neoforge-legacy-installer/'
       '{mc}-{v}/forge-{mc}-{v}-installer.jar';
 
-  /// Template URL for the fake Fabric server-launch JAR endpoint.
-  /// `{mc}` and `{v}` placeholders mirror the real
-  /// `meta.fabricmc.net/v2/versions/loader/<mc>/<v>/server/jar` path.
+  /// Fake Fabric server-launch URL template.
   String get fabricServerJarUrlTemplate =>
       'http://127.0.0.1:${_server.port}/fabric-server/'
       '{mc}/{v}/server/jar';
 
-  /// Bytes served at the Forge installer endpoint, keyed by `<mc>-<v>`
-  /// (e.g. `1.21.1-52.1.5`). Tests register entries here, then assert the
-  /// downloaded file matches.
+  /// Forge installer bytes keyed by `<mc>-<v>`.
   final Map<String, Uint8List> forgeInstallerBytes = {};
 
-  /// Bytes served at the modern NeoForge installer endpoint, keyed by `<v>`
-  /// (e.g. `21.1.50`).
+  /// Modern NeoForge installer bytes keyed by `<v>`.
   final Map<String, Uint8List> neoforgeInstallerBytes = {};
 
-  /// Bytes served at the legacy NeoForge installer endpoint, keyed by
-  /// `<mc>-<v>` (the legacy maven uses the same path shape as Forge, so the
-  /// key includes the MC prefix).
+  /// Legacy NeoForge installer bytes keyed by `<mc>-<v>`.
   final Map<String, Uint8List> neoforgeLegacyInstallerBytes = {};
 
-  /// Bytes served at the Fabric server-launch JAR endpoint, keyed by
-  /// `<mc>/<v>` (e.g. `1.21.1/0.17.3`).
+  /// Fabric server-launch bytes keyed by `<mc>/<v>`.
   final Map<String, Uint8List> fabricServerJarBytes = {};
 
-  /// Template URL for the fake Fabric universal installer endpoint.
-  /// `{installerVersion}` placeholder mirrors the real
-  /// `maven.fabricmc.net/net/fabricmc/fabric-installer/<v>/fabric-installer-<v>.jar`
-  /// path.
+  /// Fake Fabric installer URL template.
   String get fabricInstallerUrlTemplate =>
       'http://127.0.0.1:${_server.port}/fabric-installer/'
       '{installerVersion}/fabric-installer-{installerVersion}.jar';
 
-  /// Bytes served at the Fabric universal installer endpoint, keyed by
-  /// installer version (e.g. `1.0.1`).
+  /// Fabric installer bytes keyed by version.
   final Map<String, Uint8List> fabricInstallerBytes = {};
 
-  /// Template URL for the fake Adoptium metadata endpoint. `{feature}`,
-  /// `{os}`, `{arch}` placeholders mirror the real
-  /// `api.adoptium.net/v3/assets/feature_releases/<feature>/ga` shape.
+  /// Fake Adoptium metadata URL template.
   String get adoptiumMetadataUrlTemplate =>
       'http://127.0.0.1:${_server.port}/adoptium/v3/assets/'
       'feature_releases/{feature}/ga'
       '?architecture={arch}&os={os}';
 
-  /// JSON body served at the Adoptium metadata endpoint, keyed by
-  /// `<feature>-<os>-<arch>` (e.g. `21-windows-x64`). Tests register
-  /// entries as `List<Map<String, dynamic>>` to mirror the real shape.
+  /// Adoptium metadata keyed by `<feature>-<os>-<arch>`.
   final Map<String, List<Map<String, dynamic>>> adoptiumMetadata = {};
 
-  /// Bytes served at the Adoptium fake binary endpoint, keyed by the
-  /// path tail (e.g. `21-windows-x64.zip`). The metadata `package.link`
-  /// must point at `http://127.0.0.1:<port>/adoptium-binary/<key>` for
-  /// the test to wire end-to-end.
+  /// Adoptium binary bytes keyed by URL tail.
   final Map<String, Uint8List> adoptiumBinaryBytes = {};
 
-  /// URL prefix tests should use when registering [adoptiumBinaryBytes].
+  /// URL prefix for [adoptiumBinaryBytes].
   String get adoptiumBinaryUrlPrefix =>
       'http://127.0.0.1:${_server.port}/adoptium-binary/';
 
-  /// Body served at [forgePromotionsUrl]. Shape mirrors the real
-  /// `promotions_slim.json` — `promos` keyed by `<mc>-recommended` and
-  /// `<mc>-latest`, values are bare build numbers.
+  /// Body served at [forgePromotionsUrl].
   Map<String, dynamic> forgePromotions = {
     'homepage': 'https://files.minecraftforge.net/',
     'promos': {'1.20.1-recommended': '47.2.0', '1.20.1-latest': '47.4.10'},
   };
 
-  /// Body served at [forgeVersionsUrl]. Shape mirrors the real
-  /// `maven-metadata.json` — top-level keys are MC versions, values are
-  /// arrays of full `<mc>-<build>` strings.
+  /// Body served at [forgeVersionsUrl].
   Map<String, dynamic> forgeVersions = {
     '1.20.1': ['1.20.1-47.2.0', '1.20.1-47.4.10'],
   };
 
-  /// Body served at [neoforgeVersionsUrl]. Shape mirrors the real
-  /// neoforged maven JSON API: `{"isSnapshot": bool, "versions": [...]}`.
-  /// Versions ascending, `-beta` suffix denotes non-stable.
+  /// Body served at [neoforgeVersionsUrl].
   Map<String, dynamic> neoforgeVersionsBody = {
     'isSnapshot': false,
     'versions': ['21.1.50', '21.1.228'],
   };
 
-  /// Body served at [neoforgeLegacyVersionsUrl]. Same shape; entries are
-  /// `1.20.1-<build>`.
+  /// Body served at [neoforgeLegacyVersionsUrl].
   Map<String, dynamic> neoforgeLegacyVersionsBody = {
     'isSnapshot': false,
     'versions': ['1.20.1-47.1.100', '1.20.1-47.1.106'],
@@ -230,24 +183,19 @@ class FakeModrinth {
 
   Future<void> stop() => _server.close(force: true);
 
-  /// Parses a `loaders=`/`game_versions=` query value (real Modrinth
-  /// expects a JSON array). Returns null when absent so callers can
-  /// distinguish "no filter" from "filter that matches nothing".
+  /// Parses a `loaders=` / `game_versions=` query value.
   static List<String>? _decodeFilterArray(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     try {
       final decoded = jsonDecode(raw);
       if (decoded is List) return decoded.cast<String>();
     } on FormatException {
-      // Fall through: invalid JSON arrays are treated as no filter.
+      // Invalid JSON means no filter.
     }
     return null;
   }
 
-  /// Marks [slug] as already taken so `/v2/project/<slug>/check` returns 200.
-  /// `registerVersion` already records into [projects], which is also treated
-  /// as taken — this is for tests that want collision behavior without a full
-  /// project fixture.
+  /// Marks [slug] as taken for `/v2/project/<slug>/check`.
   void markSlugTaken(String slug) {
     _takenSlugs.add(slug);
   }
@@ -264,9 +212,7 @@ class FakeModrinth {
     return sha512.convert(bytes).toString();
   }
 
-  /// Registers a single canned version under [slug]. Returns the generated
-  /// version-id so tests can assert against it. Builds the artifact bytes
-  /// on the fly and hashes them.
+  /// Registers one canned version under [slug].
   ///
   /// [versionType] is the Modrinth `version_type` ("release" | "beta" |
   /// "alpha"); omit to leave it unset (the resolver treats missing as
@@ -505,11 +451,7 @@ class FakeModrinth {
             req.response.statusCode = 404;
             req.response.write(jsonEncode({'error': 'unknown slug $slug'}));
           } else {
-            // Mirror real Modrinth's server-side filter so the resolver
-            // doesn't see candidates that wouldn't be returned in
-            // production (e.g. a 1.21.1-only version when the query
-            // asks for 1.21.4). Only applies when the caller actually
-            // sent the filter — absent params keep the full list.
+            // Apply the same loader/game-version filters as Modrinth.
             final qp = req.uri.queryParameters;
             final loadersFilter = _decodeFilterArray(qp['loaders']);
             final gvFilter = _decodeFilterArray(qp['game_versions']);
@@ -527,8 +469,7 @@ class FakeModrinth {
             req.response.write(jsonEncode(filtered));
           }
         } else {
-          // Modrinth's real /v2/project/{id|slug} accepts either form.
-          // Mirror that so dep lookups (which carry project IDs) resolve.
+          // Accept project ID or slug.
           var p = projects[tail];
           if (p == null) {
             for (final candidate in projects.values) {
@@ -543,11 +484,7 @@ class FakeModrinth {
             req.response.write(jsonEncode({'error': 'unknown id/slug $tail'}));
           } else {
             req.response.headers.contentType = ContentType.json;
-            // Auto-derive `loaders` from the first registered version when
-            // the test didn't set it explicitly. Mirrors Modrinth's real
-            // behavior (project responses include the union of loader tags
-            // across that project's versions) closely enough for routing
-            // tests.
+            // Derive `loaders` when tests did not set it explicitly.
             final body = Map<String, dynamic>.from(p);
             if (!body.containsKey('loaders')) {
               final resolvedSlug = body['slug'] as String?;

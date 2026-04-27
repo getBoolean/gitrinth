@@ -1,13 +1,9 @@
 import 'package:collection/collection.dart';
 import 'package:pub_semver/pub_semver.dart';
 
-/// Returns the leading run of purely-numeric segments in [build] —
-/// the "build number" prefix. Stops at the first non-numeric segment
-/// (tag metadata like `mc`). Empty list when [build] is empty or starts
-/// with a tag segment.
-///
-/// Shared between `parseConstraint`, `bareVersionForPin`, and
-/// [SemverOnlyExactConstraint] so the classifier stays in one place.
+/// Returns the leading run of numeric build segments in [build].
+/// Shared by `parseConstraint`, `bareVersionForPin`, and
+/// [SemverOnlyExactConstraint].
 List<String> numericBuildPrefix(List<Object> build) {
   final out = <String>[];
   for (final seg in build) {
@@ -22,28 +18,8 @@ const _stringListEq = ListEquality<Object>();
 const _intListEq = ListEquality<int>();
 
 /// Exact-pin [VersionConstraint] with Modrinth-aware metadata handling.
-///
-/// Treats a parsed [Version]'s identity as the tuple
-/// `(major, minor, patch, preRelease, numericBuildPrefix)`, where
-/// `numericBuildPrefix` is the leading run of purely-numeric segments in
-/// the build metadata. Tag metadata (non-numeric build segments like
-/// `mc`, `neoforge`) is always informational and is ignored when
-/// matching.
-///
-/// Examples:
-///   - constraint `6.0.10` → prefix `[]`. Matches `6.0.10`,
-///     `6.0.10+mc1.21.1`. Does NOT match `6.0.10+340` (candidate has
-///     a distinct build number).
-///   - constraint `19.27.0.340` → prefix `[340]`. Matches
-///     `19.27.0+340`, `19.27.0+340.b.1.21.1`. Does NOT match
-///     `19.27.0+341` (different build number).
-///   - constraint `3.0.1-b` → preRelease `[b]`, prefix `[]`. Matches
-///     any `3.0.1-b+<anything>` including `3.0.1-b+mc.1.21.1`.
-///
-/// This is a single-point constraint — [isAny] and [isEmpty] are always
-/// false, and union/difference with arbitrary ranges aren't meaningful;
-/// `union` throws `UnsupportedError` if invoked against an unrelated
-/// range since the resolver doesn't exercise that path today.
+/// Matching uses `(major, minor, patch, preRelease, numericBuildPrefix)`.
+/// Non-numeric build metadata is ignored.
 class SemverOnlyExactConstraint implements VersionConstraint {
   final Version base;
   final List<int> buildNumber;

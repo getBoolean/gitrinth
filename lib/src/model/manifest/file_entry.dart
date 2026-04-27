@@ -4,38 +4,25 @@ import 'mods_yaml.dart';
 
 part 'file_entry.mapper.dart';
 
-/// A loose-file declaration from `mods.yaml`'s `files:` section.
-///
-/// Files are copied verbatim from [sourcePath] (relative to the
-/// `mods.yaml` directory) into the build env root at [destination].
-/// They are also bundled into the `.mrpack` archive's overrides tree
-/// when `gitrinth pack` runs.
-///
-/// [preserve] makes the file first-install-only: when true, the
-/// build step skips overwriting an existing destination so user
-/// edits survive subsequent rebuilds. Removing the entry from
-/// `files:` still prunes it on the next build — preserve is not
-/// sticky.
+/// Loose-file declaration from `mods.yaml`'s `files:` section.
+/// Copies [sourcePath] into [destination], and includes it in mrpack
+/// overrides on `gitrinth pack`.
+/// When [preserve] is true, build skips overwriting an existing file.
 @MappableClass()
 class FileEntry with FileEntryMappable {
-  /// Destination path relative to the build env root, e.g.
-  /// `config/sodium-options.json`. Must be relative and normalized
-  /// (no `..`, no leading separator, no `./`, no `//`).
+  /// Destination path relative to the build env root.
   final String destination;
 
   /// Source path relative to the `mods.yaml` directory.
   final String sourcePath;
 
-  /// Install state on the client side. Only `required` and
-  /// `unsupported` are supported for `files:` in v1.
+  /// Client-side install state.
   final SideEnv client;
 
-  /// Install state on the server side. Only `required` and
-  /// `unsupported` are supported for `files:` in v1.
+  /// Server-side install state.
   final SideEnv server;
 
-  /// When true, build skips overwriting an existing file at
-  /// [destination]. First-install-only behavior.
+  /// When true, build skips overwriting an existing [destination].
   final bool preserve;
 
   const FileEntry({

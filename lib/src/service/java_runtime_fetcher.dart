@@ -14,14 +14,10 @@ import 'console.dart';
 import 'dio_error_helpers.dart';
 import 'downloader.dart';
 
-/// Fetches and caches an Eclipse Temurin JDK matching a feature version
-/// (e.g. 21). The download source is the Adoptium API; the extracted JDK
-/// lives under `<cache>/runtimes/temurin/<feature>/<os>-<arch>/`.
-///
-/// Idempotent: if the target dir already has a sentinel marker and a
-/// resolvable `bin/java[.exe]`, the cached path is returned without
-/// any HTTP. Concurrent gitrinth invocations serialize on a per-feature
-/// file lock so two terminals racing don't double-extract.
+/// Fetches and caches an Eclipse Temurin JDK for a feature version.
+/// Installs under `<cache>/runtimes/temurin/<feature>/<os>-<arch>/`.
+/// Cached installs are reused, and concurrent installs serialize on a
+/// per-feature file lock.
 class JavaRuntimeFetcher {
   static const String vendor = 'temurin';
 
@@ -51,13 +47,8 @@ class JavaRuntimeFetcher {
                '&page=0&page_size=1&project=jdk'
                '&sort_method=DEFAULT&sort_order=DESC&vendor=eclipse';
 
-  /// Returns the JDK feature version required by [mcVersion]. Defaults
-  /// to 25 (highest known) on unparseable input, after a [Console.warn].
-  ///
-  /// Boundaries (sourced from Mojang's launcher_meta + MC release notes):
-  /// `< 1.17`→8, `1.17`→16, `1.18`→17, `1.20.5`→21, `26.1`→25. MC 26.0
-  /// is still on Java 21; the year-based versioning scheme means major
-  /// engine bumps land in point releases.
+  /// Returns the JDK feature required by [mcVersion].
+  /// Unparseable input warns and defaults to 25.
   static int requiredFeatureFor(String mcVersion, {Console? console}) {
     try {
       final v = parseMcVersion(mcVersion);
@@ -93,8 +84,7 @@ class JavaRuntimeFetcher {
       ),
     );
 
-    // Half-state cleanup: dir exists but no sentinel inside (crashed
-    // prior run). Don't trust the contents — start fresh.
+    // No sentinel means an incomplete install; start fresh.
     if (dir.existsSync() && !_hasSentinel(dir)) {
       dir.deleteSync(recursive: true);
     }
@@ -111,8 +101,7 @@ class JavaRuntimeFetcher {
     final lockHandle = lockFile.openSync(mode: FileMode.write);
     lockHandle.lockSync(FileLock.exclusive);
     try {
-      // Re-check after acquiring lock — another process may have just
-      // finished installing the same feature.
+      // Re-check after locking in case another process just finished.
       if (dir.existsSync() && _hasSentinel(dir)) {
         final cached = _findJavaBinary(dir, osKey);
         if (cached != null) return cached;
@@ -198,10 +187,7 @@ class JavaRuntimeFetcher {
         throw UserError('failed to install Temurin runtime: ${e.message}');
       }
 
-      // Only chmod when the host can actually run `chmod` (i.e. POSIX).
-      // Cross-OS extraction (e.g. Windows host extracting a mac archive
-      // for testing) skips chmod since `chmod` isn't available; the
-      // production code path always has matching osKey + host OS.
+      // Only chmod on a matching POSIX host.
       if (osKey != 'windows' && !Platform.isWindows) {
         _chmodPosixBinaries(dir);
       }
@@ -327,8 +313,7 @@ class JavaRuntimeFetcher {
         input.closeSync();
       }
     } else if (lower.endsWith('.tar.gz') || lower.endsWith('.tgz')) {
-      // Decompress .gz to a temp .tar so the tar decoder can stream the
-      // result; avoids holding the full uncompressed tar in memory.
+      // Decompress to a temp .tar so tar decoding can stream.
       final tarTmp = File(
         p.join(
           _cache.tmpRoot,
@@ -361,17 +346,13 @@ class JavaRuntimeFetcher {
     }
   }
 
-  /// Manually iterates [arch] and writes entries to [outputDir]. Unlike
-  /// `package:archive`'s `extractArchiveToDisk`, write failures are
-  /// surfaced rather than silently swallowed — the partial-extraction
-  /// bug those swallowed errors mask is precisely what was producing
-  /// "extracted Temurin archive but could not find bin/java inside".
+  /// Writes [arch] into [outputDir].
+  /// Unlike `extractArchiveToDisk`, write failures are surfaced.
   void _writeEntriesToDisk(Archive arch, Directory outputDir) {
     final outRoot = p.normalize(p.absolute(outputDir.path));
     for (final entry in arch) {
       final dest = p.normalize(p.join(outRoot, entry.name));
-      // Path traversal guard: archive entries naming `../foo` or
-      // absolute paths must not escape outputDir.
+      // Guard against path traversal.
       if (dest != outRoot && !p.isWithin(outRoot, dest)) continue;
 
       if (entry.isSymbolicLink) {
@@ -404,8 +385,7 @@ class JavaRuntimeFetcher {
       try {
         Process.runSync('chmod', ['+x', f.path]);
       } catch (_) {
-        // Non-fatal; if chmod isn't available the user will see a
-        // clearer error from the spawn step.
+        // Non-fatal.
       }
     }
 
@@ -430,9 +410,8 @@ class JavaRuntimeFetcher {
     return false;
   }
 
-  /// Locates `java[.exe]` under [dir]. Adoptium archives wrap a single
-  /// top-level dir (e.g. `jdk-21.0.5+11/`); on macOS the binary lives
-  /// at `Contents/Home/bin/java`. Tries both layouts under each child.
+  /// Locates `java[.exe]` under [dir].
+  /// Tries both standard and macOS bundle layouts.
   File? _findJavaBinary(Directory dir, String osKey) {
     if (!dir.existsSync()) return null;
     final binaryName = osKey == 'windows' ? 'java.exe' : 'java';

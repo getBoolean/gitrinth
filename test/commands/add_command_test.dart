@@ -223,7 +223,7 @@ mc-version: 1.21.1
         versionType: 'release',
         loader: 'datapack',
       );
-      // Override project_type to 'mod' (Terralith-shape) but loaders=[datapack].
+      // Terralith-style: project_type=mod, loaders=[datapack].
       modrinth.projects['terralith']!['project_type'] = 'mod';
 
       await writeManifest('''
@@ -291,7 +291,7 @@ mc-version: 1.21.1
       versionType: 'release',
       loader: 'datapack',
     );
-    // Project type 'mod' + loaders [datapack] → data_packs section.
+    // project_type=mod + loaders=[datapack] -> data_packs.
     modrinth.projects['terralith']!['project_type'] = 'mod';
 
     await writeManifest('''
@@ -369,7 +369,7 @@ mc-version: 1.21.1
       'sodium@release',
     ], environment: env());
     expect(out.exitCode, 0, reason: out.stderr);
-    // File must be unchanged.
+    // File stays unchanged.
     expect(readYaml(), before);
     expect(File(p.join(packDir.path, 'mods.lock')).existsSync(), isFalse);
   });
@@ -387,7 +387,7 @@ loader:
 mc-version: 1.21.1
 ''');
 
-      // Serve a single jar so the download succeeds.
+      // Serve one jar so the download succeeds.
       final bytes = Uint8List.fromList([1, 2, 3, 4]);
       modrinth.addArtifact('custom', 'custom.jar', bytes);
       final jarUrl = '${modrinth.downloadBaseUrl}/custom/custom.jar';
@@ -408,7 +408,7 @@ mc-version: 1.21.1
   );
 
   test('--path emits long-form with `path:`, infers mods for .jar', () async {
-    // Create a local .jar so the downloader's path existence check passes.
+    // Create a local .jar so the path check passes.
     final jar = File(p.join(packDir.path, 'mods', 'custom.jar'))
       ..createSync(recursive: true)
       ..writeAsBytesSync([1, 2, 3]);
@@ -465,13 +465,8 @@ mc-version: 1.21.1
     },
   );
 
-  test('caret constraint on an unparseable base fails with ValidationError '
-      '(exit 2)', () async {
-    // Exact pins accept arbitrary strings (some Modrinth versions
-    // aren't semver-shaped) so a `sodium@not-a-version` pin is a valid
-    // — if ultimately unmatchable — constraint. Carets, on the other
-    // hand, require a semver-shaped base, so `^not-a-version` is a
-    // true syntax error.
+  test('caret on an unparseable base fails with ValidationError', () async {
+    // Exact pins can be arbitrary strings; carets still need semver.
     modrinth.registerVersion(
       slug: 'sodium',
       versionNumber: '1.0.0',
@@ -559,10 +554,7 @@ mods:
   test(
     'add pins the raw version when Modrinth returns a non-semver string',
     () async {
-      // Some Modrinth mods publish versions like "release-2025-winter"
-      // that don't parse as semver. `add` (no flags) would normally
-      // write `^major.minor.patch`, but carets require a semver-shaped
-      // base. Fall back to pinning the raw string verbatim.
+      // Non-semver versions fall back to a raw pin.
       modrinth.registerVersion(
         slug: 'weirdmod',
         versionNumber: 'release-snapshot-xyz',
@@ -658,8 +650,7 @@ mods:
         final yaml = readYaml();
         expect(yaml, contains('appleskin:'));
         expect(yaml, contains('version: ^3.0.9'));
-        // yaml_edit quotes numeric-looking string scalars to preserve
-        // string type on round-trip.
+        // yaml_edit may quote numeric-looking scalars.
         expect(yaml, contains(RegExp(r'''accepts-mc:\s*['"]?1\.21['"]?''')));
       },
     );
@@ -696,7 +687,7 @@ mods:
       expect(q!['game_versions'], '["1.21.1","1.21","1.20.1"]');
 
       final yaml = readYaml();
-      // yaml_edit emits the list block-style.
+      // yaml_edit emits block-style lists.
       expect(
         yaml,
         contains(
@@ -1008,7 +999,7 @@ mc-version: 1.21.1
     test('refuses to add when the picked version declares an existing user mod '
         'as incompatible', () async {
       modrinth.registerVersion(slug: 'jei', versionNumber: '1.0.0');
-      // `rei` (the new mod) v1.0.0 declares `jei` as incompatible.
+      // `rei` declares `jei` incompatible.
       modrinth.registerVersion(
         slug: 'rei',
         versionNumber: '1.0.0',
@@ -1025,7 +1016,7 @@ mc-version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
-      // Lock jei first so the lock has its project ID.
+      // Lock `jei` first so the lock has its project ID.
       final get = await runCli(['-C', packDir.path, 'get'], environment: env());
       expect(get.exitCode, 0, reason: '${get.stderr}\n${get.stdout}');
 
@@ -1038,15 +1029,14 @@ mods:
       expect(out.exitCode, isNot(0));
       expect(out.stderr, contains('incompatible'));
       expect(out.stderr, contains('jei'));
-      // Manifest unchanged.
+      // Manifest stays unchanged.
       final yaml = readYaml();
       expect(yaml, isNot(contains('rei:')));
     });
 
     test('refuses to add when an existing user mod\'s locked version declares '
         'the new mod as incompatible', () async {
-      // `jei` (existing) v1.0.0 declares `rei` as incompatible. Reverse
-      // direction from the previous test.
+      // Reverse direction: `jei` declares `rei` incompatible.
       modrinth.registerVersion(
         slug: 'jei',
         versionNumber: '1.0.0',

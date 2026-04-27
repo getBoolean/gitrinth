@@ -135,7 +135,7 @@ void main() {
     });
 
     test(
-      '--offline up front refuses to launch (network needed on first run)',
+      '--offline refuses to launch up front',
       () async {
         await expectLater(
           runLaunchClient(
@@ -159,8 +159,7 @@ void main() {
       },
     );
 
-    test('happy path: installs into cache workdir and symlinks artifact dirs '
-        'back to build/client', () async {
+    test('installs into the cache workdir and symlinks artifact dirs', () async {
       final spawnCalls = <List<String>>[];
       final spawnModes = <ProcessStartMode>[];
       final fakeFetcher = _FakeFetcher(installerJar);
@@ -215,8 +214,7 @@ void main() {
         spawnModes.single,
         ProcessStartMode.detached,
         reason:
-            'launcher must be detached so closing the terminal does not '
-            'kill the GUI',
+            'launcher should be detached',
       );
 
       for (final relPath in const [
@@ -352,105 +350,101 @@ void main() {
       },
     );
 
-    test(
-      '--memory writes -Xmx/-Xms into the renamed launcher profile',
-      () async {
-        final installer = _ProfileWritingClientInstaller(
-          'fabric-loader-0.17.3-1.21.1',
-        );
-        final code = await runLaunchClient(
-          options: const LaunchClientOptions(
-            autoBuild: false,
-            offline: false,
-            verbose: false,
-            memoryMax: '4G',
-            memoryMin: '4G',
-          ),
-          container: container,
-          console: const Console(),
-          io: io,
-          runProcess:
-              (
-                exe,
-                args, {
-                Directory? workingDirectory,
-                bool runInShell = false,
-                Map<String, String>? environment,
-                ProcessStartMode mode = ProcessStartMode.inheritStdio,
-              }) async => (pid: 1, exitCode: 0),
-          fetcher: _FakeFetcher(installerJar),
-          clientInstaller: installer,
-          locator: _FakeLocator(launcherExecutable: launcherExe),
-          cache: cache,
-        );
-        expect(code, 0);
-
-        final profilesFile = File(
-          p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
-        );
-        final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
-        final profile =
-            (root['profiles'] as Map).values.first as Map<String, dynamic>;
-        expect(profile['javaArgs'], '-Xmx4G -Xms4G');
-        expect(
-          profile['name'],
-          'gitrinth: pack',
-          reason:
-              'memory injection must not regress the existing rename behavior',
-        );
-      },
-    );
-
-    test(
-      'no memory flags leave a preexisting javaArgs string untouched',
-      () async {
-        final installer = _ProfileWritingClientInstaller(
-          'fabric-loader-0.17.3-1.21.1',
-          presetJavaArgs: '-XX:+UseG1GC',
-        );
-        await runLaunchClient(
-          options: const LaunchClientOptions(
-            autoBuild: false,
-            offline: false,
-            verbose: false,
-          ),
-          container: container,
-          console: const Console(),
-          io: io,
-          runProcess:
-              (
-                exe,
-                args, {
-                Directory? workingDirectory,
-                bool runInShell = false,
-                Map<String, String>? environment,
-                ProcessStartMode mode = ProcessStartMode.inheritStdio,
-              }) async => (pid: 1, exitCode: 0),
-          fetcher: _FakeFetcher(installerJar),
-          clientInstaller: installer,
-          locator: _FakeLocator(launcherExecutable: launcherExe),
-          cache: cache,
-        );
-
-        final profilesFile = File(
-          p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
-        );
-        final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
-        final profile =
-            (root['profiles'] as Map).values.first as Map<String, dynamic>;
-        expect(
-          profile['javaArgs'],
-          '-XX:+UseG1GC',
-          reason:
-              'absent --memory, gitrinth must not touch the launcher GUI value',
-        );
-      },
-    );
-
-    test('--memory preserves preexisting non-heap javaArgs tokens', () async {
+    test('--memory writes managed GC + -Xmx/-Xms into the profile', () async {
       final installer = _ProfileWritingClientInstaller(
         'fabric-loader-0.17.3-1.21.1',
-        presetJavaArgs: '-Xmx512M -XX:+UseG1GC -Xms256M',
+      );
+      final code = await runLaunchClient(
+        options: const LaunchClientOptions(
+          autoBuild: false,
+          offline: false,
+          verbose: false,
+          memoryMax: '4G',
+          memoryMin: '4G',
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess:
+            (
+              exe,
+              args, {
+              Directory? workingDirectory,
+              bool runInShell = false,
+              Map<String, String>? environment,
+              ProcessStartMode mode = ProcessStartMode.inheritStdio,
+            }) async => (pid: 1, exitCode: 0),
+        fetcher: _FakeFetcher(installerJar),
+        clientInstaller: installer,
+        locator: _FakeLocator(launcherExecutable: launcherExe),
+        cache: cache,
+      );
+      expect(code, 0);
+
+      final profilesFile = File(
+        p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
+      );
+      final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
+      final profile =
+          (root['profiles'] as Map).values.first as Map<String, dynamic>;
+      expect(profile['javaArgs'], '-XX:+UseZGC -Xmx4G -Xms4G');
+      expect(
+        profile['name'],
+        'gitrinth: pack',
+        reason:
+            'memory + GC injection must not regress the rename',
+      );
+    });
+
+    test('no --memory still injects managed GC over preexisting G1', () async {
+      final installer = _ProfileWritingClientInstaller(
+        'fabric-loader-0.17.3-1.21.1',
+        presetJavaArgs: '-XX:+UseG1GC',
+      );
+      await runLaunchClient(
+        options: const LaunchClientOptions(
+          autoBuild: false,
+          offline: false,
+          verbose: false,
+        ),
+        container: container,
+        console: const Console(),
+        io: io,
+        runProcess:
+            (
+              exe,
+              args, {
+              Directory? workingDirectory,
+              bool runInShell = false,
+              Map<String, String>? environment,
+              ProcessStartMode mode = ProcessStartMode.inheritStdio,
+            }) async => (pid: 1, exitCode: 0),
+        fetcher: _FakeFetcher(installerJar),
+        clientInstaller: installer,
+        locator: _FakeLocator(launcherExecutable: launcherExe),
+        cache: cache,
+      );
+
+      final profilesFile = File(
+        p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
+      );
+      final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
+      final profile =
+          (root['profiles'] as Map).values.first as Map<String, dynamic>;
+      expect(
+        profile['javaArgs'],
+        '-XX:+UseZGC',
+        reason:
+            'GC injection should not depend on --memory',
+      );
+    });
+
+    test('--memory rewrites GC + heap tokens and keeps unrelated tokens',
+        () async {
+      final installer = _ProfileWritingClientInstaller(
+        'fabric-loader-0.17.3-1.21.1',
+        presetJavaArgs:
+            '-Xmx512M -XX:+UseG1GC -Xms256M -Dlog4j2.formatMsgNoLookups=true',
       );
       await runLaunchClient(
         options: const LaunchClientOptions(
@@ -484,11 +478,14 @@ void main() {
       final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
       final profile =
           (root['profiles'] as Map).values.first as Map<String, dynamic>;
-      expect(profile['javaArgs'], '-XX:+UseG1GC -Xmx8G -Xms8G');
+      expect(
+        profile['javaArgs'],
+        '-Dlog4j2.formatMsgNoLookups=true -XX:+UseZGC -Xmx8G -Xms8G',
+      );
     });
 
-    test('missing build/client when --no-build surfaces a clear UserError '
-        'and leaves cache workdir untouched', () async {
+    test('missing build/client with --no-build throws and leaves cache untouched',
+        () async {
       clientDir.deleteSync(recursive: true);
       await expectLater(
         runLaunchClient(
@@ -526,16 +523,13 @@ void main() {
         Directory(p.join(cacheRoot.path, 'launchers', 'pack')).existsSync(),
         isFalse,
         reason:
-            'cache workdir should not be created if build/client is missing',
+            'cache workdir should not be created',
       );
     });
   });
 }
 
-/// Test installer that mimics the real installer's auto-injection of a
-/// profile entry into launcher_profiles.json — the rename + javaArgs
-/// injection logic only runs against an existing file with a matching
-/// `lastVersionId`, so realistic tests need that file to exist.
+/// Test installer that pre-writes `launcher_profiles.json`.
 class _ProfileWritingClientInstaller implements LoaderClientInstaller {
   final String returnId;
   final String? presetJavaArgs;

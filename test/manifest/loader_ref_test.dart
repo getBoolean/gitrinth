@@ -2,9 +2,7 @@ import 'package:gitrinth/src/model/manifest/loader_ref.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:test/test.dart';
 
-/// Captures whatever message [parseLoaderRef] passes to its `onError`
-/// callback, then throws a `_TestParseError` so the parser stops (its
-/// `onError` is typed `Never Function`).
+/// Throws the parser error message back into the test.
 class _TestParseError extends Error {
   final String message;
   _TestParseError(this.message);
@@ -39,7 +37,7 @@ void main() {
       expect(_parseOk('vanilla'), (ModLoader.vanilla, null));
     });
 
-    test('preserves the tag verbatim for `latest`', () {
+    test('keeps `latest` verbatim', () {
       expect(_parseOk('fabric:latest'), (ModLoader.fabric, 'latest'));
     });
 
@@ -48,9 +46,7 @@ void main() {
     });
 
     test('lowercases the loader name but preserves the tag case', () {
-      // The shared parser is case-insensitive on the loader name (so the
-      // yaml/migrate/create call sites accept any spelling) but treats
-      // tags as opaque strings.
+      // Loader names are case-insensitive; tags are opaque.
       expect(_parseOk('Forge:STABLE'), (ModLoader.forge, 'STABLE'));
     });
 

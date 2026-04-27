@@ -1,19 +1,12 @@
 part of '../parser.dart';
 
 /// Parses the `loader:` block from `mods.yaml`.
-///
-/// Asymmetries vs. the lock-file parser:
-///   * `loader.mods` is optional and defaults to [ModLoader.vanilla]
-///     (the "no mod runtime" sentinel).
-///   * `loader.plugins` is the declared vocabulary
-///     ([DeclaredPluginLoader]: bukkit, folia, paper, spigot, sponge);
-///     the concrete Sponge distribution is resolved here from
-///     `loader.mods` and stored in the returned [LoaderConfig] as one
-///     of the seven [PluginLoader] values.
+/// `loader.mods` defaults to [ModLoader.vanilla].
+/// `loader.plugins` uses the declared vocabulary and resolves Sponge
+/// against `loader.mods`.
 LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
   if (raw == null) {
-    // `loader:` omitted entirely — equivalent to an empty mapping
-    // (vanilla mods, no shaders, no plugins).
+    // Missing `loader:` is equivalent to an empty mapping.
     return const LoaderConfig(mods: ModLoader.vanilla, modsVersion: null);
   }
   if (raw is! Map) {
@@ -64,10 +57,8 @@ LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
   );
 }
 
-/// Parses the `loader:` block from `mods.lock`. Lock-file values are
-/// the *resolved* shape: `loader.plugins` is one of the seven
-/// [PluginLoader] values and `loader.mods` carries the resolved
-/// version (or is omitted / `vanilla` with no version).
+/// Parses the `loader:` block from `mods.lock`.
+/// Lock values are already resolved.
 LoaderConfig _parseLoaderConfigLock(dynamic raw, String filePath) {
   if (raw == null) {
     return const LoaderConfig(mods: ModLoader.vanilla, modsVersion: null);
@@ -121,8 +112,8 @@ class _ModLoaderTag {
   const _ModLoaderTag(this.loader, this.version);
 }
 
-/// Parses a `loader.mods` value from `mods.yaml`. Defaults a missing
-/// tag on a real loader to `stable`; vanilla has no tag.
+/// Parses `loader.mods` from `mods.yaml`.
+/// Missing tags on real loaders default to `stable`.
 _ModLoaderTag _parseYamlModLoader(dynamic raw, String filePath) {
   final (loader, tag) = parseLoaderRef(
     raw.toString(),
@@ -134,9 +125,8 @@ _ModLoaderTag _parseYamlModLoader(dynamic raw, String filePath) {
   );
 }
 
-/// Parses a `loader.mods` value from `mods.lock`. Same syntax as the
-/// yaml form, but a missing tag on a real loader is preserved as-is
-/// (older locks may have been written before the resolver existed).
+/// Parses `loader.mods` from `mods.lock`.
+/// Older locks may omit the tag.
 _ModLoaderTag _parseLockModLoader(dynamic raw, String filePath) {
   final (loader, tag) = parseLoaderRef(
     raw.toString(),
@@ -167,9 +157,8 @@ ShaderLoader _parseShaderLoader(dynamic raw, String filePath) {
   }
 }
 
-/// User-facing plugin-loader parser for `mods.yaml`. The three Sponge
-/// distributions are no longer accepted here — they're resolved from
-/// the declared [DeclaredPluginLoader.sponge] plus `loader.mods`.
+/// User-facing plugin-loader parser for `mods.yaml`.
+/// Sponge variants are resolved from `sponge` + `loader.mods`.
 DeclaredPluginLoader _parseDeclaredPluginLoader(dynamic raw, String filePath) {
   final lower = raw.toString().toLowerCase();
   switch (lower) {
@@ -191,8 +180,7 @@ DeclaredPluginLoader _parseDeclaredPluginLoader(dynamic raw, String filePath) {
   }
 }
 
-/// Lock-file plugin-loader parser. Reads the resolved seven-value
-/// vocabulary verbatim — no resolution happens at lock-read time.
+/// Lock-file plugin-loader parser for the resolved vocabulary.
 PluginLoader _parseResolvedPluginLoader(dynamic raw, String filePath) {
   final lower = raw.toString().toLowerCase();
   switch (lower) {

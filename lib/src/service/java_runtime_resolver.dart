@@ -45,10 +45,11 @@ class JavaRuntimeResolver {
   bool get _isWindows =>
       detectHostPlatform(environment: _environment).isWindows;
 
-  /// Returns a `java` binary that satisfies [mcVersion]'s minimum JDK
-  /// feature. See [JavaRuntimeResolver] class docs for the resolution
-  /// chain.
-  Future<File> resolve({
+  /// Returns the `java` binary plus its major version. Explicit,
+  /// JAVA_HOME, and PATH results are probed. Managed runtimes use the
+  /// requested feature version. See [JavaRuntimeResolver] for lookup
+  /// order.
+  Future<({File binary, int majorVersion})> resolve({
     required String mcVersion,
     String? explicitPath,
     bool allowManaged = true,
@@ -81,7 +82,7 @@ class JavaRuntimeResolver {
           '(MC $mcVersion) needs JDK >= $required.',
         );
       }
-      return binary;
+      return (binary: binary, majorVersion: major);
     }
 
     // 2. JAVA_HOME
@@ -91,7 +92,9 @@ class JavaRuntimeResolver {
       final binary = _binaryUnderJdkHome(javaHome);
       if (binary.existsSync()) {
         final major = await probeMajorVersion(binary.path);
-        if (major != null && major >= required) return binary;
+        if (major != null && major >= required) {
+          return (binary: binary, majorVersion: major);
+        }
         final detail = major == null
             ? 'version unknown'
             : 'JDK $major < required JDK $required';
@@ -109,7 +112,7 @@ class JavaRuntimeResolver {
 
     // 3. Cached gitrinth-managed Temurin
     final cached = _fetcher.cachedRuntime(required);
-    if (cached != null) return cached;
+    if (cached != null) return (binary: cached, majorVersion: required);
 
     // 4. PATH java
     final pathJava = _findOnPath();
@@ -119,7 +122,7 @@ class JavaRuntimeResolver {
         if (deferredJavaHomeWarning != null) {
           _console.warn(deferredJavaHomeWarning);
         }
-        return pathJava;
+        return (binary: pathJava, majorVersion: major);
       }
       tried.add('PATH `java` at ${pathJava.path} (JDK ${major ?? "unknown"})');
     } else {
@@ -141,7 +144,8 @@ class JavaRuntimeResolver {
         '--java <path>.\nTried: ${tried.join("; ")}',
       );
     }
-    return _fetcher.ensureRuntime(required);
+    final fetched = await _fetcher.ensureRuntime(required);
+    return (binary: fetched, majorVersion: required);
   }
 
   /// Probes [javaPath] and caches the result. See [JavaProber].

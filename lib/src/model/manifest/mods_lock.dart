@@ -7,12 +7,7 @@ part 'mods_lock.mapper.dart';
 @MappableEnum()
 enum LockedSourceKind { modrinth, url, path }
 
-/// Mirrors dart pub's lockfile `dependency` classification. `direct`
-/// is an entry the user declared in `mods.yaml`; `transitive` was
-/// pulled in by another mod's required deps. The dep-graph edges that
-/// connect them live in the artifact cache (the `version.json` sibling
-/// to each cached jar), not in `mods.lock`, matching pub's "graph in
-/// cache, not lock" architecture.
+/// Mirrors dart pub's lockfile dependency classification.
 @MappableEnum()
 enum LockedDependencyKind { direct, transitive }
 
@@ -43,26 +38,19 @@ class LockedEntry with LockedEntryMappable {
   final LockedFile? file;
   final String? path;
 
-  /// Mirror of [ModEntry.client] — the resolved client-side install state.
+  /// Resolved client-side install state.
   final SideEnv client;
 
-  /// Mirror of [ModEntry.server] — the resolved server-side install state.
+  /// Resolved server-side install state.
   final SideEnv server;
 
-  /// Whether this entry was declared by the user (`direct`) or pulled
-  /// in transitively (`transitive`). Mirrors dart pub's lockfile
-  /// classification. Replaces the older `auto: true/false` flag.
+  /// Whether this entry is direct or transitive.
   final LockedDependencyKind dependency;
 
-  /// Minecraft versions the resolved Modrinth version was tagged for.
-  /// Empty for non-Modrinth sources. Enables later detection of entries
-  /// that became under-tagged after a pack `mc-version` bump.
+  /// Minecraft versions tagged on the resolved Modrinth version.
   final List<String> gameVersions;
 
-  /// Mirror of `ModEntry.acceptsMc`; the user's per-entry override
-  /// declaring additional `mc-version`s this entry should be considered
-  /// compatible with even when Modrinth's tagging disagrees. Empty when
-  /// the user did not set `accepts-mc` in `mods.yaml`.
+  /// Per-entry `accepts-mc` override from `mods.yaml`.
   final List<String> acceptsMc;
 
   const LockedEntry({
@@ -84,11 +72,9 @@ class LockedEntry with LockedEntryMappable {
   SideEnv sideFor(bool isClient) => isClient ? client : server;
 }
 
-/// Locked counterpart of `FileEntry`. Manifest-only loose copy with a
-/// `preserve` bit; intentionally a separate class from [LockedEntry]
-/// because `LockedEntry.sourceKind` is closed over dep-graph semantics
-/// (`modrinth | url | path`), and `files:` entries do not flow through
-/// pubgrub.
+/// Locked counterpart of `FileEntry`.
+/// Separate from [LockedEntry] because `files:` entries do not use
+/// `LockedEntry.sourceKind`.
 @MappableClass()
 class LockedFileEntry with LockedFileEntryMappable {
   /// Destination path relative to the build env root.
@@ -101,9 +87,7 @@ class LockedFileEntry with LockedFileEntryMappable {
   final SideEnv server;
   final bool preserve;
 
-  /// Optional sha512 of the source bytes, recorded at copy time.
-  /// Reserved for future "did source change?" optimizations; not
-  /// currently consulted by build or pack.
+  /// Optional sha512 recorded at copy time.
   final String? sha512;
 
   const LockedFileEntry({
@@ -130,8 +114,7 @@ class ModsLock with ModsLockMappable {
   final Map<String, LockedEntry> shaders;
   final Map<String, LockedEntry> plugins;
 
-  /// Loose-file entries forwarded from `mods.yaml`'s `files:` section.
-  /// Keyed by destination path. Outside the [Section] taxonomy.
+  /// `files:` entries keyed by destination path.
   final Map<String, LockedFileEntry> files;
 
   const ModsLock({

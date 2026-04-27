@@ -62,9 +62,7 @@ void main() {
 
       final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
       expect(mods, contains('mods: vanilla'));
-      // The default template seeds `globalpacks: stable` under `mods:`.
-      // Under vanilla that would be a parse error, so it must be
-      // stripped — and an empty `mods:` header is left in its place.
+      // Strip the seeded `globalpacks` entry for vanilla.
       expect(mods, isNot(contains('globalpacks')));
       expect(
         mods,
@@ -72,8 +70,7 @@ void main() {
         reason: 'expected a blank `mods:` header to remain',
       );
 
-      // Sanity: the scaffold round-trips through the parser without
-      // tripping the "mods entries require a real loader" rule.
+      // Parser round-trip still succeeds.
       final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
       expect(parsed.loader.mods, ModLoader.vanilla);
       expect(parsed.mods, isEmpty);
@@ -91,11 +88,10 @@ void main() {
       expect(out.exitCode, 0, reason: out.stderr);
 
       final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
-      // Tag must be quoted in yaml so the embedded `:` doesn't get
-      // read as a nested mapping.
+      // Quote tags with `:`.
       expect(mods, contains('mods: "neoforge:21.1.50"'));
 
-      // Round-trips through the parser.
+      // Parser round-trip still succeeds.
       final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
       expect(parsed.loader.mods, ModLoader.neoforge);
       expect(parsed.loader.modsVersion, '21.1.50');
@@ -241,9 +237,7 @@ void main() {
           'sponge',
           target,
         ], environment: env());
-        // Exit 2 is ValidationError; --loader runs through the shared
-        // loader-ref parser (not argParser.allowed), so an unknown
-        // name surfaces as a ValidationError, not a UsageError.
+        // Shared loader parsing reports ValidationError here.
         expect(out.exitCode, 2);
         expect(
           out.stderr + out.stdout,
@@ -314,8 +308,7 @@ void main() {
       });
 
       test('network failure warns and proceeds', () async {
-        // Capture the URL before stopping — baseUrl reads `_server.port`,
-        // which throws once the server is closed.
+        // Capture the URL before stopping the server.
         final stoppedEnv = {'GITRINTH_MODRINTH_URL': modrinth.baseUrl};
         await modrinth.stop();
         final target = p.join(tempRoot.path, 'fresh_pack');
@@ -325,7 +318,7 @@ void main() {
         expect(out.stderr, contains('Could not validate slug'));
         expect(File(p.join(target, 'mods.yaml')).existsSync(), isTrue);
 
-        // Restart so tearDown's stop() doesn't blow up.
+        // Restart for tearDown.
         modrinth = FakeModrinth();
         await modrinth.start();
       });
