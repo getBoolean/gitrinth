@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../assets/schema/project-overrides.schema.yaml
+# yaml-language-server: $schema=../../assets/schema/project-overrides.schema.yaml
 project_overrides:
   # Pin a version but keep the default Modrinth source.
   # jei:

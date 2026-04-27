@@ -1,0 +1,22 @@
+slug: example_fabric
+name: example_fabric
+version: 0.1.0
+description: A new Modrinth modpack.
+
+loader:
+  mods: fabric
+mc-version: 1.21.1
+
+tooling:
+  gitrinth: ">=0.1.0 <1.0.0"
+
+mods:
+  globalpacks: stable
+
+resource_packs:
+
+data_packs:
+
+shaders:
+
+plugins:
