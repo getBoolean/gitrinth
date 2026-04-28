@@ -2,7 +2,7 @@ export '../asset_strings.g.dart';
 
 // Hardcoded defaults for `gitrinth create`. Update here to change what the
 // scaffolded mods.yaml and README target.
-const String defaultModsLoader = 'neoforge';
+const String defaultModLoader = 'neoforge';
 const String defaultMcVersion = '1.21.1';
 
 String render(String template, Map<String, String> values) {

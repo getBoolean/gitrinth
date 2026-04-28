@@ -59,7 +59,7 @@ void main() {
       final file = await fetcher.fetchServerArtifact(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        modsLoaderVersion: '52.1.5',
+        modLoaderVersion: '52.1.5',
       );
 
       expect(
@@ -83,7 +83,7 @@ void main() {
       final file = await fetcher.fetchServerArtifact(
         loader: ModLoader.neoforge,
         mcVersion: '1.21.1',
-        modsLoaderVersion: '21.1.50',
+        modLoaderVersion: '21.1.50',
       );
 
       expect(
@@ -107,7 +107,7 @@ void main() {
       final file = await fetcher.fetchServerArtifact(
         loader: ModLoader.neoforge,
         mcVersion: '1.20.1',
-        modsLoaderVersion: '47.1.106',
+        modLoaderVersion: '47.1.106',
       );
 
       expect(
@@ -131,7 +131,7 @@ void main() {
       final file = await fetcher.fetchServerArtifact(
         loader: ModLoader.fabric,
         mcVersion: '1.21.1',
-        modsLoaderVersion: '0.17.3',
+        modLoaderVersion: '0.17.3',
       );
 
       expect(
@@ -155,7 +155,7 @@ void main() {
       await fetcher.fetchServerArtifact(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        modsLoaderVersion: '52.1.5',
+        modLoaderVersion: '52.1.5',
       );
       final hitsAfterFirst =
           fake.requestCounts['/forge-installer/1.21.1-52.1.5/'
@@ -166,7 +166,7 @@ void main() {
       await fetcher.fetchServerArtifact(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        modsLoaderVersion: '52.1.5',
+        modLoaderVersion: '52.1.5',
       );
       final hitsAfterSecond =
           fake.requestCounts['/forge-installer/1.21.1-52.1.5/'
@@ -185,7 +185,7 @@ void main() {
           fetcher.fetchServerArtifact(
             loader: ModLoader.forge,
             mcVersion: '1.21.1',
-            modsLoaderVersion: '52.1.5',
+            modLoaderVersion: '52.1.5',
           ),
           throwsA(
             isA<UserError>().having(
@@ -207,7 +207,7 @@ void main() {
         final file = await fetcher.fetchClientInstaller(
           loader: ModLoader.fabric,
           mcVersion: '1.21.1',
-          modsLoaderVersion: '0.17.3',
+          modLoaderVersion: '0.17.3',
         );
 
         expect(file.path, endsWith('fabric-installer.jar'));
@@ -224,12 +224,12 @@ void main() {
         final clientFile = await fetcher.fetchClientInstaller(
           loader: ModLoader.forge,
           mcVersion: '1.21.1',
-          modsLoaderVersion: '52.1.5',
+          modLoaderVersion: '52.1.5',
         );
         final serverFile = await fetcher.fetchServerArtifact(
           loader: ModLoader.forge,
           mcVersion: '1.21.1',
-          modsLoaderVersion: '52.1.5',
+          modLoaderVersion: '52.1.5',
         );
         expect(clientFile.path, serverFile.path);
       },
@@ -248,7 +248,7 @@ void main() {
       final file = await envFetcher.fetchServerArtifact(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        modsLoaderVersion: '52.1.5',
+        modLoaderVersion: '52.1.5',
       );
       expect(file.readAsBytesSync(), bytes);
     });

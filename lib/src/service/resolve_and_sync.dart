@@ -178,27 +178,27 @@ Future<ResolveSyncResult> resolveAndSync({
   // precisely to drift). For concrete tags that already match the lock,
   // skip even the passthrough — the lock is the cache. Under --offline,
   // `stable`/`latest` falls back to the lock's concrete version.
-  final String? resolvedModsLoaderVersion;
-  final modsLoaderVersion = loaderConfig.modsLoaderVersion;
-  if (loaderConfig.hasModRuntime && modsLoaderVersion != null) {
-    resolvedModsLoaderVersion = await _resolvemodsLoaderVersion(
+  final String? resolvedModLoaderVersion;
+  final modLoaderVersion = loaderConfig.modLoaderVersion;
+  if (loaderConfig.hasModRuntime && modLoaderVersion != null) {
+    resolvedModLoaderVersion = await _resolveModLoaderVersion(
       modLoaderResolver: modLoaderResolver,
-      modsLoader: loaderConfig.mods,
-      tag: modsLoaderVersion,
+      modLoader: loaderConfig.mods,
+      tag: modLoaderVersion,
       mcVersion: mc,
       existingLock: existingLock,
       offline: offline,
       console: console,
     );
   } else {
-    resolvedModsLoaderVersion = null;
+    resolvedModLoaderVersion = null;
   }
 
-  final String? resolvedpluginLoaderVersion;
+  final String? resolvedPluginLoaderVersion;
   final pluginLoader = loaderConfig.plugins;
   final pluginLoaderVersion = loaderConfig.pluginLoaderVersion;
   if (pluginLoader != null && pluginLoaderVersion != null) {
-    resolvedpluginLoaderVersion = await _resolvepluginLoaderVersion(
+    resolvedPluginLoaderVersion = await _resolvePluginLoaderVersion(
       pluginLoaderResolver: pluginLoaderResolver,
       pluginLoader: pluginLoader,
       tag: pluginLoaderVersion,
@@ -208,7 +208,7 @@ Future<ResolveSyncResult> resolveAndSync({
       console: console,
     );
   } else {
-    resolvedpluginLoaderVersion = null;
+    resolvedPluginLoaderVersion = null;
   }
 
   final slugToSection = <String, Section>{};
@@ -351,8 +351,8 @@ Future<ResolveSyncResult> resolveAndSync({
   final newLock = _buildLock(
     merged,
     resolution,
-    resolvedModsLoaderVersion,
-    resolvedpluginLoaderVersion,
+    resolvedModLoaderVersion,
+    resolvedPluginLoaderVersion,
   );
   final diff = diffLocks(existingLock, newLock);
 
@@ -615,17 +615,17 @@ Future<void> _validateGameVersion({
 ///
 /// Caller is expected to gate on [LoaderConfig.hasModRuntime] and pass
 /// the populated [tag]; vanilla packs skip this resolution entirely.
-Future<String> _resolvemodsLoaderVersion({
+Future<String> _resolveModLoaderVersion({
   required ModLoaderVersionResolver modLoaderResolver,
-  required ModLoader modsLoader,
+  required ModLoader modLoader,
   required String tag,
   required String mcVersion,
   required ModsLock? existingLock,
   required bool offline,
   required Console console,
 }) async {
-  final lockedSameLoader = existingLock?.loader.mods == modsLoader;
-  final lockedVersion = existingLock?.loader.modsLoaderVersion;
+  final lockedSameLoader = existingLock?.loader.mods == modLoader;
+  final lockedVersion = existingLock?.loader.modLoaderVersion;
   final tagIsConcrete = tag != 'stable' && tag != 'latest';
   if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
     return tag;
@@ -633,7 +633,7 @@ Future<String> _resolvemodsLoaderVersion({
   if (tagIsConcrete && offline) {
     if (lockedSameLoader && lockedVersion != null && lockedVersion != tag) {
       console.warn(
-        'using unvalidated loader pin `${modsLoader.name}:'
+        'using unvalidated loader pin `${modLoader.name}:'
         '$tag` while offline (mods.lock had `$lockedVersion`).',
       );
     }
@@ -646,18 +646,18 @@ Future<String> _resolvemodsLoaderVersion({
     throw UserError(
       'cannot resolve loader tag "$tag" while offline: no concrete '
       'version recorded in mods.lock. Try again without --offline, or '
-      'pin a concrete tag like `${modsLoader.name}:<version>` in '
+      'pin a concrete tag like `${modLoader.name}:<version>` in '
       'mods.yaml.',
     );
   }
   return modLoaderResolver.resolve(
-    loader: modsLoader,
+    loader: modLoader,
     tag: tag,
     mcVersion: mcVersion,
   );
 }
 
-Future<String> _resolvepluginLoaderVersion({
+Future<String> _resolvePluginLoaderVersion({
   required PluginLoaderVersionResolver pluginLoaderResolver,
   required PluginLoader pluginLoader,
   required String tag,

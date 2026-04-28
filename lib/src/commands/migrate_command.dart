@@ -460,7 +460,7 @@ ModsYaml _applyTarget(
   return manifest.copyWith(
     loader: LoaderConfig(
       mods: loader,
-      modsLoaderVersion: loader == ModLoader.vanilla
+      modLoaderVersion: loader == ModLoader.vanilla
           ? null
           : (newLoaderTag ?? 'stable'),
       shaders: manifest.loader.shaders,

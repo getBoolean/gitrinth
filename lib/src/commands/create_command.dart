@@ -35,13 +35,13 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
   CreateCommand() {
     argParser
       ..addOption(
-        'mods-loader',
+        'mod-loader',
         valueHelp: 'loader[:tag]',
         help:
             'Pre-fill loader.mods. One of ${modLoaderRefNames.join(', ')}, '
             'optionally with a docker-style version tag '
             '(e.g. `neoforge:21.1.50`, `fabric:latest`). Defaults to '
-            '$defaultModsLoader when no plugin loader is specified.',
+            '$defaultModLoader when no plugin loader is specified.',
       )
       ..addOption(
         'plugin-loader',
@@ -74,8 +74,8 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
 
     final slug = _resolveSlug(results['slug'] as String?, directoryArg);
     final packName = (results['name'] as String?) ?? slug;
-    final modsLoader = _resolveModsLoader(
-      results['mods-loader'] as String?,
+    final modLoader = _resolveModLoader(
+      results['mod-loader'] as String?,
       results['plugin-loader'] as String?,
     );
     final pluginLoader = _resolvePluginLoader(
@@ -96,12 +96,12 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     targetDir.createSync(recursive: true);
 
     final loaderBlock = _renderLoaderBlock(
-      modsLoader: modsLoader,
+      modLoader: modLoader,
       pluginLoader: pluginLoader,
     );
     final requirements = _renderRequirements(
       mcVersion: mcVersion,
-      modsLoader: modsLoader,
+      modLoader: modLoader,
       pluginLoader: pluginLoader,
     );
 
@@ -124,7 +124,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     };
 
     final rendered = render(modsYamlTemplate, yamlTemplateValues);
-    final renderedModsYaml = (modsLoader == null || modsLoader == 'vanilla')
+    final renderedModsYaml = (modLoader == null || modLoader == 'vanilla')
         ? _stripSeededModsForVanilla(rendered)
         : rendered;
 
@@ -191,15 +191,15 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     }
   }
 
-  /// Validates the `--mods-loader` flag via the shared [parseModLoaderRef]
+  /// Validates the `--mod-loader` flag via the shared [parseModLoaderRef]
   /// helper and renders the value to inject into the scaffolded
   /// `mods.yaml`. Re-emits the docker-style form so a tag the user
   /// supplied survives round-trip.
-  String? _resolveModsLoader(String? raw, String? pluginRaw) {
-    if (raw == null) return pluginRaw == null ? defaultModsLoader : null;
+  String? _resolveModLoader(String? raw, String? pluginRaw) {
+    if (raw == null) return pluginRaw == null ? defaultModLoader : null;
     final (loader, tag) = parseModLoaderRef(
       raw,
-      (msg) => throw ValidationError('--mods-loader $msg'),
+      (msg) => throw ValidationError('--mod-loader $msg'),
     );
     if (loader == ModLoader.vanilla) return 'vanilla';
     return tag == null ? loader.name : '${loader.name}:$tag';
@@ -244,14 +244,14 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
   }
 
   String _renderLoaderBlock({
-    required String? modsLoader,
+    required String? modLoader,
     required String? pluginLoader,
   }) {
     final lines = <String>[];
-    if (modsLoader == null) {
-      lines.add('  # mods: $defaultModsLoader');
+    if (modLoader == null) {
+      lines.add('  # mods: $defaultModLoader');
     } else {
-      lines.add('  mods: ${_yamlScalar(modsLoader)}');
+      lines.add('  mods: ${_yamlScalar(modLoader)}');
     }
     if (pluginLoader != null) {
       lines.add('  plugins: ${_yamlScalar(pluginLoader)}');
@@ -261,12 +261,12 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
 
   String _renderRequirements({
     required String mcVersion,
-    required String? modsLoader,
+    required String? modLoader,
     required String? pluginLoader,
   }) {
     final lines = <String>['- Minecraft $mcVersion'];
-    if (modsLoader != null) {
-      lines.add('- ${modsLoader.split(':').first}');
+    if (modLoader != null) {
+      lines.add('- ${modLoader.split(':').first}');
     }
     if (pluginLoader != null) {
       lines.add('- ${pluginLoader.split(':').first}');

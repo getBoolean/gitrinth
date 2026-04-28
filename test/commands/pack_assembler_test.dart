@@ -15,7 +15,7 @@ ModsYaml _yaml({String slug = 'pack', String version = '0.1.0'}) {
     description: 'a pack',
     loader: const LoaderConfig(
       mods: ModLoader.fabric,
-      modsLoaderVersion: '0.17.3',
+      modLoaderVersion: '0.17.3',
     ),
     mcVersion: '1.21.1',
   );
@@ -23,7 +23,7 @@ ModsYaml _yaml({String slug = 'pack', String version = '0.1.0'}) {
 
 ModsLock _lock({
   ModLoader loader = ModLoader.fabric,
-  String modsLoaderVersion = '0.17.3',
+  String modLoaderVersion = '0.17.3',
   String mcVersion = '1.21.1',
   Map<String, LockedEntry> mods = const {},
   Map<String, LockedEntry> resourcePacks = const {},
@@ -32,7 +32,7 @@ ModsLock _lock({
 }) {
   return ModsLock(
     gitrinthVersion: '0.1.0',
-    loader: LoaderConfig(mods: loader, modsLoaderVersion: modsLoaderVersion),
+    loader: LoaderConfig(mods: loader, modLoaderVersion: modLoaderVersion),
     mcVersion: mcVersion,
     mods: mods,
     resourcePacks: resourcePacks,
@@ -396,7 +396,7 @@ void main() {
     test(
       'legacy "stable" / "latest" loader version in the lock is rejected',
       () {
-        final lock = _lock(modsLoaderVersion: 'stable');
+        final lock = _lock(modLoaderVersion: 'stable');
         expect(
           () => buildIndex(
             yaml: _yaml(),
@@ -542,7 +542,7 @@ void main() {
     test('loader-key map is respected per-loader', () {
       final forge = buildIndex(
         yaml: _yaml(),
-        lock: _lock(loader: ModLoader.forge, modsLoaderVersion: '52.0.45'),
+        lock: _lock(loader: ModLoader.forge, modLoaderVersion: '52.0.45'),
         target: PackTarget.combined,
         publishable: false,
       );
@@ -550,7 +550,7 @@ void main() {
 
       final neoforge = buildIndex(
         yaml: _yaml(),
-        lock: _lock(loader: ModLoader.neoforge, modsLoaderVersion: '21.1.50'),
+        lock: _lock(loader: ModLoader.neoforge, modLoaderVersion: '21.1.50'),
         target: PackTarget.combined,
         publishable: false,
       );
@@ -890,7 +890,7 @@ void main() {
       gitrinthVersion: '0.1.0',
       loader: const LoaderConfig(
         mods: ModLoader.fabric,
-        modsLoaderVersion: '0.17.3',
+        modLoaderVersion: '0.17.3',
       ),
       mcVersion: '1.21.1',
       files: files,
@@ -1061,7 +1061,7 @@ void main() {
           gitrinthVersion: '0.1.0',
           loader: const LoaderConfig(
             mods: ModLoader.fabric,
-            modsLoaderVersion: '0.17.3',
+            modLoaderVersion: '0.17.3',
           ),
           mcVersion: '1.21.1',
           mods: {'local-mod': _path(slug: 'local-mod', path: '/a/local.jar')},

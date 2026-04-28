@@ -27,7 +27,7 @@ mc-version: 1.21.1
 ''';
 
   group('DeclaredPluginLoader resolution truth table', () {
-    test('bukkit / folia / paper / spigot pass through any mods loader', () {
+    test('bukkit / folia / paper / spigot pass through any mod loader', () {
       for (final declared in const ['bukkit', 'folia', 'paper', 'spigot']) {
         for (final mods in const ['forge', 'fabric', 'neoforge']) {
           final m = parseModsYaml(
@@ -97,7 +97,7 @@ mods:
   });
 
   group('DeclaredPluginLoaderResolution.resolveWith', () {
-    test('non-sponge declared loaders pass through every mods loader', () {
+    test('non-sponge declared loaders pass through every mod loader', () {
       const passthrough = {
         DeclaredPluginLoader.bukkit: PluginLoader.bukkit,
         DeclaredPluginLoader.folia: PluginLoader.folia,

@@ -19,7 +19,7 @@ import 'package:test/test.dart';
 
 ModsLock _lock({ModLoader loader = ModLoader.fabric}) => ModsLock(
   gitrinthVersion: '0.1.0',
-  loader: LoaderConfig(mods: loader, modsLoaderVersion: '0.17.3'),
+  loader: LoaderConfig(mods: loader, modLoaderVersion: '0.17.3'),
   mcVersion: '1.21.1',
 );
 
@@ -36,12 +36,12 @@ class _FakeFetcher implements LoaderBinaryFetcher {
   Future<File> fetchClientInstaller({
     required ModLoader loader,
     required String mcVersion,
-    required String modsLoaderVersion,
+    required String modLoaderVersion,
   }) async {
     called = true;
     this.loader = loader;
     mc = mcVersion;
-    lv = modsLoaderVersion;
+    lv = modLoaderVersion;
     return jar;
   }
 
@@ -49,7 +49,7 @@ class _FakeFetcher implements LoaderBinaryFetcher {
   Future<File> fetchServerArtifact({
     required ModLoader loader,
     required String mcVersion,
-    required String modsLoaderVersion,
+    required String modLoaderVersion,
   }) async {
     throw UnimplementedError();
   }
@@ -68,7 +68,7 @@ class _FakeClientInstaller implements LoaderClientInstaller {
   Future<String> installClient({
     required ModLoader loader,
     required String mcVersion,
-    required String modsLoaderVersion,
+    required String modLoaderVersion,
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
@@ -542,7 +542,7 @@ class _ProfileWritingClientInstaller implements LoaderClientInstaller {
   Future<String> installClient({
     required ModLoader loader,
     required String mcVersion,
-    required String modsLoaderVersion,
+    required String modLoaderVersion,
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
@@ -574,7 +574,7 @@ class _CountingFetcher implements LoaderBinaryFetcher {
   Future<File> fetchClientInstaller({
     required ModLoader loader,
     required String mcVersion,
-    required String modsLoaderVersion,
+    required String modLoaderVersion,
   }) async {
     onFetch();
     return jar;
@@ -584,7 +584,7 @@ class _CountingFetcher implements LoaderBinaryFetcher {
   Future<File> fetchServerArtifact({
     required ModLoader loader,
     required String mcVersion,
-    required String modsLoaderVersion,
+    required String modLoaderVersion,
   }) async {
     throw UnimplementedError();
   }

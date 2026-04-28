@@ -49,11 +49,11 @@ void main() {
       },
     );
 
-    test('--mods-loader vanilla scaffolds without seeded mods entry', () async {
+    test('--mod-loader vanilla scaffolds without seeded mods entry', () async {
       final target = p.join(tempRoot.path, 'vanilla_pack');
       final out = await runCli([
         'create',
-        '--mods-loader',
+        '--mod-loader',
         'vanilla',
         '--offline',
         target,
@@ -76,11 +76,11 @@ void main() {
       expect(parsed.mods, isEmpty);
     });
 
-    test('--mods-loader accepts docker-style <name>:<tag>', () async {
+    test('--mod-loader accepts docker-style <name>:<tag>', () async {
       final target = p.join(tempRoot.path, 'tagged_pack');
       final out = await runCli([
         'create',
-        '--mods-loader',
+        '--mod-loader',
         'neoforge:21.1.50',
         '--offline',
         target,
@@ -94,14 +94,14 @@ void main() {
       // Parser round-trip still succeeds.
       final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
       expect(parsed.loader.mods, ModLoader.neoforge);
-      expect(parsed.loader.modsLoaderVersion, '21.1.50');
+      expect(parsed.loader.modLoaderVersion, '21.1.50');
     });
 
-    test('--mods-loader rejects vanilla with a tag', () async {
+    test('--mod-loader rejects vanilla with a tag', () async {
       final target = p.join(tempRoot.path, 'bogus_vanilla');
       final out = await runCli([
         'create',
-        '--mods-loader',
+        '--mod-loader',
         'vanilla:1.0',
         '--offline',
         target,
@@ -109,15 +109,15 @@ void main() {
       expect(out.exitCode, 2);
       expect(
         out.stderr + out.stdout,
-        allOf(contains('--mods-loader'), contains('vanilla')),
+        allOf(contains('--mod-loader'), contains('vanilla')),
       );
     });
 
-    test('--mods-loader and --mc-version override the defaults', () async {
+    test('--mod-loader and --mc-version override the defaults', () async {
       final target = p.join(tempRoot.path, 'custom_pack');
       final out = await runCli([
         'create',
-        '--mods-loader',
+        '--mod-loader',
         'fabric',
         '--mc-version',
         '1.20.1',
@@ -131,7 +131,7 @@ void main() {
     });
 
     test(
-      '--plugin-loader scaffolds plugin-only pack with commented mods loader',
+      '--plugin-loader scaffolds plugin-only pack with commented mod loader',
       () async {
         final target = p.join(tempRoot.path, 'plugin_pack');
         final out = await runCli([
@@ -154,18 +154,18 @@ void main() {
 
         final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
         expect(parsed.loader.mods, ModLoader.vanilla);
-        expect(parsed.loader.modsLoaderVersion, isNull);
+        expect(parsed.loader.modLoaderVersion, isNull);
         expect(parsed.loader.plugins, PluginLoader.paper);
         expect(parsed.loader.pluginLoaderVersion, '187');
         expect(parsed.mods, isEmpty);
       },
     );
 
-    test('--mods-loader and --plugin-loader can be combined', () async {
+    test('--mod-loader and --plugin-loader can be combined', () async {
       final target = p.join(tempRoot.path, 'hybrid_pack');
       final out = await runCli([
         'create',
-        '--mods-loader',
+        '--mod-loader',
         'forge',
         '--plugin-loader',
         'sponge:stable',
@@ -281,11 +281,11 @@ void main() {
       expect(out.stderr, contains('Invalid --mc-version'));
     });
 
-    test('rejects --mods-loader value outside the mod loader set', () async {
+    test('rejects --mod-loader value outside the mod loader set', () async {
       final target = p.join(tempRoot.path, 'pack_dir');
       final out = await runCli([
         'create',
-        '--mods-loader',
+        '--mod-loader',
         'sponge',
         target,
       ], environment: env());
@@ -293,7 +293,7 @@ void main() {
       expect(out.exitCode, 2);
       expect(
         out.stderr + out.stdout,
-        allOf(contains('--mods-loader'), contains('sponge')),
+        allOf(contains('--mod-loader'), contains('sponge')),
       );
     });
 

@@ -57,7 +57,7 @@ extension PluginLoaderToDeclared on PluginLoader {
   };
 }
 
-/// Resolves `(declared plugin loader, mods loader)` to [PluginLoader].
+/// Resolves `(declared plugin loader, mod loader)` to [PluginLoader].
 extension DeclaredPluginLoaderResolution on DeclaredPluginLoader {
   PluginLoader resolveWith(ModLoader mods) => switch (this) {
     DeclaredPluginLoader.bukkit => PluginLoader.bukkit,
@@ -147,7 +147,7 @@ class LoaderConfig with LoaderConfigMappable {
 
   /// Mod-loader version tag.
   /// Declared in `mods.yaml`, resolved in `mods.lock`.
-  final String? modsLoaderVersion;
+  final String? modLoaderVersion;
   final ShaderLoader? shaders;
   final PluginLoader? plugins;
 
@@ -157,7 +157,7 @@ class LoaderConfig with LoaderConfigMappable {
 
   const LoaderConfig({
     required this.mods,
-    this.modsLoaderVersion = 'stable',
+    this.modLoaderVersion = 'stable',
     this.shaders,
     this.plugins,
     this.pluginLoaderVersion,

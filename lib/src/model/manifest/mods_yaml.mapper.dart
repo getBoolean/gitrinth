@@ -409,10 +409,10 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
 
   static ModLoader _$mods(LoaderConfig v) => v.mods;
   static const Field<LoaderConfig, ModLoader> _f$mods = Field('mods', _$mods);
-  static String? _$modsLoaderVersion(LoaderConfig v) => v.modsLoaderVersion;
-  static const Field<LoaderConfig, String> _f$modsLoaderVersion = Field(
-    'modsLoaderVersion',
-    _$modsLoaderVersion,
+  static String? _$modLoaderVersion(LoaderConfig v) => v.modLoaderVersion;
+  static const Field<LoaderConfig, String> _f$modLoaderVersion = Field(
+    'modLoaderVersion',
+    _$modLoaderVersion,
     opt: true,
     def: 'stable',
   );
@@ -438,7 +438,7 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   @override
   final MappableFields<LoaderConfig> fields = const {
     #mods: _f$mods,
-    #modsLoaderVersion: _f$modsLoaderVersion,
+    #modLoaderVersion: _f$modLoaderVersion,
     #shaders: _f$shaders,
     #plugins: _f$plugins,
     #pluginLoaderVersion: _f$pluginLoaderVersion,
@@ -447,7 +447,7 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   static LoaderConfig _instantiate(DecodingData data) {
     return LoaderConfig(
       mods: data.dec(_f$mods),
-      modsLoaderVersion: data.dec(_f$modsLoaderVersion),
+      modLoaderVersion: data.dec(_f$modLoaderVersion),
       shaders: data.dec(_f$shaders),
       plugins: data.dec(_f$plugins),
       pluginLoaderVersion: data.dec(_f$pluginLoaderVersion),
@@ -518,7 +518,7 @@ abstract class LoaderConfigCopyWith<$R, $In extends LoaderConfig, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   $R call({
     ModLoader? mods,
-    String? modsLoaderVersion,
+    String? modLoaderVersion,
     ShaderLoader? shaders,
     PluginLoader? plugins,
     String? pluginLoaderVersion,
@@ -537,14 +537,14 @@ class _LoaderConfigCopyWithImpl<$R, $Out>
   @override
   $R call({
     ModLoader? mods,
-    Object? modsLoaderVersion = $none,
+    Object? modLoaderVersion = $none,
     Object? shaders = $none,
     Object? plugins = $none,
     Object? pluginLoaderVersion = $none,
   }) => $apply(
     FieldCopyWithData({
       if (mods != null) #mods: mods,
-      if (modsLoaderVersion != $none) #modsLoaderVersion: modsLoaderVersion,
+      if (modLoaderVersion != $none) #modLoaderVersion: modLoaderVersion,
       if (shaders != $none) #shaders: shaders,
       if (plugins != $none) #plugins: plugins,
       if (pluginLoaderVersion != $none)
@@ -554,10 +554,7 @@ class _LoaderConfigCopyWithImpl<$R, $Out>
   @override
   LoaderConfig $make(CopyWithData data) => LoaderConfig(
     mods: data.get(#mods, or: $value.mods),
-    modsLoaderVersion: data.get(
-      #modsLoaderVersion,
-      or: $value.modsLoaderVersion,
-    ),
+    modLoaderVersion: data.get(#modLoaderVersion, or: $value.modLoaderVersion),
     shaders: data.get(#shaders, or: $value.shaders),
     plugins: data.get(#plugins, or: $value.plugins),
     pluginLoaderVersion: data.get(

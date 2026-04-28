@@ -229,7 +229,7 @@ Future<void> _installPluginServerBinary({
   await installer.installServer(
     loader: lock.loader.mods,
     mcVersion: mcVersion,
-    modsLoaderVersion: lock.loader.modsLoaderVersion,
+    modLoaderVersion: lock.loader.modLoaderVersion,
     outputDir: serverDir,
     installerOrServerJar: jar,
     offline: offline,
@@ -240,7 +240,7 @@ Future<void> _installPluginServerBinary({
   );
   // The plugin-loader path runs even when loader.mods is vanilla
   // (e.g. paper, or sponge resolved to spongevanilla), so the server
-  // installer must accept a null modsLoaderVersion. See server_installer.dart.
+  // installer must accept a null modLoaderVersion. See server_installer.dart.
   console.message(
     'Installed ${pluginLoader.name} $pluginLoaderVersion server binary into '
     '${serverDir.path}.',
@@ -266,7 +266,7 @@ Future<void> _installVanillaServerBinary({
   await installer.installServer(
     loader: lock.loader.mods,
     mcVersion: mcVersion,
-    modsLoaderVersion: null,
+    modLoaderVersion: null,
     outputDir: serverDir,
     installerOrServerJar: jar,
     offline: offline,
@@ -299,8 +299,8 @@ Future<void> _installModdedServerBinary({
   // Caller already gated on `hasModRuntime`, so the lock has a
   // resolved concrete loader version. If somehow null (e.g. vanilla
   // path), there's nothing to install — bail.
-  final modsLoaderVersion = lock.loader.modsLoaderVersion;
-  if (modsLoaderVersion == null) {
+  final modLoaderVersion = lock.loader.modLoaderVersion;
+  if (modLoaderVersion == null) {
     return;
   }
 
@@ -309,7 +309,7 @@ Future<void> _installModdedServerBinary({
       cache: cache,
       loader: loader,
       mcVersion: mcVersion,
-      modsLoaderVersion: modsLoaderVersion,
+      modLoaderVersion: modLoaderVersion,
     );
     if (!File(cachedPath).existsSync()) {
       throw UserError(
@@ -322,13 +322,13 @@ Future<void> _installModdedServerBinary({
   final installerJar = await fetcher.fetchServerArtifact(
     loader: loader,
     mcVersion: mcVersion,
-    modsLoaderVersion: modsLoaderVersion,
+    modLoaderVersion: modLoaderVersion,
   );
 
   await installer.installServer(
     loader: loader,
     mcVersion: mcVersion,
-    modsLoaderVersion: modsLoaderVersion,
+    modLoaderVersion: modLoaderVersion,
     outputDir: serverDir,
     installerOrServerJar: installerJar,
     offline: offline,
@@ -337,7 +337,7 @@ Future<void> _installModdedServerBinary({
     verbose: verbose,
   );
   console.message(
-    'Installed ${loader.name} $modsLoaderVersion server binary into '
+    'Installed ${loader.name} $modLoaderVersion server binary into '
     '${serverDir.path}.',
   );
 }
@@ -346,7 +346,7 @@ String _expectedCachedInstallerPath({
   required GitrinthCache cache,
   required ModLoader loader,
   required String mcVersion,
-  required String modsLoaderVersion,
+  required String modLoaderVersion,
 }) {
   switch (loader) {
     case ModLoader.vanilla:
@@ -358,24 +358,24 @@ String _expectedCachedInstallerPath({
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
-        modsLoaderVersion: modsLoaderVersion,
-        filename: 'forge-$mcVersion-$modsLoaderVersion-installer.jar',
+        modLoaderVersion: modLoaderVersion,
+        filename: 'forge-$mcVersion-$modLoaderVersion-installer.jar',
       );
     case ModLoader.neoforge:
       final filename = mcVersion == '1.20.1'
-          ? 'forge-$mcVersion-$modsLoaderVersion-installer.jar'
-          : 'neoforge-$modsLoaderVersion-installer.jar';
+          ? 'forge-$mcVersion-$modLoaderVersion-installer.jar'
+          : 'neoforge-$modLoaderVersion-installer.jar';
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
-        modsLoaderVersion: modsLoaderVersion,
+        modLoaderVersion: modLoaderVersion,
         filename: filename,
       );
     case ModLoader.fabric:
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
-        modsLoaderVersion: modsLoaderVersion,
+        modLoaderVersion: modLoaderVersion,
         filename: 'fabric-server-launch.jar',
       );
   }

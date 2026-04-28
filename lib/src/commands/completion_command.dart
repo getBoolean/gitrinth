@@ -145,7 +145,7 @@ String _firstLine(String s) {
 final Map<String, List<String>> _manualEnumHints = {
   // These options accept `<name>` or `<name>:<tag>`; the shared name
   // lists are the canonical completion hints.
-  'mods-loader': modLoaderRefNames,
+  'mod-loader': modLoaderRefNames,
   'plugin-loader': pluginLoaderRefNames,
 };
 

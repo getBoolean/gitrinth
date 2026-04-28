@@ -840,10 +840,10 @@ Future<int> runLaunchClient({
   }
 
   // hasModRuntime is true (gated above), so a non-vanilla loader was
-  // resolved during `gitrinth get`. A null modsLoaderVersion here means the
+  // resolved during `gitrinth get`. A null modLoaderVersion here means the
   // lock is missing the resolved version it should have written.
-  final modsLoaderVersion = lock.loader.modsLoaderVersion;
-  if (modsLoaderVersion == null) {
+  final modLoaderVersion = lock.loader.modLoaderVersion;
+  if (modLoaderVersion == null) {
     throw const UserError(
       'launch client: mods.lock has hasModRuntime=true but no resolved '
       'loader version — mods.lock is malformed.',
@@ -853,7 +853,7 @@ Future<int> runLaunchClient({
   final installerJar = await effectiveFetcher.fetchClientInstaller(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
-    modsLoaderVersion: modsLoaderVersion,
+    modLoaderVersion: modLoaderVersion,
   );
 
   // Install the loader into the cache workdir so versions/, libraries/,
@@ -863,7 +863,7 @@ Future<int> runLaunchClient({
   final lastVersionId = await effectiveClientInstaller.installClient(
     loader: lock.loader.mods,
     mcVersion: lock.mcVersion,
-    modsLoaderVersion: modsLoaderVersion,
+    modLoaderVersion: modLoaderVersion,
     dotMinecraftDir: workDir,
     installerJar: installerJar,
     offline: options.offline,

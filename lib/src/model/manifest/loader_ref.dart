@@ -60,7 +60,7 @@ TaggedRef parseTaggedRef(String raw, Never Function(String message) onError) {
 typedef LoaderRef = (ModLoader loader, String? tag);
 
 /// Parses a `loader` or `loader:tag` reference.
-/// Shared by `mods.yaml`, `migrate loader`, and `create --mods-loader`.
+/// Shared by `mods.yaml`, `migrate loader`, and `create --mod-loader`.
 /// Missing tags return `null`; callers choose their own default.
 LoaderRef parseModLoaderRef(
   String raw,

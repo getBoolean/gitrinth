@@ -17,7 +17,7 @@ void main() {
       gitrinthVersion: '1.0.0',
       loader: const LoaderConfig(
         mods: ModLoader.neoforge,
-        modsLoaderVersion: '21.1.50',
+        modLoaderVersion: '21.1.50',
         plugins: PluginLoader.paper,
       ),
       mcVersion: '1.21.1',
@@ -47,7 +47,7 @@ void main() {
       description: 'x',
       loader: LoaderConfig(
         mods: ModLoader.neoforge,
-        modsLoaderVersion: '21.1.50',
+        modLoaderVersion: '21.1.50',
         plugins: PluginLoader.paper,
       ),
       mcVersion: '1.21.1',

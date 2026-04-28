@@ -112,11 +112,11 @@ MrpackIndex buildIndex({
   // Loader version is required by mrpack's `dependencies` block —
   // unless the pack has no mod runtime (vanilla), in which case the
   // mod-loader entry is omitted entirely.
-  final modsLoaderVersion = lock.loader.modsLoaderVersion;
+  final modLoaderVersion = lock.loader.modLoaderVersion;
   if (lock.loader.hasModRuntime &&
-      (modsLoaderVersion == 'stable' ||
-          modsLoaderVersion == 'latest' ||
-          modsLoaderVersion == null)) {
+      (modLoaderVersion == 'stable' ||
+          modLoaderVersion == 'latest' ||
+          modLoaderVersion == null)) {
     throw const ValidationError(
       'mods.lock has no concrete loader version (still on `:stable` / '
       '`:latest`). Re-run `gitrinth get` to resolve and lock it before '
@@ -162,12 +162,12 @@ MrpackIndex buildIndex({
     files: files,
     dependencies: {
       'minecraft': lock.mcVersion,
-      // hasModRuntime + concrete modsLoaderVersion is enforced above; the
+      // hasModRuntime + concrete modLoaderVersion is enforced above; the
       // null branch is unreachable for non-vanilla packs, but the
       // collection-if also lets the loader entry drop cleanly when
       // the pack is vanilla.
-      if (lock.loader.hasModRuntime && modsLoaderVersion != null)
-        mrpackLoaderKey(lock.loader.mods): modsLoaderVersion,
+      if (lock.loader.hasModRuntime && modLoaderVersion != null)
+        mrpackLoaderKey(lock.loader.mods): modLoaderVersion,
     },
   );
 }

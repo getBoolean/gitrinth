@@ -19,7 +19,7 @@ ModsLock _lock({
 }) {
   return ModsLock(
     gitrinthVersion: '0.1.0',
-    loader: LoaderConfig(mods: loader, modsLoaderVersion: '0.17.3'),
+    loader: LoaderConfig(mods: loader, modLoaderVersion: '0.17.3'),
     mcVersion: mcVersion,
   );
 }

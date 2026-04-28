@@ -815,25 +815,25 @@ mc-version: 1.21.1
     test('bare loader name defaults the version tag to "stable"', () {
       final m = parse('fabric');
       expect(m.loader.mods, ModLoader.fabric);
-      expect(m.loader.modsLoaderVersion, 'stable');
+      expect(m.loader.modLoaderVersion, 'stable');
     });
 
     test('explicit :stable parses as stable', () {
       final m = parse('fabric:stable');
       expect(m.loader.mods, ModLoader.fabric);
-      expect(m.loader.modsLoaderVersion, 'stable');
+      expect(m.loader.modLoaderVersion, 'stable');
     });
 
     test('explicit :latest parses as latest', () {
       final m = parse('neoforge:latest');
       expect(m.loader.mods, ModLoader.neoforge);
-      expect(m.loader.modsLoaderVersion, 'latest');
+      expect(m.loader.modLoaderVersion, 'latest');
     });
 
     test('concrete version tag parses verbatim', () {
       final m = parse('fabric:0.17.3');
       expect(m.loader.mods, ModLoader.fabric);
-      expect(m.loader.modsLoaderVersion, '0.17.3');
+      expect(m.loader.modLoaderVersion, '0.17.3');
     });
 
     test(
@@ -841,7 +841,7 @@ mc-version: 1.21.1
       () {
         final m = parse('"forge:52.0.45"');
         expect(m.loader.mods, ModLoader.forge);
-        expect(m.loader.modsLoaderVersion, '52.0.45');
+        expect(m.loader.modLoaderVersion, '52.0.45');
       },
     );
 
@@ -901,10 +901,10 @@ shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
       expect(l.loader.mods, ModLoader.fabric);
-      expect(l.loader.modsLoaderVersion, '0.17.3');
+      expect(l.loader.modLoaderVersion, '0.17.3');
     });
 
-    test('lock without :tag defaults modsLoaderVersion to "stable"', () {
+    test('lock without :tag defaults modLoaderVersion to "stable"', () {
       const lock = '''
 gitrinth-version: 0.1.0
 loader:
@@ -917,7 +917,7 @@ shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
       expect(l.loader.mods, ModLoader.neoforge);
-      expect(l.loader.modsLoaderVersion, 'stable');
+      expect(l.loader.modLoaderVersion, 'stable');
     });
 
     test('lock without plugin :tag is rejected', () {

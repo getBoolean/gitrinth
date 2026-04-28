@@ -504,7 +504,7 @@ Modpack-specific. Scaffold a new modpack directory with a minimal
 created if missing.
 
 ```text
-gitrinth create [--mods-loader <loader[:tag]>]
+gitrinth create [--mod-loader <loader[:tag]>]
                 [--plugin-loader <loader[:tag]>]
                 [--mc-version <version>] [--slug <slug>] [--name <name>]
                 [--force] [--offline] <directory>
@@ -522,8 +522,8 @@ derived value.
 
 | Option            | Description                                                                                                 |
 |-------------------|-------------------------------------------------------------------------------------------------------------|
-| `--mods-loader`   | Pre-fill [`loader.mods`](mods-yaml.md#loader). Defaults to `neoforge` when no plugin loader is specified.   |
-| `--plugin-loader` | Pre-fill [`loader.plugins`](mods-yaml.md#plugin-loaders). Omit `--mods-loader` for a plugin-only scaffold. |
+| `--mod-loader`   | Pre-fill [`loader.mods`](mods-yaml.md#loader). Defaults to `neoforge` when no plugin loader is specified.   |
+| `--plugin-loader` | Pre-fill [`loader.plugins`](mods-yaml.md#plugin-loaders). Omit `--mod-loader` for a plugin-only scaffold. |
 | `--mc-version`    | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Defaults to `1.21.1`.                                     |
 | `--slug`          | Override the derived slug.                                                                                  |
 | `--name`          | Override the display [`name`](mods-yaml.md#name).                                                           |
@@ -1064,7 +1064,7 @@ gitrinth completion <bash|zsh|fish|powershell>
 ```
 
 Covers subcommand names, flag names, and the enum values already
-constrained on the argparse side (`--env`, `--mods-loader`,
+constrained on the argparse side (`--env`, `--mod-loader`,
 `--plugin-loader`). Re-run after
 upgrading `gitrinth` to refresh installed scripts.
 

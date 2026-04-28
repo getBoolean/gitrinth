@@ -7,7 +7,7 @@ part of '../parser.dart';
 LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
   if (raw == null) {
     // Missing `loader:` is equivalent to an empty mapping.
-    return const LoaderConfig(mods: ModLoader.vanilla, modsLoaderVersion: null);
+    return const LoaderConfig(mods: ModLoader.vanilla, modLoaderVersion: null);
   }
   if (raw is! Map) {
     throw _err(
@@ -27,15 +27,15 @@ LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
     }
   }
 
-  ModLoader modsLoader;
-  String? modsLoaderVersion;
+  ModLoader modLoader;
+  String? modLoaderVersion;
   if (map.containsKey('mods')) {
     final modsTag = _parseYamlModLoader(map['mods'], filePath);
-    modsLoader = modsTag.loader;
-    modsLoaderVersion = modsTag.version;
+    modLoader = modsTag.loader;
+    modLoaderVersion = modsTag.version;
   } else {
-    modsLoader = ModLoader.vanilla;
-    modsLoaderVersion = null;
+    modLoader = ModLoader.vanilla;
+    modLoaderVersion = null;
   }
 
   ShaderLoader? shaders;
@@ -47,13 +47,13 @@ LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
   String? pluginLoaderVersion;
   if (map.containsKey('plugins')) {
     final pluginTag = _parseYamlPluginLoader(map['plugins'], filePath);
-    plugins = pluginTag.loader.resolveWith(modsLoader);
+    plugins = pluginTag.loader.resolveWith(modLoader);
     pluginLoaderVersion = pluginTag.version;
   }
 
   return LoaderConfig(
-    mods: modsLoader,
-    modsLoaderVersion: modsLoaderVersion,
+    mods: modLoader,
+    modLoaderVersion: modLoaderVersion,
     shaders: shaders,
     plugins: plugins,
     pluginLoaderVersion: pluginLoaderVersion,
@@ -64,7 +64,7 @@ LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
 /// Lock values are already resolved.
 LoaderConfig _parseLoaderConfigLock(dynamic raw, String filePath) {
   if (raw == null) {
-    return const LoaderConfig(mods: ModLoader.vanilla, modsLoaderVersion: null);
+    return const LoaderConfig(mods: ModLoader.vanilla, modLoaderVersion: null);
   }
   if (raw is! Map) {
     throw _err('$filePath: loader must be an object.');
@@ -80,15 +80,15 @@ LoaderConfig _parseLoaderConfigLock(dynamic raw, String filePath) {
     }
   }
 
-  ModLoader modsLoader;
-  String? modsLoaderVersion;
+  ModLoader modLoader;
+  String? modLoaderVersion;
   if (map.containsKey('mods')) {
     final modsTag = _parseLockModLoader(map['mods'], filePath);
-    modsLoader = modsTag.loader;
-    modsLoaderVersion = modsTag.version;
+    modLoader = modsTag.loader;
+    modLoaderVersion = modsTag.version;
   } else {
-    modsLoader = ModLoader.vanilla;
-    modsLoaderVersion = null;
+    modLoader = ModLoader.vanilla;
+    modLoaderVersion = null;
   }
 
   ShaderLoader? shaders;
@@ -105,8 +105,8 @@ LoaderConfig _parseLoaderConfigLock(dynamic raw, String filePath) {
   }
 
   return LoaderConfig(
-    mods: modsLoader,
-    modsLoaderVersion: modsLoaderVersion,
+    mods: modLoader,
+    modLoaderVersion: modLoaderVersion,
     shaders: shaders,
     plugins: plugins,
     pluginLoaderVersion: pluginLoaderVersion,

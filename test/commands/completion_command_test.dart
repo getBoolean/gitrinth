@@ -26,7 +26,7 @@ void _expectCommonAnchors(String stdout) {
     expect(stdout, contains(v), reason: 'missing --env value "$v"');
   }
   for (final v in _loaderValues) {
-    expect(stdout, contains(v), reason: 'missing --mods-loader value "$v"');
+    expect(stdout, contains(v), reason: 'missing --mod-loader value "$v"');
   }
   for (final v in _pluginLoaderValues) {
     expect(stdout, contains(v), reason: 'missing --plugin-loader value "$v"');

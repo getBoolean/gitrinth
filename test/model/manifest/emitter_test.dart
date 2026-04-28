@@ -147,7 +147,7 @@ void main() {
   test('emits client/server lines and round-trips through parse', () {
     const lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: ModLoader.fabric, modsLoaderVersion: '0.17.3'),
+      loader: LoaderConfig(mods: ModLoader.fabric, modLoaderVersion: '0.17.3'),
       mcVersion: '1.21.1',
       mods: {
         'distanthorizons': LockedEntry(

@@ -19,7 +19,7 @@ mc-version: 1.21.1
 ''';
         final m = parseModsYaml(yaml, filePath: 'mods.yaml');
         expect(m.loader.mods, ModLoader.vanilla);
-        expect(m.loader.modsLoaderVersion, isNull);
+        expect(m.loader.modLoaderVersion, isNull);
         expect(m.loader.hasModRuntime, isFalse);
       },
     );
@@ -49,7 +49,7 @@ mc-version: 1.21.1
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.loader.mods, ModLoader.vanilla);
-      expect(m.loader.modsLoaderVersion, isNull);
+      expect(m.loader.modLoaderVersion, isNull);
     });
 
     test('explicit `mods: vanilla:something` is rejected (no version tag)', () {
@@ -118,10 +118,10 @@ plugins:
   });
 
   group('LoaderConfig roundtrip with vanilla', () {
-    test('LoaderConfig(mods: vanilla, modsLoaderVersion: null) constructs', () {
+    test('LoaderConfig(mods: vanilla, modLoaderVersion: null) constructs', () {
       const cfg = LoaderConfig(
         mods: ModLoader.vanilla,
-        modsLoaderVersion: null,
+        modLoaderVersion: null,
         plugins: PluginLoader.spongevanilla,
       );
       expect(cfg.hasModRuntime, isFalse);
