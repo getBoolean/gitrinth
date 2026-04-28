@@ -815,25 +815,25 @@ mc-version: 1.21.1
     test('bare loader name defaults the version tag to "stable"', () {
       final m = parse('fabric');
       expect(m.loader.mods, ModLoader.fabric);
-      expect(m.loader.modsVersion, 'stable');
+      expect(m.loader.modsLoaderVersion, 'stable');
     });
 
     test('explicit :stable parses as stable', () {
       final m = parse('fabric:stable');
       expect(m.loader.mods, ModLoader.fabric);
-      expect(m.loader.modsVersion, 'stable');
+      expect(m.loader.modsLoaderVersion, 'stable');
     });
 
     test('explicit :latest parses as latest', () {
       final m = parse('neoforge:latest');
       expect(m.loader.mods, ModLoader.neoforge);
-      expect(m.loader.modsVersion, 'latest');
+      expect(m.loader.modsLoaderVersion, 'latest');
     });
 
     test('concrete version tag parses verbatim', () {
       final m = parse('fabric:0.17.3');
       expect(m.loader.mods, ModLoader.fabric);
-      expect(m.loader.modsVersion, '0.17.3');
+      expect(m.loader.modsLoaderVersion, '0.17.3');
     });
 
     test(
@@ -841,7 +841,7 @@ mc-version: 1.21.1
       () {
         final m = parse('"forge:52.0.45"');
         expect(m.loader.mods, ModLoader.forge);
-        expect(m.loader.modsVersion, '52.0.45');
+        expect(m.loader.modsLoaderVersion, '52.0.45');
       },
     );
 
@@ -901,13 +901,10 @@ shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
       expect(l.loader.mods, ModLoader.fabric);
-      expect(l.loader.modsVersion, '0.17.3');
+      expect(l.loader.modsLoaderVersion, '0.17.3');
     });
 
-    test('legacy lock without :tag defaults loaderVersion to "stable"', () {
-      // Locks written before this feature carry only the loader name.
-      // Default-tag handling lets them parse; the resolver will re-resolve
-      // them on the next `get` because "stable" isn't a concrete tag.
+    test('lock without :tag defaults modsLoaderVersion to "stable"', () {
       const lock = '''
 gitrinth-version: 0.1.0
 loader:
@@ -920,7 +917,32 @@ shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
       expect(l.loader.mods, ModLoader.neoforge);
-      expect(l.loader.modsVersion, 'stable');
+      expect(l.loader.modsLoaderVersion, 'stable');
+    });
+
+    test('lock without plugin :tag is rejected', () {
+      const lock = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: "neoforge:21.1.50"
+  plugins: paper
+mc-version: 1.21.1
+mods: {}
+resource_packs: {}
+data_packs: {}
+shaders: {}
+plugins: {}
+''';
+      expect(
+        () => parseModsLock(lock, filePath: 'mods.lock'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('no concrete plugin loader version'),
+          ),
+        ),
+      );
     });
 
     test('reads sha1 alongside sha512 on a locked file', () {

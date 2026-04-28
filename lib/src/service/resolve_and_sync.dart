@@ -24,9 +24,10 @@ import '../commands/version_picker.dart';
 import 'cache.dart';
 import 'console.dart';
 import 'downloader.dart';
-import 'loader_version_resolver.dart';
+import 'mod_loader_version_resolver.dart';
 import 'manifest_io.dart';
 import 'modrinth_api.dart';
+import 'plugin_loader_version_resolver.dart';
 import 'section_inference.dart';
 import 'solve_report.dart';
 
@@ -89,7 +90,8 @@ Future<ResolveSyncResult> resolveAndSync({
   required ModrinthApi api,
   required GitrinthCache cache,
   required Downloader downloader,
-  required LoaderVersionResolver loaderResolver,
+  required ModLoaderVersionResolver modLoaderResolver,
+  required PluginLoaderVersionResolver pluginLoaderResolver,
   bool offline = false,
   bool dryRun = false,
   bool enforce = false,
@@ -176,20 +178,37 @@ Future<ResolveSyncResult> resolveAndSync({
   // precisely to drift). For concrete tags that already match the lock,
   // skip even the passthrough — the lock is the cache. Under --offline,
   // `stable`/`latest` falls back to the lock's concrete version.
-  final String? resolvedLoaderVersion;
-  final modsVersion = loaderConfig.modsVersion;
-  if (loaderConfig.hasModRuntime && modsVersion != null) {
-    resolvedLoaderVersion = await _resolveLoaderVersion(
-      loaderResolver: loaderResolver,
+  final String? resolvedModsLoaderVersion;
+  final modsLoaderVersion = loaderConfig.modsLoaderVersion;
+  if (loaderConfig.hasModRuntime && modsLoaderVersion != null) {
+    resolvedModsLoaderVersion = await _resolvemodsLoaderVersion(
+      modLoaderResolver: modLoaderResolver,
       modsLoader: loaderConfig.mods,
-      tag: modsVersion,
+      tag: modsLoaderVersion,
       mcVersion: mc,
       existingLock: existingLock,
       offline: offline,
       console: console,
     );
   } else {
-    resolvedLoaderVersion = null;
+    resolvedModsLoaderVersion = null;
+  }
+
+  final String? resolvedpluginLoaderVersion;
+  final pluginLoader = loaderConfig.plugins;
+  final pluginLoaderVersion = loaderConfig.pluginLoaderVersion;
+  if (pluginLoader != null && pluginLoaderVersion != null) {
+    resolvedpluginLoaderVersion = await _resolvepluginLoaderVersion(
+      pluginLoaderResolver: pluginLoaderResolver,
+      pluginLoader: pluginLoader,
+      tag: pluginLoaderVersion,
+      mcVersion: mc,
+      existingLock: existingLock,
+      offline: offline,
+      console: console,
+    );
+  } else {
+    resolvedpluginLoaderVersion = null;
   }
 
   final slugToSection = <String, Section>{};
@@ -329,7 +348,12 @@ Future<ResolveSyncResult> resolveAndSync({
     overridePins: overridePins,
   );
 
-  final newLock = _buildLock(merged, resolution, resolvedLoaderVersion);
+  final newLock = _buildLock(
+    merged,
+    resolution,
+    resolvedModsLoaderVersion,
+    resolvedpluginLoaderVersion,
+  );
   final diff = diffLocks(existingLock, newLock);
 
   reporter.printSimpleDiff(diff);
@@ -386,8 +410,7 @@ Future<ResolveSyncResult> resolveAndSync({
             if (file == null || projectId == null || versionId == null) {
               throw FormatException(
                 'lock entry "${locked.slug}" with kind=modrinth is missing '
-                'required fields — mods.lock is malformed; rerun '
-                '`gitrinth get`.',
+                'required fields — mods.lock is malformed.',
               );
             }
             final url = file.url;
@@ -437,7 +460,7 @@ Future<ResolveSyncResult> resolveAndSync({
             if (rawPath == null) {
               throw FormatException(
                 'lock entry "${locked.slug}" with kind=path has no path '
-                '— mods.lock is malformed; rerun `gitrinth get`.',
+                '— mods.lock is malformed.',
               );
             }
             final resolved = p.isAbsolute(rawPath)
@@ -592,8 +615,8 @@ Future<void> _validateGameVersion({
 ///
 /// Caller is expected to gate on [LoaderConfig.hasModRuntime] and pass
 /// the populated [tag]; vanilla packs skip this resolution entirely.
-Future<String> _resolveLoaderVersion({
-  required LoaderVersionResolver loaderResolver,
+Future<String> _resolvemodsLoaderVersion({
+  required ModLoaderVersionResolver modLoaderResolver,
   required ModLoader modsLoader,
   required String tag,
   required String mcVersion,
@@ -602,7 +625,7 @@ Future<String> _resolveLoaderVersion({
   required Console console,
 }) async {
   final lockedSameLoader = existingLock?.loader.mods == modsLoader;
-  final lockedVersion = existingLock?.loader.modsVersion;
+  final lockedVersion = existingLock?.loader.modsLoaderVersion;
   final tagIsConcrete = tag != 'stable' && tag != 'latest';
   if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
     return tag;
@@ -627,8 +650,49 @@ Future<String> _resolveLoaderVersion({
       'mods.yaml.',
     );
   }
-  return loaderResolver.resolve(
+  return modLoaderResolver.resolve(
     loader: modsLoader,
+    tag: tag,
+    mcVersion: mcVersion,
+  );
+}
+
+Future<String> _resolvepluginLoaderVersion({
+  required PluginLoaderVersionResolver pluginLoaderResolver,
+  required PluginLoader pluginLoader,
+  required String tag,
+  required String mcVersion,
+  required ModsLock? existingLock,
+  required bool offline,
+  required Console console,
+}) async {
+  final lockedSameLoader = existingLock?.loader.plugins == pluginLoader;
+  final lockedVersion = existingLock?.loader.pluginLoaderVersion;
+  final tagIsConcrete = tag != 'stable' && tag != 'latest';
+  if (tagIsConcrete && lockedSameLoader && lockedVersion == tag) {
+    return tag;
+  }
+  if (tagIsConcrete && offline) {
+    if (lockedSameLoader && lockedVersion != null && lockedVersion != tag) {
+      console.warn(
+        'using unvalidated plugin loader pin `${pluginLoader.name}:'
+        '$tag` while offline (mods.lock had `$lockedVersion`).',
+      );
+    }
+    return tag;
+  }
+  if (!tagIsConcrete && offline) {
+    if (lockedSameLoader && lockedVersion != null) {
+      return lockedVersion;
+    }
+    throw UserError(
+      'cannot resolve plugin loader tag "$tag" while offline: no concrete '
+      'version recorded in mods.lock. Try again without --offline, or pin '
+      'a concrete tag like `${pluginLoader.name}:<version>` in mods.yaml.',
+    );
+  }
+  return pluginLoaderResolver.resolve(
+    loader: pluginLoader,
     tag: tag,
     mcVersion: mcVersion,
   );

@@ -54,12 +54,12 @@ void main() {
   });
 
   test(
-    'loaderArtifactPath uses loaders/<loader>/<mc>/<loaderVersion>/<filename>',
+    'loaderArtifactPath uses loaders/<loader>/<mc>/<modsLoaderVersion>/<filename>',
     () {
       final path = cache.loaderArtifactPath(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        loaderVersion: '52.1.5',
+        modsLoaderVersion: '52.1.5',
         filename: 'forge-installer.jar',
       );
       expect(
@@ -81,7 +81,7 @@ void main() {
       cache.loaderArtifactPath(
         loader: ModLoader.fabric,
         mcVersion: '1.20.4',
-        loaderVersion: '0.16.10',
+        modsLoaderVersion: '0.16.10',
         filename: 'fabric-server-launch.jar',
       ),
       p.join(
@@ -97,7 +97,7 @@ void main() {
       cache.loaderArtifactPath(
         loader: ModLoader.neoforge,
         mcVersion: '1.21.1',
-        loaderVersion: '21.1.50',
+        modsLoaderVersion: '21.1.50',
         filename: 'neoforge-21.1.50-installer.jar',
       ),
       p.join(

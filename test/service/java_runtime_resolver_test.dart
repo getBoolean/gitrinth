@@ -208,8 +208,7 @@ void main() {
         expect(
           result.majorVersion,
           21,
-          reason:
-              'managed fetch returns the requested feature version',
+          reason: 'managed fetch returns the requested feature version',
         );
       },
     );
@@ -314,44 +313,40 @@ void main() {
       },
     );
 
-    test(
-      'PATH java with wrong version falls through to fetcher',
-      () async {
-        final pathDir2 = Directory(p.join(tempRoot.path, 'path17'))
-          ..createSync();
-        final java17 = File(p.join(pathDir2.path, 'java.exe'))
-          ..writeAsStringSync('STUB');
+    test('PATH java with wrong version falls through to fetcher', () async {
+      final pathDir2 = Directory(p.join(tempRoot.path, 'path17'))..createSync();
+      final java17 = File(p.join(pathDir2.path, 'java.exe'))
+        ..writeAsStringSync('STUB');
 
-        final zipBytes = buildFakeJdkZip(
-          top: 'jdk-21-fake',
-          binaryName: 'java.exe',
-        );
-        fake.adoptiumBinaryBytes['21-windows-x64.zip'] = zipBytes;
-        fake.adoptiumMetadata['21-windows-x64'] = [
-          {
-            'release_name': 'jdk-21.0.5+11',
-            'version_data': {'semver': '21.0.5+11'},
-            'binaries': [
-              {
-                'package': {
-                  'link': '${fake.adoptiumBinaryUrlPrefix}21-windows-x64.zip',
-                  'checksum': sha256.convert(zipBytes).toString(),
-                },
+      final zipBytes = buildFakeJdkZip(
+        top: 'jdk-21-fake',
+        binaryName: 'java.exe',
+      );
+      fake.adoptiumBinaryBytes['21-windows-x64.zip'] = zipBytes;
+      fake.adoptiumMetadata['21-windows-x64'] = [
+        {
+          'release_name': 'jdk-21.0.5+11',
+          'version_data': {'semver': '21.0.5+11'},
+          'binaries': [
+            {
+              'package': {
+                'link': '${fake.adoptiumBinaryUrlPrefix}21-windows-x64.zip',
+                'checksum': sha256.convert(zipBytes).toString(),
               },
-            ],
-          },
-        ];
+            },
+          ],
+        },
+      ];
 
-        final resolver = JavaRuntimeResolver(
-          fetcher: fetcher,
-          environment: {'PATH': pathDir2.path},
-          probe: stubProber({java17.path: 17}),
-        );
-        final result = await resolver.resolve(mcVersion: '1.21.1');
-        expect(result.binary.path, contains('runtimes'));
-        expect(result.majorVersion, 21);
-      },
-    );
+      final resolver = JavaRuntimeResolver(
+        fetcher: fetcher,
+        environment: {'PATH': pathDir2.path},
+        probe: stubProber({java17.path: 17}),
+      );
+      final result = await resolver.resolve(mcVersion: '1.21.1');
+      expect(result.binary.path, contains('runtimes'));
+      expect(result.majorVersion, 21);
+    });
 
     test(
       '--offline + nothing satisfies -> UserError mentions --offline',

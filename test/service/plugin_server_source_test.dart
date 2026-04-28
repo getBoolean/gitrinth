@@ -15,12 +15,14 @@ import 'package:test/test.dart';
 class _FakeBuildToolsRunner implements BuildToolsRunner {
   SpigotFlavor? lastFlavor;
   String? lastMc;
+  String? lastBuildToolsVersion;
   late File toReturn;
 
   @override
   Future<File> buildSpigotFamily({
     required String mc,
     required SpigotFlavor flavor,
+    required String buildToolsVersion,
     required Console console,
     required bool offline,
     String? javaPath,
@@ -28,6 +30,7 @@ class _FakeBuildToolsRunner implements BuildToolsRunner {
   }) async {
     lastFlavor = flavor;
     lastMc = mc;
+    lastBuildToolsVersion = buildToolsVersion;
     return toReturn;
   }
 
@@ -114,6 +117,7 @@ void main() {
 
       final jar = await source.fetchServerJar(
         mcVersion: '1.21.1',
+        pluginLoaderVersion: '100',
         offline: false,
         console: const Console(),
       );
@@ -182,6 +186,7 @@ void main() {
     );
     final jar = await source.fetchServerJar(
       mcVersion: '1.21.1',
+      pluginLoaderVersion: '1.21.1-1.0.0',
       offline: false,
       console: const Console(),
     );
@@ -225,12 +230,14 @@ void main() {
       );
       final jar = await source.fetchServerJar(
         mcVersion: '1.21.1',
+        pluginLoaderVersion: '187',
         offline: false,
         console: const Console(),
       );
       expect(jar.path, fakeRunner.toReturn.path);
       expect(fakeRunner.lastFlavor, SpigotFlavor.spigot);
       expect(fakeRunner.lastMc, '1.21.1');
+      expect(fakeRunner.lastBuildToolsVersion, '187');
       expect(source.installMarker, 'plugin-spigot');
     },
   );
@@ -255,10 +262,12 @@ void main() {
       );
       await source.fetchServerJar(
         mcVersion: '1.21.1',
+        pluginLoaderVersion: '187',
         offline: false,
         console: const Console(),
       );
       expect(fakeRunner.lastFlavor, SpigotFlavor.craftbukkit);
+      expect(fakeRunner.lastBuildToolsVersion, '187');
       expect(source.installMarker, 'plugin-craftbukkit');
     },
   );

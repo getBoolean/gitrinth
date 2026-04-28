@@ -137,6 +137,13 @@ class FakeModrinth {
   /// Fabric installer bytes keyed by version.
   final Map<String, Uint8List> fabricInstallerBytes = {};
 
+  /// Fake BuildTools jar URL template.
+  String get buildToolsJarUrlTemplate =>
+      'http://127.0.0.1:${_server.port}/buildtools/{build}/BuildTools.jar';
+
+  /// BuildTools build numbers considered present by the fake server.
+  final Set<String> buildToolsBuilds = {};
+
   /// Fake Adoptium metadata URL template.
   String get adoptiumMetadataUrlTemplate =>
       'http://127.0.0.1:${_server.port}/adoptium/v3/assets/'
@@ -381,6 +388,22 @@ class FakeModrinth {
             'java-archive',
           );
           req.response.add(bytes);
+        }
+      } else if (path.startsWith('/buildtools/')) {
+        // /buildtools/<build>/BuildTools.jar
+        final tail = path.substring('/buildtools/'.length);
+        final slash = tail.indexOf('/');
+        final build = slash < 0 ? tail : tail.substring(0, slash);
+        if (!buildToolsBuilds.contains(build)) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType(
+            'application',
+            'java-archive',
+          );
+          if (req.method != 'HEAD') {
+            req.response.add(Uint8List.fromList([0x50, 0x4b, 0x03, 0x04]));
+          }
         }
       } else if (path.startsWith('/adoptium/v3/assets/feature_releases/')) {
         // /adoptium/v3/assets/feature_releases/<feature>/ga?...

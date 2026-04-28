@@ -446,7 +446,7 @@ Recognised keys:
 |------------------|--------------------------------------------------------------------|------------------------------------------|
 | `loader.mods`    | Optional. Defaults to `vanilla` (no mod runtime).                  | `forge`, `fabric`, `neoforge`, `vanilla`.                                                                     |
 | `loader.shaders` | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`.                                                                      |
-| `loader.plugins` | When [`plugins:`](#plugins) has entries.                           | `bukkit`, `folia`, `paper`, `spigot`, `sponge`.                                                               |
+| `loader.plugins` | When [`plugins:`](#plugins) has entries.                           | `bukkit`, `folia`, `paper`, `spigot`, `sponge`, each optionally tagged as `<loader>:<tag>`.                              |
 
 `resource_packs` and `data_packs` each have a single valid Modrinth
 loader (`minecraft` and `datapack` respectively), so they are not
@@ -473,14 +473,11 @@ When set to a real mod loader, `loader.mods` has three roles:
   launchers use it to decide whether the pack is installable.
 - **Server distribution selection.** The server distribution
   assembled by [`gitrinth build`](cli.md#build) includes the
-  matching server binary — the Forge/Fabric/NeoForge/Sponge
-  installer for the pack's [`mc-version`](#mc-version), or the
-  latest stable Paper/Spigot/Folia build for that `mc-version` (or a
-  vanilla-derived jar for `bukkit`). `gitrinth` resolves the binary
-  automatically from `loader.mods` + [`mc-version`](#mc-version); the
-  modpack does not declare it, and it is not added manually after
-  the build. Pinning the exact build is deferred to a future
-  release.
+  matching server binary. Mod loaders use [`loader.mods`](#loader)
+  plus [`mc-version`](#mc-version). Plugin servers use
+  [`loader.plugins`](#plugin-loaders), its optional tag, and
+  [`mc-version`](#mc-version). Resolved concrete loader versions are
+  written to `mods.lock`.
 
 `loader.shaders` applies version resolution for entries under
 [`shaders:`](#shaders): `gitrinth` only considers shader versions
@@ -495,7 +492,17 @@ is a parse error. `gitrinth` rejects any value outside the enums above.
 #### Plugin loaders
 
 `bukkit`, `folia`, `paper`, `spigot`, and `sponge` are the
-plugin-based server platforms set via `loader.plugins`.
+plugin-based server platforms set via `loader.plugins`. The value can
+be a bare loader name or a docker-image-style tag:
+
+```yaml
+loader:
+  plugins: paper:187
+```
+
+Missing tags default to `stable`. `stable` and `latest` are resolved
+during [`get`](cli.md#get); `mods.lock` stores the concrete resolved
+plugin loader and version, for example `plugins: paper:187`.
 
 `bukkit` / `folia` / `paper` / `spigot` are pure plugin servers —
 they do not run Forge/Fabric-style mods.
@@ -511,8 +518,24 @@ lock time, based on `loader.mods`:
   mods; Sponge has no Fabric distribution, so under Fabric the
   client-side Fabric mods are coerced server-unsupported).
 
-`mods.lock` records the resolved variant
-(`spongeforge` / `spongeneo` / `spongevanilla`).
+`mods.lock` records the resolved variant and concrete version
+(`spongeforge:<version>` / `spongeneo:<version>` /
+`spongevanilla:<version>`).
+
+Plugin-loader tags resolve as follows:
+
+- **Paper / Folia.** `stable` chooses the highest stable PaperMC build
+  for the exact `mc-version`; `latest` chooses the highest build for
+  that exact `mc-version` regardless of channel; a concrete tag is an
+  exact PaperMC build number.
+- **Sponge.** `stable` chooses the newest recommended build for the
+  resolved Sponge artifact and exact `mc-version`; `latest` chooses the
+  newest available build for that exact `mc-version`; a concrete tag is
+  an exact Sponge artifact version.
+- **Bukkit / Spigot.** `stable` and `latest` resolve to the latest
+  successful Jenkins BuildTools build number. A concrete tag is a bare
+  positive BuildTools build number. BuildTools then runs with
+  `--rev <mc-version>`.
 
 Under `bukkit` / `folia` / `paper` / `spigot` / `sponge` resolved to
 SpongeVanilla:
@@ -544,11 +567,13 @@ Under `sponge` resolved to SpongeForge / SpongeNeo
 every entry honours its declared [per-side install state](#sides-client--server).
 
 Spigot and Bukkit server jars are produced by SpigotMC's
-`BuildTools.jar` on first build (gitrinth downloads `BuildTools.jar`
-once into the cache and runs it locally). BuildTools requires `git`
-and a JDK, takes several minutes to compile sources, and the produced
-jar is cached for re-use on subsequent builds. Paper, Folia, and the
-three Sponge variants are downloaded as pre-built jars from upstream.
+`BuildTools.jar` on first build. The resolved plugin-loader version is
+the Jenkins BuildTools build number used to download `BuildTools.jar`;
+the pack's `mc-version` is still passed as BuildTools `--rev`.
+BuildTools requires `git` and a JDK, takes several minutes to compile
+sources, and the produced jar is cached for re-use on subsequent
+builds. Paper, Folia, and the three Sponge variants are downloaded as
+pre-built jars from upstream.
 
 #### Pure-vanilla server
 

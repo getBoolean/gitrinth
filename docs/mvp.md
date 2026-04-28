@@ -57,15 +57,17 @@ exclude betas/alphas for that mod only.
 Scaffold a new modpack.
 
 ```text
-gitrinth create [--loader <loader>] [--mc-version <version>]
-                [--slug <slug>] [--name <name>] [--force]
+gitrinth create [--mods-loader <loader>] [--plugin-loader <loader>]
+                [--mc-version <version>] [--slug <slug>]
+                [--name <name>] [--force]
                 <directory>
 ```
 
 - `<directory>` — target directory (required).
-- `--loader <loader>` — pre-fills `loader.mods` in the scaffolded
+- `--mods-loader <loader>` — pre-fills `loader.mods` in the scaffolded
   `mods.yaml`. Defaults to `neoforge`. `loader.shaders` is added by hand
   once the pack has shader entries.
+- `--plugin-loader <loader>` — pre-fills `loader.plugins`.
 - `--mc-version <version>` — defaults to `1.21.1`.
 - `--slug <slug>`
 - `--name <name>`

@@ -4,5 +4,4 @@
 
 ## Requirements
 
-- Minecraft {{mc-version}}
-- {{loader}}
+{{requirements}}

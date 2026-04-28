@@ -95,7 +95,7 @@ plugins:
         fail('expected a parse error');
       } on ValidationError catch (e) {
         expect(e.message, contains('spongeforge'));
-        expect(e.message, contains('not recognized'));
+        expect(e.message, contains('resolved lockfile plugin loader'));
         expect(e.message, contains('sponge'));
       }
     });

@@ -6,7 +6,8 @@ part of 'resolve_and_sync.dart';
 ModsLock _buildLock(
   ModsYaml manifest,
   ResolutionResult resolution,
-  String? resolvedLoaderVersion,
+  String? resolvedModsLoaderVersion,
+  String? resolvedpluginLoaderVersion,
 ) {
   final mods = <String, LockedEntry>{};
   final resourcePacks = <String, LockedEntry>{};
@@ -76,9 +77,10 @@ ModsLock _buildLock(
   // Bake the resolved concrete loader version into the lock's LoaderConfig.
   final lockedLoader = LoaderConfig(
     mods: manifest.loader.mods,
-    modsVersion: resolvedLoaderVersion,
+    modsLoaderVersion: resolvedModsLoaderVersion,
     shaders: manifest.loader.shaders,
     plugins: manifest.loader.plugins,
+    pluginLoaderVersion: resolvedpluginLoaderVersion,
   );
   // Forward `files:` entries verbatim. `files:` is manifest-only — no
   // pubgrub resolution, no Modrinth round-trip — so the lock entry is

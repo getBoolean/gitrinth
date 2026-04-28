@@ -21,7 +21,7 @@ class BuildToolsRunner {
   final Downloader _downloader;
   final GitrinthCache _cache;
   final JavaRuntimeResolver? _resolver;
-  final String _buildToolsUrl;
+  final String _buildToolsUrlTemplate;
   final ProcessRunner _gitProbe;
 
   BuildToolsRunner({
@@ -36,11 +36,12 @@ class BuildToolsRunner {
        _cache = cache,
        _resolver = resolver,
        _runProcess = runProcess,
-       _buildToolsUrl =
+       _buildToolsUrlTemplate =
            buildToolsUrlTemplate ??
-           (environment ?? Platform.environment)['GITRINTH_BUILDTOOLS_URL'] ??
-           'https://hub.spigotmc.org/jenkins/job/BuildTools/'
-               'lastSuccessfulBuild/artifact/target/BuildTools.jar',
+           (environment ??
+               Platform.environment)['GITRINTH_BUILDTOOLS_BUILD_URL'] ??
+           'https://hub.spigotmc.org/jenkins/job/BuildTools/{build}/'
+               'artifact/target/BuildTools.jar',
        _gitProbe = gitProbe ?? _defaultGitProbe;
 
   /// Returns the cached spigot/craftbukkit jar for ([flavor], [mc]),
@@ -50,6 +51,7 @@ class BuildToolsRunner {
   Future<File> buildSpigotFamily({
     required String mc,
     required SpigotFlavor flavor,
+    required String buildToolsVersion,
     required Console console,
     required bool offline,
     String? javaPath,
@@ -60,7 +62,7 @@ class BuildToolsRunner {
     final cachedPath = _cache.pluginServerJarPath(
       artifactKey: artifactKey,
       mcVersion: mc,
-      version: mc,
+      version: buildToolsVersion,
       filename: filename,
     );
     final cached = File(cachedPath);
@@ -81,7 +83,7 @@ class BuildToolsRunner {
       );
     }
 
-    final buildToolsJar = await _ensureBuildToolsJar();
+    final buildToolsJar = await _ensureBuildToolsJar(buildToolsVersion);
     final java = await _resolveJava(
       mcVersion: mc,
       javaPath: javaPath,
@@ -146,9 +148,14 @@ class BuildToolsRunner {
     }
   }
 
-  Future<File> _ensureBuildToolsJar() async {
-    final dest = p.join(_cache.buildToolsCacheRoot, 'BuildTools.jar');
-    return _downloader.downloadTo(url: _buildToolsUrl, destinationPath: dest);
+  Future<File> _ensureBuildToolsJar(String buildToolsVersion) async {
+    final dest = p.join(
+      _cache.buildToolsCacheRoot,
+      buildToolsVersion,
+      'BuildTools.jar',
+    );
+    final url = fillBuildToolsUrl(_buildToolsUrlTemplate, buildToolsVersion);
+    return _downloader.downloadTo(url: url, destinationPath: dest);
   }
 
   Future<File> _resolveJava({
@@ -194,6 +201,9 @@ class BuildToolsRunner {
     SpigotFlavor.craftbukkit => 'craftbukkit-$mc.jar',
   };
 }
+
+String fillBuildToolsUrl(String template, String buildToolsVersion) =>
+    template.replaceAll('{build}', Uri.encodeComponent(buildToolsVersion));
 
 Future<int> _defaultGitProbe(
   String executable,

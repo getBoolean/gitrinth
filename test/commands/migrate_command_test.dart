@@ -849,6 +849,36 @@ mods: {}
       // The whole `loader:` block survives — only `mods:` was removed.
       expect(manifest, contains('loader:'));
     });
+
+    test('preserves plugin loader tag when rewriting loader model', () async {
+      modrinth.buildToolsBuilds.add('187');
+      final localEnv = {
+        ...env,
+        'GITRINTH_BUILDTOOLS_BUILD_URL': modrinth.buildToolsJarUrlTemplate,
+      };
+      await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  plugins: bukkit:187
+mc-version: 1.21.1
+mods: {}
+''');
+
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'migrate',
+        'loader',
+        'fabric',
+      ], environment: localEnv);
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      expect(readManifest(), contains('plugins: bukkit:187'));
+      expect(readLock(), contains('plugins: "bukkit:187"'));
+    });
   });
 
   group('parseConstraint with not-found marker', () {

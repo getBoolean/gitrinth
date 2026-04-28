@@ -50,6 +50,85 @@ class PaperApiClient {
     required String project,
     required String mc,
   }) async {
+    final builds = await _listBuilds(project: project, mc: mc);
+    // PaperMC's `channel` is uppercase (`STABLE` / `EXPERIMENTAL`). Match
+    // case-insensitively to tolerate any future casing changes. Within
+    // stable builds, pick the highest build number rather than relying on
+    // API ordering.
+    Map<String, dynamic>? latest;
+    int latestBuild = -1;
+    for (final raw in builds) {
+      if (raw is! Map) continue;
+      final channel = raw['channel'];
+      if (channel is! String) continue;
+      final normalized = channel.toLowerCase();
+      if (normalized != 'stable' && normalized != 'default') continue;
+      final build = raw['build'];
+      if (build is! int) continue;
+      if (build > latestBuild) {
+        latestBuild = build;
+        latest = raw.cast<String, dynamic>();
+      }
+    }
+    if (latest == null) {
+      throw UserError(
+        'PaperMC reported no stable $project build for Minecraft $mc; '
+        'only experimental channels were returned.',
+      );
+    }
+    return _buildFromEntry(project: project, mc: mc, entry: latest);
+  }
+
+  /// Returns the highest numbered build for [project] and [mc], regardless
+  /// of channel.
+  Future<PaperBuild> latestBuild({
+    required String project,
+    required String mc,
+  }) async {
+    final builds = await _listBuilds(project: project, mc: mc);
+    Map<String, dynamic>? latest;
+    int latestBuild = -1;
+    for (final raw in builds) {
+      if (raw is! Map) continue;
+      final build = raw['build'];
+      if (build is! int) continue;
+      if (build > latestBuild) {
+        latestBuild = build;
+        latest = raw.cast<String, dynamic>();
+      }
+    }
+    if (latest == null) {
+      throw UserError('PaperMC reported no usable $project builds for $mc.');
+    }
+    return _buildFromEntry(project: project, mc: mc, entry: latest);
+  }
+
+  /// Returns exactly [build] for [project] and [mc].
+  Future<PaperBuild> buildByNumber({
+    required String project,
+    required String mc,
+    required int build,
+  }) async {
+    final builds = await _listBuilds(project: project, mc: mc);
+    for (final raw in builds) {
+      if (raw is! Map) continue;
+      if (raw['build'] == build) {
+        return _buildFromEntry(
+          project: project,
+          mc: mc,
+          entry: raw.cast<String, dynamic>(),
+        );
+      }
+    }
+    throw UserError(
+      'PaperMC reported no $project build $build for Minecraft $mc.',
+    );
+  }
+
+  Future<List<dynamic>> _listBuilds({
+    required String project,
+    required String mc,
+  }) async {
     final url = fillUrlTemplate(_buildsUrlTemplate, {
       'project': project,
       'mc': mc,
@@ -71,34 +150,19 @@ class PaperApiClient {
     if (builds is! List || builds.isEmpty) {
       throw UserError('PaperMC reported no $project builds for Minecraft $mc.');
     }
-    // PaperMC's `channel` is uppercase (`STABLE` / `EXPERIMENTAL`). Match
-    // case-insensitively to tolerate any future casing changes. Within
-    // stable builds, pick the highest build number rather than relying on
-    // API ordering.
-    Map<String, dynamic>? latest;
-    int latestBuild = -1;
-    for (final raw in builds) {
-      if (raw is! Map) continue;
-      final channel = raw['channel'];
-      if (channel is! String || channel.toLowerCase() != 'stable') continue;
-      final build = raw['build'];
-      if (build is! int) continue;
-      if (build > latestBuild) {
-        latestBuild = build;
-        latest = raw.cast<String, dynamic>();
-      }
-    }
-    if (latest == null) {
-      throw UserError(
-        'PaperMC reported no stable $project build for Minecraft $mc; '
-        'only experimental channels were returned.',
-      );
-    }
-    final build = latest['build'];
-    final downloads = latest['downloads'];
+    return builds;
+  }
+
+  PaperBuild _buildFromEntry({
+    required String project,
+    required String mc,
+    required Map<String, dynamic> entry,
+  }) {
+    final build = entry['build'];
+    final downloads = entry['downloads'];
     if (build is! int || downloads is! Map) {
       throw UserError(
-        'PaperMC API at $url returned a malformed build entry for $project.',
+        'PaperMC returned a malformed build entry for $project $mc.',
       );
     }
     final application = downloads['application'];

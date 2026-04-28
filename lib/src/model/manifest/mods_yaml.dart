@@ -145,17 +145,22 @@ enum Channel { release, beta, alpha }
 class LoaderConfig with LoaderConfigMappable {
   final ModLoader mods;
 
-  /// Loader-version tag.
+  /// Mod-loader version tag.
   /// Declared in `mods.yaml`, resolved in `mods.lock`.
-  final String? modsVersion;
+  final String? modsLoaderVersion;
   final ShaderLoader? shaders;
   final PluginLoader? plugins;
 
+  /// Plugin-loader version tag.
+  /// Declared in `mods.yaml`, resolved in `mods.lock`.
+  final String? pluginLoaderVersion;
+
   const LoaderConfig({
     required this.mods,
-    this.modsVersion = 'stable',
+    this.modsLoaderVersion = 'stable',
     this.shaders,
     this.plugins,
+    this.pluginLoaderVersion,
   });
 
   /// True when the pack declares a real mod loader.

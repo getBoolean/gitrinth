@@ -21,7 +21,7 @@ import '../util/mc_version.dart';
 /// orchestrator at [resolve_and_sync.dart] short-circuits this re-resolution
 /// when `mods.lock` already records the same loader+version pair (so steady
 /// state never hits the network), or when `--offline` is set.
-class LoaderVersionResolver {
+class ModLoaderVersionResolver {
   final Dio _dio;
   final String _fabricMetaUrl;
   final String _forgePromotionsUrl;
@@ -29,7 +29,7 @@ class LoaderVersionResolver {
   final String _neoforgeVersionsUrl;
   final String _neoforgeLegacyVersionsUrl;
 
-  LoaderVersionResolver({
+  ModLoaderVersionResolver({
     required Dio dio,
     Map<String, String>? environment,
     String? fabricMetaUrl,

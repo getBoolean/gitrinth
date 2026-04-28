@@ -15,7 +15,7 @@ import 'downloader.dart';
 /// is the [ServerInstaller]'s job; this service is only responsible for the
 /// download + cache layout.
 ///
-/// Mirrors the URL-override pattern in [LoaderVersionResolver]: the constructor
+/// Mirrors the URL-override pattern in [ModLoaderVersionResolver]: the constructor
 /// takes optional URL templates with `{mc}`/`{v}` placeholders, falling back
 /// to environment variables, and finally to the real upstream URLs.
 class LoaderBinaryFetcher {
@@ -78,24 +78,24 @@ class LoaderBinaryFetcher {
            '1.0.1';
 
   /// Returns the cached loader server binary for [loader] +
-  /// (`mcVersion`, `loaderVersion`). Downloads and caches on first call;
+  /// (`mcVersion`, `modsLoaderVersion`). Downloads and caches on first call;
   /// later calls re-use the cached file. The returned file is keyed by
   /// [GitrinthCache.loaderArtifactPath] so the location is deterministic
   /// from inputs alone.
   Future<File> fetchServerArtifact({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) async {
     final (url, filename) = _serverUrlAndFilename(
       loader: loader,
       mcVersion: mcVersion,
-      loaderVersion: loaderVersion,
+      modsLoaderVersion: modsLoaderVersion,
     );
     final dest = _cache.loaderArtifactPath(
       loader: loader,
       mcVersion: mcVersion,
-      loaderVersion: loaderVersion,
+      modsLoaderVersion: modsLoaderVersion,
       filename: filename,
     );
     try {
@@ -111,14 +111,14 @@ class LoaderBinaryFetcher {
   }
 
   /// Returns the cached loader **client** installer JAR for [loader] +
-  /// (`mcVersion`, `loaderVersion`). For Forge/NeoForge the client and
+  /// (`mcVersion`, `modsLoaderVersion`). For Forge/NeoForge the client and
   /// server use the same installer JAR (run with `--installClient`
   /// vs `--installServer`); for Fabric the universal installer JAR is a
   /// distinct artifact from the server-launch JAR.
   Future<File> fetchClientInstaller({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) async {
     switch (loader) {
       case ModLoader.vanilla:
@@ -131,7 +131,7 @@ class LoaderBinaryFetcher {
         return fetchServerArtifact(
           loader: loader,
           mcVersion: mcVersion,
-          loaderVersion: loaderVersion,
+          modsLoaderVersion: modsLoaderVersion,
         );
       case ModLoader.fabric:
         final url = _fabricInstallerUrlTemplate.replaceAll(
@@ -141,7 +141,7 @@ class LoaderBinaryFetcher {
         final dest = _cache.loaderArtifactPath(
           loader: loader,
           mcVersion: mcVersion,
-          loaderVersion: loaderVersion,
+          modsLoaderVersion: modsLoaderVersion,
           filename: 'fabric-installer.jar',
         );
         try {
@@ -160,7 +160,7 @@ class LoaderBinaryFetcher {
   (String url, String filename) _serverUrlAndFilename({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) {
     switch (loader) {
       case ModLoader.vanilla:
@@ -171,25 +171,25 @@ class LoaderBinaryFetcher {
       case ModLoader.forge:
         final url = fillUrlTemplate(_forgeInstallerUrlTemplate, {
           'mc': mcVersion,
-          'v': loaderVersion,
+          'v': modsLoaderVersion,
         });
-        return (url, 'forge-$mcVersion-$loaderVersion-installer.jar');
+        return (url, 'forge-$mcVersion-$modsLoaderVersion-installer.jar');
       case ModLoader.neoforge:
         if (mcVersion == '1.20.1') {
           final url = fillUrlTemplate(_neoforgeLegacyInstallerUrlTemplate, {
             'mc': mcVersion,
-            'v': loaderVersion,
+            'v': modsLoaderVersion,
           });
-          return (url, 'forge-$mcVersion-$loaderVersion-installer.jar');
+          return (url, 'forge-$mcVersion-$modsLoaderVersion-installer.jar');
         }
         final url = fillUrlTemplate(_neoforgeInstallerUrlTemplate, {
-          'v': loaderVersion,
+          'v': modsLoaderVersion,
         });
-        return (url, 'neoforge-$loaderVersion-installer.jar');
+        return (url, 'neoforge-$modsLoaderVersion-installer.jar');
       case ModLoader.fabric:
         final url = fillUrlTemplate(_fabricServerJarUrlTemplate, {
           'mc': mcVersion,
-          'v': loaderVersion,
+          'v': modsLoaderVersion,
         });
         return (url, 'fabric-server-launch.jar');
     }

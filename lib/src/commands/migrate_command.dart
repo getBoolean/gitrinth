@@ -139,7 +139,7 @@ class MigrateLoaderCommand extends GitrinthCommand with OfflineFlag {
 }
 
 (ModLoader, String?) _parseLoaderArg(String raw) {
-  final (loader, tag) = parseLoaderRef(
+  final (loader, tag) = parseModLoaderRef(
     raw,
     (msg) => throw UsageError('migrate loader: $msg'),
   );
@@ -278,7 +278,10 @@ Future<int> _runMigrate({
 
   final cache = command.read(cacheProvider);
   final downloader = command.read(downloaderProvider);
-  final loaderResolver = command.read(loaderVersionResolverProvider);
+  final modLoaderResolver = command.read(modLoaderVersionResolverProvider);
+  final pluginLoaderResolver = command.read(
+    pluginLoaderVersionResolverProvider,
+  );
 
   final outcome = await resolveWithConflictAutoDisable(
     manifest: manifest,
@@ -297,7 +300,8 @@ Future<int> _runMigrate({
           api: api,
           cache: cache,
           downloader: downloader,
-          loaderResolver: loaderResolver,
+          modLoaderResolver: modLoaderResolver,
+          pluginLoaderResolver: pluginLoaderResolver,
           offline: offline,
           dryRun: dryRun,
           freshSlugs: freshSlugs,
@@ -456,11 +460,12 @@ ModsYaml _applyTarget(
   return manifest.copyWith(
     loader: LoaderConfig(
       mods: loader,
-      modsVersion: loader == ModLoader.vanilla
+      modsLoaderVersion: loader == ModLoader.vanilla
           ? null
           : (newLoaderTag ?? 'stable'),
       shaders: manifest.loader.shaders,
       plugins: resolvedPlugins,
+      pluginLoaderVersion: manifest.loader.pluginLoaderVersion,
     ),
   );
 }

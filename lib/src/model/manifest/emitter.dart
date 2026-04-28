@@ -13,11 +13,11 @@ String emitModsLock(ModsLock lock) {
   // version tag. Real loaders always have a resolved version in the
   // lock and emit `<name>:<version>`.
   final modsName = lock.loader.mods.name;
-  final modsVersion = lock.loader.modsVersion;
-  if (lock.loader.mods == ModLoader.vanilla || modsVersion == null) {
+  final modsLoaderVersion = lock.loader.modsLoaderVersion;
+  if (lock.loader.mods == ModLoader.vanilla || modsLoaderVersion == null) {
     buf.writeln('  mods: $modsName');
   } else {
-    buf.writeln('  mods: ${_str("$modsName:$modsVersion")}');
+    buf.writeln('  mods: ${_str("$modsName:$modsLoaderVersion")}');
   }
   final shaders = lock.loader.shaders;
   if (shaders != null) {
@@ -25,7 +25,12 @@ String emitModsLock(ModsLock lock) {
   }
   final plugins = lock.loader.plugins;
   if (plugins != null) {
-    buf.writeln('  plugins: ${plugins.name}');
+    final pluginVersion = lock.loader.pluginLoaderVersion;
+    if (pluginVersion == null) {
+      buf.writeln('  plugins: ${plugins.name}');
+    } else {
+      buf.writeln('  plugins: ${_str("${plugins.name}:$pluginVersion")}');
+    }
   }
   buf.writeln('mc-version: ${_str(lock.mcVersion)}');
 
