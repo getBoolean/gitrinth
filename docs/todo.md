@@ -16,6 +16,9 @@ Planned improvements:
 - [x] [Shell completion](#shell-completion)
 - [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
 - [ ] [CurseForge bridge](curseforge-bridge.md)
+- [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
+- [ ] Add plugin loader flag to `create` command, mod loader becomes optional in `create` (e.g. for data packs or resource packs)
+- [ ] Allow specifying plugin loader version
 
 Deferred MVP work:
 
@@ -35,7 +38,6 @@ Deferred MVP work:
   - [x] [`login` / `logout` commands](#login--logout-commands)
   - [x] [`token` command](#token-command)
 - [ ] [`unpack` command](#unpack-command)
-- [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
 
 ## `accepts-mc` — per-entry MC version tolerance
 
@@ -224,13 +226,13 @@ by running SpigotMC's `BuildTools.jar` locally on first build.
 Shipped. See [Global options](cli.md#global-options) in the CLI docs.
 Top-level flags on `gitrinth`:
 
-| Option                   | Description                                                                                 |
-|--------------------------|---------------------------------------------------------------------------------------------|
-| `--verbosity <level>`    | Set the output floor (`error` / `warning` / `normal` / `io` / `solver` / `all`).            |
-| `-v`, `--verbose`        | Shorthand for `--verbosity=all`.                                                            |
-| `-q`, `--quiet`          | Shorthand for `--verbosity=warning`.                                                        |
-| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).               |
-| `--config <path>`        | Use an alternate user config file.                                                          |
+| Option                   | Description                                                                      |
+|--------------------------|----------------------------------------------------------------------------------|
+| `--verbosity <level>`    | Set the output floor (`error` / `warning` / `normal` / `io` / `solver` / `all`). |
+| `-v`, `--verbose`        | Shorthand for `--verbosity=all`.                                                 |
+| `-q`, `--quiet`          | Shorthand for `--verbosity=warning`.                                             |
+| `--color` / `--no-color` | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).    |
+| `--config <path>`        | Use an alternate user config file.                                               |
 
 `--verbosity` defines a totally-ordered set of output categories;
 each call site files its message at a category and the chosen floor
@@ -454,11 +456,11 @@ failure).
 The PAT used for publishing must carry these scopes (from
 [labrinth's `pats.rs`](https://github.com/modrinth/code/blob/main/apps/labrinth/src/models/v3/pats.rs)):
 
-| Scope            | Bit       | Required for                                        |
-|------------------|-----------|-----------------------------------------------------|
-| `USER_READ`      | `1 << 1`  | `GET /user` (login validation)                      |
-| `PROJECT_READ`   | `1 << 11` | resolving the project before upload                 |
-| `VERSION_CREATE` | `1 << 14` | `POST /project/{slug}/version` (the publish call)   |
+| Scope            | Bit       | Required for                                      |
+|------------------|-----------|---------------------------------------------------|
+| `USER_READ`      | `1 << 1`  | `GET /user` (login validation)                    |
+| `PROJECT_READ`   | `1 << 11` | resolving the project before upload               |
+| `VERSION_CREATE` | `1 << 14` | `POST /project/{slug}/version` (the publish call) |
 
 `VERSION_WRITE`, `VERSION_READ`, and `PROJECT_WRITE` are *not*
 required by `publish` itself — leave them off for a tighter PAT.
