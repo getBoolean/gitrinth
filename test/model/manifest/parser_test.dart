@@ -904,10 +904,7 @@ shaders: {}
       expect(l.loader.modsLoaderVersion, '0.17.3');
     });
 
-    test('legacy lock without :tag defaults modsLoaderVersion to "stable"', () {
-      // Locks written before this feature carry only the loader name.
-      // Default-tag handling lets them parse; the resolver will re-resolve
-      // them on the next `get` because "stable" isn't a concrete tag.
+    test('lock without :tag defaults modsLoaderVersion to "stable"', () {
       const lock = '''
 gitrinth-version: 0.1.0
 loader:
@@ -921,6 +918,31 @@ shaders: {}
       final l = parseModsLock(lock, filePath: 'mods.lock');
       expect(l.loader.mods, ModLoader.neoforge);
       expect(l.loader.modsLoaderVersion, 'stable');
+    });
+
+    test('lock without plugin :tag is rejected', () {
+      const lock = '''
+gitrinth-version: 0.1.0
+loader:
+  mods: "neoforge:21.1.50"
+  plugins: paper
+mc-version: 1.21.1
+mods: {}
+resource_packs: {}
+data_packs: {}
+shaders: {}
+plugins: {}
+''';
+      expect(
+        () => parseModsLock(lock, filePath: 'mods.lock'),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('no concrete plugin loader version'),
+          ),
+        ),
+      );
     });
 
     test('reads sha1 alongside sha512 on a locked file', () {

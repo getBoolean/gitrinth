@@ -410,8 +410,7 @@ Future<ResolveSyncResult> resolveAndSync({
             if (file == null || projectId == null || versionId == null) {
               throw FormatException(
                 'lock entry "${locked.slug}" with kind=modrinth is missing '
-                'required fields — mods.lock is malformed; rerun '
-                '`gitrinth get`.',
+                'required fields — mods.lock is malformed.',
               );
             }
             final url = file.url;
@@ -461,7 +460,7 @@ Future<ResolveSyncResult> resolveAndSync({
             if (rawPath == null) {
               throw FormatException(
                 'lock entry "${locked.slug}" with kind=path has no path '
-                '— mods.lock is malformed; rerun `gitrinth get`.',
+                '— mods.lock is malformed.',
               );
             }
             final resolved = p.isAbsolute(rawPath)

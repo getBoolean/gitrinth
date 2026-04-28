@@ -133,7 +133,6 @@ _ModLoaderTag _parseYamlModLoader(dynamic raw, String filePath) {
 }
 
 /// Parses `loader.mods` from `mods.lock`.
-/// Older locks may omit the tag.
 _ModLoaderTag _parseLockModLoader(dynamic raw, String filePath) {
   final (loader, tag) = parseModLoaderRef(
     raw.toString(),
@@ -177,13 +176,12 @@ _ResolvedPluginLoaderTag _parseLockPluginLoader(dynamic raw, String filePath) {
   if (tag == null) {
     throw _err(
       '$filePath: loader.plugins "${loader.name}" has no concrete plugin '
-      'loader version; rerun `gitrinth get` to refresh mods.lock.',
+      'loader version.',
     );
   }
   if (tag == 'stable' || tag == 'latest') {
     throw _err(
-      '$filePath: loader.plugins "${loader.name}:$tag" is not concrete; '
-      'rerun `gitrinth get` to refresh mods.lock.',
+      '$filePath: loader.plugins "${loader.name}:$tag" is not concrete.',
     );
   }
   return _ResolvedPluginLoaderTag(loader, tag);

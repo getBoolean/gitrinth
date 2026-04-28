@@ -846,7 +846,7 @@ Future<int> runLaunchClient({
   if (modsLoaderVersion == null) {
     throw const UserError(
       'launch client: mods.lock has hasModRuntime=true but no resolved '
-      'loader version — mods.lock is malformed; rerun `gitrinth get`.',
+      'loader version — mods.lock is malformed.',
     );
   }
 

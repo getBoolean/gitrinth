@@ -145,7 +145,7 @@ Future<int> runBuild({
       if (pluginLoaderVersion == null) {
         throw UserError(
           'mods.lock has loader.plugins=${pluginLoader.name} but no concrete '
-          'plugin loader version; rerun `gitrinth get`.',
+          'plugin loader version.',
         );
       }
       await _installPluginServerBinary(
