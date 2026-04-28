@@ -384,15 +384,12 @@ void main() {
       expect(parseChannelToken('RELEASE'), Channel.release);
     });
 
-    test(
-      'returns null for non-channel tokens',
-      () {
-        expect(parseChannelToken('^1.0.0'), isNull);
-        expect(parseChannelToken('1.2.3'), isNull);
-        expect(parseChannelToken(''), isNull);
-        expect(parseChannelToken(null), isNull);
-      },
-    );
+    test('returns null for non-channel tokens', () {
+      expect(parseChannelToken('^1.0.0'), isNull);
+      expect(parseChannelToken('1.2.3'), isNull);
+      expect(parseChannelToken(''), isNull);
+      expect(parseChannelToken(null), isNull);
+    });
 
     test('rejects unknown channel-shaped tokens', () {
       // Unknown tokens return null.

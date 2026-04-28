@@ -184,16 +184,15 @@ properties:
       plugins:
         description: |
           Plugin loader. Required when the `plugins:` section has
-          entries; otherwise omit. Under `sponge`, the concrete server
+          entries; otherwise omit. May include a docker-image style
+          version tag: `<loader>`, `<loader>:stable`, `<loader>:latest`,
+          or `<loader>:<concrete>`. Under `sponge`, the concrete server
           distribution is resolved from `loader.mods`: `forge` →
           SpongeForge, `neoforge` → SpongeNeo, `fabric` or omitted →
-          SpongeVanilla. The resolved variant is stored in `mods.lock`.
-        enum:
-          - bukkit
-          - folia
-          - paper
-          - spigot
-          - sponge
+          SpongeVanilla. The resolved variant and concrete version are
+          stored in `mods.lock`.
+        type: string
+        pattern: ^(bukkit|folia|paper|spigot|sponge)(:[^:\s][^:]*)?$
 
   mc-version:
     type: string

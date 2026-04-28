@@ -171,7 +171,8 @@ void main() {
       test('create', () async {
         final out = await runCli(['create', '--help']);
         expect(out.exitCode, 0);
-        expect(out.stdout, contains('--loader'));
+        expect(out.stdout, contains('--mods-loader'));
+        expect(out.stdout, contains('--plugin-loader'));
         expect(out.stdout, contains('--mc-version'));
         expect(out.stdout, contains('--slug'));
         expect(out.stdout, contains('--name'));

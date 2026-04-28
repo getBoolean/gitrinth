@@ -82,14 +82,15 @@ Future<int> runBuild({
   } else {
     final api = container.read(modrinthApiProvider);
     final downloader = container.read(downloaderProvider);
-    final loaderResolver = container.read(loaderVersionResolverProvider);
+    final modLoaderResolver = container.read(modLoaderVersionResolverProvider);
     final result = await resolveAndSync(
       io: manifestIo,
       console: console,
       api: api,
       cache: cache,
       downloader: downloader,
-      loaderResolver: loaderResolver,
+      modLoaderResolver: modLoaderResolver,
+      pluginLoaderResolver: container.read(pluginLoaderVersionResolverProvider),
       offline: options.offline,
     );
     if (result.exitCode != exitOk) return result.exitCode;
@@ -140,9 +141,17 @@ Future<int> runBuild({
     );
     final pluginLoader = lock.loader.plugins;
     if (pluginLoader != null) {
+      final pluginLoaderVersion = lock.loader.pluginLoaderVersion;
+      if (pluginLoaderVersion == null) {
+        throw UserError(
+          'mods.lock has loader.plugins=${pluginLoader.name} but no concrete '
+          'plugin loader version; rerun `gitrinth get`.',
+        );
+      }
       await _installPluginServerBinary(
         lock: lock,
         pluginLoader: pluginLoader,
+        pluginLoaderVersion: pluginLoaderVersion,
         cache: cache,
         serverDir: serverDir,
         installer: container.read(serverInstallerProvider),
@@ -195,6 +204,7 @@ Future<int> runBuild({
 Future<void> _installPluginServerBinary({
   required ModsLock lock,
   required PluginLoader pluginLoader,
+  required String pluginLoaderVersion,
   required GitrinthCache cache,
   required Directory serverDir,
   required ServerInstaller installer,
@@ -209,6 +219,7 @@ Future<void> _installPluginServerBinary({
 
   final jar = await source.fetchServerJar(
     mcVersion: mcVersion,
+    pluginLoaderVersion: pluginLoaderVersion,
     offline: offline || skipDownload,
     console: console,
     javaPath: javaPath,
@@ -218,20 +229,21 @@ Future<void> _installPluginServerBinary({
   await installer.installServer(
     loader: lock.loader.mods,
     mcVersion: mcVersion,
-    loaderVersion: lock.loader.modsVersion,
+    modsLoaderVersion: lock.loader.modsLoaderVersion,
     outputDir: serverDir,
     installerOrServerJar: jar,
     offline: offline,
     javaPath: javaPath,
     allowManagedJava: allowManagedJava,
     pluginServerJar: jar,
-    pluginInstallMarker: source.installMarker,
+    pluginInstallMarker: '${source.installMarker}-$pluginLoaderVersion',
   );
   // The plugin-loader path runs even when loader.mods is vanilla
   // (e.g. paper, or sponge resolved to spongevanilla), so the server
-  // installer must accept a null loaderVersion. See server_installer.dart.
+  // installer must accept a null modsLoaderVersion. See server_installer.dart.
   console.message(
-    'Installed ${pluginLoader.name} server binary into ${serverDir.path}.',
+    'Installed ${pluginLoader.name} $pluginLoaderVersion server binary into '
+    '${serverDir.path}.',
   );
 }
 
@@ -254,7 +266,7 @@ Future<void> _installVanillaServerBinary({
   await installer.installServer(
     loader: lock.loader.mods,
     mcVersion: mcVersion,
-    loaderVersion: null,
+    modsLoaderVersion: null,
     outputDir: serverDir,
     installerOrServerJar: jar,
     offline: offline,
@@ -287,8 +299,8 @@ Future<void> _installModdedServerBinary({
   // Caller already gated on `hasModRuntime`, so the lock has a
   // resolved concrete loader version. If somehow null (e.g. vanilla
   // path), there's nothing to install — bail.
-  final loaderVersion = lock.loader.modsVersion;
-  if (loaderVersion == null) {
+  final modsLoaderVersion = lock.loader.modsLoaderVersion;
+  if (modsLoaderVersion == null) {
     return;
   }
 
@@ -297,7 +309,7 @@ Future<void> _installModdedServerBinary({
       cache: cache,
       loader: loader,
       mcVersion: mcVersion,
-      loaderVersion: loaderVersion,
+      modsLoaderVersion: modsLoaderVersion,
     );
     if (!File(cachedPath).existsSync()) {
       throw UserError(
@@ -310,13 +322,13 @@ Future<void> _installModdedServerBinary({
   final installerJar = await fetcher.fetchServerArtifact(
     loader: loader,
     mcVersion: mcVersion,
-    loaderVersion: loaderVersion,
+    modsLoaderVersion: modsLoaderVersion,
   );
 
   await installer.installServer(
     loader: loader,
     mcVersion: mcVersion,
-    loaderVersion: loaderVersion,
+    modsLoaderVersion: modsLoaderVersion,
     outputDir: serverDir,
     installerOrServerJar: installerJar,
     offline: offline,
@@ -325,7 +337,7 @@ Future<void> _installModdedServerBinary({
     verbose: verbose,
   );
   console.message(
-    'Installed ${loader.name} $loaderVersion server binary into '
+    'Installed ${loader.name} $modsLoaderVersion server binary into '
     '${serverDir.path}.',
   );
 }
@@ -334,7 +346,7 @@ String _expectedCachedInstallerPath({
   required GitrinthCache cache,
   required ModLoader loader,
   required String mcVersion,
-  required String loaderVersion,
+  required String modsLoaderVersion,
 }) {
   switch (loader) {
     case ModLoader.vanilla:
@@ -346,24 +358,24 @@ String _expectedCachedInstallerPath({
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
-        loaderVersion: loaderVersion,
-        filename: 'forge-$mcVersion-$loaderVersion-installer.jar',
+        modsLoaderVersion: modsLoaderVersion,
+        filename: 'forge-$mcVersion-$modsLoaderVersion-installer.jar',
       );
     case ModLoader.neoforge:
       final filename = mcVersion == '1.20.1'
-          ? 'forge-$mcVersion-$loaderVersion-installer.jar'
-          : 'neoforge-$loaderVersion-installer.jar';
+          ? 'forge-$mcVersion-$modsLoaderVersion-installer.jar'
+          : 'neoforge-$modsLoaderVersion-installer.jar';
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
-        loaderVersion: loaderVersion,
+        modsLoaderVersion: modsLoaderVersion,
         filename: filename,
       );
     case ModLoader.fabric:
       return cache.loaderArtifactPath(
         loader: loader,
         mcVersion: mcVersion,
-        loaderVersion: loaderVersion,
+        modsLoaderVersion: modsLoaderVersion,
         filename: 'fabric-server-launch.jar',
       );
   }

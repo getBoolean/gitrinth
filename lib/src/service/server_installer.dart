@@ -49,7 +49,7 @@ class ServerInstaller {
   Future<void> installServer({
     required ModLoader loader,
     required String mcVersion,
-    required String? loaderVersion,
+    required String? modsLoaderVersion,
     required Directory outputDir,
     required File installerOrServerJar,
     required bool offline,
@@ -59,7 +59,7 @@ class ServerInstaller {
     File? pluginServerJar,
     String? pluginInstallMarker,
   }) async {
-    // Plugin-loader installs don't use [loader] / [loaderVersion]; the
+    // Plugin-loader installs don't use [loader] / [modsLoaderVersion]; the
     // mod-loader path requires both. Caller must guard with
     // LoaderConfig.hasModRuntime — these throws are the last line of
     // defense and fire in release builds (where `assert` is stripped).
@@ -70,10 +70,10 @@ class ServerInstaller {
           'gate on LoaderConfig.hasModRuntime.',
         );
       }
-      if (loaderVersion == null) {
+      if (modsLoaderVersion == null) {
         throw StateError(
           'installServer: mod-loader install requires a concrete '
-          'loaderVersion (gate on LoaderConfig.hasModRuntime).',
+          'modsLoaderVersion (gate on LoaderConfig.hasModRuntime).',
         );
       }
     }
@@ -94,7 +94,7 @@ class ServerInstaller {
     final marker = File(
       p.join(
         outputDir.path,
-        '.gitrinth-installed-${loader.name}-$loaderVersion',
+        '.gitrinth-installed-${loader.name}-$modsLoaderVersion',
       ),
     );
     if (marker.existsSync()) return;
@@ -126,7 +126,7 @@ class ServerInstaller {
           offline: offline,
         );
         _console.io(
-          'Installing ${loader.name} $loaderVersion server (this may take '
+          'Installing ${loader.name} $modsLoaderVersion server (this may take '
           'a minute; pass --verbosity=io to see installer output).',
         );
         final args = <String>[

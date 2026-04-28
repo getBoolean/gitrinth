@@ -19,7 +19,7 @@ import 'package:test/test.dart';
 
 ModsLock _lock({ModLoader loader = ModLoader.fabric}) => ModsLock(
   gitrinthVersion: '0.1.0',
-  loader: LoaderConfig(mods: loader, modsVersion: '0.17.3'),
+  loader: LoaderConfig(mods: loader, modsLoaderVersion: '0.17.3'),
   mcVersion: '1.21.1',
 );
 
@@ -36,12 +36,12 @@ class _FakeFetcher implements LoaderBinaryFetcher {
   Future<File> fetchClientInstaller({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) async {
     called = true;
     this.loader = loader;
     mc = mcVersion;
-    lv = loaderVersion;
+    lv = modsLoaderVersion;
     return jar;
   }
 
@@ -49,7 +49,7 @@ class _FakeFetcher implements LoaderBinaryFetcher {
   Future<File> fetchServerArtifact({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) async {
     throw UnimplementedError();
   }
@@ -68,7 +68,7 @@ class _FakeClientInstaller implements LoaderClientInstaller {
   Future<String> installClient({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
@@ -134,111 +134,112 @@ void main() {
       if (tempRoot.existsSync()) tempRoot.deleteSync(recursive: true);
     });
 
+    test('--offline refuses to launch up front', () async {
+      await expectLater(
+        runLaunchClient(
+          options: const LaunchClientOptions(
+            autoBuild: false,
+            offline: true,
+            verbose: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+        ),
+        throwsA(
+          isA<UserError>().having(
+            (e) => e.message,
+            'message',
+            contains('offline'),
+          ),
+        ),
+      );
+    });
+
     test(
-      '--offline refuses to launch up front',
+      'installs into the cache workdir and symlinks artifact dirs',
       () async {
-        await expectLater(
-          runLaunchClient(
-            options: const LaunchClientOptions(
-              autoBuild: false,
-              offline: true,
-              verbose: false,
-            ),
-            container: container,
-            console: const Console(),
-            io: io,
-          ),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              contains('offline'),
-            ),
-          ),
+        final spawnCalls = <List<String>>[];
+        final spawnModes = <ProcessStartMode>[];
+        final fakeFetcher = _FakeFetcher(installerJar);
+        final fakeInstaller = _FakeClientInstaller(
+          'fabric-loader-0.17.3-1.21.1',
         );
+        final locator = _FakeLocator(launcherExecutable: launcherExe);
+
+        final code = await runLaunchClient(
+          options: const LaunchClientOptions(
+            autoBuild: false,
+            offline: false,
+            verbose: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess:
+              (
+                exe,
+                args, {
+                Directory? workingDirectory,
+                bool runInShell = false,
+                Map<String, String>? environment,
+                ProcessStartMode mode = ProcessStartMode.inheritStdio,
+              }) async {
+                spawnCalls.add([exe, ...args]);
+                spawnModes.add(mode);
+                return (pid: 9001, exitCode: null);
+              },
+          fetcher: fakeFetcher,
+          clientInstaller: fakeInstaller,
+          locator: locator,
+          cache: cache,
+        );
+
+        final expectedWorkDir = p.join(cacheRoot.path, 'launchers', 'pack');
+
+        expect(code, 0);
+        expect(fakeFetcher.called, isTrue);
+        expect(fakeInstaller.called, isTrue);
+        expect(
+          fakeInstaller.lastDotMinecraftDir?.path,
+          expectedWorkDir,
+          reason: 'loader installer must target the cache workdir',
+        );
+
+        expect(spawnCalls, hasLength(1));
+        final call = spawnCalls.single;
+        expect(call.first, launcherExe.path);
+        expect(call, contains('--workDir'));
+        expect(call.last, Directory(expectedWorkDir).absolute.path);
+        expect(
+          spawnModes.single,
+          ProcessStartMode.detached,
+          reason: 'launcher should be detached',
+        );
+
+        for (final relPath in const [
+          'mods',
+          'config',
+          'shaderpacks',
+          'global_packs/required_data',
+          'global_packs/optional_data',
+          'global_packs/required_resources',
+          'global_packs/optional_resources',
+        ]) {
+          final linkPath = p.join(expectedWorkDir, relPath);
+          final link = Link(linkPath);
+          expect(
+            link.existsSync(),
+            isTrue,
+            reason: 'expected symlink at $linkPath',
+          );
+          expect(
+            p.normalize(p.absolute(link.targetSync())),
+            p.normalize(p.absolute(p.join(clientDir.path, relPath))),
+          );
+        }
       },
     );
-
-    test('installs into the cache workdir and symlinks artifact dirs', () async {
-      final spawnCalls = <List<String>>[];
-      final spawnModes = <ProcessStartMode>[];
-      final fakeFetcher = _FakeFetcher(installerJar);
-      final fakeInstaller = _FakeClientInstaller('fabric-loader-0.17.3-1.21.1');
-      final locator = _FakeLocator(launcherExecutable: launcherExe);
-
-      final code = await runLaunchClient(
-        options: const LaunchClientOptions(
-          autoBuild: false,
-          offline: false,
-          verbose: false,
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess:
-            (
-              exe,
-              args, {
-              Directory? workingDirectory,
-              bool runInShell = false,
-              Map<String, String>? environment,
-              ProcessStartMode mode = ProcessStartMode.inheritStdio,
-            }) async {
-              spawnCalls.add([exe, ...args]);
-              spawnModes.add(mode);
-              return (pid: 9001, exitCode: null);
-            },
-        fetcher: fakeFetcher,
-        clientInstaller: fakeInstaller,
-        locator: locator,
-        cache: cache,
-      );
-
-      final expectedWorkDir = p.join(cacheRoot.path, 'launchers', 'pack');
-
-      expect(code, 0);
-      expect(fakeFetcher.called, isTrue);
-      expect(fakeInstaller.called, isTrue);
-      expect(
-        fakeInstaller.lastDotMinecraftDir?.path,
-        expectedWorkDir,
-        reason: 'loader installer must target the cache workdir',
-      );
-
-      expect(spawnCalls, hasLength(1));
-      final call = spawnCalls.single;
-      expect(call.first, launcherExe.path);
-      expect(call, contains('--workDir'));
-      expect(call.last, Directory(expectedWorkDir).absolute.path);
-      expect(
-        spawnModes.single,
-        ProcessStartMode.detached,
-        reason:
-            'launcher should be detached',
-      );
-
-      for (final relPath in const [
-        'mods',
-        'config',
-        'shaderpacks',
-        'global_packs/required_data',
-        'global_packs/optional_data',
-        'global_packs/required_resources',
-        'global_packs/optional_resources',
-      ]) {
-        final linkPath = p.join(expectedWorkDir, relPath);
-        final link = Link(linkPath);
-        expect(
-          link.existsSync(),
-          isTrue,
-          reason: 'expected symlink at $linkPath',
-        );
-        expect(
-          p.normalize(p.absolute(link.targetSync())),
-          p.normalize(p.absolute(p.join(clientDir.path, relPath))),
-        );
-      }
-    });
 
     test(
       're-running is idempotent: existing symlinks are kept, no errors',
@@ -391,8 +392,7 @@ void main() {
       expect(
         profile['name'],
         'gitrinth: pack',
-        reason:
-            'memory + GC injection must not regress the rename',
+        reason: 'memory + GC injection must not regress the rename',
       );
     });
 
@@ -434,65 +434,25 @@ void main() {
       expect(
         profile['javaArgs'],
         '-XX:+UseZGC',
-        reason:
-            'GC injection should not depend on --memory',
+        reason: 'GC injection should not depend on --memory',
       );
     });
 
-    test('--memory rewrites GC + heap tokens and keeps unrelated tokens',
-        () async {
-      final installer = _ProfileWritingClientInstaller(
-        'fabric-loader-0.17.3-1.21.1',
-        presetJavaArgs:
-            '-Xmx512M -XX:+UseG1GC -Xms256M -Dlog4j2.formatMsgNoLookups=true',
-      );
-      await runLaunchClient(
-        options: const LaunchClientOptions(
-          autoBuild: false,
-          offline: false,
-          verbose: false,
-          memoryMax: '8G',
-          memoryMin: '8G',
-        ),
-        container: container,
-        console: const Console(),
-        io: io,
-        runProcess:
-            (
-              exe,
-              args, {
-              Directory? workingDirectory,
-              bool runInShell = false,
-              Map<String, String>? environment,
-              ProcessStartMode mode = ProcessStartMode.inheritStdio,
-            }) async => (pid: 1, exitCode: 0),
-        fetcher: _FakeFetcher(installerJar),
-        clientInstaller: installer,
-        locator: _FakeLocator(launcherExecutable: launcherExe),
-        cache: cache,
-      );
-
-      final profilesFile = File(
-        p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
-      );
-      final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
-      final profile =
-          (root['profiles'] as Map).values.first as Map<String, dynamic>;
-      expect(
-        profile['javaArgs'],
-        '-Dlog4j2.formatMsgNoLookups=true -XX:+UseZGC -Xmx8G -Xms8G',
-      );
-    });
-
-    test('missing build/client with --no-build throws and leaves cache untouched',
-        () async {
-      clientDir.deleteSync(recursive: true);
-      await expectLater(
-        runLaunchClient(
+    test(
+      '--memory rewrites GC + heap tokens and keeps unrelated tokens',
+      () async {
+        final installer = _ProfileWritingClientInstaller(
+          'fabric-loader-0.17.3-1.21.1',
+          presetJavaArgs:
+              '-Xmx512M -XX:+UseG1GC -Xms256M -Dlog4j2.formatMsgNoLookups=true',
+        );
+        await runLaunchClient(
           options: const LaunchClientOptions(
             autoBuild: false,
             offline: false,
             verbose: false,
+            memoryMax: '8G',
+            memoryMin: '8G',
           ),
           container: container,
           console: const Console(),
@@ -507,25 +467,67 @@ void main() {
                 ProcessStartMode mode = ProcessStartMode.inheritStdio,
               }) async => (pid: 1, exitCode: 0),
           fetcher: _FakeFetcher(installerJar),
-          clientInstaller: _FakeClientInstaller('id'),
+          clientInstaller: installer,
           locator: _FakeLocator(launcherExecutable: launcherExe),
           cache: cache,
-        ),
-        throwsA(
-          isA<UserError>().having(
-            (e) => e.message,
-            'message',
-            contains('client distribution not found'),
+        );
+
+        final profilesFile = File(
+          p.join(cacheRoot.path, 'launchers', 'pack', 'launcher_profiles.json'),
+        );
+        final root = jsonDecode(profilesFile.readAsStringSync()) as Map;
+        final profile =
+            (root['profiles'] as Map).values.first as Map<String, dynamic>;
+        expect(
+          profile['javaArgs'],
+          '-Dlog4j2.formatMsgNoLookups=true -XX:+UseZGC -Xmx8G -Xms8G',
+        );
+      },
+    );
+
+    test(
+      'missing build/client with --no-build throws and leaves cache untouched',
+      () async {
+        clientDir.deleteSync(recursive: true);
+        await expectLater(
+          runLaunchClient(
+            options: const LaunchClientOptions(
+              autoBuild: false,
+              offline: false,
+              verbose: false,
+            ),
+            container: container,
+            console: const Console(),
+            io: io,
+            runProcess:
+                (
+                  exe,
+                  args, {
+                  Directory? workingDirectory,
+                  bool runInShell = false,
+                  Map<String, String>? environment,
+                  ProcessStartMode mode = ProcessStartMode.inheritStdio,
+                }) async => (pid: 1, exitCode: 0),
+            fetcher: _FakeFetcher(installerJar),
+            clientInstaller: _FakeClientInstaller('id'),
+            locator: _FakeLocator(launcherExecutable: launcherExe),
+            cache: cache,
           ),
-        ),
-      );
-      expect(
-        Directory(p.join(cacheRoot.path, 'launchers', 'pack')).existsSync(),
-        isFalse,
-        reason:
-            'cache workdir should not be created',
-      );
-    });
+          throwsA(
+            isA<UserError>().having(
+              (e) => e.message,
+              'message',
+              contains('client distribution not found'),
+            ),
+          ),
+        );
+        expect(
+          Directory(p.join(cacheRoot.path, 'launchers', 'pack')).existsSync(),
+          isFalse,
+          reason: 'cache workdir should not be created',
+        );
+      },
+    );
   });
 }
 
@@ -540,7 +542,7 @@ class _ProfileWritingClientInstaller implements LoaderClientInstaller {
   Future<String> installClient({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
@@ -572,7 +574,7 @@ class _CountingFetcher implements LoaderBinaryFetcher {
   Future<File> fetchClientInstaller({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) async {
     onFetch();
     return jar;
@@ -582,7 +584,7 @@ class _CountingFetcher implements LoaderBinaryFetcher {
   Future<File> fetchServerArtifact({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) async {
     throw UnimplementedError();
   }

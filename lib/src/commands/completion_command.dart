@@ -143,9 +143,10 @@ String _firstLine(String s) {
 /// name so any subcommand declaring that option picks up the same
 /// candidate set automatically.
 final Map<String, List<String>> _manualEnumHints = {
-  // `--loader` accepts `<name>` or `<name>:<tag>` per
-  // [parseLoaderRef]; the shared name list is the canonical source.
-  'loader': loaderRefNames,
+  // These options accept `<name>` or `<name>:<tag>`; the shared name
+  // lists are the canonical completion hints.
+  'mods-loader': modLoaderRefNames,
+  'plugin-loader': pluginLoaderRefNames,
 };
 
 /// Map of option-name -> allowed-values across globals and all subcommands.

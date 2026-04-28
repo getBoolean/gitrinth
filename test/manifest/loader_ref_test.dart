@@ -11,11 +11,11 @@ class _TestParseError extends Error {
 }
 
 LoaderRef _parseOk(String raw) =>
-    parseLoaderRef(raw, (msg) => throw _TestParseError(msg));
+    parseModLoaderRef(raw, (msg) => throw _TestParseError(msg));
 
 String _captureError(String raw) {
   try {
-    parseLoaderRef(raw, (msg) => throw _TestParseError(msg));
+    parseModLoaderRef(raw, (msg) => throw _TestParseError(msg));
   } on _TestParseError catch (e) {
     return e.message;
   }
@@ -23,7 +23,23 @@ String _captureError(String raw) {
 }
 
 void main() {
-  group('parseLoaderRef', () {
+  group('parseTaggedRef', () {
+    test('splits refs without knowing the loader enum', () {
+      expect(parseTaggedRef('Paper:187', (msg) => throw _TestParseError(msg)), (
+        'paper',
+        '187',
+      ));
+    });
+
+    test('preserves tag case', () {
+      expect(
+        parseTaggedRef('paper:STABLE', (msg) => throw _TestParseError(msg)),
+        ('paper', 'STABLE'),
+      );
+    });
+  });
+
+  group('parseModLoaderRef', () {
     test('accepts a bare loader name with no tag', () {
       expect(_parseOk('forge'), (ModLoader.forge, null));
     });

@@ -13,14 +13,17 @@ ModsYaml _yaml({String slug = 'pack', String version = '0.1.0'}) {
     name: 'Pack',
     version: version,
     description: 'a pack',
-    loader: const LoaderConfig(mods: ModLoader.fabric, modsVersion: '0.17.3'),
+    loader: const LoaderConfig(
+      mods: ModLoader.fabric,
+      modsLoaderVersion: '0.17.3',
+    ),
     mcVersion: '1.21.1',
   );
 }
 
 ModsLock _lock({
   ModLoader loader = ModLoader.fabric,
-  String loaderVersion = '0.17.3',
+  String modsLoaderVersion = '0.17.3',
   String mcVersion = '1.21.1',
   Map<String, LockedEntry> mods = const {},
   Map<String, LockedEntry> resourcePacks = const {},
@@ -29,7 +32,7 @@ ModsLock _lock({
 }) {
   return ModsLock(
     gitrinthVersion: '0.1.0',
-    loader: LoaderConfig(mods: loader, modsVersion: loaderVersion),
+    loader: LoaderConfig(mods: loader, modsLoaderVersion: modsLoaderVersion),
     mcVersion: mcVersion,
     mods: mods,
     resourcePacks: resourcePacks,
@@ -393,7 +396,7 @@ void main() {
     test(
       'legacy "stable" / "latest" loader version in the lock is rejected',
       () {
-        final lock = _lock(loaderVersion: 'stable');
+        final lock = _lock(modsLoaderVersion: 'stable');
         expect(
           () => buildIndex(
             yaml: _yaml(),
@@ -505,44 +508,41 @@ void main() {
       expect(names, {'shared.jar', 'server.jar'});
     });
 
-    test(
-      'combined target keeps every entry',
-      () {
-        final lock = _lock(
-          mods: {
-            'shared': _modrinth(slug: 'shared', name: 'shared.jar'),
-            'server-only': _modrinth(
-              slug: 'server-only',
-              name: 'server.jar',
-              client: SideEnv.unsupported,
-              server: SideEnv.required,
-            ),
-            'client-only': _modrinth(
-              slug: 'client-only',
-              name: 'client.jar',
-              client: SideEnv.required,
-              server: SideEnv.unsupported,
-            ),
-          },
-        );
-        final idx = buildIndex(
-          yaml: _yaml(),
-          lock: lock,
-          target: PackTarget.combined,
-          publishable: false,
-        );
-        expect(idx.files.map((f) => p.basename(f.path)).toSet(), {
-          'shared.jar',
-          'server.jar',
-          'client.jar',
-        });
-      },
-    );
+    test('combined target keeps every entry', () {
+      final lock = _lock(
+        mods: {
+          'shared': _modrinth(slug: 'shared', name: 'shared.jar'),
+          'server-only': _modrinth(
+            slug: 'server-only',
+            name: 'server.jar',
+            client: SideEnv.unsupported,
+            server: SideEnv.required,
+          ),
+          'client-only': _modrinth(
+            slug: 'client-only',
+            name: 'client.jar',
+            client: SideEnv.required,
+            server: SideEnv.unsupported,
+          ),
+        },
+      );
+      final idx = buildIndex(
+        yaml: _yaml(),
+        lock: lock,
+        target: PackTarget.combined,
+        publishable: false,
+      );
+      expect(idx.files.map((f) => p.basename(f.path)).toSet(), {
+        'shared.jar',
+        'server.jar',
+        'client.jar',
+      });
+    });
 
     test('loader-key map is respected per-loader', () {
       final forge = buildIndex(
         yaml: _yaml(),
-        lock: _lock(loader: ModLoader.forge, loaderVersion: '52.0.45'),
+        lock: _lock(loader: ModLoader.forge, modsLoaderVersion: '52.0.45'),
         target: PackTarget.combined,
         publishable: false,
       );
@@ -550,7 +550,7 @@ void main() {
 
       final neoforge = buildIndex(
         yaml: _yaml(),
-        lock: _lock(loader: ModLoader.neoforge, loaderVersion: '21.1.50'),
+        lock: _lock(loader: ModLoader.neoforge, modsLoaderVersion: '21.1.50'),
         target: PackTarget.combined,
         publishable: false,
       );
@@ -888,7 +888,10 @@ void main() {
   group('collectOverrides files: section', () {
     ModsLock filesLock(Map<String, LockedFileEntry> files) => ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: const LoaderConfig(mods: ModLoader.fabric, modsVersion: '0.17.3'),
+      loader: const LoaderConfig(
+        mods: ModLoader.fabric,
+        modsLoaderVersion: '0.17.3',
+      ),
       mcVersion: '1.21.1',
       files: files,
     );
@@ -1058,7 +1061,7 @@ void main() {
           gitrinthVersion: '0.1.0',
           loader: const LoaderConfig(
             mods: ModLoader.fabric,
-            modsVersion: '0.17.3',
+            modsLoaderVersion: '0.17.3',
           ),
           mcVersion: '1.21.1',
           mods: {'local-mod': _path(slug: 'local-mod', path: '/a/local.jar')},

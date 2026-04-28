@@ -42,7 +42,7 @@ class SpongeApiClient {
            versionsUrlTemplate ??
            (environment ?? Platform.environment)['GITRINTH_SPONGE_API_URL'] ??
            'https://dl-api.spongepowered.org/v2/groups/org.spongepowered/'
-               'artifacts/{artifact}/versions?recommended=true&'
+               'artifacts/{artifact}/versions?recommended={recommended}&'
                'tags=minecraft:{mc}',
        _versionDetailUrlTemplate =
            versionDetailUrlTemplate ??
@@ -58,39 +58,93 @@ class SpongeApiClient {
     required String artifact,
     required String mc,
   }) async {
+    return _latestBuild(artifact: artifact, mc: mc, recommended: true);
+  }
+
+  /// Returns the latest build of [artifact] for [mc], regardless of
+  /// recommendation status.
+  Future<SpongeBuild> latestBuild({
+    required String artifact,
+    required String mc,
+  }) async {
+    return _latestBuild(artifact: artifact, mc: mc, recommended: false);
+  }
+
+  /// Returns exactly [version] for [artifact], validating it is tagged for
+  /// Minecraft [mc].
+  Future<SpongeBuild> buildByVersion({
+    required String artifact,
+    required String version,
+    required String mc,
+  }) async {
+    final versions = await _listVersions(
+      artifact: artifact,
+      mc: mc,
+      recommended: false,
+    );
+    if (!versions.contains(version)) {
+      throw UserError(
+        'Sponge reported no $artifact build $version for Minecraft $mc.',
+      );
+    }
+    return _buildDetail(artifact: artifact, version: version);
+  }
+
+  Future<SpongeBuild> _latestBuild({
+    required String artifact,
+    required String mc,
+    required bool recommended,
+  }) async {
+    final versionKeys = await _listVersions(
+      artifact: artifact,
+      mc: mc,
+      recommended: recommended,
+    );
+    final bestVersion = versionKeys.isEmpty ? null : versionKeys.last;
+    if (bestVersion == null) {
+      throw UserError(
+        'Sponge API returned no usable artifact entries for $artifact.',
+      );
+    }
+    return _buildDetail(artifact: artifact, version: bestVersion);
+  }
+
+  Future<List<String>> _listVersions({
+    required String artifact,
+    required String mc,
+    required bool recommended,
+  }) async {
     final listUrl = fillUrlTemplate(_versionsUrlTemplate, {
       'artifact': artifact,
       'mc': mc,
+      'recommended': recommended.toString(),
     });
     final listMap = await _getJsonMap(listUrl);
     final artifactsRaw = listMap['artifacts'];
     if (artifactsRaw is! Map || artifactsRaw.isEmpty) {
       throw UserError(
-        'Sponge reported no recommended $artifact build for Minecraft $mc.',
+        'Sponge reported no ${recommended ? 'recommended ' : ''}'
+        '$artifact build for Minecraft $mc.',
       );
     }
     // Pick the lexicographically-highest version key. Sponge keys are
     // `<mc>-<loader>-<api>` (e.g. `1.21.1-52.1.5-12.0.3`) so descending
     // string sort surfaces the newest API version for that MC.
-    final versionKeys = artifactsRaw.keys.whereType<String>().toList()..sort();
-    final bestVersion = versionKeys.isEmpty ? null : versionKeys.last;
-    if (bestVersion == null) {
-      throw UserError(
-        'Sponge API at $listUrl returned no usable artifact entries '
-        'for $artifact.',
-      );
-    }
+    return artifactsRaw.keys.whereType<String>().toList()..sort();
+  }
 
+  Future<SpongeBuild> _buildDetail({
+    required String artifact,
+    required String version,
+  }) async {
     final detailUrl = fillUrlTemplate(_versionDetailUrlTemplate, {
       'artifact': artifact,
-      'version': bestVersion,
+      'version': version,
     });
     final detailMap = await _getJsonMap(detailUrl);
     final assets = detailMap['assets'];
     if (assets is! List || assets.isEmpty) {
-      throw UserError(
-        'Sponge $artifact $bestVersion has no downloadable assets.',
-      );
+      throw UserError('Sponge $artifact $version has no downloadable assets.');
     }
     String? filename;
     String? downloadUrl;
@@ -106,16 +160,14 @@ class SpongeApiClient {
       if (candidateUrl is! String || candidateUrl.isEmpty) continue;
       downloadUrl = candidateUrl;
       final segs = Uri.parse(candidateUrl).pathSegments;
-      filename = segs.isEmpty ? '$artifact-$bestVersion.jar' : segs.last;
+      filename = segs.isEmpty ? '$artifact-$version.jar' : segs.last;
       break;
     }
     if (downloadUrl == null || filename == null) {
-      throw UserError(
-        'Sponge $artifact $bestVersion lists no primary jar asset.',
-      );
+      throw UserError('Sponge $artifact $version lists no primary jar asset.');
     }
     return SpongeBuild(
-      version: bestVersion,
+      version: version,
       filename: filename,
       downloadUrl: Uri.parse(downloadUrl),
     );

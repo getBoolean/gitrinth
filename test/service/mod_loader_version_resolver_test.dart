@@ -1,20 +1,20 @@
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
-import 'package:gitrinth/src/service/loader_version_resolver.dart';
+import 'package:gitrinth/src/service/mod_loader_version_resolver.dart';
 import 'package:test/test.dart';
 
 import '../helpers/fake_modrinth.dart';
 
 void main() {
-  group('LoaderVersionResolver', () {
+  group('ModLoaderVersionResolver', () {
     late FakeModrinth modrinth;
-    late LoaderVersionResolver resolver;
+    late ModLoaderVersionResolver resolver;
 
     setUp(() async {
       modrinth = FakeModrinth();
       await modrinth.start();
-      resolver = LoaderVersionResolver(
+      resolver = ModLoaderVersionResolver(
         dio: Dio(),
         fabricMetaUrl: modrinth.fabricMetaUrl,
         forgePromotionsUrl: modrinth.forgePromotionsUrl,

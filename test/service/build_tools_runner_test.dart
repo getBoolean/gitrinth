@@ -66,7 +66,7 @@ void main() {
       final cachedPath = cache.pluginServerJarPath(
         artifactKey: 'spigot',
         mcVersion: '1.21.1',
-        version: '1.21.1',
+        version: '187',
         filename: 'spigot-1.21.1.jar',
       );
       Directory(p.dirname(cachedPath)).createSync(recursive: true);
@@ -94,6 +94,7 @@ void main() {
       final jar = await runner.buildSpigotFamily(
         mc: '1.21.1',
         flavor: SpigotFlavor.spigot,
+        buildToolsVersion: '187',
         console: const Console(),
         offline: false,
       );
@@ -133,6 +134,7 @@ void main() {
       final jar = await runner.buildSpigotFamily(
         mc: '1.21.1',
         flavor: SpigotFlavor.spigot,
+        buildToolsVersion: '187',
         console: const Console(),
         offline: false,
       );
@@ -174,6 +176,7 @@ void main() {
       await runner.buildSpigotFamily(
         mc: '1.21.1',
         flavor: SpigotFlavor.craftbukkit,
+        buildToolsVersion: '187',
         console: const Console(),
         offline: false,
       );
@@ -201,6 +204,7 @@ void main() {
       () => runner.buildSpigotFamily(
         mc: '1.21.1',
         flavor: SpigotFlavor.spigot,
+        buildToolsVersion: '187',
         console: const Console(),
         offline: false,
       ),
@@ -229,6 +233,7 @@ void main() {
         () => runner.buildSpigotFamily(
           mc: '1.21.1',
           flavor: SpigotFlavor.spigot,
+          buildToolsVersion: '187',
           console: const Console(),
           offline: true,
         ),

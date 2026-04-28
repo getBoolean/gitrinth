@@ -33,7 +33,7 @@ class LoaderClientInstaller {
   Future<String> installClient({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
     required Directory dotMinecraftDir,
     required File installerJar,
     required bool offline,
@@ -44,7 +44,7 @@ class LoaderClientInstaller {
     final versionId = expectedClientVersionId(
       loader: loader,
       mcVersion: mcVersion,
-      loaderVersion: loaderVersion,
+      modsLoaderVersion: modsLoaderVersion,
     );
 
     // Idempotent: the launcher writes <dotMc>/versions/<id>/<id>.json on
@@ -87,14 +87,14 @@ class LoaderClientInstaller {
       offline: offline,
     );
     _console.io(
-      'Installing ${loader.name} $loaderVersion client into '
+      'Installing ${loader.name} $modsLoaderVersion client into '
       '${dotMinecraftDir.path} (this may take a minute; pass --verbosity=io '
       'to see installer output).',
     );
     final args = _installArgs(
       loader: loader,
       mcVersion: mcVersion,
-      loaderVersion: loaderVersion,
+      modsLoaderVersion: modsLoaderVersion,
       installerJar: installerJar,
       dotMinecraftDir: dotMinecraftDir,
     );
@@ -127,7 +127,7 @@ class LoaderClientInstaller {
   static String expectedClientVersionId({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
   }) {
     switch (loader) {
       case ModLoader.vanilla:
@@ -136,18 +136,18 @@ class LoaderClientInstaller {
           'LoaderConfig.hasModRuntime.',
         );
       case ModLoader.fabric:
-        return 'fabric-loader-$loaderVersion-$mcVersion';
+        return 'fabric-loader-$modsLoaderVersion-$mcVersion';
       case ModLoader.forge:
-        return '$mcVersion-forge-$loaderVersion';
+        return '$mcVersion-forge-$modsLoaderVersion';
       case ModLoader.neoforge:
-        return 'neoforge-$loaderVersion';
+        return 'neoforge-$modsLoaderVersion';
     }
   }
 
   List<String> _installArgs({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
     required File installerJar,
     required Directory dotMinecraftDir,
   }) {
@@ -167,7 +167,7 @@ class LoaderClientInstaller {
           '-mcversion',
           mcVersion,
           '-loader',
-          loaderVersion,
+          modsLoaderVersion,
         ];
       case ModLoader.forge:
       case ModLoader.neoforge:

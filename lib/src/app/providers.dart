@@ -10,9 +10,10 @@ import '../service/java_runtime_fetcher.dart';
 import '../service/java_runtime_resolver.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
-import '../service/loader_version_resolver.dart';
+import '../service/mod_loader_version_resolver.dart';
 import '../service/minecraft_launcher_locator.dart';
 import '../service/paper_api_client.dart';
+import '../service/plugin_loader_version_resolver.dart';
 import '../service/server_installer.dart';
 import '../service/sponge_api_client.dart';
 import '../service/vanilla_server_source.dart';
@@ -99,8 +100,8 @@ final downloaderProvider = Provider<Downloader>(
       Downloader(dio: ref.read(dioProvider), cache: ref.read(cacheProvider)),
 );
 
-final loaderVersionResolverProvider = Provider<LoaderVersionResolver>(
-  (ref) => LoaderVersionResolver(
+final modLoaderVersionResolverProvider = Provider<ModLoaderVersionResolver>(
+  (ref) => ModLoaderVersionResolver(
     dio: ref.read(dioProvider),
     environment: ref.read(environmentProvider),
   ),
@@ -172,6 +173,16 @@ final spongeApiClientProvider = Provider<SpongeApiClient>(
     environment: ref.read(environmentProvider),
   ),
 );
+
+final pluginLoaderVersionResolverProvider =
+    Provider<PluginLoaderVersionResolver>(
+      (ref) => PluginLoaderVersionResolver(
+        dio: ref.read(dioProvider),
+        paperApi: ref.read(paperApiClientProvider),
+        spongeApi: ref.read(spongeApiClientProvider),
+        environment: ref.read(environmentProvider),
+      ),
+    );
 
 final buildToolsRunnerProvider = Provider<BuildToolsRunner>(
   (ref) => BuildToolsRunner(

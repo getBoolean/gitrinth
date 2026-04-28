@@ -35,13 +35,21 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
   CreateCommand() {
     argParser
       ..addOption(
-        'loader',
+        'mods-loader',
         valueHelp: 'loader[:tag]',
         help:
-            'Pre-fill loader. One of ${loaderRefNames.join(', ')}, '
+            'Pre-fill loader.mods. One of ${modLoaderRefNames.join(', ')}, '
             'optionally with a docker-style version tag '
             '(e.g. `neoforge:21.1.50`, `fabric:latest`). Defaults to '
-            '$defaultLoader.',
+            '$defaultModsLoader when no plugin loader is specified.',
+      )
+      ..addOption(
+        'plugin-loader',
+        valueHelp: 'loader[:tag]',
+        help:
+            'Pre-fill loader.plugins. One of '
+            '${pluginLoaderRefNames.join(', ')}, optionally with a '
+            'docker-style version tag (e.g. `paper:187`, `sponge:stable`).',
       )
       ..addOption(
         'mc-version',
@@ -66,7 +74,13 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
 
     final slug = _resolveSlug(results['slug'] as String?, directoryArg);
     final packName = (results['name'] as String?) ?? slug;
-    final loader = _resolveLoader(results['loader'] as String?);
+    final modsLoader = _resolveModsLoader(
+      results['mods-loader'] as String?,
+      results['plugin-loader'] as String?,
+    );
+    final pluginLoader = _resolvePluginLoader(
+      results['plugin-loader'] as String?,
+    );
     final mcVersion = _resolveMcVersion(results['mc-version'] as String?);
 
     final offline = readOfflineFlag();
@@ -81,13 +95,15 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     _ensureTargetWritable(targetDir, force: force);
     targetDir.createSync(recursive: true);
 
-    // The template inserts `{{loader}}` directly after `mods: ` in
-    // mods.yaml. A tagged form like `neoforge:21.1.50` contains a
-    // colon, so YAML would otherwise misread it as a nested mapping —
-    // quote it for the yaml render. The README receives the bare form
-    // so the bullet point stays unquoted.
-    final loaderName = loader.split(':').first;
-    final loaderForYaml = loader.contains(':') ? '"$loader"' : loader;
+    final loaderBlock = _renderLoaderBlock(
+      modsLoader: modsLoader,
+      pluginLoader: pluginLoader,
+    );
+    final requirements = _renderRequirements(
+      mcVersion: mcVersion,
+      modsLoader: modsLoader,
+      pluginLoader: pluginLoader,
+    );
 
     final commonTemplateValues = <String, String>{
       'slug': slug,
@@ -100,18 +116,17 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     };
     final yamlTemplateValues = {
       ...commonTemplateValues,
-      'loader': loaderForYaml,
+      'loader-block': loaderBlock,
     };
     final readmeTemplateValues = {
       ...commonTemplateValues,
-      'loader': loaderName,
+      'requirements': requirements,
     };
 
-    final renderedModsYaml = (loader == 'vanilla')
-        ? _stripSeededModsForVanilla(
-            render(modsYamlTemplate, yamlTemplateValues),
-          )
-        : render(modsYamlTemplate, yamlTemplateValues);
+    final rendered = render(modsYamlTemplate, yamlTemplateValues);
+    final renderedModsYaml = (modsLoader == null || modsLoader == 'vanilla')
+        ? _stripSeededModsForVanilla(rendered)
+        : rendered;
 
     final written = <String>[
       _writeFile(targetDir, 'mods.yaml', renderedModsYaml),
@@ -176,18 +191,28 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     }
   }
 
-  /// Validates the `--loader` flag via the shared [parseLoaderRef]
+  /// Validates the `--mods-loader` flag via the shared [parseModLoaderRef]
   /// helper and renders the value to inject into the scaffolded
   /// `mods.yaml`. Re-emits the docker-style form so a tag the user
   /// supplied survives round-trip.
-  String _resolveLoader(String? raw) {
-    if (raw == null) return defaultLoader;
-    final (loader, tag) = parseLoaderRef(
+  String? _resolveModsLoader(String? raw, String? pluginRaw) {
+    if (raw == null) return pluginRaw == null ? defaultModsLoader : null;
+    final (loader, tag) = parseModLoaderRef(
       raw,
-      (msg) => throw ValidationError('--loader $msg'),
+      (msg) => throw ValidationError('--mods-loader $msg'),
     );
     if (loader == ModLoader.vanilla) return 'vanilla';
     return tag == null ? loader.name : '${loader.name}:$tag';
+  }
+
+  String? _resolvePluginLoader(String? raw) {
+    if (raw == null) return null;
+    final (loader, tag) = parseDeclaredPluginLoaderRef(
+      raw,
+      (msg) => throw ValidationError('--plugin-loader $msg'),
+    );
+    final name = loader.name;
+    return tag == null ? name : '$name:$tag';
   }
 
   String _resolveMcVersion(String? override) {
@@ -217,6 +242,39 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
     file.writeAsStringSync(contents);
     return p.join(dir.path, name);
   }
+
+  String _renderLoaderBlock({
+    required String? modsLoader,
+    required String? pluginLoader,
+  }) {
+    final lines = <String>[];
+    if (modsLoader == null) {
+      lines.add('  # mods: $defaultModsLoader');
+    } else {
+      lines.add('  mods: ${_yamlScalar(modsLoader)}');
+    }
+    if (pluginLoader != null) {
+      lines.add('  plugins: ${_yamlScalar(pluginLoader)}');
+    }
+    return lines.join('\n');
+  }
+
+  String _renderRequirements({
+    required String mcVersion,
+    required String? modsLoader,
+    required String? pluginLoader,
+  }) {
+    final lines = <String>['- Minecraft $mcVersion'];
+    if (modsLoader != null) {
+      lines.add('- ${modsLoader.split(':').first}');
+    }
+    if (pluginLoader != null) {
+      lines.add('- ${pluginLoader.split(':').first}');
+    }
+    return lines.join('\n');
+  }
+
+  String _yamlScalar(String value) => value.contains(':') ? '"$value"' : value;
 }
 
 /// Strips the seeded `mods:` entries from the rendered template when

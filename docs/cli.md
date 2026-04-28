@@ -504,8 +504,10 @@ Modpack-specific. Scaffold a new modpack directory with a minimal
 created if missing.
 
 ```text
-gitrinth create [--loader <loader>] [--mc-version <version>] [--slug <slug>]
-                [--name <name>] [--force] [--offline] <directory>
+gitrinth create [--mods-loader <loader[:tag]>]
+                [--plugin-loader <loader[:tag]>]
+                [--mc-version <version>] [--slug <slug>] [--name <name>]
+                [--force] [--offline] <directory>
 ```
 
 (`--offline` here is the create-specific form: it skips the Modrinth
@@ -518,14 +520,15 @@ slug must be 3–64 characters from Modrinth's allowed set
 (`a-zA-Z0-9!@$()` `` ` `` `.+,_"-`); pass `--slug` to override the
 derived value.
 
-| Option         | Description                                                                    |
-|----------------|--------------------------------------------------------------------------------|
-| `--loader`     | Pre-fill [`loader`](mods-yaml.md#loader). Defaults to `neoforge`.              |
-| `--mc-version` | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Defaults to `1.21.1`.        |
-| `--slug`       | Override the derived slug.                                                     |
-| `--name`       | Override the display [`name`](mods-yaml.md#name).                              |
-| `--force`      | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`. |
-| `--offline`    | Skip the Modrinth slug-availability check.                                     |
+| Option            | Description                                                                                                 |
+|-------------------|-------------------------------------------------------------------------------------------------------------|
+| `--mods-loader`   | Pre-fill [`loader.mods`](mods-yaml.md#loader). Defaults to `neoforge` when no plugin loader is specified.   |
+| `--plugin-loader` | Pre-fill [`loader.plugins`](mods-yaml.md#plugin-loaders). Omit `--mods-loader` for a plugin-only scaffold. |
+| `--mc-version`    | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Defaults to `1.21.1`.                                     |
+| `--slug`          | Override the derived slug.                                                                                  |
+| `--name`          | Override the display [`name`](mods-yaml.md#name).                                                           |
+| `--force`         | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`.                              |
+| `--offline`       | Skip the Modrinth slug-availability check.                                                                  |
 
 Refuses to run when `<directory>` exists and is non-empty without
 `--force`.
@@ -629,6 +632,9 @@ distribution (SpongeForge / SpongeNeo / SpongeVanilla) from the
 SpongePowered downloads API, and Spigot / Bukkit by running
 SpigotMC's `BuildTools.jar` locally on first build (requires `git`
 and Java; takes several minutes; result is cached for re-use).
+Plugin loader tags in `mods.yaml` are resolved during `get` and stored
+concretely in `mods.lock`; changing the tag changes the cached server
+binary path and install marker.
 
 When neither `loader.plugins` nor a real `loader.mods` is declared
 (pure-vanilla pack), `gitrinth build server` downloads the official
@@ -1058,7 +1064,8 @@ gitrinth completion <bash|zsh|fish|powershell>
 ```
 
 Covers subcommand names, flag names, and the enum values already
-constrained on the argparse side (`--env`, `--loader`). Re-run after
+constrained on the argparse side (`--env`, `--mods-loader`,
+`--plugin-loader`). Re-run after
 upgrading `gitrinth` to refresh installed scripts.
 
 ## Working with project_overrides

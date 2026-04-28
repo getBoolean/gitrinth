@@ -15,6 +15,7 @@ const _subcommandNames = [
 
 const _envValues = ['client', 'server', 'both'];
 const _loaderValues = ['forge', 'fabric', 'neoforge'];
+const _pluginLoaderValues = ['bukkit', 'folia', 'paper', 'spigot', 'sponge'];
 
 void _expectCommonAnchors(String stdout) {
   expect(stdout, contains('gitrinth'));
@@ -25,7 +26,10 @@ void _expectCommonAnchors(String stdout) {
     expect(stdout, contains(v), reason: 'missing --env value "$v"');
   }
   for (final v in _loaderValues) {
-    expect(stdout, contains(v), reason: 'missing --loader value "$v"');
+    expect(stdout, contains(v), reason: 'missing --mods-loader value "$v"');
+  }
+  for (final v in _pluginLoaderValues) {
+    expect(stdout, contains(v), reason: 'missing --plugin-loader value "$v"');
   }
   // The shell names offered by the completion positional.
   for (final s in ['bash', 'zsh', 'fish', 'powershell']) {

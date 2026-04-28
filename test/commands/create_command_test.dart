@@ -28,7 +28,7 @@ void main() {
 
   group('create', () {
     test(
-      'scaffolds with defaults when --loader/--mc-version omitted',
+      'scaffolds with defaults when loader flags and --mc-version omitted',
       () async {
         final target = p.join(tempRoot.path, 'example_modpack');
         final out = await runCli(['create', target], environment: env());
@@ -49,11 +49,11 @@ void main() {
       },
     );
 
-    test('--loader vanilla scaffolds without the seeded mods entry', () async {
+    test('--mods-loader vanilla scaffolds without seeded mods entry', () async {
       final target = p.join(tempRoot.path, 'vanilla_pack');
       final out = await runCli([
         'create',
-        '--loader',
+        '--mods-loader',
         'vanilla',
         '--offline',
         target,
@@ -76,11 +76,11 @@ void main() {
       expect(parsed.mods, isEmpty);
     });
 
-    test('--loader accepts docker-style <name>:<tag>', () async {
+    test('--mods-loader accepts docker-style <name>:<tag>', () async {
       final target = p.join(tempRoot.path, 'tagged_pack');
       final out = await runCli([
         'create',
-        '--loader',
+        '--mods-loader',
         'neoforge:21.1.50',
         '--offline',
         target,
@@ -94,14 +94,14 @@ void main() {
       // Parser round-trip still succeeds.
       final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
       expect(parsed.loader.mods, ModLoader.neoforge);
-      expect(parsed.loader.modsVersion, '21.1.50');
+      expect(parsed.loader.modsLoaderVersion, '21.1.50');
     });
 
-    test('--loader rejects vanilla with a tag', () async {
+    test('--mods-loader rejects vanilla with a tag', () async {
       final target = p.join(tempRoot.path, 'bogus_vanilla');
       final out = await runCli([
         'create',
-        '--loader',
+        '--mods-loader',
         'vanilla:1.0',
         '--offline',
         target,
@@ -109,15 +109,15 @@ void main() {
       expect(out.exitCode, 2);
       expect(
         out.stderr + out.stdout,
-        allOf(contains('--loader'), contains('vanilla')),
+        allOf(contains('--mods-loader'), contains('vanilla')),
       );
     });
 
-    test('--loader and --mc-version override the defaults', () async {
+    test('--mods-loader and --mc-version override the defaults', () async {
       final target = p.join(tempRoot.path, 'custom_pack');
       final out = await runCli([
         'create',
-        '--loader',
+        '--mods-loader',
         'fabric',
         '--mc-version',
         '1.20.1',
@@ -128,6 +128,60 @@ void main() {
       final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
       expect(mods, contains('mods: fabric'));
       expect(mods, contains('mc-version: 1.20.1'));
+    });
+
+    test(
+      '--plugin-loader scaffolds plugin-only pack with commented mods loader',
+      () async {
+        final target = p.join(tempRoot.path, 'plugin_pack');
+        final out = await runCli([
+          'create',
+          '--plugin-loader',
+          'paper:187',
+          '--offline',
+          target,
+        ], environment: env());
+        expect(out.exitCode, 0, reason: out.stderr);
+
+        final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+        expect(mods, contains('# mods: neoforge'));
+        expect(
+          mods,
+          isNot(contains(RegExp(r'^\s+mods: neoforge$', multiLine: true))),
+        );
+        expect(mods, contains('plugins: "paper:187"'));
+        expect(mods, isNot(contains('globalpacks')));
+
+        final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
+        expect(parsed.loader.mods, ModLoader.vanilla);
+        expect(parsed.loader.modsLoaderVersion, isNull);
+        expect(parsed.loader.plugins, PluginLoader.paper);
+        expect(parsed.loader.pluginLoaderVersion, '187');
+        expect(parsed.mods, isEmpty);
+      },
+    );
+
+    test('--mods-loader and --plugin-loader can be combined', () async {
+      final target = p.join(tempRoot.path, 'hybrid_pack');
+      final out = await runCli([
+        'create',
+        '--mods-loader',
+        'forge',
+        '--plugin-loader',
+        'sponge:stable',
+        '--offline',
+        target,
+      ], environment: env());
+      expect(out.exitCode, 0, reason: out.stderr);
+
+      final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
+      expect(mods, contains('mods: forge'));
+      expect(mods, contains('plugins: "sponge:stable"'));
+
+      final parsed = parseModsYaml(mods, filePath: 'mods.yaml');
+      expect(parsed.loader.mods, ModLoader.forge);
+      expect(parsed.loader.plugins, PluginLoader.spongeforge);
+      expect(parsed.loader.pluginLoaderVersion, 'stable');
     });
 
     test(
@@ -227,24 +281,33 @@ void main() {
       expect(out.stderr, contains('Invalid --mc-version'));
     });
 
-    test(
-      'rejects --loader value outside the MVP set (validation error)',
-      () async {
-        final target = p.join(tempRoot.path, 'pack_dir');
-        final out = await runCli([
-          'create',
-          '--loader',
-          'sponge',
-          target,
-        ], environment: env());
-        // Shared loader parsing reports ValidationError here.
-        expect(out.exitCode, 2);
-        expect(
-          out.stderr + out.stdout,
-          allOf(contains('--loader'), contains('sponge')),
-        );
-      },
-    );
+    test('rejects --mods-loader value outside the mod loader set', () async {
+      final target = p.join(tempRoot.path, 'pack_dir');
+      final out = await runCli([
+        'create',
+        '--mods-loader',
+        'sponge',
+        target,
+      ], environment: env());
+      // Shared loader parsing reports ValidationError here.
+      expect(out.exitCode, 2);
+      expect(
+        out.stderr + out.stdout,
+        allOf(contains('--mods-loader'), contains('sponge')),
+      );
+    });
+
+    test('old --loader option is rejected', () async {
+      final target = p.join(tempRoot.path, 'pack_dir');
+      final out = await runCli([
+        'create',
+        '--loader',
+        'fabric',
+        target,
+      ], environment: env());
+      expect(out.exitCode, 64);
+      expect(out.stderr + out.stdout, contains('--loader'));
+    });
 
     test('missing <directory> exits 64', () async {
       final out = await runCli(['create'], environment: env());

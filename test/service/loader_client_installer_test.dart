@@ -44,7 +44,7 @@ void main() {
         final id = await ci.installClient(
           loader: ModLoader.fabric,
           mcVersion: '1.21.1',
-          loaderVersion: '0.17.3',
+          modsLoaderVersion: '0.17.3',
           dotMinecraftDir: dotMc,
           installerJar: installer,
           offline: false,
@@ -93,7 +93,7 @@ void main() {
       final id = await ci.installClient(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        loaderVersion: '52.1.5',
+        modsLoaderVersion: '52.1.5',
         dotMinecraftDir: dotMc,
         installerJar: installer,
         offline: false,
@@ -120,7 +120,7 @@ void main() {
         final id = await ci.installClient(
           loader: ModLoader.neoforge,
           mcVersion: '1.21.1',
-          loaderVersion: '21.1.50',
+          modsLoaderVersion: '21.1.50',
           dotMinecraftDir: dotMc,
           installerJar: installer,
           offline: false,
@@ -156,7 +156,7 @@ void main() {
       final id = await ci.installClient(
         loader: ModLoader.fabric,
         mcVersion: '1.21.1',
-        loaderVersion: '0.17.3',
+        modsLoaderVersion: '0.17.3',
         dotMinecraftDir: dotMc,
         installerJar: installer,
         offline: false,
@@ -180,7 +180,7 @@ void main() {
         ci.installClient(
           loader: ModLoader.fabric,
           mcVersion: '1.21.1',
-          loaderVersion: '0.17.3',
+          modsLoaderVersion: '0.17.3',
           dotMinecraftDir: dotMc,
           installerJar: installer,
           offline: false,
@@ -216,7 +216,7 @@ void main() {
           ci.installClient(
             loader: ModLoader.fabric,
             mcVersion: '1.21.1',
-            loaderVersion: '0.17.3',
+            modsLoaderVersion: '0.17.3',
             dotMinecraftDir: dotMc,
             installerJar: installer,
             offline: true,

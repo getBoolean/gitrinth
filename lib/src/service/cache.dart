@@ -66,14 +66,20 @@ class GitrinthCache {
 
   /// Path where a loader binary (server installer JAR, vanilla server.jar,
   /// fabric-server-launch.jar, etc.) lives. Keyed by `(loader, mcVersion,
-  /// loaderVersion)` so the same modpack rebuilt twice never re-downloads.
+  /// modsLoaderVersion)` so the same modpack rebuilt twice never re-downloads.
   String loaderArtifactPath({
     required ModLoader loader,
     required String mcVersion,
-    required String loaderVersion,
+    required String modsLoaderVersion,
     required String filename,
   }) {
-    return p.join(loadersRoot, loader.name, mcVersion, loaderVersion, filename);
+    return p.join(
+      loadersRoot,
+      loader.name,
+      mcVersion,
+      modsLoaderVersion,
+      filename,
+    );
   }
 
   /// Path where a plugin-loader server jar (Paper, Folia, SpongeForge,

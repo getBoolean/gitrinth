@@ -17,8 +17,8 @@ Planned improvements:
 - [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
 - [ ] [CurseForge bridge](curseforge-bridge.md)
 - [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
-- [ ] Add plugin loader flag to `create` command, mod loader becomes optional in `create` (e.g. for data packs or resource packs)
-- [ ] Allow specifying plugin loader version
+- [x] Add plugin loader flag to `create` command, mod loader becomes optional in `create` (e.g. for data packs or resource packs)
+- [x] Allow specifying plugin loader version
 
 Deferred MVP work:
 
@@ -360,7 +360,7 @@ and trusts the user's pin (with a stderr warning if it diverges from the
 lock).
 
 Touches:
-[`lib/src/service/loader_version_resolver.dart`](../lib/src/service/loader_version_resolver.dart),
+[`lib/src/service/mod_loader_version_resolver.dart`](../lib/src/service/mod_loader_version_resolver.dart),
 [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart).
 
 ## Auto-fetch JDK matching `mc-version`

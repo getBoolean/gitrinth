@@ -95,9 +95,10 @@ loader:
 #### Plugin support
 
 `loader.plugins` accepts `bukkit`, `folia`, `paper`, `spigot`, and
-`sponge`. Plugin entries go under a `plugins:` section with the same
-syntax as `mods:`. `loader.mods` is **optional** — omit it for
-plugin-only or pure-vanilla packs.
+`sponge`, optionally with a docker-style version tag such as
+`paper:187` or `sponge:stable`. Plugin entries go under a `plugins:`
+section with the same syntax as `mods:`. `loader.mods` is **optional**
+— omit it for plugin-only or pure-vanilla packs.
 
 Pure plugin servers (paper / folia / bukkit / spigot, and `sponge`
 when `loader.mods` is `fabric` or omitted) force every `mods:` entry
@@ -130,7 +131,9 @@ plugins:
 
 `build server` fetches the server jar from PaperMC / SpongePowered, or
 runs SpigotMC `BuildTools.jar` locally for spigot/bukkit (needs `git`
-and Java; cached after first build). Full spec:
+and Java; cached after first build). `stable` / `latest` plugin tags
+are resolved into concrete versions in `mods.lock`; Bukkit/Spigot
+concrete tags are BuildTools Jenkins build numbers. Full spec:
 [Plugin loaders](./docs/mods-yaml.md#plugin-loaders).
 
 #### Adding mods by semantic version constraints

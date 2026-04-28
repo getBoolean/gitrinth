@@ -4,7 +4,7 @@ version: {{version}}
 description: {{description}}
 
 loader:
-  mods: {{loader}}
+{{loader-block}}
 mc-version: {{mc-version}}
 
 tooling:

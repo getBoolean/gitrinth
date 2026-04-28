@@ -41,7 +41,7 @@ void main() {
       await installer.installServer(
         loader: ModLoader.fabric,
         mcVersion: '1.21.1',
-        loaderVersion: '0.17.3',
+        modsLoaderVersion: '0.17.3',
         outputDir: outputDir,
         installerOrServerJar: fakeInstaller,
         offline: false,
@@ -73,7 +73,7 @@ void main() {
         await installer.installServer(
           loader: ModLoader.forge,
           mcVersion: '1.21.1',
-          loaderVersion: '52.1.5',
+          modsLoaderVersion: '52.1.5',
           outputDir: outputDir,
           installerOrServerJar: fakeInstaller,
           offline: false,
@@ -107,7 +107,7 @@ void main() {
       await installer.installServer(
         loader: ModLoader.neoforge,
         mcVersion: '1.21.1',
-        loaderVersion: '21.1.50',
+        modsLoaderVersion: '21.1.50',
         outputDir: outputDir,
         installerOrServerJar: fakeInstaller,
         offline: false,
@@ -134,7 +134,7 @@ void main() {
       await installer.installServer(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        loaderVersion: '52.1.5',
+        modsLoaderVersion: '52.1.5',
         outputDir: outputDir,
         installerOrServerJar: fakeInstaller,
         offline: false,
@@ -143,7 +143,7 @@ void main() {
       await installer.installServer(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        loaderVersion: '52.1.5',
+        modsLoaderVersion: '52.1.5',
         outputDir: outputDir,
         installerOrServerJar: fakeInstaller,
         offline: false,
@@ -166,7 +166,7 @@ void main() {
         installer.installServer(
           loader: ModLoader.forge,
           mcVersion: '1.21.1',
-          loaderVersion: '52.1.5',
+          modsLoaderVersion: '52.1.5',
           outputDir: outputDir,
           installerOrServerJar: fakeInstaller,
           offline: false,
@@ -208,7 +208,7 @@ void main() {
         installer.installServer(
           loader: ModLoader.forge,
           mcVersion: '1.21.1',
-          loaderVersion: '52.1.5',
+          modsLoaderVersion: '52.1.5',
           outputDir: outputDir,
           installerOrServerJar: fakeInstaller,
           offline: true,
@@ -240,7 +240,7 @@ void main() {
         installer.installServer(
           loader: ModLoader.vanilla,
           mcVersion: '1.21.1',
-          loaderVersion: null,
+          modsLoaderVersion: null,
           outputDir: outputDir,
           installerOrServerJar: fakeInstaller,
           offline: false,
@@ -255,35 +255,38 @@ void main() {
       );
     });
 
-    test('mod-loader path with null loaderVersion throws StateError', () async {
-      final installer = ServerInstaller(
-        runProcess:
-            (
-              exe,
-              args, {
-              workingDirectory,
-              runInShell = false,
-              environment,
-            }) async => 0,
-      );
-      await expectLater(
-        installer.installServer(
-          loader: ModLoader.forge,
-          mcVersion: '1.21.1',
-          loaderVersion: null,
-          outputDir: outputDir,
-          installerOrServerJar: fakeInstaller,
-          offline: false,
-        ),
-        throwsA(
-          isA<StateError>().having(
-            (e) => e.message,
-            'message',
-            allOf(contains('loaderVersion'), contains('hasModRuntime')),
+    test(
+      'mod-loader path with null modsLoaderVersion throws StateError',
+      () async {
+        final installer = ServerInstaller(
+          runProcess:
+              (
+                exe,
+                args, {
+                workingDirectory,
+                runInShell = false,
+                environment,
+              }) async => 0,
+        );
+        await expectLater(
+          installer.installServer(
+            loader: ModLoader.forge,
+            mcVersion: '1.21.1',
+            modsLoaderVersion: null,
+            outputDir: outputDir,
+            installerOrServerJar: fakeInstaller,
+            offline: false,
           ),
-        ),
-      );
-    });
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              allOf(contains('modsLoaderVersion'), contains('hasModRuntime')),
+            ),
+          ),
+        );
+      },
+    );
 
     test('offline + existing marker is a no-op', () async {
       // Pre-write the marker as if a prior online install succeeded.
@@ -308,7 +311,7 @@ void main() {
       await installer.installServer(
         loader: ModLoader.forge,
         mcVersion: '1.21.1',
-        loaderVersion: '52.1.5',
+        modsLoaderVersion: '52.1.5',
         outputDir: outputDir,
         installerOrServerJar: fakeInstaller,
         offline: true,

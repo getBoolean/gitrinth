@@ -16,6 +16,7 @@ abstract class PluginServerSource {
   /// (BuildTools for spigot/craftbukkit). Honours [offline].
   Future<File> fetchServerJar({
     required String mcVersion,
+    required String pluginLoaderVersion,
     required bool offline,
     required Console console,
     String? javaPath,
@@ -102,6 +103,7 @@ class _PaperLikeSource implements PluginServerSource {
   @override
   Future<File> fetchServerJar({
     required String mcVersion,
+    required String pluginLoaderVersion,
     required bool offline,
     required Console console,
     String? javaPath,
@@ -109,22 +111,24 @@ class _PaperLikeSource implements PluginServerSource {
   }) async {
     final project = loader.name; // paper / folia
     if (offline) {
-      final cached = _findCached(project, mcVersion);
+      final cached = _findCached(project, mcVersion, pluginLoaderVersion);
       if (cached != null) return cached;
       throw UserError(
-        'no cached $project server jar for Minecraft $mcVersion under '
-        '${cache.pluginServersRoot}/$project/$mcVersion/. Rerun without '
-        '--offline to fetch one.',
+        'no cached $project server jar for Minecraft $mcVersion '
+        'build $pluginLoaderVersion under '
+        '${cache.pluginServersRoot}/$project/$mcVersion/$pluginLoaderVersion/. '
+        'Rerun without --offline to fetch one.',
       );
     }
-    final build = await paperApi.latestStableBuild(
+    final build = await paperApi.buildByNumber(
       project: project,
       mc: mcVersion,
+      build: int.parse(pluginLoaderVersion),
     );
     final dest = cache.pluginServerJarPath(
       artifactKey: project,
       mcVersion: mcVersion,
-      version: build.build.toString(),
+      version: pluginLoaderVersion,
       filename: build.filename,
     );
     return downloader.downloadTo(
@@ -133,8 +137,10 @@ class _PaperLikeSource implements PluginServerSource {
     );
   }
 
-  File? _findCached(String project, String mc) {
-    final dir = Directory('${cache.pluginServersRoot}/$project/$mc');
+  File? _findCached(String project, String mc, String pluginLoaderVersion) {
+    final dir = Directory(
+      '${cache.pluginServersRoot}/$project/$mc/$pluginLoaderVersion',
+    );
     if (!dir.existsSync()) return null;
     File? newest;
     for (final entry in dir.listSync()) {
@@ -177,28 +183,31 @@ class _SpongeSource implements PluginServerSource {
   @override
   Future<File> fetchServerJar({
     required String mcVersion,
+    required String pluginLoaderVersion,
     required bool offline,
     required Console console,
     String? javaPath,
     bool allowManagedJava = true,
   }) async {
     if (offline) {
-      final cached = _findCached(mcVersion);
+      final cached = _findCached(mcVersion, pluginLoaderVersion);
       if (cached != null) return cached;
       throw UserError(
-        'no cached $_artifact server jar for Minecraft $mcVersion under '
-        '${cache.pluginServersRoot}/$_artifact/$mcVersion/. Rerun without '
-        '--offline to fetch one.',
+        'no cached $_artifact server jar for Minecraft $mcVersion '
+        'version $pluginLoaderVersion under '
+        '${cache.pluginServersRoot}/$_artifact/$mcVersion/$pluginLoaderVersion/. '
+        'Rerun without --offline to fetch one.',
       );
     }
-    final build = await spongeApi.latestRecommendedBuild(
+    final build = await spongeApi.buildByVersion(
       artifact: _artifact,
+      version: pluginLoaderVersion,
       mc: mcVersion,
     );
     final dest = cache.pluginServerJarPath(
       artifactKey: _artifact,
       mcVersion: mcVersion,
-      version: build.version,
+      version: pluginLoaderVersion,
       filename: build.filename,
     );
     return downloader.downloadTo(
@@ -207,8 +216,10 @@ class _SpongeSource implements PluginServerSource {
     );
   }
 
-  File? _findCached(String mc) {
-    final dir = Directory('${cache.pluginServersRoot}/$_artifact/$mc');
+  File? _findCached(String mc, String pluginLoaderVersion) {
+    final dir = Directory(
+      '${cache.pluginServersRoot}/$_artifact/$mc/$pluginLoaderVersion',
+    );
     if (!dir.existsSync()) return null;
     File? newest;
     for (final entry in dir.listSync()) {
@@ -238,6 +249,7 @@ class _BuildToolsSource implements PluginServerSource {
   @override
   Future<File> fetchServerJar({
     required String mcVersion,
+    required String pluginLoaderVersion,
     required bool offline,
     required Console console,
     String? javaPath,
@@ -246,6 +258,7 @@ class _BuildToolsSource implements PluginServerSource {
     return buildTools.buildSpigotFamily(
       mc: mcVersion,
       flavor: flavor,
+      buildToolsVersion: pluginLoaderVersion,
       console: console,
       offline: offline,
       javaPath: javaPath,

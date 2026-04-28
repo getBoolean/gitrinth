@@ -19,7 +19,7 @@ ModsLock _lock({
 }) {
   return ModsLock(
     gitrinthVersion: '0.1.0',
-    loader: LoaderConfig(mods: loader, modsVersion: '0.17.3'),
+    loader: LoaderConfig(mods: loader, modsLoaderVersion: '0.17.3'),
     mcVersion: mcVersion,
   );
 }
@@ -230,8 +230,7 @@ void main() {
         expect(
           gcIdx,
           isNonNegative,
-          reason:
-              'ZGC should be injected before heap flags',
+          reason: 'ZGC should be injected before heap flags',
         );
         expect(xmxIdx, greaterThan(gcIdx));
         expect(fake.args, contains('-Xms4G'));
@@ -506,41 +505,38 @@ void main() {
       },
     );
 
-    test(
-      'missing build/server with --no-build throws UserError',
-      () async {
-        writeLock(_lock(loader: ModLoader.fabric));
-        serverDir.deleteSync(recursive: true);
-        await expectLater(
-          runLaunchServer(
-            options: const LaunchServerOptions(
-              acceptEula: false,
-              autoBuild: false,
-              memoryMax: '2G',
-              memoryMin: '2G',
-              offline: false,
-              verbose: false,
-              extraArgs: [],
-              headless: false,
-              detach: false,
-              force: false,
-            ),
-            container: container,
-            console: const Console(),
-            io: io,
-            runProcess: _FakeRunProcess().call,
-            resolver: fakeResolver,
+    test('missing build/server with --no-build throws UserError', () async {
+      writeLock(_lock(loader: ModLoader.fabric));
+      serverDir.deleteSync(recursive: true);
+      await expectLater(
+        runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
           ),
-          throwsA(
-            isA<UserError>().having(
-              (e) => e.message,
-              'message',
-              contains('server distribution not found'),
-            ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: _FakeRunProcess().call,
+          resolver: fakeResolver,
+        ),
+        throwsA(
+          isA<UserError>().having(
+            (e) => e.message,
+            'message',
+            contains('server distribution not found'),
           ),
-        );
-      },
-    );
+        ),
+      );
+    });
 
     test(
       '--memory-max only sets Xmx; Xms falls back to --memory default',
