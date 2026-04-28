@@ -465,6 +465,7 @@ ModsYaml _applyTarget(
           : (newLoaderTag ?? 'stable'),
       shaders: manifest.loader.shaders,
       plugins: resolvedPlugins,
+      pluginLoaderVersion: manifest.loader.pluginLoaderVersion,
     ),
   );
 }
