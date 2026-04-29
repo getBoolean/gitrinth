@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:gitrinth/src/service/cache.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -24,6 +25,10 @@ void main() {
 
   String sha512Hex(List<int> bytes) => sha512.convert(bytes).toString();
 
+  // Default Modrinth host, used for the host-segmented cache layout.
+  const seedHost = 'https://api.modrinth.com/v2';
+  final seedHostSegment = GitrinthCache.hostCacheSegment(seedHost);
+
   void seedModrinthArtifact({
     required String projectId,
     required String versionId,
@@ -32,7 +37,13 @@ void main() {
     String? url,
   }) {
     final dir = Directory(
-      p.join(cacheRoot.path, 'modrinth', projectId, versionId),
+      p.join(
+        cacheRoot.path,
+        'modrinth',
+        seedHostSegment,
+        projectId,
+        versionId,
+      ),
     );
     dir.createSync(recursive: true);
     final jarBytes = utf8.encode(body);
@@ -163,7 +174,14 @@ void main() {
     expect(out.stderr, contains('--force'));
     expect(
       File(
-        p.join(cacheRoot.path, 'modrinth', 'PROJ1', 'VER1', 'mod.jar'),
+        p.join(
+          cacheRoot.path,
+          'modrinth',
+          seedHostSegment,
+          'PROJ1',
+          'VER1',
+          'mod.jar',
+        ),
       ).existsSync(),
       isTrue,
       reason: 'a refused clean must not delete anything',
@@ -233,8 +251,9 @@ void main() {
   test(
     'cache repair on modrinth jar with missing version.json warns and skips',
     () async {
-      final dir = Directory(p.join(cacheRoot.path, 'modrinth', 'X', 'Y'))
-        ..createSync(recursive: true);
+      final dir = Directory(
+        p.join(cacheRoot.path, 'modrinth', seedHostSegment, 'X', 'Y'),
+      )..createSync(recursive: true);
       File(p.join(dir.path, 'orphan.jar')).writeAsStringSync('garbage');
       // No version.json sibling.
 

@@ -69,8 +69,9 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     final overrides = io.readProjectOverrides();
     final overriddenSlugs = overrides.entries.keys.toSet();
 
-    final api = read(modrinthApiProvider);
+    final apiFactory = read(modrinthApiFactoryProvider);
     final cache = read(cacheProvider);
+    final defaultBaseUrl = apiFactory.defaultBaseUrl;
 
     final rows = <_Row>[];
     for (final section in Section.values) {
@@ -88,6 +89,9 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         }
         final manifestEntry = manifestSection[slug];
         final isOverridden = overriddenSlugs.contains(slug);
+        final entryHost = manifestEntry == null
+            ? (manifest.modrinthHost ?? defaultBaseUrl)
+            : manifest.effectiveModrinthHost(manifestEntry, defaultBaseUrl);
         final row = await _computeRow(
           slug: slug,
           section: section,
@@ -95,7 +99,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           manifestEntry: manifestEntry,
           mcVersion: lock.mcVersion,
           loaderConfig: lock.loader,
-          api: api,
+          api: apiFactory.forHost(entryHost),
+          host: entryHost,
           cache: cache,
           offline: offline,
           isOverridden: isOverridden,
@@ -120,6 +125,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     required String mcVersion,
     required LoaderConfig loaderConfig,
     required ModrinthApi api,
+    required String host,
     required GitrinthCache cache,
     required bool offline,
     required bool isOverridden,
@@ -177,7 +183,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           marker: marker,
         );
       }
-      versions = cache.listCachedVersions(pid).where((v) {
+      versions = cache.listCachedVersions(host, pid).where((v) {
         final loaderOk =
             loaderFilter == null || v.loaders.any(loaderFilter.contains);
         final mcOk = v.gameVersions.any(gameVersions.contains);

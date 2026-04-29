@@ -88,7 +88,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -97,10 +97,10 @@ mods:
     final out = await runMigrateMc('1.21.4');
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
     final manifest = readManifest();
-    expect(manifest, contains('mc-version: 1.21.4'));
+    expect(manifest, contains('mc_version: 1.21.4'));
     expect(manifest, contains('a: ^2.0.0'));
     final lock = readLock();
-    expect(lock, contains('mc-version: 1.21.4'));
+    expect(lock, contains('mc_version: 1.21.4'));
     expect(lock, contains('version: 2.0.0'));
   });
 
@@ -123,7 +123,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -165,7 +165,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b:
@@ -215,7 +215,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -258,7 +258,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -306,7 +306,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -343,7 +343,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b:
@@ -409,7 +409,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -445,7 +445,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -463,7 +463,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 ''');
     final out = await runCli([
@@ -517,7 +517,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -574,7 +574,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -624,7 +624,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -684,7 +684,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^1.0.0
@@ -730,7 +730,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: $disabledByConflictMarker
@@ -785,7 +785,7 @@ version: 0.1.0
 description: x
 loader:
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 ''');
         expect((await runGet()).exitCode, 0);
@@ -808,7 +808,7 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 ''');
         expect((await runGet()).exitCode, 0);
@@ -831,7 +831,7 @@ description: x
 loader:
   mods: forge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 ''');
       // Forge install isn't actually run during migrate (no mods to
@@ -864,7 +864,7 @@ description: x
 loader:
   mods: neoforge
   plugins: bukkit:187
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 ''');
 

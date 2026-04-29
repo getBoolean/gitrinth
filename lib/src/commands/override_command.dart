@@ -225,7 +225,8 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
           break;
         }
       }
-      final api = read(modrinthApiProvider);
+      final api = read(modrinthApiFactoryProvider)
+          .forHost(existingManifest.modrinthHost);
       final Section inferredSection;
       Project? project;
       if (declaredSection != null) {
@@ -298,7 +299,7 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
         final long = <String, Object?>{'version': effectiveConstraint};
         writeSideFields(long, envOpt);
         if (acceptsMc.isNotEmpty) {
-          long['accepts-mc'] = acceptsMc.length == 1
+          long['accepts_mc'] = acceptsMc.length == 1
               ? acceptsMc.first
               : acceptsMc;
         }

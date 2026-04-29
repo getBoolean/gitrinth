@@ -390,6 +390,99 @@ extension ChannelMapperExtension on Channel {
   }
 }
 
+class SourceKindMapper extends EnumMapper<SourceKind> {
+  SourceKindMapper._();
+
+  static SourceKindMapper? _instance;
+  static SourceKindMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SourceKindMapper._());
+    }
+    return _instance!;
+  }
+
+  static SourceKind fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  SourceKind decode(dynamic value) {
+    switch (value) {
+      case r'modrinth':
+        return SourceKind.modrinth;
+      case r'curseforge':
+        return SourceKind.curseforge;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(SourceKind self) {
+    switch (self) {
+      case SourceKind.modrinth:
+        return r'modrinth';
+      case SourceKind.curseforge:
+        return r'curseforge';
+    }
+  }
+}
+
+extension SourceKindMapperExtension on SourceKind {
+  String toValue() {
+    SourceKindMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<SourceKind>(this) as String;
+  }
+}
+
+class GitrinthPlatformStateMapper extends EnumMapper<GitrinthPlatformState> {
+  GitrinthPlatformStateMapper._();
+
+  static GitrinthPlatformStateMapper? _instance;
+  static GitrinthPlatformStateMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = GitrinthPlatformStateMapper._());
+    }
+    return _instance!;
+  }
+
+  static GitrinthPlatformState fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  GitrinthPlatformState decode(dynamic value) {
+    switch (value) {
+      case r'enabled':
+        return GitrinthPlatformState.enabled;
+      case r'disabled':
+        return GitrinthPlatformState.disabled;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(GitrinthPlatformState self) {
+    switch (self) {
+      case GitrinthPlatformState.enabled:
+        return r'enabled';
+      case GitrinthPlatformState.disabled:
+        return r'disabled';
+    }
+  }
+}
+
+extension GitrinthPlatformStateMapperExtension on GitrinthPlatformState {
+  String toValue() {
+    GitrinthPlatformStateMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<GitrinthPlatformState>(this)
+        as String;
+  }
+}
+
 class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   LoaderConfigMapper._();
 
@@ -637,8 +730,15 @@ class ModrinthEntrySourceMapper
   @override
   final String id = 'ModrinthEntrySource';
 
+  static String? _$host(ModrinthEntrySource v) => v.host;
+  static const Field<ModrinthEntrySource, String> _f$host = Field(
+    'host',
+    _$host,
+    opt: true,
+  );
+
   @override
-  final MappableFields<ModrinthEntrySource> fields = const {};
+  final MappableFields<ModrinthEntrySource> fields = const {#host: _f$host};
 
   @override
   final String discriminatorKey = 'kind';
@@ -649,7 +749,7 @@ class ModrinthEntrySourceMapper
       EntrySourceMapper.ensureInitialized();
 
   static ModrinthEntrySource _instantiate(DecodingData data) {
-    return ModrinthEntrySource();
+    return ModrinthEntrySource(host: data.dec(_f$host));
   }
 
   @override
@@ -723,7 +823,7 @@ abstract class ModrinthEntrySourceCopyWith<
 >
     implements EntrySourceCopyWith<$R, $In, $Out> {
   @override
-  $R call();
+  $R call({String? host});
   ModrinthEntrySourceCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
   );
@@ -738,9 +838,11 @@ class _ModrinthEntrySourceCopyWithImpl<$R, $Out>
   late final ClassMapperBase<ModrinthEntrySource> $mapper =
       ModrinthEntrySourceMapper.ensureInitialized();
   @override
-  $R call() => $apply(FieldCopyWithData({}));
+  $R call({Object? host = $none}) =>
+      $apply(FieldCopyWithData({if (host != $none) #host: host}));
   @override
-  ModrinthEntrySource $make(CopyWithData data) => ModrinthEntrySource();
+  ModrinthEntrySource $make(CopyWithData data) =>
+      ModrinthEntrySource(host: data.get(#host, or: $value.host));
 
   @override
   ModrinthEntrySourceCopyWith<$R2, ModrinthEntrySource, $Out2>
@@ -1004,6 +1106,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       ChannelMapper.ensureInitialized();
       SideEnvMapper.ensureInitialized();
       EntrySourceMapper.ensureInitialized();
+      SourceKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1053,6 +1156,24 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     opt: true,
     def: const [],
   );
+  static String? _$modrinthSlug(ModEntry v) => v.modrinthSlug;
+  static const Field<ModEntry, String> _f$modrinthSlug = Field(
+    'modrinthSlug',
+    _$modrinthSlug,
+    opt: true,
+  );
+  static String? _$curseforgeSlug(ModEntry v) => v.curseforgeSlug;
+  static const Field<ModEntry, String> _f$curseforgeSlug = Field(
+    'curseforgeSlug',
+    _$curseforgeSlug,
+    opt: true,
+  );
+  static Set<SourceKind>? _$sources(ModEntry v) => v.sources;
+  static const Field<ModEntry, Set<SourceKind>> _f$sources = Field(
+    'sources',
+    _$sources,
+    opt: true,
+  );
 
   @override
   final MappableFields<ModEntry> fields = const {
@@ -1063,6 +1184,9 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     #server: _f$server,
     #source: _f$source,
     #acceptsMc: _f$acceptsMc,
+    #modrinthSlug: _f$modrinthSlug,
+    #curseforgeSlug: _f$curseforgeSlug,
+    #sources: _f$sources,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -1074,6 +1198,9 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       server: data.dec(_f$server),
       source: data.dec(_f$source),
       acceptsMc: data.dec(_f$acceptsMc),
+      modrinthSlug: data.dec(_f$modrinthSlug),
+      curseforgeSlug: data.dec(_f$curseforgeSlug),
+      sources: data.dec(_f$sources),
     );
   }
 
@@ -1144,6 +1271,9 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     SideEnv? server,
     EntrySource? source,
     List<String>? acceptsMc,
+    String? modrinthSlug,
+    String? curseforgeSlug,
+    Set<SourceKind>? sources,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1175,6 +1305,9 @@ class _ModEntryCopyWithImpl<$R, $Out>
     SideEnv? server,
     EntrySource? source,
     List<String>? acceptsMc,
+    Object? modrinthSlug = $none,
+    Object? curseforgeSlug = $none,
+    Object? sources = $none,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1184,6 +1317,9 @@ class _ModEntryCopyWithImpl<$R, $Out>
       if (server != null) #server: server,
       if (source != null) #source: source,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
+      if (modrinthSlug != $none) #modrinthSlug: modrinthSlug,
+      if (curseforgeSlug != $none) #curseforgeSlug: curseforgeSlug,
+      if (sources != $none) #sources: sources,
     }),
   );
   @override
@@ -1195,12 +1331,172 @@ class _ModEntryCopyWithImpl<$R, $Out>
     server: data.get(#server, or: $value.server),
     source: data.get(#source, or: $value.source),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
+    modrinthSlug: data.get(#modrinthSlug, or: $value.modrinthSlug),
+    curseforgeSlug: data.get(#curseforgeSlug, or: $value.curseforgeSlug),
+    sources: data.get(#sources, or: $value.sources),
   );
 
   @override
   ModEntryCopyWith<$R2, ModEntry, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
   ) => _ModEntryCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class GitrinthConfigMapper extends ClassMapperBase<GitrinthConfig> {
+  GitrinthConfigMapper._();
+
+  static GitrinthConfigMapper? _instance;
+  static GitrinthConfigMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = GitrinthConfigMapper._());
+      GitrinthPlatformStateMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'GitrinthConfig';
+
+  static String? _$version(GitrinthConfig v) => v.version;
+  static const Field<GitrinthConfig, String> _f$version = Field(
+    'version',
+    _$version,
+    opt: true,
+  );
+  static GitrinthPlatformState _$modrinth(GitrinthConfig v) => v.modrinth;
+  static const Field<GitrinthConfig, GitrinthPlatformState> _f$modrinth = Field(
+    'modrinth',
+    _$modrinth,
+    opt: true,
+    def: GitrinthPlatformState.enabled,
+  );
+  static GitrinthPlatformState _$curseforge(GitrinthConfig v) => v.curseforge;
+  static const Field<GitrinthConfig, GitrinthPlatformState> _f$curseforge =
+      Field(
+        'curseforge',
+        _$curseforge,
+        opt: true,
+        def: GitrinthPlatformState.disabled,
+      );
+
+  @override
+  final MappableFields<GitrinthConfig> fields = const {
+    #version: _f$version,
+    #modrinth: _f$modrinth,
+    #curseforge: _f$curseforge,
+  };
+
+  static GitrinthConfig _instantiate(DecodingData data) {
+    return GitrinthConfig(
+      version: data.dec(_f$version),
+      modrinth: data.dec(_f$modrinth),
+      curseforge: data.dec(_f$curseforge),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static GitrinthConfig fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<GitrinthConfig>(map);
+  }
+
+  static GitrinthConfig fromJson(String json) {
+    return ensureInitialized().decodeJson<GitrinthConfig>(json);
+  }
+}
+
+mixin GitrinthConfigMappable {
+  String toJson() {
+    return GitrinthConfigMapper.ensureInitialized().encodeJson<GitrinthConfig>(
+      this as GitrinthConfig,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return GitrinthConfigMapper.ensureInitialized().encodeMap<GitrinthConfig>(
+      this as GitrinthConfig,
+    );
+  }
+
+  GitrinthConfigCopyWith<GitrinthConfig, GitrinthConfig, GitrinthConfig>
+  get copyWith => _GitrinthConfigCopyWithImpl<GitrinthConfig, GitrinthConfig>(
+    this as GitrinthConfig,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return GitrinthConfigMapper.ensureInitialized().stringifyValue(
+      this as GitrinthConfig,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return GitrinthConfigMapper.ensureInitialized().equalsValue(
+      this as GitrinthConfig,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return GitrinthConfigMapper.ensureInitialized().hashValue(
+      this as GitrinthConfig,
+    );
+  }
+}
+
+extension GitrinthConfigValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, GitrinthConfig, $Out> {
+  GitrinthConfigCopyWith<$R, GitrinthConfig, $Out> get $asGitrinthConfig =>
+      $base.as((v, t, t2) => _GitrinthConfigCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class GitrinthConfigCopyWith<$R, $In extends GitrinthConfig, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({
+    String? version,
+    GitrinthPlatformState? modrinth,
+    GitrinthPlatformState? curseforge,
+  });
+  GitrinthConfigCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _GitrinthConfigCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, GitrinthConfig, $Out>
+    implements GitrinthConfigCopyWith<$R, GitrinthConfig, $Out> {
+  _GitrinthConfigCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<GitrinthConfig> $mapper =
+      GitrinthConfigMapper.ensureInitialized();
+  @override
+  $R call({
+    Object? version = $none,
+    GitrinthPlatformState? modrinth,
+    GitrinthPlatformState? curseforge,
+  }) => $apply(
+    FieldCopyWithData({
+      if (version != $none) #version: version,
+      if (modrinth != null) #modrinth: modrinth,
+      if (curseforge != null) #curseforge: curseforge,
+    }),
+  );
+  @override
+  GitrinthConfig $make(CopyWithData data) => GitrinthConfig(
+    version: data.get(#version, or: $value.version),
+    modrinth: data.get(#modrinth, or: $value.modrinth),
+    curseforge: data.get(#curseforge, or: $value.curseforge),
+  );
+
+  @override
+  GitrinthConfigCopyWith<$R2, GitrinthConfig, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _GitrinthConfigCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
@@ -1211,6 +1507,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ModsYamlMapper._());
       LoaderConfigMapper.ensureInitialized();
+      GitrinthConfigMapper.ensureInitialized();
       ModEntryMapper.ensureInitialized();
       FileEntryMapper.ensureInitialized();
     }
@@ -1240,6 +1537,19 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
   static const Field<ModsYaml, String> _f$mcVersion = Field(
     'mcVersion',
     _$mcVersion,
+  );
+  static String? _$modrinthHost(ModsYaml v) => v.modrinthHost;
+  static const Field<ModsYaml, String> _f$modrinthHost = Field(
+    'modrinthHost',
+    _$modrinthHost,
+    opt: true,
+  );
+  static GitrinthConfig _$gitrinth(ModsYaml v) => v.gitrinth;
+  static const Field<ModsYaml, GitrinthConfig> _f$gitrinth = Field(
+    'gitrinth',
+    _$gitrinth,
+    opt: true,
+    def: const GitrinthConfig(),
   );
   static Map<String, ModEntry> _$mods(ModsYaml v) => v.mods;
   static const Field<ModsYaml, Map<String, ModEntry>> _f$mods = Field(
@@ -1302,6 +1612,8 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     #description: _f$description,
     #loader: _f$loader,
     #mcVersion: _f$mcVersion,
+    #modrinthHost: _f$modrinthHost,
+    #gitrinth: _f$gitrinth,
     #mods: _f$mods,
     #resourcePacks: _f$resourcePacks,
     #dataPacks: _f$dataPacks,
@@ -1320,6 +1632,8 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       description: data.dec(_f$description),
       loader: data.dec(_f$loader),
       mcVersion: data.dec(_f$mcVersion),
+      modrinthHost: data.dec(_f$modrinthHost),
+      gitrinth: data.dec(_f$gitrinth),
       mods: data.dec(_f$mods),
       resourcePacks: data.dec(_f$resourcePacks),
       dataPacks: data.dec(_f$dataPacks),
@@ -1389,6 +1703,7 @@ extension ModsYamlValueCopy<$R, $Out> on ObjectCopyWith<$R, ModsYaml, $Out> {
 abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader;
+  GitrinthConfigCopyWith<$R, GitrinthConfig, GitrinthConfig> get gitrinth;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get mods;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
@@ -1415,6 +1730,8 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     String? description,
     LoaderConfig? loader,
     String? mcVersion,
+    String? modrinthHost,
+    GitrinthConfig? gitrinth,
     Map<String, ModEntry>? mods,
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
@@ -1438,6 +1755,9 @@ class _ModsYamlCopyWithImpl<$R, $Out>
   @override
   LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader =>
       $value.loader.copyWith.$chain((v) => call(loader: v));
+  @override
+  GitrinthConfigCopyWith<$R, GitrinthConfig, GitrinthConfig> get gitrinth =>
+      $value.gitrinth.copyWith.$chain((v) => call(gitrinth: v));
   @override
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get mods => MapCopyWith(
@@ -1500,6 +1820,8 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     String? description,
     LoaderConfig? loader,
     String? mcVersion,
+    Object? modrinthHost = $none,
+    GitrinthConfig? gitrinth,
     Map<String, ModEntry>? mods,
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
@@ -1516,6 +1838,8 @@ class _ModsYamlCopyWithImpl<$R, $Out>
       if (description != null) #description: description,
       if (loader != null) #loader: loader,
       if (mcVersion != null) #mcVersion: mcVersion,
+      if (modrinthHost != $none) #modrinthHost: modrinthHost,
+      if (gitrinth != null) #gitrinth: gitrinth,
       if (mods != null) #mods: mods,
       if (resourcePacks != null) #resourcePacks: resourcePacks,
       if (dataPacks != null) #dataPacks: dataPacks,
@@ -1534,6 +1858,8 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     description: data.get(#description, or: $value.description),
     loader: data.get(#loader, or: $value.loader),
     mcVersion: data.get(#mcVersion, or: $value.mcVersion),
+    modrinthHost: data.get(#modrinthHost, or: $value.modrinthHost),
+    gitrinth: data.get(#gitrinth, or: $value.gitrinth),
     mods: data.get(#mods, or: $value.mods),
     resourcePacks: data.get(#resourcePacks, or: $value.resourcePacks),
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),

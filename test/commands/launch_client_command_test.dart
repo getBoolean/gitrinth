@@ -122,7 +122,7 @@ void main() {
         'name: Pack\n'
         'version: 0.1.0\n'
         'description: a pack\n'
-        'mc-version: 1.21.1\n'
+        'mc_version: 1.21.1\n'
         'loader:\n'
         '  mods: fabric:0.17.3\n',
       );

@@ -120,12 +120,14 @@ void _persistVersionMetadata(
   ResolutionResult resolution,
   GitrinthCache cache,
   Console console,
+  String Function(ResolvedEntry) hostFor,
 ) {
   for (final r in resolution.entries) {
     final pid = r.version.projectId;
     final vid = r.version.id;
     if (pid.isEmpty || vid.isEmpty) continue;
     final path = cache.modrinthVersionMetadataPath(
+      host: hostFor(r),
       projectId: pid,
       versionId: vid,
     );

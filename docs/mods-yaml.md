@@ -17,7 +17,7 @@ A machine-readable schema lives alongside this document at
 A `mods.yaml` file can contain the following top-level fields. The required
 fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 [`description`](#description), [`loader`](#loader), and
-[`mc-version`](#mc-version).
+[`mc_version`](#mc_version).
 
 | Field                                     | Required | Description                                                                                                                                                                                                                            |
 |-------------------------------------------|----------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -28,8 +28,9 @@ fields are [`slug`](#slug), [`name`](#name), [`version`](#version),
 | [`project`](#project)                     | no       | Modrinth project metadata — links, body, license, categories, client/server compatibility. See below for the full list of sub-fields.                                                                                                  |
 | [`publish_to`](#publish_to)               | no       | Where the modpack publishes to.                                                                                                                                                                                                        |
 | [`loader`](#loader)                       | yes      | Per-section loaders (object). `mods` required; `shaders` required when the `shaders:` section has entries; `plugins` required when the `plugins:` section has entries.                                                                 |
-| [`mc-version`](#mc-version)               | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                                                                                       |
-| [`tooling`](#tooling)                     | no       | Version constraints on the tooling used to build the modpack (currently just `gitrinth`).                                                                                                                                              |
+| [`mc_version`](#mc_version)               | yes      | The exact Minecraft version the modpack targets (e.g. `1.21.1`).                                                                                                                                                                       |
+| [`modrinth_host`](#modrinth_host)         | no       | Pack-level default base URL for the Modrinth source kind. When unset, falls back to `https://api.modrinth.com/v2`.                                                                                                                     |
+| [`gitrinth`](#gitrinth)                   | no       | Tooling configuration: semver constraint on the gitrinth CLI plus per-platform default toggles (`gitrinth.modrinth`, `gitrinth.curseforge`).                                                                                           |
 | [`mods`](#mods)                           | no       | Every mod in the pack. Each entry may declare a per-mod [per-side install state](#sides-client--server) (`client`, `server`, or `both`). May be blank while the pack is being assembled.                                               |
 | [`resource_packs`](#resource_packs)       | no       | Resource packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                           |
 | [`data_packs`](#data_packs)               | no       | Data packs to ship with the pack. Same syntax as `mods`.                                                                                                                                                                               |
@@ -70,10 +71,10 @@ publish_to: https://modrinth.com
 loader:
   mods: neoforge
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 
-tooling:
-  gitrinth: ^1.0.0
+gitrinth:
+  version: ^1.0.0
 
 mods:
   create: ^6.0.10+mc1.21.1
@@ -117,7 +118,7 @@ description: Paper server with client-side QoL mods.
 loader:
   mods: neoforge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 
 mods:
   sodium: ^0.6.2
@@ -152,7 +153,7 @@ description: Forge tech pack with Sponge plugins.
 loader:
   mods: forge
   plugins: sponge
-mc-version: 1.21.1
+mc_version: 1.21.1
 
 mods:
   create: ^6.0.10+mc1.21.1
@@ -175,7 +176,7 @@ description: Plugin server, no mods.
 
 loader:
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 
 plugins:
   chunky: ^1.4.40
@@ -464,7 +465,7 @@ When set to a real mod loader, `loader.mods` has three roles:
   [`mods`](#mods) and [`project_overrides`](#project_overrides) (when
   the override targets a mod), `gitrinth` only considers published mod versions
   tagged with this loader. Combined with
-  [`mc-version`](#mc-version), this determines which "latest"
+  [`mc_version`](#mc_version), this determines which "latest"
   version satisfies a blank or caret
   [mod-version constraint](#mod-version-constraints).
 - **Published compatibility.** When `gitrinth publish` uploads the
@@ -474,9 +475,9 @@ When set to a real mod loader, `loader.mods` has three roles:
 - **Server distribution selection.** The server distribution
   assembled by [`gitrinth build`](cli.md#build) includes the
   matching server binary. Mod loaders use [`loader.mods`](#loader)
-  plus [`mc-version`](#mc-version). Plugin servers use
+  plus [`mc_version`](#mc_version). Plugin servers use
   [`loader.plugins`](#plugin-loaders), its optional tag, and
-  [`mc-version`](#mc-version). Resolved concrete loader versions are
+  [`mc_version`](#mc_version). Resolved concrete loader versions are
   written to `mods.lock`.
 
 `loader.shaders` applies version resolution for entries under
@@ -525,12 +526,12 @@ lock time, based on `loader.mods`:
 Plugin-loader tags resolve as follows:
 
 - **Paper / Folia.** `stable` chooses the highest stable PaperMC build
-  for the exact `mc-version`; `latest` chooses the highest build for
-  that exact `mc-version` regardless of channel; a concrete tag is an
+  for the exact `mc_version`; `latest` chooses the highest build for
+  that exact `mc_version` regardless of channel; a concrete tag is an
   exact PaperMC build number.
 - **Sponge.** `stable` chooses the newest recommended build for the
-  resolved Sponge artifact and exact `mc-version`; `latest` chooses the
-  newest available build for that exact `mc-version`; a concrete tag is
+  resolved Sponge artifact and exact `mc_version`; `latest` chooses the
+  newest available build for that exact `mc_version`; a concrete tag is
   an exact Sponge artifact version.
 - **Bukkit / Spigot.** `stable` and `latest` resolve to the latest
   successful Jenkins BuildTools build number. A concrete tag is a bare
@@ -569,7 +570,7 @@ every entry honours its declared [per-side install state](#sides-client--server)
 Spigot and Bukkit server jars are produced by SpigotMC's
 `BuildTools.jar` on first build. The resolved plugin-loader version is
 the Jenkins BuildTools build number used to download `BuildTools.jar`;
-the pack's `mc-version` is still passed as BuildTools `--rev`.
+the pack's `mc_version` is still passed as BuildTools `--rev`.
 BuildTools requires `git` and a JDK, takes several minutes to compile
 sources, and the produced jar is cached for re-use on subsequent
 builds. Paper, Folia, and the three Sponge variants are downloaded as
@@ -579,17 +580,17 @@ pre-built jars from upstream.
 
 A pack with neither `loader.plugins` nor a real `loader.mods` declares
 no mod runtime and no plugin runtime — `gitrinth build server`
-downloads the official Mojang `server.jar` for the pack's `mc-version`
+downloads the official Mojang `server.jar` for the pack's `mc_version`
 from `piston-meta.mojang.com`. Useful for vanilla servers that ship
 only resource packs / data packs / loose `files:` entries.
 
-### `mc-version`
+### `mc_version`
 
 **Required.** The exact Minecraft release the modpack targets, for
 example `1.21.1`. Version ranges and wildcards are intentionally
 disallowed — a modpack targets a single Minecraft version so that
 mod-version resolution is deterministic. Like [`loader`](#loader),
-`mc-version` has three roles:
+`mc_version` has three roles:
 
 - **Version resolution.** When picking the version of each entry in
   [`mods`](#mods), [`resource_packs`](#resource_packs),
@@ -601,44 +602,71 @@ mod-version resolution is deterministic. Like [`loader`](#loader),
   [mod-version constraints](#mod-version-constraints) resolve
   deterministically.
 - **Published compatibility.** When `gitrinth publish` uploads the
-  modpack, `mc-version` is declared as the modpack's supported
+  modpack, `mc_version` is declared as the modpack's supported
   Minecraft version on Modrinth. End users see it on the project page,
   and launchers use it to decide whether the pack is installable.
 - **Server distribution selection.** Together with [`loader`](#loader),
-  `mc-version` is what `gitrinth` uses to pick the server binary
+  `mc_version` is what `gitrinth` uses to pick the server binary
   bundled into the server distribution. The user does not specify the
   server binary, and it is not added after the build — see the
   [Server distribution selection](#loader) role on `loader`.
 
 ```yaml
-mc-version: 1.21.1
+mc_version: 1.21.1
 ```
 
-### `tooling`
+### `modrinth_host`
 
-**Optional.** Version constraints on the tooling used to build the
-modpack. The block may be omitted entirely when no constraint is needed.
+**Optional.** Pack-level default base URL for the Modrinth source
+kind. Every entry that does not declare its own `modrinth_host:`
+resolves against this URL instead of `https://api.modrinth.com/v2`.
 
 ```yaml
-tooling:
-  gitrinth: ^1.0.0
+modrinth_host: https://modrinth.example.com
 ```
 
-| Key        | Required | Description                                                                                                                |
-|------------|----------|----------------------------------------------------------------------------------------------------------------------------|
-| `gitrinth` | no       | A version constraint on the `gitrinth` CLI itself, using semver range syntax (for example `^1.0.0` or `">=1.0.0 <2.0.0"`). |
+A per-entry `modrinth_host:` on a long-form entry overrides the
+pack-level value for that entry only — see
+[Mod dependencies](#mod-dependencies).
 
-#### `gitrinth`
+### `gitrinth`
 
-Declares which versions of the `gitrinth` CLI the modpack is known to work
-with. Unlike mod versions, this field accepts the full semver range syntax
-(`^`, `>=`, `<`, `<=`, `>`), because the compatibility window for the tool
-itself may span several majors.
+**Optional.** Tooling configuration for `gitrinth` itself. Holds the
+semver constraint on the running CLI and the platform default toggles
+that decide which sources participate by default. The block may be
+omitted entirely when neither field is needed.
 
 ```yaml
-tooling:
-  gitrinth: ^1.0.0
+gitrinth:
+  version: ^1.0.0
+  modrinth: enabled
+  curseforge: disabled
 ```
+
+| Key          | Required | Description                                                                                                                  |
+|--------------|----------|------------------------------------------------------------------------------------------------------------------------------|
+| `version`    | no       | Semver range constraint on the `gitrinth` CLI itself (e.g. `^1.0.0`, `">=1.0.0 <2.0.0"`).                                    |
+| `modrinth`   | no       | `enabled` or `disabled`. Defaults to `enabled`. Toggles whether Modrinth participates by default for entries that do not set `sources:`. |
+| `curseforge` | no       | `enabled` or `disabled`. Defaults to `disabled`. Toggles whether CurseForge participates by default for entries that do not set `sources:`. |
+
+#### `gitrinth.version`
+
+Declares which versions of the `gitrinth` CLI the modpack is known to
+work with. Unlike mod versions, this field accepts the full semver
+range syntax (`^`, `>=`, `<`, `<=`, `>`), because the compatibility
+window for the tool itself may span several majors.
+
+```yaml
+gitrinth:
+  version: ^1.0.0
+```
+
+#### `gitrinth.modrinth` / `gitrinth.curseforge`
+
+These toggles only affect *implicit* platform participation. They do
+not make an otherwise invalid source valid, and they do not block an
+entry from explicitly selecting a platform via `sources:` (or the
+`cf:<slug>` short form on `add`).
 
 ### Mod dependencies
 
@@ -676,14 +704,14 @@ The value is a map with any combination of:
 - a `version` — a [mod-version constraint](#mod-version-constraints);
 - a `channel` — a [release-channel floor](#release-channel-channel);
 - a `client:` and/or `server:` install state — see [Sides](#sides-client--server);
-- an `accepts-mc` widening — see [Per-entry MC version tolerance](#per-entry-mc-version-tolerance-accepts-mc);
+- an `accepts_mc` widening — see [Per-entry MC version tolerance](#per-entry-mc-version-tolerance-accepts_mc);
 - at most one **source** — where `gitrinth` should fetch the mod from.
 
 ```yaml
 mods:
-  # Hosted on a custom Modrinth-compatible server.
+  # Modrinth source against a custom Modrinth-compatible host (labrinth).
   journeymap:
-    hosted: https://modrinth.example.com
+    modrinth_host: https://modrinth.example.com
     version: ^5.10.0
 
   # Direct download URL.
@@ -700,17 +728,26 @@ mods:
     server: unsupported
 ```
 
-Each entry must specify **at most one** of `hosted`, `url`, or `path`.
-Omitting all three is equivalent to `hosted:` on the default Modrinth
-instance — useful when you only want to express a version constraint
-or per-side install state in the long form.
+`url:` and `path:` are mutually exclusive with each other. Omitting
+both is equivalent to selecting the Modrinth source kind. The
+optional `modrinth_host:` field is a host override on that Modrinth
+source — it co-exists with the implicit Modrinth selection but is
+mutually exclusive with `url:` / `path:`.
 
-| Source   | Publishable? | Notes                                                |
-|----------|--------------|------------------------------------------------------|
-| *(none)* | yes          | Default Modrinth instance.                           |
-| `hosted` | yes          | Any Modrinth-compatible server. Value is a base URL. |
-| `url`    | no           | Direct download URL for a `.jar`.                    |
-| `path`   | no           | Local filesystem path relative to `mods.yaml`.       |
+| Source                | Publishable? | Notes                                                                                 |
+|-----------------------|--------------|---------------------------------------------------------------------------------------|
+| *(none)*              | yes          | Default Modrinth instance (`https://api.modrinth.com/v2`).                            |
+| `modrinth_host: <url>`| yes          | Modrinth source against a custom host (labrinth deployment). Value is a base URL.     |
+| `url`                 | no           | Direct download URL for a `.jar`.                                                     |
+| `path`                | no           | Local filesystem path relative to `mods.yaml`.                                        |
+
+A pack-level `modrinth_host: <url>` field at the top of `mods.yaml`
+sets the default base URL for every entry that does not declare its
+own `modrinth_host:`. Section-map keys (the `<slug>:` part of each
+entry) are local identifiers — by default they double as the
+Modrinth project slug, but `modrinth:` and `curseforge:` peer
+fields override the slug used on each platform when the section key
+differs.
 
 **Caution.** For [`mods`](#mods) entries (and
 [`project_overrides`](#project_overrides) targeting a mod), `url` and
@@ -732,7 +769,7 @@ tier *and every more-stable tier* — never an exact-match filter.
 | Value     | Admits                 | Use when                                                                                       |
 |-----------|------------------------|------------------------------------------------------------------------------------------------|
 | `release` | release only           | The pack should ship only stable builds for this entry.                                        |
-| `beta`    | release + beta         | A stable build doesn't yet exist for the target `mc-version`, but a tagged beta is acceptable. |
+| `beta`    | release + beta         | A stable build doesn't yet exist for the target `mc_version`, but a tagged beta is acceptable. |
 | `alpha`   | release + beta + alpha | The mod only publishes alpha builds, or the pack tracks bleeding-edge versions deliberately.   |
 
 Omitting `channel` defaults to `alpha`, matching Modrinth's default of returning
@@ -842,27 +879,27 @@ The parser raises a clear migration error if a manifest still uses the
 old fields, so a stale `mods.yaml` will fail loud rather than silently
 ship under the wrong defaults.
 
-#### Per-entry MC version tolerance (`accepts-mc`)
+#### Per-entry MC version tolerance (`accepts_mc`)
 
-A long-form entry may include an `accepts-mc` field to **additively**
+A long-form entry may include an `accepts_mc` field to **additively**
 widen the Minecraft versions the resolver queries for that one entry.
-The pack's [`mc-version`](#mc-version) remains the single source of
-truth: `accepts-mc` never overrides it, never influences the server
+The pack's [`mc_version`](#mc_version) remains the single source of
+truth: `accepts_mc` never overrides it, never influences the server
 binary or loader, and never applies to other entries.
 
-Use it when a mod works on the pack's `mc-version` but the author
+Use it when a mod works on the pack's `mc_version` but the author
 only tagged adjacent versions on Modrinth. For example, a pack on
 `1.21.1` with a mod that's still tagged `1.21`:
 
 ```yaml
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9+mc1.21
-    accepts-mc: 1.21           # scalar shorthand for [1.21]
+    accepts_mc: 1.21           # scalar shorthand for [1.21]
   some-other-mod:
     version: ^2.0.0
-    accepts-mc: [1.21, 1.20.1] # explicit list form
+    accepts_mc: [1.21, 1.20.1] # explicit list form
 ```
 
 Snapshot-style tags are accepted too — Modrinth publishes a single
@@ -875,10 +912,10 @@ At resolve time, the Modrinth `game_versions` filter for `appleskin`
 becomes `["1.21.1", "1.21"]` instead of `["1.21.1"]`; every other
 entry in the pack is unaffected. The resolved version's actual
 Modrinth `game_versions` tag is recorded in `mods.lock` under
-`game-versions:`, so a future `mc-version` bump can surface entries
-that were only admitted via `accepts-mc`.
+`game-versions:`, so a future `mc_version` bump can surface entries
+that were only admitted via `accepts_mc`.
 
-`accepts-mc` is only available on long-form entries and works in the
+`accepts_mc` is only available on long-form entries and works in the
 same sections that support long form — [`mods`](#mods),
 [`resource_packs`](#resource_packs), [`data_packs`](#data_packs),
 [`shaders`](#shaders), and [`plugins`](#plugins). When adding a new
@@ -894,7 +931,7 @@ Four forms are supported:
 | Form  | Example            | Meaning                                                                                                                                                       |
 |-------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Exact | `19.27.0.340`      | Use this version and no other. Resolution fails if it is not compatible with the environment or with another mod.                                             |
-| Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with the declared [`loader`](#loader) and [`mc-version`](#mc-version) and every other mod.           |
+| Blank | *(empty value)*    | Use the **latest** version of the mod that is compatible with the declared [`loader`](#loader) and [`mc_version`](#mc_version) and every other mod.           |
 | Caret | `^6.0.10+mc1.21.1` | Use the latest version that is both compatible with the environment and *compatible with* `6.0.10+mc1.21.1` (same major for `1.x.y`, same minor for `0.x.y`). |
 | Range | `">=1.0.0 <3.0.0"` | Latest version inside the half-open semver range. Bounds may combine or stand alone (`">=1.5.0"`, `"<2.0.0"`). Quote so YAML doesn't read `<` as a tag.       |
 
@@ -948,7 +985,7 @@ mods:
 ```
 
 Since the Minecraft version and loader already live in
-[`loader`](#loader) and [`mc-version`](#mc-version), a shorter
+[`loader`](#loader) and [`mc_version`](#mc_version), a shorter
 constraint like `^6.0.10` is usually enough; `gitrinth` picks the
 matching build.
 
@@ -1065,7 +1102,7 @@ mods:
     client: required
     server: unsupported
   journeymap:
-    hosted: https://modrinth.example.com
+    modrinth_host: https://modrinth.example.com
     version: ^5.10.0
 ```
 
@@ -1279,8 +1316,8 @@ When `gitrinth` installs or updates a modpack it:
    override targets a slug not declared anywhere else — synthesizes a
    new entry in the section matching the Modrinth project type.
 3. For each entry, queries Modrinth (or the override source) for every
-   version whose `loader` and `mc-version` match the modpack's
-   [`loader`](#loader) and [`mc-version`](#mc-version).
+   version whose `loader` and `mc_version` match the modpack's
+   [`loader`](#loader) and [`mc_version`](#mc_version).
 4. Filters that list with the entry's version constraint.
 5. Picks the highest remaining version, preferring versions that are
    compatible with every *other* entry's declared dependencies.

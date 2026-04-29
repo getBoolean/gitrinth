@@ -178,7 +178,10 @@ Future<int> _runMigrate({
   final targetMc = mutated.mcVersion;
   final targetLoader = mutated.loader.mods;
 
-  final api = command.read(modrinthApiProvider);
+  // Migrate's recovery loop walks Modrinth-source entries; each one
+  // may have its own host. Pull the factory once and use it per
+  // entry inside the loop below.
+  final apiFactory = command.read(modrinthApiFactoryProvider);
 
   final available = <(Section, String)>{};
   final recovered = <(Section, String)>{};
@@ -213,9 +216,12 @@ Future<int> _runMigrate({
         // `^x.y.z` on success or re-mark on the next conflict catch.
         final isMarker = isAnyGitrinthMarker(entry.constraintRaw);
         final gameVersions = <String>{targetMc, ...entry.acceptsMc}.toList();
+        final entryApi = apiFactory.forHost(
+          manifest.effectiveModrinthHost(entry, apiFactory.defaultBaseUrl),
+        );
         List<modrinth.Version> versions;
         try {
-          versions = await api.listVersions(
+          versions = await entryApi.listVersions(
             slug,
             loadersJson: encodeFilterArray([targetLoader.name]),
             gameVersionsJson: encodeFilterArray(gameVersions),
@@ -297,7 +303,7 @@ Future<int> _runMigrate({
         }) => resolveAndSync(
           io: io,
           console: console,
-          api: api,
+          apiFactory: apiFactory,
           cache: cache,
           downloader: downloader,
           modLoaderResolver: modLoaderResolver,
@@ -333,7 +339,7 @@ Future<int> _runMigrate({
   if (newMcVersion != null) {
     yamlText = updateTopLevelScalar(
       yamlText,
-      path: const ['mc-version'],
+      path: const ['mc_version'],
       newValue: newMcVersion,
     );
   } else if (newLoader == ModLoader.vanilla) {

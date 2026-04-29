@@ -27,6 +27,7 @@ import 'downloader.dart';
 import 'mod_loader_version_resolver.dart';
 import 'manifest_io.dart';
 import 'modrinth_api.dart';
+import 'modrinth_api_factory.dart';
 import 'plugin_loader_version_resolver.dart';
 import 'section_inference.dart';
 import 'solve_report.dart';
@@ -87,7 +88,7 @@ class ResolveSyncResult {
 Future<ResolveSyncResult> resolveAndSync({
   required ManifestIo io,
   required Console console,
-  required ModrinthApi api,
+  required ModrinthApiFactory apiFactory,
   required GitrinthCache cache,
   required Downloader downloader,
   required ModLoaderVersionResolver modLoaderResolver,
@@ -103,6 +104,12 @@ Future<ResolveSyncResult> resolveAndSync({
   final reporter = SolveReporter(console);
 
   final manifest = manifestOverride ?? io.readModsYaml();
+  final defaultBaseUrl = apiFactory.defaultBaseUrl;
+  // Effective host for entries that don't override their own. Used for
+  // the pack-level slug → projectType lookups (project_overrides
+  // section inference) and for the one-shot `mc_version` validation.
+  final packHost = manifest.modrinthHost ?? defaultBaseUrl;
+  final api = apiFactory.forHost(packHost);
   final projectOverrides = io.readProjectOverrides();
   final slugCache = <String, String?>{};
   // The slug → project_type lookup feeds two things: section
@@ -220,12 +227,22 @@ Future<ResolveSyncResult> resolveAndSync({
 
   final versionsPerSlug = <String, List<modrinth.Version>>{};
 
+  // Per-entry effective host for the Modrinth source. Walks
+  // `entry.source.host → manifest.modrinthHost → defaultBaseUrl` via
+  // [ModsYaml.effectiveModrinthHost] so the chain lives in one place.
+  String entryHost(Section section, String slug, ModEntry? declaredEntry) {
+    final entry = declaredEntry ?? merged.sectionEntries(section)[slug];
+    if (entry == null) return packHost;
+    return manifest.effectiveModrinthHost(entry, defaultBaseUrl);
+  }
+
   final resolver = Resolver(
     listVersions: (slug) async {
       final section = slugToSection[slug] ?? Section.mods;
       final loaderFilter = filterLoadersForSection(loaderConfig, section);
       final entry = merged.sectionEntries(section)[slug];
       final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
+      final host = entryHost(section, slug, entry);
 
       if (offline) {
         final lockedProjectId = existingLock
@@ -239,7 +256,7 @@ Future<ResolveSyncResult> resolveAndSync({
           );
         }
         final cached = cache
-            .listCachedVersions(lockedProjectId)
+            .listCachedVersions(host, lockedProjectId)
             .where((v) => _matchesLoaderAndMc(v, loaderFilter, gameVersions))
             .toList();
         versionsPerSlug[slug] = cached;
@@ -247,7 +264,7 @@ Future<ResolveSyncResult> resolveAndSync({
       }
 
       try {
-        final list = await api.listVersions(
+        final list = await apiFactory.forHost(host).listVersions(
           slug,
           loadersJson: loaderFilter == null
               ? null
@@ -265,7 +282,10 @@ Future<ResolveSyncResult> resolveAndSync({
     resolveSlugForProjectId: (projectId) async {
       if (slugCache.containsKey(projectId)) return slugCache[projectId];
       try {
-        final Project proj = await api.getProject(projectId);
+        // Reverse-lookup project IDs against the pack default host —
+        // transitive deps don't carry their own per-entry host yet.
+        final Project proj =
+            await apiFactory.forHost(packHost).getProject(projectId);
         slugCache[projectId] = proj.slug;
         return proj.slug;
       } on Object {
@@ -289,6 +309,7 @@ Future<ResolveSyncResult> resolveAndSync({
     final section = slugToSection[slug] ?? Section.mods;
     final loaderFilter = filterLoadersForSection(loaderConfig, section);
     final gameVersions = <String>{mc, ...entry.acceptsMc}.toList();
+    final overrideHost = entryHost(section, slug, entry);
     final List<modrinth.Version> candidates;
     if (offline) {
       final lockedProjectId = existingLock
@@ -301,12 +322,12 @@ Future<ResolveSyncResult> resolveAndSync({
         );
       }
       candidates = cache
-          .listCachedVersions(lockedProjectId)
+          .listCachedVersions(overrideHost, lockedProjectId)
           .where((v) => _matchesLoaderAndMc(v, loaderFilter, gameVersions))
           .toList();
     } else {
       try {
-        candidates = await api.listVersions(
+        candidates = await apiFactory.forHost(overrideHost).listVersions(
           slug,
           loadersJson: loaderFilter == null
               ? null
@@ -392,7 +413,12 @@ Future<ResolveSyncResult> resolveAndSync({
   // forward edges; future `gitrinth upgrade --unlock-transitive`
   // recomputes the closure from these JSON files. Failure here warns
   // but doesn't abort — the artifact download is the contract.
-  _persistVersionMetadata(resolution, cache, console);
+  _persistVersionMetadata(
+    resolution,
+    cache,
+    console,
+    (r) => entryHost(r.section, r.slug, null),
+  );
 
   int downloaded = 0;
   int hits = 0;
@@ -416,6 +442,7 @@ Future<ResolveSyncResult> resolveAndSync({
             final url = file.url;
             if (url == null) continue;
             final dest = cache.modrinthPath(
+              host: entryHost(section, locked.slug, null),
               projectId: projectId,
               versionId: versionId,
               filename: file.name,

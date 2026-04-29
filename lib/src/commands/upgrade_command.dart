@@ -96,7 +96,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     final markerSlugs = {for (final k in markerByEntry.keys) k.$2};
     final allSlugs = {...modrinthSlugs, ...markerSlugs, ...nonModrinthSlugs};
 
-    final api = read(modrinthApiProvider);
+    final apiFactory = read(modrinthApiFactoryProvider);
 
     // Recovery rewrites a constraint, so it's gated on --major-versions.
     final recovered = <(Section, String)>{};
@@ -108,6 +108,9 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
           manifest.mcVersion,
           ...entry.acceptsMc,
         }.toList();
+        final api = apiFactory.forHost(
+          manifest.effectiveModrinthHost(entry, apiFactory.defaultBaseUrl),
+        );
         List versions;
         try {
           versions = await api.listVersions(
@@ -167,10 +170,25 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
 
     if (unlockTransitive && targets.isNotEmpty) {
+      final defaultBaseUrl = apiFactory.defaultBaseUrl;
+      String hostForSlug(String slug) {
+        for (final section in Section.values) {
+          final manifestEntry = manifest.sectionEntries(section)[slug];
+          if (manifestEntry != null) {
+            return manifest.effectiveModrinthHost(
+              manifestEntry,
+              defaultBaseUrl,
+            );
+          }
+        }
+        return manifest.modrinthHost ?? defaultBaseUrl;
+      }
+
       targets = walkTransitiveClosure(
         targets,
         io.readModsLock(),
         read(cacheProvider),
+        hostForSlug: hostForSlug,
         console: console,
         verboseLabel: 'upgrade --unlock-transitive',
       );

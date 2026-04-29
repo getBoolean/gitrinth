@@ -36,7 +36,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^19.27.0.340
 ''';
@@ -45,13 +45,13 @@ mods:
 gitrinth-version: 0.1.0
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     source: modrinth
     version: "19.27.0.340"
-    project-id: jei-id
-    version-id: jei-version
+    project_id: jei-id
+    version_id: jei-version
     file:
       name: jei.jar
       url: https://example.com/jei.jar
@@ -86,7 +86,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: ^19.27.0.340
@@ -111,7 +111,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   create: ^6.0.10
 ''');
@@ -119,13 +119,13 @@ mods:
 gitrinth-version: 0.1.0
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   create:
     source: modrinth
     version: "6.0.10+mc1.21.1"
-    project-id: c
-    version-id: v
+    project_id: c
+    version_id: v
     file:
       name: create.jar
       url: https://example.com/create.jar
@@ -169,7 +169,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   custom:
     url: https://example.com/custom.jar
@@ -178,7 +178,7 @@ mods:
 gitrinth-version: 0.1.0
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   custom:
     source: url
@@ -207,7 +207,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   terralith: ^2.5.8
 data_packs:
@@ -217,13 +217,13 @@ data_packs:
 gitrinth-version: 0.1.0
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   terralith:
     source: modrinth
     version: "2.5.8"
-    project-id: t
-    version-id: v
+    project_id: t
+    version_id: v
     file:
       name: t.jar
       url: https://example.com/t.jar
@@ -235,8 +235,8 @@ data_packs:
   terralith:
     source: modrinth
     version: "2.5.8"
-    project-id: t
-    version-id: v
+    project_id: t
+    version_id: v
     file:
       name: t.zip
       url: https://example.com/t.zip

@@ -51,7 +51,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -94,7 +94,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -121,7 +121,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -149,7 +149,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -173,7 +173,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -201,7 +201,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -233,7 +233,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
       final out = await runCli([
@@ -268,7 +268,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
       final out = await runCli([
@@ -301,7 +301,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -326,7 +326,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: release
 ''');
@@ -357,7 +357,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
     await writeManifest(before);
 
@@ -384,7 +384,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
       // Serve one jar so the download succeeds.
@@ -419,7 +419,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -450,7 +450,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -479,7 +479,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
     final out = await runCli([
       '-C',
@@ -501,7 +501,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -529,7 +529,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   # comment above jei
   jei: ^1.0.0 # inline comment on jei
@@ -567,7 +567,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -595,7 +595,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
     final out = await runCli([
       '-C',
@@ -630,7 +630,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 ''');
 
@@ -651,7 +651,7 @@ mods:
         expect(yaml, contains('appleskin:'));
         expect(yaml, contains('version: ^3.0.9'));
         // yaml_edit may quote numeric-looking scalars.
-        expect(yaml, contains(RegExp(r'''accepts-mc:\s*['"]?1\.21['"]?''')));
+        expect(yaml, contains(RegExp(r'''accepts_mc:\s*['"]?1\.21['"]?''')));
       },
     );
 
@@ -669,7 +669,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 ''');
 
@@ -692,7 +692,7 @@ mods:
         yaml,
         contains(
           RegExp(
-            r'''accepts-mc:\s*\n\s+-\s*['"]?1\.21['"]?\s*\n\s+-\s*['"]?1\.20\.1['"]?''',
+            r'''accepts_mc:\s*\n\s+-\s*['"]?1\.21['"]?\s*\n\s+-\s*['"]?1\.20\.1['"]?''',
           ),
         ),
       );
@@ -712,7 +712,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 ''');
 
@@ -740,7 +740,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 ''');
 
@@ -764,7 +764,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 ''');
 
@@ -797,7 +797,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -824,7 +824,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -846,7 +846,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -868,7 +868,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -891,7 +891,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -914,7 +914,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
       final bytes = Uint8List.fromList([1, 2, 3, 4]);
@@ -946,7 +946,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
       final out = await runCli([
         '-C',
@@ -976,7 +976,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
         final out = await runCli([
           '-C',
@@ -1012,7 +1012,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1050,7 +1050,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1080,7 +1080,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1118,7 +1118,7 @@ description: x
 loader:
   mods: "neoforge:21.1.50"
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
         final out = await runCli([
@@ -1149,7 +1149,7 @@ version: 0.1.0
 description: x
 loader:
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
       final out = await runCli([

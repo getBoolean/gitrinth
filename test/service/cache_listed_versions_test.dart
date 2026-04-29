@@ -16,12 +16,15 @@ void main() {
     });
     tearDown(() => tempRoot.deleteSync(recursive: true));
 
+    const host = 'https://api.modrinth.com/v2';
+
     void writeSidecar(
       String projectId,
       String versionId,
       Map<String, dynamic> v,
     ) {
       final path = cache.modrinthVersionMetadataPath(
+        host: host,
         projectId: projectId,
         versionId: versionId,
       );
@@ -29,7 +32,7 @@ void main() {
       File(path).writeAsStringSync(jsonEncode(v));
     }
 
-    test('returns every parsed version under <projectId>/', () {
+    test('returns every parsed version under <host>/<projectId>/', () {
       writeSidecar(
         'p1',
         'v1',
@@ -46,12 +49,12 @@ void main() {
         _versionPayload(id: 'vx', projectId: 'p2', version: '0.1.0'),
       );
 
-      final got = cache.listCachedVersions('p1').toList();
+      final got = cache.listCachedVersions(host, 'p1').toList();
       expect(got.map((v) => v.id), unorderedEquals(['v1', 'v2']));
     });
 
     test('returns an empty iterable when projectId never cached', () {
-      expect(cache.listCachedVersions('never-seen'), isEmpty);
+      expect(cache.listCachedVersions(host, 'never-seen'), isEmpty);
     });
 
     test('skips malformed sidecars (logs warn but does not throw)', () {
@@ -61,14 +64,24 @@ void main() {
         _versionPayload(id: 'good', projectId: 'p1', version: '1.0.0'),
       );
       final badPath = cache.modrinthVersionMetadataPath(
+        host: host,
         projectId: 'p1',
         versionId: 'bad',
       );
       Directory(p.dirname(badPath)).createSync(recursive: true);
       File(badPath).writeAsStringSync('{not json');
 
-      final got = cache.listCachedVersions('p1').toList();
+      final got = cache.listCachedVersions(host, 'p1').toList();
       expect(got.map((v) => v.id), equals(['good']));
+    });
+
+    test('default host and custom host map to different cache segments',
+        () {
+      const customHost = 'https://modrinth.example.com';
+      expect(
+        GitrinthCache.hostCacheSegment(host),
+        isNot(equals(GitrinthCache.hostCacheSegment(customHost))),
+      );
     });
   });
 }

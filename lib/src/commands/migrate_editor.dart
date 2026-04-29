@@ -6,7 +6,7 @@ import '../model/manifest/mods_yaml.dart';
 import '../util/yaml_root.dart';
 import 'add_command_editor.dart';
 
-/// Updates a top-level scalar at [path] (e.g. `['mc-version']`,
+/// Updates a top-level scalar at [path] (e.g. `['mc_version']`,
 /// `['loader', 'mods']`).
 String updateTopLevelScalar(
   String yamlText, {

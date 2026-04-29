@@ -81,7 +81,7 @@ abstract class GitrinthCommand extends Command<int> {
     return resolveAndSync(
       io: io,
       console: console,
-      api: read(modrinthApiProvider),
+      apiFactory: read(modrinthApiFactoryProvider),
       cache: read(cacheProvider),
       downloader: read(downloaderProvider),
       modLoaderResolver: read(modLoaderVersionResolverProvider),

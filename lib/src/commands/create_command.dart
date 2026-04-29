@@ -110,7 +110,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
       'name': packName,
       'version': '0.1.0',
       'description': 'A new Modrinth modpack.',
-      'mc-version': mcVersion,
+      'mc_version': mcVersion,
       'gitrinth-version': packageVersion,
       'gitrinth-next-major': nextMajor(packageVersion),
     };
@@ -172,7 +172,9 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
   /// a project with this slug already exists. Network failures are
   /// non-fatal — they degrade to a warning so offline scaffolding still works.
   Future<void> _warnIfSlugTaken(String slug) async {
-    final api = read(modrinthApiProvider);
+    // No manifest exists yet at scaffold time — talk to the global
+    // default Modrinth host.
+    final api = read(modrinthApiFactoryProvider).forHost(null);
     try {
       final resp = await api.checkProjectValidity(slug);
       final status = resp.response.statusCode;

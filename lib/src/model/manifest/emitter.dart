@@ -32,7 +32,7 @@ String emitModsLock(ModsLock lock) {
       buf.writeln('  plugins: ${_str("${plugins.name}:$pluginVersion")}');
     }
   }
-  buf.writeln('mc-version: ${_str(lock.mcVersion)}');
+  buf.writeln('mc_version: ${_str(lock.mcVersion)}');
 
   _emitSection(buf, 'mods', lock.mods);
   _emitSection(buf, 'resource_packs', lock.resourcePacks);
@@ -89,9 +89,9 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   final version = e.version;
   if (version != null) buf.writeln('    version: ${_str(version)}');
   final projectId = e.projectId;
-  if (projectId != null) buf.writeln('    project-id: ${_str(projectId)}');
+  if (projectId != null) buf.writeln('    project_id: ${_str(projectId)}');
   final versionId = e.versionId;
-  if (versionId != null) buf.writeln('    version-id: ${_str(versionId)}');
+  if (versionId != null) buf.writeln('    version_id: ${_str(versionId)}');
   final path = e.path;
   if (path != null) buf.writeln('    path: ${_str(path)}');
   final f = e.file;
@@ -117,11 +117,11 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   }
   if (e.gameVersions.isNotEmpty) {
     final quoted = e.gameVersions.map(_str).join(', ');
-    buf.writeln('    game-versions: [$quoted]');
+    buf.writeln('    game_versions: [$quoted]');
   }
   if (e.acceptsMc.isNotEmpty) {
     final quoted = e.acceptsMc.map(_str).join(', ');
-    buf.writeln('    accepts-mc: [$quoted]');
+    buf.writeln('    accepts_mc: [$quoted]');
   }
 }
 

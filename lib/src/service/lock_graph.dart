@@ -12,10 +12,12 @@ import 'console.dart';
 /// the version legitimately has no required deps.
 List<String>? readCachedRequiredChildren(
   GitrinthCache cache,
+  String host,
   String projectId,
   String versionId,
 ) {
   final path = cache.modrinthVersionMetadataPath(
+    host: host,
     projectId: projectId,
     versionId: versionId,
   );
@@ -56,6 +58,7 @@ Set<String> walkTransitiveClosure(
   Set<String> seeds,
   ModsLock? lock,
   GitrinthCache cache, {
+  required String Function(String slug) hostForSlug,
   Console? console,
   String verboseLabel = 'walkTransitiveClosure',
 }) {
@@ -89,7 +92,8 @@ Set<String> walkTransitiveClosure(
     final vid = entry.versionId;
     if (pid == null || vid == null) continue;
 
-    final children = readCachedRequiredChildren(cache, pid, vid);
+    final children =
+        readCachedRequiredChildren(cache, hostForSlug(slug), pid, vid);
     if (children == null) {
       console?.io(
         "$verboseLabel: no cached version.json for "

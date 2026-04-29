@@ -18,6 +18,10 @@ class CachedArtifact {
   final String filename;
   final int size;
 
+  /// Modrinth-only. Filesystem-safe segment of the host this artifact
+  /// was fetched from (`api.modrinth.com_v2`, etc.).
+  final String? hostSegment;
+
   /// Modrinth-only.
   final String? projectId;
   final String? versionId;
@@ -30,6 +34,7 @@ class CachedArtifact {
     required this.location,
     required this.filename,
     required this.size,
+    this.hostSegment,
     this.projectId,
     this.versionId,
     this.sha512,
@@ -38,6 +43,7 @@ class CachedArtifact {
   Map<String, Object?> toJson() {
     return {
       'source': source,
+      if (hostSegment != null) 'host': hostSegment,
       if (projectId != null) 'projectId': projectId,
       if (versionId != null) 'versionId': versionId,
       if (sha512 != null) 'sha512': sha512,
@@ -81,14 +87,16 @@ class CacheInspector {
         if (filename == 'version.json') continue;
         final rel = p.relative(entity.path, from: cache.modrinthRoot);
         final parts = p.split(rel);
-        if (parts.length < 3) continue;
+        // New layout: <hostSegment>/<projectId>/<versionId>/<filename>.
+        if (parts.length < 4) continue;
         yield CachedArtifact(
           source: 'modrinth',
           location: entity.path,
           filename: filename,
           size: entity.lengthSync(),
-          projectId: parts[0],
-          versionId: parts[1],
+          hostSegment: parts[0],
+          projectId: parts[1],
+          versionId: parts[2],
         );
       }
     }
@@ -221,10 +229,10 @@ class CacheInspector {
       );
       return _ModrinthRepair.skippedOrphan;
     }
-    final metaPath = cache.modrinthVersionMetadataPath(
-      projectId: projectId,
-      versionId: versionId,
-    );
+    // Metadata lives next to the artifact in the same versioned dir.
+    // Compute it relative to the artifact rather than re-deriving the
+    // host from the segment.
+    final metaPath = p.join(p.dirname(artifact.location), 'version.json');
     final metaFile = File(metaPath);
     if (!metaFile.existsSync()) {
       console.warn(

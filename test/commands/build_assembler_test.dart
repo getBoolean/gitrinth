@@ -184,16 +184,19 @@ void main() {
 
   group('resolveSourcePath', () {
     final cache = GitrinthCache(root: p.join('tmpcache', 'root'));
+    const host = 'https://api.modrinth.com/v2';
 
     test('modrinth source resolves via cache.modrinthPath', () {
       final path = resolveSourcePath(
         cache,
         _modrinth('jei'),
         projectDir: p.join('some', 'proj'),
+        modrinthHost: host,
       );
       expect(
         path,
         cache.modrinthPath(
+          host: host,
           projectId: 'PRJ',
           versionId: 'VER',
           filename: 'jei.jar',
@@ -207,6 +210,7 @@ void main() {
         cache,
         entry,
         projectDir: p.join('some', 'proj'),
+        modrinthHost: host,
       );
       expect(
         path,
@@ -220,6 +224,7 @@ void main() {
         cache,
         _path('local', p.join('mods', 'local.jar')),
         projectDir: projectDir,
+        modrinthHost: host,
       );
       expect(path, p.normalize(p.join(projectDir, 'mods', 'local.jar')));
     });
@@ -230,6 +235,7 @@ void main() {
         cache,
         _path('abs', abs),
         projectDir: p.join(p.separator, 'elsewhere'),
+        modrinthHost: host,
       );
       expect(path, abs);
     });
@@ -241,7 +247,12 @@ void main() {
         file: const LockedFile(name: 'broken.jar'),
       );
       expect(
-        () => resolveSourcePath(cache, broken, projectDir: '.'),
+        () => resolveSourcePath(
+          cache,
+          broken,
+          projectDir: '.',
+          modrinthHost: host,
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
@@ -254,7 +265,12 @@ void main() {
           sourceKind: LockedSourceKind.url,
           file: const LockedFile(name: 'unhashed.jar'),
         );
-        final path = resolveSourcePath(cache, entry, projectDir: '.');
+        final path = resolveSourcePath(
+          cache,
+          entry,
+          projectDir: '.',
+          modrinthHost: host,
+        );
         expect(path, contains('_unverified'));
         expect(path, contains('unhashed'));
         expect(path, endsWith('unhashed.jar'));

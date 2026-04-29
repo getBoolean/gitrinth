@@ -367,9 +367,9 @@ whose filename doesn't uniquely identify a type (non-`.jar` files).
 
 `--accepts-mc <mc-version>` widens the Modrinth `game_versions` query
 when picking a default constraint, and persists the list under
-[`accepts-mc`](mods-yaml.md#per-entry-mc-version-tolerance-accepts-mc)
+[`accepts_mc`](mods-yaml.md#per-entry-mc-version-tolerance-accepts_mc)
 on the new entry (forces long form). Use when the mod works on the
-pack's [`mc-version`](mods-yaml.md#mc-version) but the author tagged
+pack's [`mc_version`](mods-yaml.md#mc_version) but the author tagged
 only adjacent versions on Modrinth. Incompatible with `--url` /
 `--path`.
 
@@ -447,7 +447,7 @@ gitrinth override <slug>[@<constraint>] [arguments]
 | `--offline` | Skip Modrinth queries; use the cache only. |
 
 With no `@<constraint>`, `override` picks the latest release matching
-loader and `mc-version`. The override version is sticky — other mods'
+loader and `mc_version`. The override version is sticky — other mods'
 constraints on the same slug are silently ignored.
 
 `override` does **not** run the incompatibility-prevention check
@@ -524,7 +524,7 @@ derived value.
 |-------------------|-------------------------------------------------------------------------------------------------------------|
 | `--mod-loader`   | Pre-fill [`loader.mods`](mods-yaml.md#loader). Defaults to `neoforge` when no plugin loader is specified.   |
 | `--plugin-loader` | Pre-fill [`loader.plugins`](mods-yaml.md#plugin-loaders). Omit `--mod-loader` for a plugin-only scaffold. |
-| `--mc-version`    | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Defaults to `1.21.1`.                                     |
+| `--mc-version`    | Pre-fill [`mc_version`](mods-yaml.md#mc_version). Defaults to `1.21.1`.                                     |
 | `--slug`          | Override the derived slug.                                                                                  |
 | `--name`          | Override the display [`name`](mods-yaml.md#name).                                                           |
 | `--force`         | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`.                              |
@@ -561,10 +561,10 @@ description: A new Modrinth modpack.
 
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 
-tooling:
-  gitrinth: ">=0.1.0 <1.0.0"
+gitrinth:
+  version: ">=0.1.0 <1.0.0"
 
 mods:
 
@@ -585,7 +585,7 @@ or server.
 
 The server distribution includes the matching server binary for
 [`loader`](mods-yaml.md#loader) and
-[`mc-version`](mods-yaml.md#mc-version), fetched and installed
+[`mc_version`](mods-yaml.md#mc_version), fetched and installed
 automatically from the upstream Maven repositories. Fabric drops in
 `fabric-server-launch.jar`; Forge and NeoForge run their official
 installer in `--installServer` mode against `build/server/`, so the
@@ -638,7 +638,7 @@ binary path and install marker.
 
 When neither `loader.plugins` nor a real `loader.mods` is declared
 (pure-vanilla pack), `gitrinth build server` downloads the official
-Mojang `server.jar` for the pack's `mc-version` from
+Mojang `server.jar` for the pack's `mc_version` from
 `piston-meta.mojang.com`.
 
 #### Prune behavior
@@ -892,7 +892,7 @@ or `:` elsewhere) — useful for portable installs and CI.
 `launch server`, `launch client`, and `build server` all need a
 JVM — the server's launch script, the loader installer, and the
 Forge/NeoForge `--installServer` step. gitrinth picks one automatically
-based on the modpack's `mc-version` so you don't have to install or
+based on the modpack's `mc_version` so you don't have to install or
 switch JDKs yourself.
 
 ##### Required JDK feature per Minecraft version
@@ -1107,7 +1107,7 @@ want a particular mod in the pack despite a declared incompatibility.
 | `GITRINTH_MODRINTH_URL`                 | every command            | Override the default Modrinth API base URL.                                                                                                                      |
 | `GITRINTH_TOKEN`                        | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix) per the Modrinth auth doc. Other hosts always use the stored token.      |
 | `HOME` / `USERPROFILE`                  | every command            | Resolves the default cache root and user config path. `USERPROFILE` on Windows; `HOME` elsewhere.                                                                |
-| `JAVA_HOME`                             | `launch` / `build`       | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc-version`.                                                          |
+| `JAVA_HOME`                             | `launch` / `build`       | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc_version`.                                                          |
 | `GITRINTH_JAVA_METADATA_URL`            | `launch` / `build`       | Override Adoptium metadata URL.                                                                                                                                  |
 | `GITRINTH_FABRIC_META_URL`              | every command            | Override the fabric-meta loader-list URL.                                                                                                                        |
 | `GITRINTH_FORGE_PROMOTIONS_URL`         | every command            | Override the Forge `promotions_slim.json` URL.                                                                                                                   |
@@ -1184,7 +1184,7 @@ gitrinth completion powershell >> $PROFILE
 ## Compatibility
 
 `gitrinth` follows semver for its CLI surface.
-[`tooling.gitrinth`](mods-yaml.md#gitrinth) pins the expected
+[`gitrinth.version`](mods-yaml.md#gitrinth) pins the expected
 compatibility window.
 
 ## See also

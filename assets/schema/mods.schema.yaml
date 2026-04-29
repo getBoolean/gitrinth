@@ -11,7 +11,7 @@ required:
   - version
   - description
   - loader
-  - mc-version
+  - mc_version
 
 properties:
 
@@ -194,7 +194,7 @@ properties:
         type: string
         pattern: ^(bukkit|folia|paper|spigot|sponge)(:[^:\s][^:]*)?$
 
-  mc-version:
+  mc_version:
     type: string
     description: |
       Exact Minecraft version, e.g. "1.21.1". No ranges or wildcards.
@@ -204,15 +204,45 @@ properties:
       compatibility, and server-binary selection alongside `loader`.
     pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]*$
 
-  tooling:
+  modrinth_host:
+    type: [ string, "null" ]
+    format: uri
+    description: |
+      Pack-level default base URL for the Modrinth source kind. When
+      set, every Modrinth-source entry that does not declare its own
+      `modrinth_host:` resolves against this URL instead of
+      `https://api.modrinth.com/v2`.
+
+  gitrinth:
     type: [ object, "null" ]
-    description: Tooling version constraints.
+    description: |
+      Tooling configuration for gitrinth itself. Holds the semver
+      constraint on the running gitrinth CLI (`gitrinth.version`) and
+      the platform default toggles (`gitrinth.modrinth`,
+      `gitrinth.curseforge`) that decide which sources participate by
+      default.
     additionalProperties: false
     properties:
-      gitrinth:
+      version:
         type: [ string, "null" ]
         description: Semver range for the gitrinth CLI (e.g. "^1.0.0", ">=1.0.0 <2.0.0").
         minLength: 1
+      modrinth:
+        description: |
+          Whether Modrinth participates by default for entries that do
+          not restrict their `sources:` set. Defaults to `enabled`.
+        enum:
+          - enabled
+          - disabled
+      curseforge:
+        description: |
+          Whether CurseForge participates by default for entries that
+          do not restrict their `sources:` set. Defaults to `disabled`.
+          Explicit `sources: curseforge` or `cf:<slug>` opts an entry
+          into CurseForge regardless of this toggle.
+        enum:
+          - enabled
+          - disabled
 
   mods:
     description: |
@@ -336,8 +366,10 @@ $defs:
   modDependency:
     description: |
       Mod dependency. Short form: a version constraint (from default
-      Modrinth). Long form: object with at most one source (`hosted`,
-      `url`, `path`) and optional `version`.
+      Modrinth). Long form: object with at most one of `url:` / `path:`
+      and optional `version`. `modrinth_host:` may co-exist with the
+      Modrinth source kind (`modrinth:` or no source override) but is
+      mutually exclusive with `url:` / `path:`.
     oneOf:
       - $ref: "#/$defs/modVersion"
       - $ref: "#/$defs/modSource"
@@ -345,8 +377,10 @@ $defs:
   modSource:
     type: object
     description: |
-      Long-form mod dependency. At most one of `hosted`, `url`, `path`.
-      `url` and `path` make the modpack non-publishable to Modrinth.
+      Long-form mod dependency. At most one of `url`, `path`.
+      `modrinth_host:` is a host override on the Modrinth source kind
+      and is mutually exclusive with `url`/`path`. `url` and `path`
+      make the modpack non-publishable to Modrinth.
     additionalProperties: false
     properties:
       version:
@@ -378,12 +412,47 @@ $defs:
           - required
           - optional
           - unsupported
-      accepts-mc:
+      accepts_mc:
         $ref: "#/$defs/acceptsMc"
-      hosted:
+      modrinth:
+        type: string
+        description: |
+          Modrinth project slug for this entry, when it differs from
+          the section-map key. The section-map key is treated as the
+          local identifier; this field overrides the slug used to
+          query the Modrinth source.
+        minLength: 1
+      curseforge:
+        type: string
+        description: |
+          CurseForge project slug or numeric project ID for this
+          entry. CurseForge resolution itself ships in a later part
+          of the bridge — the field is parsed today so manifests
+          can be authored ahead of resolver support.
+        minLength: 1
+      sources:
+        description: |
+          Restrict this entry's resolution to a subset of platforms.
+          Accepts a single platform name or a list of unique platform
+          names from `{modrinth, curseforge}`. When omitted, the entry
+          falls back to the `gitrinth.modrinth` / `gitrinth.curseforge`
+          defaults.
+        oneOf:
+          - type: string
+            enum: [ modrinth, curseforge ]
+          - type: array
+            items:
+              type: string
+              enum: [ modrinth, curseforge ]
+            uniqueItems: true
+            minItems: 1
+      modrinth_host:
         type: string
         format: uri
-        description: Base URL of a Modrinth-compatible server.
+        description: |
+          Per-entry override for the Modrinth source kind's base URL.
+          Co-exists with the Modrinth source — the entry still speaks
+          the Modrinth API, just against a different host.
       url:
         type: string
         format: uri
@@ -394,9 +463,9 @@ $defs:
         minLength: 1
     allOf:
       - not:
-          required: [ hosted, url ]
+          required: [ modrinth_host, url ]
       - not:
-          required: [ hosted, path ]
+          required: [ modrinth_host, path ]
       - not:
           required: [ url, path ]
 
