@@ -47,7 +47,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^19.0.0
 ''');
@@ -196,7 +196,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^19.0.0
 project_overrides:
@@ -272,7 +272,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   other: ^1.0.0
   mod_a: ^1.0.0

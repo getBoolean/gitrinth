@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:gitrinth/src/service/cache.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -69,7 +70,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -89,8 +90,16 @@ mods:
       expect(lockText, contains('jei:'));
       expect(lockText, contains('version: 1.0.0'));
 
+      final hostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
       final cachedJar = File(
-        p.join(cacheDir.path, 'modrinth', 'JEI_ID', 'JEI_V1', 'jei-1.0.0.jar'),
+        p.join(
+          cacheDir.path,
+          'modrinth',
+          hostSeg,
+          'JEI_ID',
+          'JEI_V1',
+          'jei-1.0.0.jar',
+        ),
       );
       expect(cachedJar.existsSync(), isTrue);
       expect(cachedJar.readAsBytesSync(), jarBytes);
@@ -127,7 +136,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a:
 ''');
@@ -157,7 +166,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -190,7 +199,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
 ''');
@@ -234,7 +243,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: beta
 ''');
@@ -285,7 +294,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a:
     channel: release
@@ -315,7 +324,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   does-not-exist: ^1.0.0
 ''');
@@ -365,7 +374,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   b: ^1.0.0
 ''');
@@ -423,7 +432,7 @@ description: x
 loader:
   mods: "neoforge:21.1.50"
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   complementary-reimagined: ^r5.7.1
 ''');
@@ -486,7 +495,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 resource_packs:
   faithful-32x: ^1.21.1-december-2025
 ''');
@@ -548,7 +557,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 data_packs:
   terralith: ^2.5.8
 ''');
@@ -619,7 +628,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
   local-a:
@@ -646,11 +655,13 @@ mods:
       );
       // The modrinth download still has to have happened — proving the error
       // surfaced AFTER the loop completed rather than short-circuiting it.
+      final pathHostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
       expect(
         File(
           p.join(
             cacheDir.path,
             'modrinth',
+            pathHostSeg,
             'JEI_ID',
             'JEI_V1',
             'jei-1.0.0.jar',
@@ -674,7 +685,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -701,7 +712,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.99.99
+mc_version: 1.99.99
 mods: {}
 ''');
 
@@ -729,7 +740,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -767,7 +778,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -792,7 +803,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   jei: ^2.0.0
 ''');
@@ -817,7 +828,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -854,7 +865,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:stable"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -896,7 +907,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:latest"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -932,7 +943,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -963,7 +974,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:stable"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -999,7 +1010,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:stable"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1047,7 +1058,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "forge:47.2.0"
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1066,7 +1077,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "forge:47.4.10"
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1109,7 +1120,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -1130,7 +1141,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.99.99-unvalidated"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -1167,7 +1178,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1200,11 +1211,11 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21]
+    accepts_mc: [1.21]
 ''');
 
       final out = await runCli(
@@ -1224,8 +1235,8 @@ mods:
         p.join(packDir.path, 'mods.lock'),
       ).readAsStringSync();
       expect(lockText, contains('appleskin:'));
-      expect(lockText, contains('game-versions: ["1.21"]'));
-      expect(lockText, contains('accepts-mc: ["1.21"]'));
+      expect(lockText, contains('game_versions: ["1.21"]'));
+      expect(lockText, contains('accepts_mc: ["1.21"]'));
     },
   );
 
@@ -1251,11 +1262,11 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21]
+    accepts_mc: [1.21]
 ''');
 
       final out = await runCli(
@@ -1270,8 +1281,8 @@ mods:
       final lockText = File(
         p.join(packDir.path, 'mods.lock'),
       ).readAsStringSync();
-      expect(lockText, contains('game-versions: ["1.21", 1.21.1]'));
-      expect(lockText, contains('accepts-mc: ["1.21"]'));
+      expect(lockText, contains('game_versions: ["1.21", 1.21.1]'));
+      expect(lockText, contains('accepts_mc: ["1.21"]'));
     },
   );
 
@@ -1292,7 +1303,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin: ^3.0.9
 ''');
@@ -1307,7 +1318,7 @@ mods:
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
-    expect(lockText, isNot(contains('accepts-mc:')));
+    expect(lockText, isNot(contains('accepts_mc:')));
   });
 
   // Regression: a long-form entry with `version:` set to a channel
@@ -1339,7 +1350,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   distanthorizons:
     version: beta
@@ -1363,7 +1374,7 @@ mods:
       // Channel `beta` admits both `release` and `beta` versions; the
       // higher version (3.0.1-b, the beta) wins under semver ordering.
       expect(lockText, contains('version: 3.0.1-b'));
-      expect(lockText, contains('version-id: $betaId'));
+      expect(lockText, contains('version_id: $betaId'));
       expect(lockText, contains('client: optional'));
       expect(lockText, contains('server: optional'));
     },
@@ -1389,7 +1400,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   create: ^6.0.10
 ''');
@@ -1403,9 +1414,11 @@ mods:
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
+      final hostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
       final metadataPath = p.join(
         cacheDir.path,
         'modrinth',
+        hostSeg,
         'create_ID',
         'create_6_0_10',
         'version.json',

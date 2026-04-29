@@ -13,7 +13,7 @@ version: 0.1.0
 description: an example
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   create: ^6.0.10+mc1.21.1
   jei: 19.27.0.340
@@ -40,7 +40,7 @@ version: 0.1.0
 description: x
 loader:
   mods: fabric
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   iris:
     version: ^1.8.12
@@ -71,7 +71,7 @@ version: 0.1.0
 description: x
 loader:
   mods: forge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   bad:
     url: https://example.com/x.jar
@@ -83,7 +83,7 @@ mods:
       );
     });
 
-    test('rejects hosted: source as deferred', () {
+    test('parses modrinth_host: into ModrinthEntrySource.host', () {
       final yaml = '''
 slug: pack
 name: Pack
@@ -91,14 +91,62 @@ version: 0.1.0
 description: x
 loader:
   mods: forge
-mc-version: 1.21.1
+mc_version: 1.21.1
+mods:
+  hosted:
+    modrinth_host: https://modrinth.example.com
+    version: ^1.0.0
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      final source = m.mods['hosted']!.source;
+      expect(source, isA<ModrinthEntrySource>());
+      expect(
+        (source as ModrinthEntrySource).host,
+        'https://modrinth.example.com',
+      );
+    });
+
+    test('pack-level modrinth_host: parses into ModsYaml.modrinthHost', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc_version: 1.21.1
+modrinth_host: https://modrinth.example.com
+mods:
+  jei: ^1.0
+''';
+      final m = parseModsYaml(yaml, filePath: 'mods.yaml');
+      expect(m.modrinthHost, 'https://modrinth.example.com');
+      // Per-entry host stays null and falls back to the pack default.
+      final source = m.mods['jei']!.source as ModrinthEntrySource;
+      expect(source.host, isNull);
+      expect(
+        m.effectiveModrinthHost(m.mods['jei']!, 'https://api.modrinth.com/v2'),
+        'https://modrinth.example.com',
+      );
+    });
+
+    test('rejects modrinth_host: combined with url:', () {
+      final yaml = '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: forge
+mc_version: 1.21.1
 mods:
   bad:
-    hosted: https://example.com
+    modrinth_host: https://example.com
+    url: https://example.com/x.jar
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
-        throwsA(isA<UserError>()),
+        throwsA(isA<ValidationError>()),
       );
     });
 
@@ -107,7 +155,7 @@ mods:
 slug: pack
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -123,7 +171,7 @@ version: 0.1.0
 description: x
 loader:
   mods: bukkit
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -138,7 +186,7 @@ name: Pack
 version: 0.1.0
 description: x
 loader: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -163,7 +211,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   my-shader: ^1.0.0
 ''';
@@ -191,7 +239,7 @@ description: x
 loader:
   mods: neoforge
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   my-shader: ^1.0.0
 ''';
@@ -210,7 +258,7 @@ description: x
 loader:
   mods: neoforge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.loader.plugins, PluginLoader.paper);
@@ -226,7 +274,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: beta
 ''';
@@ -244,7 +292,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.8
 ''';
@@ -261,7 +309,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: ^1.8
@@ -280,7 +328,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: ^1.8
@@ -307,7 +355,7 @@ description: x
 loader:
   mods: neoforge
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   my-shader:
     version: ^1.0.0
@@ -328,7 +376,7 @@ description: x
 loader:
   mods: neoforge
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   my-shader:
     version: ^1.0.0
@@ -348,7 +396,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   iris:
     version: ^1.0
@@ -374,7 +422,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: ^1.0
@@ -400,7 +448,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   ghost:
     version: ^1.0
@@ -421,7 +469,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: ^1.0
@@ -440,7 +488,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 resource_packs:
   faithful: ^1.0
 ''';
@@ -457,7 +505,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 data_packs:
   terralith: ^1.0
 ''';
@@ -476,7 +524,7 @@ description: x
 loader:
   mods: neoforge
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   comp: r5.7.1
 ''';
@@ -493,11 +541,11 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21, 1.20.1, 1.21]
+    accepts_mc: [1.21, 1.20.1, 1.21]
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.mods['appleskin']!.acceptsMc, ['1.21', '1.20.1']);
@@ -511,7 +559,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: ^1.8
@@ -528,11 +576,11 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: 1.21
+    accepts_mc: 1.21
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.mods['appleskin']!.acceptsMc, ['1.21']);
@@ -546,11 +594,11 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: true
+    accepts_mc: true
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -566,11 +614,11 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21, "24w10a", "1.21-pre1", "b1.7.3"]
+    accepts_mc: [1.21, "24w10a", "1.21-pre1", "b1.7.3"]
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.mods['appleskin']!.acceptsMc, [
@@ -589,11 +637,11 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: ["1.21 snapshot"]
+    accepts_mc: ["1.21 snapshot"]
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -609,11 +657,11 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21, true]
+    accepts_mc: [1.21, true]
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -630,11 +678,11 @@ description: x
 loader:
   mods: neoforge
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   complementary-reimagined:
     version: ^5.7.1
-    accepts-mc: [1.21]
+    accepts_mc: [1.21]
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.shaders['complementary-reimagined']!.acceptsMc, ['1.21']);
@@ -648,7 +696,7 @@ version: 0.1.0
 description: x
 loader:
   mods: fabric
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   distanthorizons:
     version: beta
@@ -675,7 +723,7 @@ version: 0.1.0
 description: x
 loader:
   mods: fabric
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   one:
     version: release
@@ -703,7 +751,7 @@ version: 0.1.0
 description: x
 loader:
   mods: fabric
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   conflicted:
     version: beta
@@ -724,7 +772,7 @@ version: 0.1.0
 description: x
 loader:
   mods: fabric
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
     version: 19.27.0.340
@@ -732,6 +780,237 @@ mods:
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+  });
+
+  group('cross-platform source grammar', () {
+    String wrap(String body, {String mods = 'fabric'}) =>
+        '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: $mods
+mc_version: 1.21.1
+$body
+''';
+
+    test('scalar sources: curseforge normalizes to {curseforge}', () {
+      final m = parseModsYaml(wrap('''
+mods:
+  ae2:
+    sources: curseforge
+    version: ^1.0.0
+'''), filePath: 'mods.yaml');
+      expect(m.mods['ae2']!.sources, equals({SourceKind.curseforge}));
+    });
+
+    test('list sources: [modrinth, curseforge] normalizes to a set', () {
+      final m = parseModsYaml(wrap('''
+mods:
+  jei:
+    sources: [modrinth, curseforge]
+    version: ^1.0.0
+'''), filePath: 'mods.yaml');
+      expect(
+        m.mods['jei']!.sources,
+        equals({SourceKind.modrinth, SourceKind.curseforge}),
+      );
+    });
+
+    test('rejects empty sources: list', () {
+      expect(
+        () => parseModsYaml(wrap('''
+mods:
+  bad:
+    sources: []
+'''), filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects unknown source name', () {
+      expect(
+        () => parseModsYaml(wrap('''
+mods:
+  bad:
+    sources: bogus
+'''), filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects duplicate sources entries', () {
+      expect(
+        () => parseModsYaml(wrap('''
+mods:
+  bad:
+    sources: [modrinth, modrinth]
+'''), filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('parses modrinth: and curseforge: peer slug fields', () {
+      final m = parseModsYaml(wrap('''
+mods:
+  fabric-api:
+    modrinth: fabric-api
+    curseforge: fabric-api-cf-slug
+    version: ^0.102.0
+'''), filePath: 'mods.yaml');
+      expect(m.mods['fabric-api']!.modrinthSlug, 'fabric-api');
+      expect(m.mods['fabric-api']!.curseforgeSlug, 'fabric-api-cf-slug');
+    });
+  });
+
+  group('gitrinth: block', () {
+    test('omitted block uses defaults (modrinth enabled, cf disabled)', () {
+      final m = parseModsYaml('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc_version: 1.21.1
+''', filePath: 'mods.yaml');
+      expect(m.gitrinth.modrinth, GitrinthPlatformState.enabled);
+      expect(m.gitrinth.curseforge, GitrinthPlatformState.disabled);
+      expect(m.gitrinth.version, isNull);
+    });
+
+    test('parses version + platform toggles', () {
+      final m = parseModsYaml('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc_version: 1.21.1
+gitrinth:
+  version: ^1.0.0
+  modrinth: enabled
+  curseforge: enabled
+''', filePath: 'mods.yaml');
+      expect(m.gitrinth.version, '^1.0.0');
+      expect(m.gitrinth.curseforge, GitrinthPlatformState.enabled);
+    });
+
+    test('rejects unknown gitrinth.* fields', () {
+      expect(
+        () => parseModsYaml('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc_version: 1.21.1
+gitrinth:
+  bogus: nope
+''', filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects unknown enum values', () {
+      expect(
+        () => parseModsYaml('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc_version: 1.21.1
+gitrinth:
+  modrinth: bogus
+''', filePath: 'mods.yaml'),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+  });
+
+  group('plugin source eligibility', () {
+    String pluginYaml(String pluginsLoader, {String body = ''}) =>
+        '''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: neoforge
+  plugins: $pluginsLoader
+mc_version: 1.21.1
+plugins:
+$body
+''';
+
+    test('paper + sources: curseforge is allowed', () {
+      final m = parseModsYaml(
+        pluginYaml('paper', body: '''
+  worldedit:
+    sources: curseforge
+    version: ^7.0.0
+'''),
+        filePath: 'mods.yaml',
+      );
+      expect(
+        m.plugins['worldedit']!.sources,
+        equals({SourceKind.curseforge}),
+      );
+    });
+
+    test('bukkit + curseforge: peer is allowed', () {
+      final m = parseModsYaml(
+        pluginYaml('bukkit', body: '''
+  worldedit:
+    curseforge: worldedit-bukkit
+    version: ^7.0.0
+'''),
+        filePath: 'mods.yaml',
+      );
+      expect(m.plugins['worldedit']!.curseforgeSlug, 'worldedit-bukkit');
+    });
+
+    test('folia + sources: curseforge throws a manifest error', () {
+      expect(
+        () => parseModsYaml(
+          pluginYaml('folia', body: '''
+  bad:
+    sources: curseforge
+    version: ^1.0.0
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('CurseForge'),
+              contains('eligibility-matrix'),
+            ),
+          ),
+        ),
+      );
+    });
+
+    test('sponge + curseforge: peer throws a manifest error', () {
+      expect(
+        () => parseModsYaml(
+          pluginYaml('sponge', body: '''
+  bad:
+    curseforge: bukkit-only-thing
+    version: ^1.0.0
+'''),
+          filePath: 'mods.yaml',
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
@@ -783,7 +1062,7 @@ version: 0.1.0
 description: x
 loader:
   mods: fabric
-mc-version: 1.21.1
+mc_version: 1.21.1
 overrides:
   jei:
     version: 19.27.0.340
@@ -809,7 +1088,7 @@ version: 0.1.0
 description: x
 loader:
   mods: $mods
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''', filePath: 'mods.yaml');
 
     test('bare loader name defaults the version tag to "stable"', () {
@@ -893,7 +1172,7 @@ mc-version: 1.21.1
 gitrinth-version: 0.1.0
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 resource_packs: {}
 data_packs: {}
@@ -909,7 +1188,7 @@ shaders: {}
 gitrinth-version: 0.1.0
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 resource_packs: {}
 data_packs: {}
@@ -926,7 +1205,7 @@ gitrinth-version: 0.1.0
 loader:
   mods: "neoforge:21.1.50"
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods: {}
 resource_packs: {}
 data_packs: {}
@@ -950,12 +1229,12 @@ plugins: {}
 gitrinth-version: 0.1.0
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium:
     source: modrinth
-    project-id: AANobbMI
-    version-id: abcdef
+    project_id: AANobbMI
+    version_id: abcdef
     file:
       name: sodium-0.6.0.jar
       url: https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/sodium-0.6.0.jar
@@ -978,13 +1257,13 @@ shaders: {}
 gitrinth-version: 0.1.0
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   distanthorizons:
     source: modrinth
     version: "2.3.0-b"
-    project-id: uCdwusMi
-    version-id: abc123
+    project_id: uCdwusMi
+    version_id: abc123
     file:
       name: distanthorizons-2.3.0-b.jar
       sha1: deadbeef
@@ -1011,7 +1290,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 $filesBlock
 ''';
 

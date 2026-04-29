@@ -23,7 +23,7 @@ void _writeFixture(
     'name: Test Pack\n'
     'version: 0.1.0\n'
     'description: integration test fixture\n'
-    'mc-version: 1.21.1\n'
+    'mc_version: 1.21.1\n'
     'loader:\n'
     '  mods: fabric:0.17.3\n',
   );
@@ -63,7 +63,7 @@ void _writeFixture(
     'gitrinth-version: 0.1.0\n'
     'loader:\n'
     '  mods: fabric:0.17.3\n'
-    'mc-version: 1.21.1\n'
+    'mc_version: 1.21.1\n'
     '$modBlocks'
     'resource_packs: {}\n'
     'data_packs: {}\n'

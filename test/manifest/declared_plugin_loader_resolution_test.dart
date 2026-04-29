@@ -12,7 +12,7 @@ description: x
 loader:
   mods: $mods
   plugins: $plugins
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
 
   String yamlNoMods({required String plugins}) =>
@@ -23,7 +23,7 @@ version: 0.1.0
 description: x
 loader:
   plugins: $plugins
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
 
   group('DeclaredPluginLoader resolution truth table', () {
@@ -82,7 +82,7 @@ description: x
 loader:
   mods: fabric
   plugins: sponge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium:
     version: ^1.0.0

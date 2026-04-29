@@ -75,6 +75,7 @@ String resolveSourcePath(
   GitrinthCache cache,
   LockedEntry entry, {
   required String projectDir,
+  required String modrinthHost,
 }) {
   switch (entry.sourceKind) {
     case LockedSourceKind.modrinth:
@@ -87,6 +88,7 @@ String resolveSourcePath(
         );
       }
       return cache.modrinthPath(
+        host: modrinthHost,
         projectId: projectId,
         versionId: versionId,
         filename: file.name,

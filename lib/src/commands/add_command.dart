@@ -184,8 +184,11 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       longForm = long;
       writtenValue = null;
     } else {
-      // Modrinth source.
-      final api = read(modrinthApiProvider);
+      // Modrinth source. New entries default to the pack's
+      // `modrinth_host:`; per-flag `--modrinth-host` overrides land
+      // with Part 7 of the bridge.
+      final api = read(modrinthApiFactoryProvider)
+          .forHost(existingManifest.modrinthHost);
       final Project project;
       try {
         project = await api.getProject(slug);
@@ -267,7 +270,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
         final long = <String, Object?>{'version': effectiveConstraint};
         writeSideFields(long, envOpt);
         if (acceptsMc.isNotEmpty) {
-          long['accepts-mc'] = acceptsMc.length == 1
+          long['accepts_mc'] = acceptsMc.length == 1
               ? acceptsMc.first
               : acceptsMc;
         }
@@ -363,13 +366,30 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     }
 
     if (lock == null) return;
+    final defaultBaseUrl =
+        read(modrinthApiFactoryProvider).defaultBaseUrl;
     for (final entry in lock.allEntries) {
       final locked = entry.value;
       if (locked.sourceKind != LockedSourceKind.modrinth) continue;
       final pid = locked.projectId;
       final vid = locked.versionId;
       if (pid == null || vid == null) continue;
-      final cachedDeps = _readCachedDeps(cache, pid, vid);
+      // Re-derive the host the lock entry was fetched against by
+      // looking up the same slug in the live manifest. Locked entries
+      // don't carry host metadata yet — that lands with Part 4.
+      String host = existingManifest.modrinthHost ?? defaultBaseUrl;
+      for (final section in Section.values) {
+        final manifestEntry =
+            existingManifest.sectionEntries(section)[entry.key];
+        if (manifestEntry != null) {
+          host = existingManifest.effectiveModrinthHost(
+            manifestEntry,
+            defaultBaseUrl,
+          );
+          break;
+        }
+      }
+      final cachedDeps = _readCachedDeps(cache, host, pid, vid);
       if (cachedDeps == null) continue;
       for (final d in cachedDeps) {
         if (d['dependency_type'] != 'incompatible') continue;
@@ -387,10 +407,12 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
 
   List<Map<String, dynamic>>? _readCachedDeps(
     GitrinthCache cache,
+    String host,
     String projectId,
     String versionId,
   ) {
     final path = cache.modrinthVersionMetadataPath(
+      host: host,
       projectId: projectId,
       versionId: versionId,
     );

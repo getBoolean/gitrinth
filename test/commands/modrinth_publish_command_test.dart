@@ -37,7 +37,7 @@ void main() {
       ..writeln('name: Test Pack')
       ..writeln('version: $version')
       ..writeln('description: x')
-      ..writeln('mc-version: 1.21.1')
+      ..writeln('mc_version: 1.21.1')
       ..writeln('loader:')
       ..writeln('  mods: neoforge')
       ..writeln('mods: {}');

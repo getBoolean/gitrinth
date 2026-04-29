@@ -65,6 +65,16 @@ class DepsCommand extends GitrinthCommand {
     _checkLockFreshness(manifest, lock);
 
     final cache = read(cacheProvider);
+    final defaultBaseUrl = read(modrinthApiFactoryProvider).defaultBaseUrl;
+    String hostForSlug(String slug) {
+      for (final section in Section.values) {
+        final manifestEntry = manifest.sectionEntries(section)[slug];
+        if (manifestEntry != null) {
+          return manifest.effectiveModrinthHost(manifestEntry, defaultBaseUrl);
+        }
+      }
+      return manifest.modrinthHost ?? defaultBaseUrl;
+    }
 
     // Index entries by slug for quick lookup; capture sections so the
     // renderer can prefix `mods/` etc. on direct entries (mirrors dart
@@ -99,7 +109,7 @@ class DepsCommand extends GitrinthCommand {
         children[slug] = const [];
         continue;
       }
-      final raw = readCachedRequiredChildren(cache, pid, vid);
+      final raw = readCachedRequiredChildren(cache, hostForSlug(slug), pid, vid);
       if (raw == null) {
         coldCacheCount++;
         children[slug] = const [];

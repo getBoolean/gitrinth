@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:gitrinth/src/service/cache.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -57,7 +58,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^2.0.0
@@ -86,7 +87,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   b: ^2.0.0
@@ -116,7 +117,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
@@ -143,7 +144,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
@@ -170,7 +171,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
@@ -193,7 +194,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
@@ -216,7 +217,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^6.0.10
 ''');
@@ -247,7 +248,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: release
 ''');
@@ -274,7 +275,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^6.0.10
   b: ^1.0.0
@@ -304,7 +305,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -334,7 +335,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -353,7 +354,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -373,7 +374,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
   custom:
@@ -417,7 +418,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a:
     version: ^1.0.0
@@ -441,7 +442,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a:
     version: ^1.0.0
@@ -495,7 +496,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 resource_packs:
   faithful-32x: ^1.21.1
@@ -536,7 +537,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 resource_packs:
   faithful-32x: ^1.21.1-april-2025
@@ -581,7 +582,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
 ''');
@@ -630,7 +631,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   baz: ^1.0.0
@@ -681,7 +682,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
 ''');
@@ -729,7 +730,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   baz: ^1.0.0
@@ -791,7 +792,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   bar: ^0.1.0
@@ -821,7 +822,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   bar: ^1.0.0
@@ -853,7 +854,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   bar: ^1.0.0
@@ -891,7 +892,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   bar: ^1.0.0
@@ -902,11 +903,13 @@ mods:
     // cycle. The resolver would not normally produce one (Modrinth
     // deps are acyclic in practice), but a corrupt cache or a
     // hand-edited file can — the closure walker must terminate.
+    final cycleHostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
     void writeCachedDeps(String slug, String depProjectId) {
       final pid = '${slug}_ID';
       final vid = '${slug}_1_0_0';
-      final dir = Directory(p.join(cacheDir.path, 'modrinth', pid, vid))
-        ..createSync(recursive: true);
+      final dir = Directory(
+        p.join(cacheDir.path, 'modrinth', cycleHostSeg, pid, vid),
+      )..createSync(recursive: true);
       File(p.join(dir.path, 'version.json')).writeAsStringSync(
         '{"dependencies":[{"project_id":"$depProjectId",'
         '"dependency_type":"required"}]}',
@@ -944,7 +947,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   foo: ^1.0.0
   bar: ^1.0.0
@@ -982,7 +985,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: gitrinth:disabled-by-conflict
   b: ^1.0.0
@@ -1008,7 +1011,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: gitrinth:disabled-by-conflict
   b: ^1.0.0

@@ -9,6 +9,7 @@ import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import 'console.dart';
+import 'modrinth_url.dart';
 
 class GitrinthCache {
   final String root;
@@ -97,13 +98,43 @@ class GitrinthCache {
     return p.join(pluginServersRoot, artifactKey, mcVersion, version, filename);
   }
 
-  /// Path where a Modrinth-sourced artifact should live.
+  /// Filesystem-safe segment of [hostUrl] used to scope cached Modrinth
+  /// artifacts per-host. Built from [normalizeServerKey] so the same
+  /// physical host always maps to the same segment regardless of how
+  /// callers spell its URL. Strips the `scheme://` prefix and replaces
+  /// path separators with `_`. The default modrinth.com host renders as
+  /// `api.modrinth.com_v2`, giving every host (including the default)
+  /// a stable cache segment.
+  static String hostCacheSegment(String hostUrl) {
+    final key = (() {
+      try {
+        return normalizeServerKey(hostUrl);
+      } on FormatException {
+        return hostUrl;
+      }
+    })();
+    final stripped = key.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://'), '');
+    return stripped
+        .replaceAll('/', '_')
+        .replaceAll('\\', '_')
+        .replaceAll(':', '_');
+  }
+
+  /// Path where a Modrinth-sourced artifact should live for [host].
+  /// Layout: `<modrinthRoot>/<hostSegment>/<projectId>/<versionId>/<filename>`.
   String modrinthPath({
+    required String host,
     required String projectId,
     required String versionId,
     required String filename,
   }) {
-    return p.join(modrinthRoot, projectId, versionId, filename);
+    return p.join(
+      modrinthRoot,
+      hostCacheSegment(host),
+      projectId,
+      versionId,
+      filename,
+    );
   }
 
   /// Path where the resolved Modrinth `Version`'s metadata (mainly its
@@ -112,18 +143,30 @@ class GitrinthCache {
   /// the source of truth for `gitrinth upgrade --unlock-transitive`'s
   /// transitive-closure walk.
   String modrinthVersionMetadataPath({
+    required String host,
     required String projectId,
     required String versionId,
   }) {
-    return p.join(modrinthRoot, projectId, versionId, 'version.json');
+    return p.join(
+      modrinthRoot,
+      hostCacheSegment(host),
+      projectId,
+      versionId,
+      'version.json',
+    );
   }
 
-  /// Walks `<modrinthRoot>/<projectId>/*/version.json` and yields each
-  /// successfully-parsed [modrinth.Version]. Malformed sidecars are skipped
-  /// with a stderr warning so a single corrupt file doesn't abort an
-  /// `--offline` resolve.
-  Iterable<modrinth.Version> listCachedVersions(String projectId) sync* {
-    final dir = Directory(p.join(modrinthRoot, projectId));
+  /// Walks `<modrinthRoot>/<hostSegment>/<projectId>/*/version.json` and
+  /// yields each successfully-parsed [modrinth.Version]. Malformed
+  /// sidecars are skipped with a stderr warning so a single corrupt
+  /// file doesn't abort an `--offline` resolve.
+  Iterable<modrinth.Version> listCachedVersions(
+    String host,
+    String projectId,
+  ) sync* {
+    final dir = Directory(
+      p.join(modrinthRoot, hostCacheSegment(host), projectId),
+    );
     if (!dir.existsSync()) return;
     for (final entry in dir.listSync()) {
       if (entry is! Directory) continue;

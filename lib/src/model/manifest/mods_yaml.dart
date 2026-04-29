@@ -139,6 +139,33 @@ Map<String, ModEntry> coerceModsForPluginLoader(
 @MappableEnum()
 enum Channel { release, beta, alpha }
 
+/// Cross-platform source kinds an entry can resolve against.
+/// `modrinth` covers any Modrinth-protocol host (default modrinth.com
+/// or a labrinth deployment named via [ModrinthEntrySource.host] /
+/// [ModsYaml.modrinthHost]). `curseforge` parses today; resolver
+/// support lands in a later part of the CurseForge bridge.
+@MappableEnum()
+enum SourceKind { modrinth, curseforge }
+
+/// Pack-level toggle for a platform's default participation.
+@MappableEnum()
+enum GitrinthPlatformState { enabled, disabled }
+
+/// Section + plugin loader → CurseForge eligibility. Single source of
+/// truth for the source-eligibility matrix in
+/// `docs/curseforge-bridge.md`. The CurseForge bridge defers to this
+/// helper before parser validation, `add`, resolver dispatch, search,
+/// and publish all touch the same predicate.
+bool sectionAllowsCurseforge(Section section, PluginLoader? pluginLoader) {
+  if (section != Section.plugins) return true;
+  return switch (pluginLoader) {
+    PluginLoader.bukkit ||
+    PluginLoader.spigot ||
+    PluginLoader.paper => true,
+    _ => false,
+  };
+}
+
 /// Per-section loader configuration.
 /// `mods.yaml` is declared; `mods.lock` is resolved.
 @MappableClass()
@@ -174,7 +201,12 @@ sealed class EntrySource with EntrySourceMappable {
 
 @MappableClass(discriminatorValue: 'modrinth')
 class ModrinthEntrySource extends EntrySource with ModrinthEntrySourceMappable {
-  const ModrinthEntrySource();
+  /// Per-entry override for the Modrinth-protocol base URL. `null`
+  /// means "use the pack-level default" ([ModsYaml.modrinthHost]),
+  /// which itself falls back to `defaultModrinthBaseUrl`.
+  final String? host;
+
+  const ModrinthEntrySource({this.host});
 }
 
 @MappableClass(discriminatorValue: 'url')
@@ -205,10 +237,24 @@ class ModEntry with ModEntryMappable {
 
   final EntrySource source;
 
-  /// Additional Minecraft versions to union with the pack's `mc-version`
+  /// Additional Minecraft versions to union with the pack's `mc_version`
   /// when querying Modrinth for this entry. Query-time only; does not
   /// influence pack-level decisions.
   final List<String> acceptsMc;
+
+  /// Modrinth project slug override. Used when the section-map key is
+  /// a local identifier and the entry's slug on Modrinth differs.
+  final String? modrinthSlug;
+
+  /// CurseForge project slug or numeric project ID. Parsed today so
+  /// manifests can be authored ahead of CurseForge resolver support;
+  /// resolution itself lands in a later part of the bridge.
+  final String? curseforgeSlug;
+
+  /// Explicit restriction on which platforms participate for this
+  /// entry. `null` means "fall back to `gitrinth.modrinth` /
+  /// `gitrinth.curseforge` pack-level defaults".
+  final Set<SourceKind>? sources;
 
   const ModEntry({
     required this.slug,
@@ -218,7 +264,40 @@ class ModEntry with ModEntryMappable {
     this.server = SideEnv.required,
     this.source = const ModrinthEntrySource(),
     this.acceptsMc = const [],
+    this.modrinthSlug,
+    this.curseforgeSlug,
+    this.sources,
   });
+}
+
+/// Top-level `gitrinth:` block. Holds the semver constraint on the
+/// running gitrinth CLI and the platform default toggles consumed by
+/// the source-eligibility logic. Replaces the legacy `tooling:` block
+/// (which only ever held `tooling.gitrinth`).
+@MappableClass()
+class GitrinthConfig with GitrinthConfigMappable {
+  /// Semver constraint string, e.g. "^1.0.0" or ">=1.0.0 <2.0.0".
+  /// Stored verbatim — enforcement against the running CLI version is
+  /// deferred to a later task.
+  final String? version;
+
+  /// Modrinth participation default; on by default.
+  final GitrinthPlatformState modrinth;
+
+  /// CurseForge participation default; off by default.
+  final GitrinthPlatformState curseforge;
+
+  const GitrinthConfig({
+    this.version,
+    this.modrinth = GitrinthPlatformState.enabled,
+    this.curseforge = GitrinthPlatformState.disabled,
+  });
+
+  /// True when [kind] participates by default for this pack.
+  bool isPlatformEnabled(SourceKind kind) => switch (kind) {
+    SourceKind.modrinth => modrinth == GitrinthPlatformState.enabled,
+    SourceKind.curseforge => curseforge == GitrinthPlatformState.enabled,
+  };
 }
 
 @MappableClass()
@@ -229,6 +308,17 @@ class ModsYaml with ModsYamlMappable {
   final String description;
   final LoaderConfig loader;
   final String mcVersion;
+
+  /// Pack-level default for the Modrinth-source base URL. Per-entry
+  /// `modrinth_host:` wins; otherwise this is consulted before the
+  /// hard-coded `defaultModrinthBaseUrl` fallback.
+  final String? modrinthHost;
+
+  /// `gitrinth:` block — semver constraint plus per-platform default
+  /// toggles. Defaults: Modrinth enabled, CurseForge disabled,
+  /// version null.
+  final GitrinthConfig gitrinth;
+
   final Map<String, ModEntry> mods;
   final Map<String, ModEntry> resourcePacks;
   final Map<String, ModEntry> dataPacks;
@@ -254,6 +344,8 @@ class ModsYaml with ModsYamlMappable {
     required this.description,
     required this.loader,
     required this.mcVersion,
+    this.modrinthHost,
+    this.gitrinth = const GitrinthConfig(),
     this.mods = const {},
     this.resourcePacks = const {},
     this.dataPacks = const {},
@@ -263,6 +355,18 @@ class ModsYaml with ModsYamlMappable {
     this.files = const {},
     this.publishTo,
   });
+
+  /// Effective Modrinth-protocol base URL for [entry]. Single source
+  /// of truth so callers don't repeat the per-entry → pack-level →
+  /// global default chain inline.
+  String effectiveModrinthHost(
+    ModEntry entry,
+    String defaultBaseUrl,
+  ) {
+    final source = entry.source;
+    final entryHost = source is ModrinthEntrySource ? source.host : null;
+    return entryHost ?? modrinthHost ?? defaultBaseUrl;
+  }
 
   Map<String, ModEntry> sectionEntries(Section section) {
     switch (section) {

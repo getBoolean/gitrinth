@@ -16,7 +16,7 @@ description: x
 loader:
   mods: $mods
   plugins: $pluginsValue
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
 
   group('loader.plugins parsing', () {
@@ -57,7 +57,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 plugins:
   luckperms:
 ''';
@@ -121,7 +121,7 @@ description: x
 loader:
   mods: neoforge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium:
     version: ^1.0.0
@@ -143,7 +143,7 @@ description: x
 loader:
   mods: forge
   plugins: sponge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium:
     version: ^1.0.0
@@ -163,7 +163,7 @@ description: x
 loader:
   mods: neoforge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 plugins:
   luckperms:
     version: ^5.0.0

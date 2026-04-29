@@ -46,9 +46,17 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
   final version = _requireString(map, 'version', filePath);
   final description = _requireString(map, 'description', filePath);
   final loader = _parseLoaderConfigYaml(map['loader'], filePath);
-  final mcVersion = _requireString(map, 'mc-version', filePath);
+  final mcVersion = _requireString(map, 'mc_version', filePath);
+  final modrinthHost = _parseModrinthHost(map['modrinth_host'], filePath);
+  final gitrinth = _parseGitrinthBlock(map['gitrinth'], filePath);
 
-  final mods = _parseSection(map['mods'], 'mods', filePath, Section.mods);
+  final mods = _parseSection(
+    map['mods'],
+    'mods',
+    filePath,
+    Section.mods,
+    loader: loader,
+  );
   if (mods.isNotEmpty && !loader.hasModRuntime) {
     throw _err(
       "$filePath: mods: section has ${mods.length} "
@@ -62,24 +70,28 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     'resource_packs',
     filePath,
     Section.resourcePacks,
+    loader: loader,
   );
   final dataPacks = _parseSection(
     map['data_packs'],
     'data_packs',
     filePath,
     Section.dataPacks,
+    loader: loader,
   );
   final shaders = _parseSection(
     map['shaders'],
     'shaders',
     filePath,
     Section.shaders,
+    loader: loader,
   );
   final plugins = _parseSection(
     map['plugins'],
     'plugins',
     filePath,
     Section.plugins,
+    loader: loader,
   );
   // The legacy `overrides:` key was renamed to `project_overrides:`
   // in v2; surface a clear migration error rather than silently
@@ -99,6 +111,7 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     'project_overrides',
     filePath,
     Section.mods,
+    loader: loader,
   );
   final files = _parseFilesSection(map['files'], filePath);
 
@@ -140,6 +153,8 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     description: description,
     loader: loader,
     mcVersion: mcVersion,
+    modrinthHost: modrinthHost,
+    gitrinth: gitrinth,
     mods: coercedMods,
     resourcePacks: resourcePacks,
     dataPacks: dataPacks,
@@ -149,6 +164,82 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     files: files,
     publishTo: publishTo,
   );
+}
+
+String? _parseModrinthHost(dynamic raw, String filePath) {
+  if (raw == null) return null;
+  if (raw is! String) {
+    throw _err("$filePath: 'modrinth_host' must be a string URL or omitted.");
+  }
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return null;
+  return trimmed;
+}
+
+GitrinthConfig _parseGitrinthBlock(dynamic raw, String filePath) {
+  if (raw == null) return const GitrinthConfig();
+  if (raw is! Map) {
+    throw _err("$filePath: 'gitrinth' must be a mapping or omitted.");
+  }
+  final m = _toPlainMap(raw);
+  for (final key in m.keys) {
+    if (key != 'version' && key != 'modrinth' && key != 'curseforge') {
+      throw _err(
+        "$filePath: gitrinth.$key is not a recognized field. "
+        "Known fields: version, modrinth, curseforge.",
+      );
+    }
+  }
+  String? version;
+  final versionRaw = m['version'];
+  if (versionRaw != null) {
+    if (versionRaw is! String || versionRaw.trim().isEmpty) {
+      throw _err(
+        "$filePath: gitrinth.version must be a non-empty semver "
+        "constraint string (e.g. '^1.0.0').",
+      );
+    }
+    version = versionRaw.trim();
+  }
+  final modrinth = _parseGitrinthPlatformState(
+    m['modrinth'],
+    'gitrinth.modrinth',
+    filePath,
+    GitrinthPlatformState.enabled,
+  );
+  final curseforge = _parseGitrinthPlatformState(
+    m['curseforge'],
+    'gitrinth.curseforge',
+    filePath,
+    GitrinthPlatformState.disabled,
+  );
+  return GitrinthConfig(
+    version: version,
+    modrinth: modrinth,
+    curseforge: curseforge,
+  );
+}
+
+GitrinthPlatformState _parseGitrinthPlatformState(
+  dynamic raw,
+  String where,
+  String filePath,
+  GitrinthPlatformState defaultValue,
+) {
+  if (raw == null) return defaultValue;
+  if (raw is! String) {
+    throw _err("$filePath: $where must be 'enabled' or 'disabled'.");
+  }
+  switch (raw.trim()) {
+    case 'enabled':
+      return GitrinthPlatformState.enabled;
+    case 'disabled':
+      return GitrinthPlatformState.disabled;
+    default:
+      throw _err(
+        "$filePath: $where value '$raw' must be 'enabled' or 'disabled'.",
+      );
+  }
 }
 
 ProjectOverrides parseProjectOverrides(
@@ -187,7 +278,7 @@ ModsLock parseModsLock(String yamlText, {required String filePath}) {
   final map = _loadYamlMap(yamlText, filePath);
   final gitrinthVersion = _requireString(map, 'gitrinth-version', filePath);
   final loader = _parseLoaderConfigLock(map['loader'], filePath);
-  final mcVersion = _requireString(map, 'mc-version', filePath);
+  final mcVersion = _requireString(map, 'mc_version', filePath);
   final mods = _parseLockSection(map['mods'], 'mods', filePath);
   final resourcePacks = _parseLockSection(
     map['resource_packs'],

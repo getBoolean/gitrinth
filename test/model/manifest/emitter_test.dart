@@ -98,7 +98,7 @@ void main() {
     final once = emitModsLock(lock);
     // `1.21` matches the numeric regex in `_needsQuotes`, so the
     // emitter quotes it to preserve string-typed round-trip.
-    expect(once, contains('game-versions: ["1.21"]'));
+    expect(once, contains('game_versions: ["1.21"]'));
     final parsed = parseModsLock(once, filePath: 'mods.lock');
     expect(parsed.mods['appleskin']!.gameVersions, ['1.21']);
     expect(emitModsLock(parsed), once);
@@ -106,7 +106,7 @@ void main() {
 
   test('empty gameVersions omits the field', () {
     final out = emitModsLock(sample());
-    expect(out, isNot(contains('game-versions')));
+    expect(out, isNot(contains('game_versions')));
   });
 
   test('accepts-mc round-trips through emit -> parse -> emit', () {
@@ -133,7 +133,7 @@ void main() {
       },
     );
     final once = emitModsLock(lock);
-    expect(once, contains('accepts-mc: ["1.21"]'));
+    expect(once, contains('accepts_mc: ["1.21"]'));
     final parsed = parseModsLock(once, filePath: 'mods.lock');
     expect(parsed.mods['appleskin']!.acceptsMc, ['1.21']);
     expect(emitModsLock(parsed), once);
@@ -141,7 +141,7 @@ void main() {
 
   test('empty acceptsMc omits the field', () {
     final out = emitModsLock(sample());
-    expect(out, isNot(contains('accepts-mc')));
+    expect(out, isNot(contains('accepts_mc')));
   });
 
   test('emits client/server lines and round-trips through parse', () {
@@ -274,13 +274,13 @@ void main() {
 gitrinth-version: 0.1.0
 loader:
   mods: neoforge:stable
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   flywheel:
     source: modrinth
     version: 1.0.0
-    project-id: FL
-    version-id: FLV
+    project_id: FL
+    version_id: FLV
     file:
       name: flywheel.jar
       sha512: bb

@@ -17,7 +17,7 @@ import '../service/plugin_loader_version_resolver.dart';
 import '../service/server_installer.dart';
 import '../service/sponge_api_client.dart';
 import '../service/vanilla_server_source.dart';
-import '../service/modrinth_api.dart';
+import '../service/modrinth_api_factory.dart';
 import '../service/modrinth_auth_interceptor.dart';
 import '../service/modrinth_error_interceptor.dart';
 import '../service/modrinth_rate_limit_interceptor.dart';
@@ -81,12 +81,16 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-final modrinthApiProvider = Provider<ModrinthApi>(
-  (ref) => ModrinthApi(
-    ref.read(dioProvider),
-    baseUrl: resolveModrinthBaseUrl(ref.read(environmentProvider)),
-  ),
-);
+final modrinthApiFactoryProvider = Provider<ModrinthApiFactory>((ref) {
+  final factory = ModrinthApiFactory(
+    console: ref.read(consoleProvider),
+    auth: ref.read(modrinthAuthInterceptorProvider),
+    offline: () => ref.read(offlineProvider),
+    defaultBaseUrl: resolveModrinthBaseUrl(ref.read(environmentProvider)),
+  );
+  ref.onDispose(factory.close);
+  return factory;
+});
 
 final cacheProvider = Provider<GitrinthCache>(
   (ref) => GitrinthCache(

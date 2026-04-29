@@ -73,7 +73,7 @@ version: 1.2.3
 description: a test pack
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -146,7 +146,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -196,7 +196,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -240,7 +240,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   local-mod:
     path: ${p.relative(localJar.path, from: packDir.path).replaceAll(r'\', '/')}
@@ -283,7 +283,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 resource_packs:
@@ -334,7 +334,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   zeta-mod:
     url: ${modrinth.downloadBaseUrl}/remote-b/remote-b.jar
@@ -398,7 +398,7 @@ description: x
 loader:
   mods: "fabric:0.17.3"
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   both-mod:
     url: ${modrinth.downloadBaseUrl}/srv/srv-mod.jar
@@ -488,7 +488,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 resource_packs:

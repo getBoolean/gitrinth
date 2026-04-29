@@ -253,10 +253,13 @@ OverridesPlan collectOverrides({
     for (final entry in lock.sectionFor(section).values) {
       if (entry.sourceKind == LockedSourceKind.modrinth) continue;
       if (!_includeForTarget(entry, target)) continue;
+      // url:/path: sources don't hit the host-segmented Modrinth
+      // cache layout — the host parameter is unused here.
       final sourcePath = resolveSourcePath(
         cache,
         entry,
         projectDir: projectDir,
+        modrinthHost: '',
       );
       final destName = destFilenameFor(entry);
       entries.add(

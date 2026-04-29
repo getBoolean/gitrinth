@@ -55,7 +55,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^19.27.0.340
   sodium: release
@@ -93,7 +93,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 resource_packs:
   faithful-32x: ^1.21.0
 ''');
@@ -120,7 +120,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^19.27.0.340
 ''');
@@ -144,7 +144,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''');
 
     final out = await runCli([
@@ -163,7 +163,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: release
 ''');
@@ -186,7 +186,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: release
 ''';

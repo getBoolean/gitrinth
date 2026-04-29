@@ -80,13 +80,13 @@ Future<int> runBuild({
       );
     }
   } else {
-    final api = container.read(modrinthApiProvider);
+    final apiFactory = container.read(modrinthApiFactoryProvider);
     final downloader = container.read(downloaderProvider);
     final modLoaderResolver = container.read(modLoaderVersionResolverProvider);
     final result = await resolveAndSync(
       io: manifestIo,
       console: console,
-      api: api,
+      apiFactory: apiFactory,
       cache: cache,
       downloader: downloader,
       modLoaderResolver: modLoaderResolver,
@@ -117,9 +117,18 @@ Future<int> runBuild({
   }
 
   final projectDir = manifestIo.directory.path;
+  // The build path resolves cache locations from `mods.lock`, but the
+  // physical cache layout is host-segmented (Part 1 of the bridge).
+  // Read the manifest once so per-entry hosts feed into the path
+  // resolution below.
+  final manifest = manifestIo.readModsYaml();
+  final defaultBaseUrl =
+      container.read(modrinthApiFactoryProvider).defaultBaseUrl;
   for (final env in envs) {
     final result = _assembleEnv(
       env: env,
+      manifest: manifest,
+      defaultModrinthBaseUrl: defaultBaseUrl,
       lock: lock,
       cache: cache,
       outputDir: outputDir,
@@ -391,6 +400,8 @@ class _AssembleResult {
 
 _AssembleResult _assembleEnv({
   required BuildEnv env,
+  required ModsYaml manifest,
+  required String defaultModrinthBaseUrl,
   required ModsLock lock,
   required GitrinthCache cache,
   required Directory outputDir,
@@ -465,10 +476,20 @@ _AssembleResult _assembleEnv({
       final subdir = buildSubdirFor(section, env, entry);
       if (subdir == null) continue;
 
+      // Pick the host the lock entry was fetched from by looking up
+      // the same slug in the manifest. Transitive entries with no
+      // manifest declaration fall through to the pack default. Lock
+      // entries don't carry host metadata directly yet — Part 4
+      // promotes that into per-platform lock blocks.
+      final manifestEntry = manifest.sectionEntries(section)[entry.slug];
+      final entryHost = manifestEntry == null
+          ? (manifest.modrinthHost ?? defaultModrinthBaseUrl)
+          : manifest.effectiveModrinthHost(manifestEntry, defaultModrinthBaseUrl);
       final sourcePath = resolveSourcePath(
         cache,
         entry,
         projectDir: projectDir,
+        modrinthHost: entryHost,
       );
       final sourceFile = File(sourcePath);
       if (!sourceFile.existsSync()) {

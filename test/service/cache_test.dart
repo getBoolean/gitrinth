@@ -21,13 +21,37 @@ void main() {
     if (tempRoot.existsSync()) tempRoot.deleteSync(recursive: true);
   });
 
-  test('layout uses modrinth/<projectId>/<versionId>/<filename>', () {
-    final path = cache.modrinthPath(
-      projectId: 'P1',
-      versionId: 'V1',
-      filename: 'a.jar',
+  test(
+    'layout uses modrinth/<hostSegment>/<projectId>/<versionId>/<filename>',
+    () {
+      const host = 'https://api.modrinth.com/v2';
+      final segment = GitrinthCache.hostCacheSegment(host);
+      final path = cache.modrinthPath(
+        host: host,
+        projectId: 'P1',
+        versionId: 'V1',
+        filename: 'a.jar',
+      );
+      expect(
+        path,
+        p.join(tempRoot.path, 'modrinth', segment, 'P1', 'V1', 'a.jar'),
+      );
+    },
+  );
+
+  test('default host renders to a stable cache segment (api.modrinth.com_v2)',
+      () {
+    expect(
+      GitrinthCache.hostCacheSegment('https://api.modrinth.com/v2'),
+      'api.modrinth.com_v2',
     );
-    expect(path, p.join(tempRoot.path, 'modrinth', 'P1', 'V1', 'a.jar'));
+  });
+
+  test('different hosts map to different cache segments', () {
+    expect(
+      GitrinthCache.hostCacheSegment('https://api.modrinth.com/v2'),
+      isNot(GitrinthCache.hostCacheSegment('https://modrinth.example.com')),
+    );
   });
 
   test('verifySha512 accepts a matching hash and rejects a wrong one', () {
