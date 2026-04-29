@@ -15,11 +15,12 @@ properties:
   project_overrides:
     description: |
       Map of Modrinth project slug to mod dependency (short or long
-      form). Pins a version, flips per-side install state, or
-      redirects an entry to an alternate source (`hosted`, `url`,
-      `path`). An entry here forces its version to be used regardless
-      of other mods' constraints or `incompatible:` declarations.
-      Same shape as `project_overrides` in mods.yaml.
+      form). Pins a version, flips per-side install state, redirects
+      the Modrinth source to a labrinth deployment via
+      `modrinth_host`, or swaps it out for a `url:` / `path:` source.
+      An entry here forces its version to be used regardless of other
+      mods' constraints or `incompatible:` declarations. Same shape
+      as `project_overrides` in mods.yaml.
     oneOf:
       - type: "null"
       - $ref: https://gitrinth.dev/schemas/mods.schema.yaml#/$defs/modMap

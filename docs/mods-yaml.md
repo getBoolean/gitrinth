@@ -912,7 +912,7 @@ At resolve time, the Modrinth `game_versions` filter for `appleskin`
 becomes `["1.21.1", "1.21"]` instead of `["1.21.1"]`; every other
 entry in the pack is unaffected. The resolved version's actual
 Modrinth `game_versions` tag is recorded in `mods.lock` under
-`game-versions:`, so a future `mc_version` bump can surface entries
+`game_versions:`, so a future `mc_version` bump can surface entries
 that were only admitted via `accepts_mc`.
 
 `accepts_mc` is only available on long-form entries and works in the
