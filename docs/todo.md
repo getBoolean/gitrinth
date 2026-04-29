@@ -513,15 +513,15 @@ gitrinth unpack <slug>[:<version>] [--modrinth-host <url>]
 gitrinth unpack <path>             [--output <directory>] [--force] [--no-resolve]
 ```
 
-| Option                  | Description                                                                                                                          |
-|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `<slug>`                | Modrinth project slug. Downloads the matching `.mrpack` before extracting.                                                           |
-| `<version>`             | Version constraint on the slug form. Defaults to the newest release on the resolved server.                                          |
-| `<path>`                | Path to a local `.mrpack` file. Skips the download step. Chosen when the positional resolves to a file on disk or ends in `.mrpack`. |
+| Option                  | Description                                                                                                                                             |
+|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `<slug>`                | Modrinth project slug. Downloads the matching `.mrpack` before extracting.                                                                              |
+| `<version>`             | Version constraint on the slug form. Defaults to the newest release on the resolved server.                                                             |
+| `<path>`                | Path to a local `.mrpack` file. Skips the download step. Chosen when the positional resolves to a file on disk or ends in `.mrpack`.                    |
 | `--modrinth-host <url>` | Fetch from a Modrinth-compatible server at `<url>`. Slug form only. Also written into the reconstructed `mods.yaml` as the pack-level `modrinth_host:`. |
-| `--output`, `-o`        | Output directory. Defaults to the current directory.                                                                                 |
-| `--force`, `-f`         | Overwrite existing files in the output directory.                                                                                    |
-| `--no-resolve`          | Skip the implicit [`get`](cli.md#get) that normally runs after unpacking.                                                            |
+| `--output`, `-o`        | Output directory. Defaults to the current directory.                                                                                                    |
+| `--force`, `-f`         | Overwrite existing files in the output directory.                                                                                                       |
+| `--no-resolve`          | Skip the implicit [`get`](cli.md#get) that normally runs after unpacking.                                                                               |
 
 ## Modrinth API rate-limit handling
 
