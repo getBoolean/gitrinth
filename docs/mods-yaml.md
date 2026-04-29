@@ -133,12 +133,12 @@ Under `loader.plugins: sponge`, the concrete server distribution
 (SpongeForge, SpongeNeo, or SpongeVanilla) is selected at lock time
 from `loader.mods`:
 
-| `loader.mods` | resolved server | server-side mods? |
-|---|---|---|
-| `forge` | SpongeForge | yes (Forge mods load alongside plugins) |
-| `neoforge` | SpongeNeo | yes (NeoForge mods load alongside plugins) |
-| `fabric` | SpongeVanilla | no — Fabric mods coerce to client-only |
-| omitted / `vanilla` | SpongeVanilla | no |
+| `loader.mods`       | resolved server | server-side mods?                          |
+|---------------------|-----------------|--------------------------------------------|
+| `forge`             | SpongeForge     | yes (Forge mods load alongside plugins)    |
+| `neoforge`          | SpongeNeo       | yes (NeoForge mods load alongside plugins) |
+| `fabric`            | SpongeVanilla   | no — Fabric mods coerce to client-only     |
+| omitted / `vanilla` | SpongeVanilla   | no                                         |
 
 `mods:` entries keep their declared per-side state under
 SpongeForge / SpongeNeo; under SpongeVanilla they are coerced to
@@ -412,11 +412,11 @@ project:
 [`gitrinth modrinth publish`](cli.md#gitrinth-modrinth-publish)
 uploads the modpack to.
 
-| Value   | Meaning                                                                         |
-|---------|---------------------------------------------------------------------------------|
-| *unset* | Publish to the default host (`GITRINTH_MODRINTH_URL` if set, else modrinth.com).|
-| *URL*   | Publish to the Modrinth-compatible server at that URL instead.                  |
-| `none`  | Publishing is disabled for this pack — `publish` exits with an error.           |
+| Value   | Meaning                                                                          |
+|---------|----------------------------------------------------------------------------------|
+| *unset* | Publish to the default host (`GITRINTH_MODRINTH_URL` if set, else modrinth.com). |
+| *URL*   | Publish to the Modrinth-compatible server at that URL instead.                   |
+| `none`  | Publishing is disabled for this pack — `publish` exits with an error.            |
 
 ```yaml
 publish_to: https://modrinth.example.com
@@ -443,11 +443,11 @@ loader:
 
 Recognised keys:
 
-| Key              | Required                                                           | Values                                   |
-|------------------|--------------------------------------------------------------------|------------------------------------------|
-| `loader.mods`    | Optional. Defaults to `vanilla` (no mod runtime).                  | `forge`, `fabric`, `neoforge`, `vanilla`.                                                                     |
-| `loader.shaders` | When [`shaders:`](#shaders) has entries.                           | `iris`, `optifine`, `canvas`, `vanilla`.                                                                      |
-| `loader.plugins` | When [`plugins:`](#plugins) has entries.                           | `bukkit`, `folia`, `paper`, `spigot`, `sponge`, each optionally tagged as `<loader>:<tag>`.                              |
+| Key              | Required                                          | Values                                                                                      |
+|------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------|
+| `loader.mods`    | Optional. Defaults to `vanilla` (no mod runtime). | `forge`, `fabric`, `neoforge`, `vanilla`.                                                   |
+| `loader.shaders` | When [`shaders:`](#shaders) has entries.          | `iris`, `optifine`, `canvas`, `vanilla`.                                                    |
+| `loader.plugins` | When [`plugins:`](#plugins) has entries.          | `bukkit`, `folia`, `paper`, `spigot`, `sponge`, each optionally tagged as `<loader>:<tag>`. |
 
 `resource_packs` and `data_packs` each have a single valid Modrinth
 loader (`minecraft` and `datapack` respectively), so they are not
@@ -643,10 +643,10 @@ gitrinth:
   curseforge: disabled
 ```
 
-| Key          | Required | Description                                                                                                                  |
-|--------------|----------|------------------------------------------------------------------------------------------------------------------------------|
-| `version`    | no       | Semver range constraint on the `gitrinth` CLI itself (e.g. `^1.0.0`, `">=1.0.0 <2.0.0"`).                                    |
-| `modrinth`   | no       | `enabled` or `disabled`. Defaults to `enabled`. Toggles whether Modrinth participates by default for entries that do not set `sources:`. |
+| Key          | Required | Description                                                                                                                                 |
+|--------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `version`    | no       | Semver range constraint on the `gitrinth` CLI itself (e.g. `^1.0.0`, `">=1.0.0 <2.0.0"`).                                                   |
+| `modrinth`   | no       | `enabled` or `disabled`. Defaults to `enabled`. Toggles whether Modrinth participates by default for entries that do not set `sources:`.    |
 | `curseforge` | no       | `enabled` or `disabled`. Defaults to `disabled`. Toggles whether CurseForge participates by default for entries that do not set `sources:`. |
 
 #### `gitrinth.version`
@@ -734,12 +734,12 @@ optional `modrinth_host:` field is a host override on that Modrinth
 source — it co-exists with the implicit Modrinth selection but is
 mutually exclusive with `url:` / `path:`.
 
-| Source                | Publishable? | Notes                                                                                 |
-|-----------------------|--------------|---------------------------------------------------------------------------------------|
-| *(none)*              | yes          | Default Modrinth instance (`https://api.modrinth.com/v2`).                            |
-| `modrinth_host: <url>`| yes          | Modrinth source against a custom host (labrinth deployment). Value is a base URL.     |
-| `url`                 | no           | Direct download URL for a `.jar`.                                                     |
-| `path`                | no           | Local filesystem path relative to `mods.yaml`.                                        |
+| Source                 | Publishable? | Notes                                                                             |
+|------------------------|--------------|-----------------------------------------------------------------------------------|
+| *(none)*               | yes          | Default Modrinth instance (`https://api.modrinth.com/v2`).                        |
+| `modrinth_host: <url>` | yes          | Modrinth source against a custom host (labrinth deployment). Value is a base URL. |
+| `url`                  | no           | Direct download URL for a `.jar`.                                                 |
+| `path`                 | no           | Local filesystem path relative to `mods.yaml`.                                    |
 
 A pack-level `modrinth_host: <url>` field at the top of `mods.yaml`
 sets the default base URL for every entry that does not declare its
