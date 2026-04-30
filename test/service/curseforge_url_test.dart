@@ -10,12 +10,6 @@ void main() {
     });
   });
 
-  group('curseForgeTokenKey', () {
-    test('matches normalizeServerKey(defaultCurseForgeBaseUrl)', () {
-      expect(curseForgeTokenKey, normalizeServerKey(defaultCurseForgeBaseUrl));
-    });
-  });
-
   group('resolveCurseForgeBaseUrl', () {
     test('strips trailing slash from GITRINTH_CURSEFORGE_URL', () {
       expect(
@@ -49,18 +43,8 @@ void main() {
   });
 
   group('decodeDefaultCfApiKey', () {
-    test('returns a non-empty string', () {
-      expect(decodeDefaultCfApiKey(), isNotEmpty);
-    });
-
-    test('does not equal the placeholder marker', () {
-      expect(
-        decodeDefaultCfApiKey(),
-        isNot(equals('<<REPLACE_BEFORE_MERGE>>')),
-        reason:
-            'kCurseForgeDefaultApiKeyB64 must be replaced with a real '
-            'base64-encoded CurseForge API key before merging.',
-      );
+    test('returns empty when no build-time key is embedded', () {
+      expect(decodeDefaultCfApiKey(), isEmpty);
     });
   });
 
@@ -74,16 +58,18 @@ void main() {
       expect(defaultCurseForgeUploadBaseUrl.endsWith('/'), isFalse);
     });
 
-    test('curseForgeUploadTokenKey matches normalizeServerKey of the upload '
-        'base URL', () {
+    test('curseForgeUploadTokenKey is managed as curseforge.com', () {
       expect(
         curseForgeUploadTokenKey,
-        normalizeServerKey(defaultCurseForgeUploadBaseUrl),
+        normalizeServerKey('https://curseforge.com'),
       );
     });
 
-    test('curseForgeUploadTokenKey is distinct from curseForgeTokenKey', () {
-      expect(curseForgeUploadTokenKey, isNot(equals(curseForgeTokenKey)));
+    test('curseForgeUploadTokenKey is distinct from the read API host', () {
+      expect(
+        curseForgeUploadTokenKey,
+        isNot(equals(normalizeServerKey(defaultCurseForgeBaseUrl))),
+      );
     });
   });
 

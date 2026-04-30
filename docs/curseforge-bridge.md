@@ -30,7 +30,7 @@ and independently.
 
 - [x] [Part 1: Foundation and hosted Modrinth](#part-1-foundation-and-hosted-modrinth) — normalize hyphenated manifest fields to underscores, rename schema/parser `hosted:` → `modrinth_host:`, drop the deferred-source guard, thread the host through `ModrinthApi`, wire tokens via `UserConfig.tokens[host]`, accept pack-level `modrinth_host:` as a default.
 - [x] [Part 2: Manifest source model](#part-2-manifest-source-model) — `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction (scalar or list), top-level `gitrinth:` block (with `gitrinth.version` semver constraint plus `gitrinth.modrinth` / `gitrinth.curseforge` defaults — replaces the old `tooling:` block), `cf:<slug>` short-form sugar, section-aware source eligibility, plugin source limits.
-- [x] [Part 3: CurseForge API client](#part-3-curseforge-api-client) — typed client, token lookup for `curseforge.com`, content-type filters, loader/version filters, file/hash/dependency models, cache boundaries.
+- [x] [Part 3: CurseForge API client](#part-3-curseforge-api-client) — typed client, env-only download key lookup, content-type filters, loader/version filters, file/hash/dependency models, cache boundaries.
 - [ ] [Part 4: Resolver and lockfile](#part-4-resolver-and-lockfile) — multi-source resolution, per-platform lock blocks, `not_found` markers, plugin lock behavior, cross-platform SHA1 verification, `hash_scan_depth`, `allow_hash_mismatch`.
 - [ ] [Part 5: Search fallback](#part-5-search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, section-aware search filters, `no_cross_platform_search` / `--no-search` opt-outs.
 - [ ] [Part 6: Transitive dependencies and deduplication](#part-6-transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
@@ -122,21 +122,22 @@ What landed:
   `@Extra({kCurseForgeAuthRequired: true})` so the auth interceptor
   controls when the API key is attached.
 - `CurseForgeAuthInterceptor` injects `x-api-key:` for requests
-  destined for `api.curseforge.com`. Token resolution order:
-  `GITRINTH_CURSEFORGE_TOKEN` env var → `UserConfig.tokens[<key>]`
-  for `curseForgeTokenKey` (the normalized
-  `https://api.curseforge.com` URL) → an embedded default key
-  decoded from `kCurseForgeDefaultApiKeyB64`. The embedded default
-  lets out-of-the-box CF resolution work without any user setup; a
-  unit test fails the build until the placeholder is replaced with
-  the real base64-encoded key.
+  destined for `api.curseforge.com`. Download-key resolution is
+  environment-only: `GITRINTH_CURSEFORGE_TOKEN` at runtime overrides
+  the official build default decoded from
+  `kCurseForgeDefaultApiKeyB64`, which is populated from
+  `GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64` at build time. User
+  config tokens are intentionally not consulted for downloads;
+  `gitrinth token add curseforge.com` is reserved for the separate
+  CurseForge publish key.
 - `defaultCurseForgeUploadBaseUrl`, `curseForgeUploadTokenKey`, and
   `resolveCurseForgeUploadToken(...)` are declared in
   `curseforge_url.dart` so Parts 7 and 8 have a stable shape to
-  build the publish path against. The upload token has *no*
-  embedded default by design — uploads attribute artifacts to a
+  build the publish path against. The publish token has *no*
+  embedded default by design: uploads attribute artifacts to a
   specific developer account, so each developer must supply their
-  own.
+  own with `GITRINTH_CURSEFORGE_UPLOAD_TOKEN` or
+  `gitrinth token add curseforge.com`.
 - `CurseForgeRateLimitInterceptor` is reactive only (CF publishes
   no budget headers). On a 429 it sleeps using `Retry-After` if
   present or an attempt-ramped backoff capped at 65s, retrying up
@@ -258,8 +259,8 @@ Done means:
 - `gitrinth curseforge enable/disable` and
   `gitrinth modrinth enable/disable` edit the matching `gitrinth`
   platform toggle in `mods.yaml`.
-- `token add/list/remove` can manage both host URLs and
-  `curseforge.com`.
+- `token add/list/remove` can manage Modrinth/labrinth host URLs and
+  the CurseForge publish credential at `curseforge.com`.
 
 ### Part 8: Pack and publish
 
@@ -485,9 +486,10 @@ semantics and the new fields.
 The resolver uses the same `loader` + `mc_version` filters (plus
 per-entry [`accepts_mc`](todo.md#accepts-mc--per-entry-mc-version-tolerance))
 and the same channel floor (`release`/`beta`/`alpha`) across
-platforms. Downloads hit each platform's CDN. The CF API requires a
-key, managed via [`token` add curseforge.com](todo.md#token-command);
-labrinth hosts named via `modrinth_host:` look up
+platforms. Downloads hit each platform's CDN. The CF download API key
+is supplied from `GITRINTH_CURSEFORGE_TOKEN` or from the official
+build's `GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64`; it is not read from
+the user token store. Labrinth hosts named via `modrinth_host:` look up
 `UserConfig.tokens[<host>]` through the same store.
 
 ### Plugin source eligibility
@@ -1070,6 +1072,11 @@ accepted as the top-level `publish_to` scalar. Explicit
 `publish_to: curseforge`, `[curseforge]`, or a `curseforge:` map key
 opts that publish operation into CurseForge even when
 `gitrinth.curseforge` is disabled by default.
+
+Publishing requires a CurseForge publish API key, which is distinct
+from the download key used by the resolver. It is resolved from
+`GITRINTH_CURSEFORGE_UPLOAD_TOKEN` first, then from the user token
+store entry managed by `gitrinth token add curseforge.com`.
 
 ```yaml
 # Resolve Modrinth-source entries against a labrinth instance by

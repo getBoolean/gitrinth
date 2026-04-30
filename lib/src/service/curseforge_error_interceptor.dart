@@ -27,8 +27,9 @@ class CurseForgeErrorInterceptor extends Interceptor {
         err,
         handler,
         const AuthenticationError(
-          'CurseForge rejected the request. Verify the configured key with '
-          '`gitrinth token add curseforge.com`.',
+          'CurseForge rejected the download API key. Set '
+          'GITRINTH_CURSEFORGE_TOKEN or rebuild with '
+          'GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64.',
         ),
       );
       return;

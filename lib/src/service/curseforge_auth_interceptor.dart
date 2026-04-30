@@ -8,24 +8,21 @@ import 'dio_error_helpers.dart';
 /// Attaches `x-api-key: <token>` to outbound CurseForge requests that
 /// opt into auth via `extra[kCurseForgeAuthRequired]`. Resolution order:
 ///   1. `envTokenLookup()` — typically `GITRINTH_CURSEFORGE_TOKEN`.
-///   2. `tokensProvider()[tokenKey]` — user-config map, normally
-///      `UserConfig.tokens['https://api.curseforge.com']`.
-///   3. The embedded default key from `decodeDefaultCfApiKey()` (or a
-///      caller-supplied resolver in tests).
+///   2. The build-time default key from `decodeDefaultCfApiKey()`
+///      (or a caller-supplied resolver in tests).
+///
+/// User config tokens are not used for downloads; `gitrinth token add
+/// curseforge.com` stores the separate CurseForge publish key.
 ///
 /// CurseForge requests against non-CF hosts pass through unchanged —
 /// the marker's host check uses `api.curseforge.com` exactly, so a
 /// stray `dio.get('https://example.com/...')` does not leak the key.
 class CurseForgeAuthInterceptor extends Interceptor {
-  final Map<String, String> Function() tokensProvider;
   final String? Function() envTokenLookup;
-  final String tokenKey;
   final String Function() _defaultKeyResolver;
 
   CurseForgeAuthInterceptor({
-    required this.tokensProvider,
     required this.envTokenLookup,
-    required this.tokenKey,
     String Function()? defaultKeyResolver,
   }) : _defaultKeyResolver = defaultKeyResolver ?? decodeDefaultCfApiKey;
 
@@ -75,8 +72,6 @@ class CurseForgeAuthInterceptor extends Interceptor {
   String? _resolveToken() {
     final fromEnv = envTokenLookup();
     if (fromEnv != null && fromEnv.isNotEmpty) return fromEnv;
-    final fromUser = tokensProvider()[tokenKey];
-    if (fromUser != null && fromUser.isNotEmpty) return fromUser;
     final fromDefault = _defaultKeyResolver();
     if (fromDefault.isEmpty) return null;
     return fromDefault;
@@ -84,10 +79,11 @@ class CurseForgeAuthInterceptor extends Interceptor {
 }
 
 const String _missingTokenMessage =
-    'No CurseForge API key is available. The build is missing its '
-    'embedded default key. Run `gitrinth token add curseforge.com` to '
-    'configure your own.';
+    'No CurseForge download API key is configured. Set '
+    'GITRINTH_CURSEFORGE_TOKEN or build with '
+    'GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64.';
 
 const String _unauthorizedMessage =
-    'CurseForge rejected the configured API key. Run '
-    '`gitrinth token add curseforge.com` to update it.';
+    'CurseForge rejected the configured download API key. Set '
+    'GITRINTH_CURSEFORGE_TOKEN or rebuild with '
+    'GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64.';

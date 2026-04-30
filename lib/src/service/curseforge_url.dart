@@ -21,25 +21,21 @@ String resolveCurseForgeBaseUrl(Map<String, String> env) {
   return defaultCurseForgeBaseUrl;
 }
 
-/// Stable [UserConfig.tokens] key for the CurseForge read API.
-final String curseForgeTokenKey = normalizeServerKey(defaultCurseForgeBaseUrl);
-
-// TODO(getBoolean): replace with the project's real CurseForge read-API
-// key, base64-encoded. Obtain at console.curseforge.com. The key is
-// embedded so that out-of-the-box `gitrinth get` works without the user
-// having to provision a personal CF key. Do not log or surface this
-// constant in user-facing output.
-const String kCurseForgeDefaultApiKeyB64 = '<<REPLACE_BEFORE_MERGE>>';
-
-/// Returns the embedded default CurseForge read-API key.
+/// Build-time default CurseForge download-API key, base64-encoded.
 ///
-/// While [kCurseForgeDefaultApiKeyB64] holds the placeholder marker the
-/// raw marker string is returned so the targeted unit test fails the
-/// build. Once the project owner supplies a real base64-encoded key,
-/// the decoded string is returned.
+/// Official builds inject this with
+/// `--define=GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64=<base64-key>`.
+/// User config tokens are intentionally not consulted for downloads;
+/// `gitrinth token add curseforge.com` is reserved for the separate
+/// CurseForge publish key.
+const String kCurseForgeDefaultApiKeyB64 = String.fromEnvironment(
+  'GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64',
+);
+
+/// Returns the build-time default CurseForge download-API key.
 String decodeDefaultCfApiKey() {
   final raw = kCurseForgeDefaultApiKeyB64;
-  if (raw == '<<REPLACE_BEFORE_MERGE>>') return raw;
+  if (raw.isEmpty) return '';
   return utf8.decode(base64.decode(raw));
 }
 
@@ -50,9 +46,12 @@ String decodeDefaultCfApiKey() {
 const String defaultCurseForgeUploadBaseUrl =
     'https://minecraft.curseforge.com';
 
-/// Stable [UserConfig.tokens] key for the CurseForge upload API.
+/// Stable [UserConfig.tokens] key for the CurseForge publish API.
+///
+/// The publish API itself lives at [defaultCurseForgeUploadBaseUrl],
+/// but users manage that credential as `curseforge.com`.
 final String curseForgeUploadTokenKey = normalizeServerKey(
-  defaultCurseForgeUploadBaseUrl,
+  'https://curseforge.com',
 );
 
 /// Resolves the per-developer CurseForge upload token.
@@ -60,7 +59,7 @@ final String curseForgeUploadTokenKey = normalizeServerKey(
 /// Returns null when neither the env var nor the user-config map carries
 /// a value — Part 8 surfaces a hard error in that case pointing at
 /// `https://authors-old.curseforge.com/account/api-tokens` and at
-/// `gitrinth token add minecraft.curseforge.com`.
+/// `gitrinth token add curseforge.com`.
 ///
 /// Personal upload tokens are intentionally *not* embeddable: they tie an
 /// upload to a specific CurseForge developer account. There is no

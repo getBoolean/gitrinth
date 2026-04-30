@@ -144,9 +144,7 @@ void main() {
       return CurseForgeApiFactory(
         console: const Console(),
         auth: CurseForgeAuthInterceptor(
-          tokensProvider: () => const {},
           envTokenLookup: () => null,
-          tokenKey: curseForgeTokenKey,
           defaultKeyResolver: () => 'TEST',
         ),
         offline: () => offline,
@@ -317,9 +315,7 @@ void main() {
         dio.httpClientAdapter = _RecordingAdapter(status: 401);
         dio.interceptors.add(
           CurseForgeAuthInterceptor(
-            tokensProvider: () => const {},
             envTokenLookup: () => null,
-            tokenKey: curseForgeTokenKey,
             defaultKeyResolver: () => 'TEST',
           ),
         );
@@ -337,7 +333,7 @@ void main() {
               isA<AuthenticationError>().having(
                 (e) => e.message,
                 'message',
-                contains('gitrinth token add curseforge.com'),
+                contains('GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64'),
               ),
             ),
           ),

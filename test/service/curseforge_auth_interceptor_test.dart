@@ -4,7 +4,6 @@ import 'package:dio/dio.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/service/curseforge_api.dart';
 import 'package:gitrinth/src/service/curseforge_auth_interceptor.dart';
-import 'package:gitrinth/src/service/curseforge_url.dart';
 import 'package:test/test.dart';
 
 class _RecordingAdapter implements HttpClientAdapter {
@@ -36,7 +35,6 @@ class _RecordingAdapter implements HttpClientAdapter {
 const String _cfBase = 'https://api.curseforge.com';
 
 Dio _buildDio({
-  required Map<String, String> tokens,
   String? envToken,
   String? defaultKey,
   int responseStatus = 200,
@@ -45,9 +43,7 @@ Dio _buildDio({
   dio.httpClientAdapter = _RecordingAdapter(status: responseStatus);
   dio.interceptors.add(
     CurseForgeAuthInterceptor(
-      tokensProvider: () => tokens,
       envTokenLookup: () => envToken,
-      tokenKey: curseForgeTokenKey,
       defaultKeyResolver: defaultKey == null ? null : () => defaultKey,
     ),
   );
@@ -62,40 +58,27 @@ Options _authed([Map<String, dynamic>? extra]) =>
 
 void main() {
   group('CurseForgeAuthInterceptor.onRequest', () {
-    test('env value wins over user-config and embedded default', () async {
-      final dio = _buildDio(
-        tokens: {curseForgeTokenKey: 'USR'},
-        envToken: 'ENV',
-        defaultKey: 'DEF',
-      );
+    test('env value wins over the build-time default', () async {
+      final dio = _buildDio(envToken: 'ENV', defaultKey: 'DEF');
 
       await dio.get('$_cfBase/v1/mods/1', options: _authed());
 
       expect(_adapterOf(dio).requests.single.headers['x-api-key'], 'ENV');
     });
 
-    test('user-config beats embedded default', () async {
-      final dio = _buildDio(
-        tokens: {curseForgeTokenKey: 'USR'},
-        defaultKey: 'DEF',
-      );
+    test(
+      'falls back to the build-time default key when env is absent',
+      () async {
+        final dio = _buildDio(defaultKey: 'DEF');
 
-      await dio.get('$_cfBase/v1/mods/1', options: _authed());
+        await dio.get('$_cfBase/v1/mods/1', options: _authed());
 
-      expect(_adapterOf(dio).requests.single.headers['x-api-key'], 'USR');
-    });
-
-    test('falls back to the embedded default key when env and user-config '
-        'are absent', () async {
-      final dio = _buildDio(tokens: const {}, defaultKey: 'DEF');
-
-      await dio.get('$_cfBase/v1/mods/1', options: _authed());
-
-      expect(_adapterOf(dio).requests.single.headers['x-api-key'], 'DEF');
-    });
+        expect(_adapterOf(dio).requests.single.headers['x-api-key'], 'DEF');
+      },
+    );
 
     test('does not attach x-api-key for non-CF hosts', () async {
-      final dio = _buildDio(tokens: {curseForgeTokenKey: 'USR'});
+      final dio = _buildDio(envToken: 'ENV');
 
       await dio.get('https://example.com/api/x', options: _authed());
 
@@ -104,7 +87,7 @@ void main() {
     });
 
     test('does not attach x-api-key when the marker extra is absent', () async {
-      final dio = _buildDio(tokens: {curseForgeTokenKey: 'USR'});
+      final dio = _buildDio(envToken: 'ENV');
 
       await dio.get('$_cfBase/v1/mods/1');
 
@@ -115,7 +98,7 @@ void main() {
     test(
       'rejects auth-gated request when the embedded default decodes empty',
       () async {
-        final dio = _buildDio(tokens: const {}, defaultKey: '');
+        final dio = _buildDio(defaultKey: '');
 
         await expectLater(
           dio.get('$_cfBase/v1/mods/1', options: _authed()),
@@ -126,7 +109,7 @@ void main() {
               isA<AuthenticationError>().having(
                 (e) => e.message,
                 'message',
-                contains('gitrinth token add curseforge.com'),
+                contains('GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64'),
               ),
             ),
           ),
@@ -145,10 +128,7 @@ void main() {
     test(
       'wraps a 401 response in AuthenticationError pointing at token add',
       () async {
-        final dio = _buildDio(
-          tokens: {curseForgeTokenKey: 'USR'},
-          responseStatus: 401,
-        );
+        final dio = _buildDio(envToken: 'ENV', responseStatus: 401);
 
         await expectLater(
           dio.get('$_cfBase/v1/mods/1', options: _authed()),
@@ -159,7 +139,7 @@ void main() {
               isA<AuthenticationError>().having(
                 (e) => e.message,
                 'message',
-                contains('gitrinth token add curseforge.com'),
+                contains('GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64'),
               ),
             ),
           ),
@@ -168,10 +148,7 @@ void main() {
     );
 
     test('non-401 errors pass through untouched', () async {
-      final dio = _buildDio(
-        tokens: {curseForgeTokenKey: 'USR'},
-        responseStatus: 500,
-      );
+      final dio = _buildDio(envToken: 'ENV', responseStatus: 500);
 
       await expectLater(
         dio.get('$_cfBase/v1/mods/1', options: _authed()),
@@ -186,7 +163,7 @@ void main() {
     });
 
     test('401 from non-CF host is passed through unchanged', () async {
-      final dio = _buildDio(tokens: const {}, responseStatus: 401);
+      final dio = _buildDio(responseStatus: 401);
 
       await expectLater(
         dio.get('https://example.com/api/x'),
