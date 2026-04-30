@@ -37,13 +37,7 @@ void main() {
     String? url,
   }) {
     final dir = Directory(
-      p.join(
-        cacheRoot.path,
-        'modrinth',
-        seedHostSegment,
-        projectId,
-        versionId,
-      ),
+      p.join(cacheRoot.path, 'modrinth', seedHostSegment, projectId, versionId),
     );
     dir.createSync(recursive: true);
     final jarBytes = utf8.encode(body);

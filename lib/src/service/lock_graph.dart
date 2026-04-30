@@ -92,8 +92,12 @@ Set<String> walkTransitiveClosure(
     final vid = entry.versionId;
     if (pid == null || vid == null) continue;
 
-    final children =
-        readCachedRequiredChildren(cache, hostForSlug(slug), pid, vid);
+    final children = readCachedRequiredChildren(
+      cache,
+      hostForSlug(slug),
+      pid,
+      vid,
+    );
     if (children == null) {
       console?.io(
         "$verboseLabel: no cached version.json for "

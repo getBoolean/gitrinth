@@ -109,7 +109,12 @@ class DepsCommand extends GitrinthCommand {
         children[slug] = const [];
         continue;
       }
-      final raw = readCachedRequiredChildren(cache, hostForSlug(slug), pid, vid);
+      final raw = readCachedRequiredChildren(
+        cache,
+        hostForSlug(slug),
+        pid,
+        vid,
+      );
       if (raw == null) {
         coldCacheCount++;
         children[slug] = const [];

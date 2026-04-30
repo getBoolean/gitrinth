@@ -264,13 +264,15 @@ Future<ResolveSyncResult> resolveAndSync({
       }
 
       try {
-        final list = await apiFactory.forHost(host).listVersions(
-          slug,
-          loadersJson: loaderFilter == null
-              ? null
-              : encodeFilterArray(loaderFilter),
-          gameVersionsJson: encodeFilterArray(gameVersions),
-        );
+        final list = await apiFactory
+            .forHost(host)
+            .listVersions(
+              slug,
+              loadersJson: loaderFilter == null
+                  ? null
+                  : encodeFilterArray(loaderFilter),
+              gameVersionsJson: encodeFilterArray(gameVersions),
+            );
         versionsPerSlug[slug] = list;
         return list;
       } on Object catch (e) {
@@ -284,8 +286,9 @@ Future<ResolveSyncResult> resolveAndSync({
       try {
         // Reverse-lookup project IDs against the pack default host —
         // transitive deps don't carry their own per-entry host yet.
-        final Project proj =
-            await apiFactory.forHost(packHost).getProject(projectId);
+        final Project proj = await apiFactory
+            .forHost(packHost)
+            .getProject(projectId);
         slugCache[projectId] = proj.slug;
         return proj.slug;
       } on Object {
@@ -327,13 +330,15 @@ Future<ResolveSyncResult> resolveAndSync({
           .toList();
     } else {
       try {
-        candidates = await apiFactory.forHost(overrideHost).listVersions(
-          slug,
-          loadersJson: loaderFilter == null
-              ? null
-              : encodeFilterArray(loaderFilter),
-          gameVersionsJson: encodeFilterArray(gameVersions),
-        );
+        candidates = await apiFactory
+            .forHost(overrideHost)
+            .listVersions(
+              slug,
+              loadersJson: loaderFilter == null
+                  ? null
+                  : encodeFilterArray(loaderFilter),
+              gameVersionsJson: encodeFilterArray(gameVersions),
+            );
       } on Object catch (err) {
         final e = (err is DioException) ? err.error : err;
         if (e is GitrinthException) throw e;

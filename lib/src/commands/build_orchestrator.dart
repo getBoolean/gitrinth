@@ -122,8 +122,9 @@ Future<int> runBuild({
   // Read the manifest once so per-entry hosts feed into the path
   // resolution below.
   final manifest = manifestIo.readModsYaml();
-  final defaultBaseUrl =
-      container.read(modrinthApiFactoryProvider).defaultBaseUrl;
+  final defaultBaseUrl = container
+      .read(modrinthApiFactoryProvider)
+      .defaultBaseUrl;
   for (final env in envs) {
     final result = _assembleEnv(
       env: env,
@@ -484,7 +485,10 @@ _AssembleResult _assembleEnv({
       final manifestEntry = manifest.sectionEntries(section)[entry.slug];
       final entryHost = manifestEntry == null
           ? (manifest.modrinthHost ?? defaultModrinthBaseUrl)
-          : manifest.effectiveModrinthHost(manifestEntry, defaultModrinthBaseUrl);
+          : manifest.effectiveModrinthHost(
+              manifestEntry,
+              defaultModrinthBaseUrl,
+            );
       final sourcePath = resolveSourcePath(
         cache,
         entry,
