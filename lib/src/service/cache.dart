@@ -142,9 +142,10 @@ class GitrinthCache {
   }
 
   /// Path where a CurseForge-sourced artifact lives. Layout:
-  /// `<curseforgeRoot>/<projectId>/<fileId>/<filename>`. CurseForge has
-  /// one canonical host (`api.curseforge.com`), so unlike
-  /// [modrinthPath] the layout has no host segment.
+  /// `<curseforgeRoot>/<projectId>/<fileId>/<filename>`. The layout has
+  /// no host segment because CurseForge project/file IDs are canonical
+  /// even when `GITRINTH_CURSEFORGE_URL` points at a staging or proxy
+  /// read-API host.
   String curseforgePath({
     required int projectId,
     required int fileId,

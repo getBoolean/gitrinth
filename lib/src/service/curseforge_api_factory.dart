@@ -40,7 +40,11 @@ class CurseForgeApiFactory {
       ..interceptors.add(OfflineGuardInterceptor(_offline))
       ..interceptors.add(_auth)
       ..interceptors.add(
-        CurseForgeRateLimitInterceptor(dio: dio, console: _console),
+        CurseForgeRateLimitInterceptor(
+          dio: dio,
+          baseUrl: baseUrl,
+          console: _console,
+        ),
       )
       ..interceptors.add(CurseForgeErrorInterceptor())
       ..options.headers['User-Agent'] =

@@ -140,15 +140,19 @@ void main() {
   });
 
   group('CurseForgeApiFactory', () {
-    CurseForgeApiFactory factoryFor({bool offline = false}) {
+    CurseForgeApiFactory factoryFor({
+      bool offline = false,
+      String baseUrl = _baseUrl,
+    }) {
       return CurseForgeApiFactory(
         console: const Console(),
         auth: CurseForgeAuthInterceptor(
           envTokenLookup: () => null,
+          baseUrl: baseUrl,
           defaultKeyResolver: () => 'TEST',
         ),
         offline: () => offline,
-        baseUrl: _baseUrl,
+        baseUrl: baseUrl,
       );
     }
 
@@ -193,6 +197,20 @@ void main() {
         factory.dio!.options.headers['User-Agent'],
         'gitrinth/$packageVersion (+github.com/getBoolean/gitrinth)',
       );
+      factory.close();
+    });
+
+    test('configured baseUrl receives CurseForge auth', () async {
+      final factory = factoryFor(baseUrl: 'https://cf-proxy.example.test');
+      final adapter = _RecordingAdapter();
+      factory.api;
+      factory.dio!.httpClientAdapter = adapter;
+
+      await factory.api.getMod(1);
+
+      final req = adapter.requests.single;
+      expect(req.uri.toString(), 'https://cf-proxy.example.test/v1/mods/1');
+      expect(req.headers['x-api-key'], 'TEST');
       factory.close();
     });
 

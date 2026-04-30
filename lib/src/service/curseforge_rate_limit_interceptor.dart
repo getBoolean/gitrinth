@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import 'console.dart';
+import 'curseforge_url.dart';
 
 /// Reactive 429 retry handler for the CurseForge read API.
 ///
@@ -13,21 +14,23 @@ import 'console.dart';
 /// _maxSleep]) and retries up to [_maxRetries] times before propagating
 /// the original error.
 ///
-/// Scoped to `api.curseforge.com` so other upstreams pass through.
+/// Scoped to the resolved CurseForge read-API host so other upstreams
+/// pass through.
 class CurseForgeRateLimitInterceptor extends Interceptor {
   final Dio _dio;
   final Console? _console;
   final Future<void> Function(Duration) _sleep;
+  final String _cfHost;
 
   CurseForgeRateLimitInterceptor({
     required Dio dio,
+    String baseUrl = defaultCurseForgeBaseUrl,
     Console? console,
     Future<void> Function(Duration)? sleep,
   }) : _dio = dio,
        _console = console,
+       _cfHost = Uri.parse(baseUrl).host.toLowerCase(),
        _sleep = sleep ?? Future.delayed;
-
-  static const String _cfHost = 'api.curseforge.com';
 
   @override
   Future<void> onError(

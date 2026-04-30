@@ -37,6 +37,7 @@ const String _cfBase = 'https://api.curseforge.com';
 Dio _buildDio({
   String? envToken,
   String? defaultKey,
+  String baseUrl = _cfBase,
   int responseStatus = 200,
 }) {
   final dio = Dio();
@@ -44,6 +45,7 @@ Dio _buildDio({
   dio.interceptors.add(
     CurseForgeAuthInterceptor(
       envTokenLookup: () => envToken,
+      baseUrl: baseUrl,
       defaultKeyResolver: defaultKey == null ? null : () => defaultKey,
     ),
   );
@@ -84,6 +86,20 @@ void main() {
 
       final headers = _adapterOf(dio).requests.single.headers;
       expect(headers.containsKey('x-api-key'), isFalse);
+    });
+
+    test('attaches x-api-key for the configured CF host override', () async {
+      final dio = _buildDio(
+        envToken: 'ENV',
+        baseUrl: 'https://cf-proxy.example.test',
+      );
+
+      await dio.get(
+        'https://cf-proxy.example.test/v1/mods/1',
+        options: _authed(),
+      );
+
+      expect(_adapterOf(dio).requests.single.headers['x-api-key'], 'ENV');
     });
 
     test('does not attach x-api-key when the marker extra is absent', () async {

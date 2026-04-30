@@ -146,6 +146,34 @@ void main() {
       expect(adapter.requests, hasLength(1));
     });
 
+    test('429 from the configured CF host override is retried', () async {
+      final adapter = _ScriptedAdapter([
+        _rateLimited(
+          headers: {
+            'retry-after': ['2'],
+          },
+        ),
+        _ok(),
+      ]);
+      final dio = Dio()..httpClientAdapter = adapter;
+      final sleeps = <Duration>[];
+      dio.interceptors.add(
+        CurseForgeRateLimitInterceptor(
+          dio: dio,
+          baseUrl: 'https://cf-proxy.example.test',
+          sleep: (d) async => sleeps.add(d),
+        ),
+      );
+
+      final response = await dio.get<dynamic>(
+        'https://cf-proxy.example.test/v1/mods/1',
+      );
+
+      expect(response.statusCode, 200);
+      expect(sleeps, [const Duration(seconds: 2)]);
+      expect(adapter.requests, hasLength(2));
+    });
+
     test(
       'on exhausted retries, propagates the original DioException',
       () async {

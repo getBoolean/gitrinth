@@ -122,7 +122,7 @@ What landed:
   `@Extra({kCurseForgeAuthRequired: true})` so the auth interceptor
   controls when the API key is attached.
 - `CurseForgeAuthInterceptor` injects `x-api-key:` for requests
-  destined for `api.curseforge.com`. Download-key resolution is
+  destined for the resolved CurseForge read-API host. Download-key resolution is
   environment-only: `GITRINTH_CURSEFORGE_TOKEN` at runtime overrides
   the official build default decoded from
   `kCurseForgeDefaultApiKeyB64`, which is populated from
@@ -387,8 +387,8 @@ support that entry's section and loader according to the
 `gitrinth.curseforge: enabled` is present, eligible entries also
 resolve on CurseForge by default. The Modrinth side of that
 resolution can be redirected at a labrinth deployment via
-`modrinth_host:` (per-entry or pack-wide); the CurseForge side always
-targets `api.curseforge.com`.
+`modrinth_host:` (per-entry or pack-wide); the CurseForge side targets
+`GITRINTH_CURSEFORGE_URL` when set, otherwise `api.curseforge.com`.
 
 The examples below use `mods:`, but the same source grammar applies
 to `resource_packs:`, `data_packs:`, `shaders:`, and supported

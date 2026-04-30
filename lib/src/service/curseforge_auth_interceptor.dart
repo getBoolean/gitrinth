@@ -15,18 +15,19 @@ import 'dio_error_helpers.dart';
 /// curseforge.com` stores the separate CurseForge publish key.
 ///
 /// CurseForge requests against non-CF hosts pass through unchanged —
-/// the marker's host check uses `api.curseforge.com` exactly, so a
-/// stray `dio.get('https://example.com/...')` does not leak the key.
+/// the host check uses the resolved read-API base URL, so a stray
+/// `dio.get('https://example.com/...')` does not leak the key.
 class CurseForgeAuthInterceptor extends Interceptor {
   final String? Function() envTokenLookup;
   final String Function() _defaultKeyResolver;
+  final String _cfHost;
 
   CurseForgeAuthInterceptor({
     required this.envTokenLookup,
+    String baseUrl = defaultCurseForgeBaseUrl,
     String Function()? defaultKeyResolver,
-  }) : _defaultKeyResolver = defaultKeyResolver ?? decodeDefaultCfApiKey;
-
-  static const String _cfHost = 'api.curseforge.com';
+  }) : _cfHost = Uri.parse(baseUrl).host.toLowerCase(),
+       _defaultKeyResolver = defaultKeyResolver ?? decodeDefaultCfApiKey;
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
