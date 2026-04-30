@@ -19,6 +19,7 @@ class GitrinthCache {
     : _console = console ?? const Console();
 
   String get modrinthRoot => p.normalize(p.join(root, 'modrinth'));
+  String get curseforgeRoot => p.normalize(p.join(root, 'curseforge'));
   String get urlRoot => p.normalize(p.join(root, 'url'));
   String get tmpRoot => p.normalize(p.join(root, 'tmp'));
   String get loadersRoot => p.normalize(p.join(root, 'loaders'));
@@ -113,7 +114,10 @@ class GitrinthCache {
         return hostUrl;
       }
     })();
-    final stripped = key.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://'), '');
+    final stripped = key.replaceFirst(
+      RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://'),
+      '',
+    );
     return stripped
         .replaceAll('/', '_')
         .replaceAll('\\', '_')
@@ -133,6 +137,24 @@ class GitrinthCache {
       hostCacheSegment(host),
       projectId,
       versionId,
+      filename,
+    );
+  }
+
+  /// Path where a CurseForge-sourced artifact lives. Layout:
+  /// `<curseforgeRoot>/<projectId>/<fileId>/<filename>`. The layout has
+  /// no host segment because CurseForge project/file IDs are canonical
+  /// even when `GITRINTH_CURSEFORGE_URL` points at a staging or proxy
+  /// read-API host.
+  String curseforgePath({
+    required int projectId,
+    required int fileId,
+    required String filename,
+  }) {
+    return p.join(
+      curseforgeRoot,
+      projectId.toString(),
+      fileId.toString(),
       filename,
     );
   }

@@ -799,22 +799,28 @@ $body
 ''';
 
     test('scalar sources: curseforge normalizes to {curseforge}', () {
-      final m = parseModsYaml(wrap('''
+      final m = parseModsYaml(
+        wrap('''
 mods:
   ae2:
     sources: curseforge
     version: ^1.0.0
-'''), filePath: 'mods.yaml');
+'''),
+        filePath: 'mods.yaml',
+      );
       expect(m.mods['ae2']!.sources, equals({SourceKind.curseforge}));
     });
 
     test('list sources: [modrinth, curseforge] normalizes to a set', () {
-      final m = parseModsYaml(wrap('''
+      final m = parseModsYaml(
+        wrap('''
 mods:
   jei:
     sources: [modrinth, curseforge]
     version: ^1.0.0
-'''), filePath: 'mods.yaml');
+'''),
+        filePath: 'mods.yaml',
+      );
       expect(
         m.mods['jei']!.sources,
         equals({SourceKind.modrinth, SourceKind.curseforge}),
@@ -823,45 +829,57 @@ mods:
 
     test('rejects empty sources: list', () {
       expect(
-        () => parseModsYaml(wrap('''
+        () => parseModsYaml(
+          wrap('''
 mods:
   bad:
     sources: []
-'''), filePath: 'mods.yaml'),
+'''),
+          filePath: 'mods.yaml',
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
 
     test('rejects unknown source name', () {
       expect(
-        () => parseModsYaml(wrap('''
+        () => parseModsYaml(
+          wrap('''
 mods:
   bad:
     sources: bogus
-'''), filePath: 'mods.yaml'),
+'''),
+          filePath: 'mods.yaml',
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
 
     test('rejects duplicate sources entries', () {
       expect(
-        () => parseModsYaml(wrap('''
+        () => parseModsYaml(
+          wrap('''
 mods:
   bad:
     sources: [modrinth, modrinth]
-'''), filePath: 'mods.yaml'),
+'''),
+          filePath: 'mods.yaml',
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
 
     test('parses modrinth: and curseforge: peer slug fields', () {
-      final m = parseModsYaml(wrap('''
+      final m = parseModsYaml(
+        wrap('''
 mods:
   fabric-api:
     modrinth: fabric-api
     curseforge: fabric-api-cf-slug
     version: ^0.102.0
-'''), filePath: 'mods.yaml');
+'''),
+        filePath: 'mods.yaml',
+      );
       expect(m.mods['fabric-api']!.modrinthSlug, 'fabric-api');
       expect(m.mods['fabric-api']!.curseforgeSlug, 'fabric-api-cf-slug');
     });
@@ -953,26 +971,29 @@ $body
 
     test('paper + sources: curseforge is allowed', () {
       final m = parseModsYaml(
-        pluginYaml('paper', body: '''
+        pluginYaml(
+          'paper',
+          body: '''
   worldedit:
     sources: curseforge
     version: ^7.0.0
-'''),
+''',
+        ),
         filePath: 'mods.yaml',
       );
-      expect(
-        m.plugins['worldedit']!.sources,
-        equals({SourceKind.curseforge}),
-      );
+      expect(m.plugins['worldedit']!.sources, equals({SourceKind.curseforge}));
     });
 
     test('bukkit + curseforge: peer is allowed', () {
       final m = parseModsYaml(
-        pluginYaml('bukkit', body: '''
+        pluginYaml(
+          'bukkit',
+          body: '''
   worldedit:
     curseforge: worldedit-bukkit
     version: ^7.0.0
-'''),
+''',
+        ),
         filePath: 'mods.yaml',
       );
       expect(m.plugins['worldedit']!.curseforgeSlug, 'worldedit-bukkit');
@@ -981,21 +1002,21 @@ $body
     test('folia + sources: curseforge throws a manifest error', () {
       expect(
         () => parseModsYaml(
-          pluginYaml('folia', body: '''
+          pluginYaml(
+            'folia',
+            body: '''
   bad:
     sources: curseforge
     version: ^1.0.0
-'''),
+''',
+          ),
           filePath: 'mods.yaml',
         ),
         throwsA(
           isA<ValidationError>().having(
             (e) => e.message,
             'message',
-            allOf(
-              contains('CurseForge'),
-              contains('eligibility-matrix'),
-            ),
+            allOf(contains('CurseForge'), contains('eligibility-matrix')),
           ),
         ),
       );
@@ -1004,11 +1025,14 @@ $body
     test('sponge + curseforge: peer throws a manifest error', () {
       expect(
         () => parseModsYaml(
-          pluginYaml('sponge', body: '''
+          pluginYaml(
+            'sponge',
+            body: '''
   bad:
     curseforge: bukkit-only-thing
     version: ^1.0.0
-'''),
+''',
+          ),
           filePath: 'mods.yaml',
         ),
         throwsA(isA<ValidationError>()),

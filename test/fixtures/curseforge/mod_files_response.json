@@ -1,0 +1,134 @@
+{
+  "data": [
+    {
+      "id": 5814200,
+      "gameId": 432,
+      "modId": 238222,
+      "isAvailable": true,
+      "displayName": "jei-1.21.1-fabric-19.27.0.340.jar",
+      "fileName": "jei-1.21.1-fabric-19.27.0.340.jar",
+      "releaseType": 1,
+      "fileStatus": 4,
+      "hashes": [
+        {"value": "abcd1234abcd1234abcd1234abcd1234abcd1234", "algo": 1},
+        {"value": "1234abcd1234abcd1234abcd1234abcd", "algo": 2}
+      ],
+      "fileDate": "2025-08-15T12:00:00Z",
+      "fileLength": 2098765,
+      "downloadCount": 12345,
+      "downloadUrl": "https://edge.forgecdn.net/files/5814/200/jei-1.21.1-fabric-19.27.0.340.jar",
+      "gameVersions": ["1.21.1", "Fabric"],
+      "sortableGameVersions": [],
+      "dependencies": [
+        {"modId": 306612, "relationType": 3},
+        {"modId": 999999, "relationType": 2}
+      ],
+      "alternateFileId": 0,
+      "isServerPack": false,
+      "fileFingerprint": 12345678,
+      "modules": []
+    },
+    {
+      "id": 5814100,
+      "gameId": 432,
+      "modId": 238222,
+      "isAvailable": true,
+      "displayName": "jei-1.21.1-forge-19.26.0.340.jar",
+      "fileName": "jei-1.21.1-forge-19.26.0.340.jar",
+      "releaseType": 1,
+      "fileStatus": 4,
+      "hashes": [
+        {"value": "0011223344556677889900112233445566778899", "algo": 1}
+      ],
+      "fileDate": "2025-08-10T10:00:00Z",
+      "fileLength": 2090000,
+      "downloadCount": 9876,
+      "downloadUrl": "https://edge.forgecdn.net/files/5814/100/jei-1.21.1-forge-19.26.0.340.jar",
+      "gameVersions": ["1.21.1", "Forge"],
+      "sortableGameVersions": [],
+      "dependencies": [],
+      "alternateFileId": 0,
+      "isServerPack": false,
+      "fileFingerprint": 12345679,
+      "modules": []
+    },
+    {
+      "id": 5814050,
+      "gameId": 432,
+      "modId": 238222,
+      "isAvailable": true,
+      "displayName": "jei-1.21.1-fabric-19.27.0.340-beta.jar",
+      "fileName": "jei-1.21.1-fabric-19.27.0.340-beta.jar",
+      "releaseType": 2,
+      "fileStatus": 4,
+      "hashes": [
+        {"value": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef", "algo": 1}
+      ],
+      "fileDate": "2025-08-05T08:00:00Z",
+      "fileLength": 2080000,
+      "downloadCount": 1234,
+      "downloadUrl": "https://edge.forgecdn.net/files/5814/050/jei-1.21.1-fabric-19.27.0.340-beta.jar",
+      "gameVersions": ["1.21.1", "Fabric"],
+      "sortableGameVersions": [],
+      "dependencies": [],
+      "alternateFileId": 0,
+      "isServerPack": false,
+      "fileFingerprint": 12345680,
+      "modules": []
+    },
+    {
+      "id": 5810000,
+      "gameId": 432,
+      "modId": 238222,
+      "isAvailable": true,
+      "displayName": "jei-1.21-fabric-19.20.0.0.jar",
+      "fileName": "jei-1.21-fabric-19.20.0.0.jar",
+      "releaseType": 1,
+      "fileStatus": 4,
+      "hashes": [
+        {"value": "cafebabecafebabecafebabecafebabecafebabe", "algo": 1}
+      ],
+      "fileDate": "2025-07-01T08:00:00Z",
+      "fileLength": 2050000,
+      "downloadCount": 50000,
+      "downloadUrl": "https://edge.forgecdn.net/files/5810/000/jei-1.21-fabric-19.20.0.0.jar",
+      "gameVersions": ["1.21", "Fabric"],
+      "sortableGameVersions": [],
+      "dependencies": [],
+      "alternateFileId": 0,
+      "isServerPack": false,
+      "fileFingerprint": 12345681,
+      "modules": []
+    },
+    {
+      "id": 5809000,
+      "gameId": 432,
+      "modId": 238222,
+      "isAvailable": true,
+      "displayName": "jei-1.21.1-fabric-19.19.0.0-alpha.jar",
+      "fileName": "jei-1.21.1-fabric-19.19.0.0-alpha.jar",
+      "releaseType": 3,
+      "fileStatus": 4,
+      "hashes": [
+        {"value": "facefeedfacefeedfacefeedfacefeedfacefeed", "algo": 1}
+      ],
+      "fileDate": "2025-06-15T08:00:00Z",
+      "fileLength": 2040000,
+      "downloadCount": 500,
+      "downloadUrl": "https://edge.forgecdn.net/files/5809/000/jei-1.21.1-fabric-19.19.0.0-alpha.jar",
+      "gameVersions": ["1.21.1", "Fabric"],
+      "sortableGameVersions": [],
+      "dependencies": [],
+      "alternateFileId": 0,
+      "isServerPack": false,
+      "fileFingerprint": 12345682,
+      "modules": []
+    }
+  ],
+  "pagination": {
+    "index": 0,
+    "pageSize": 50,
+    "resultCount": 5,
+    "totalCount": 5
+  }
+}

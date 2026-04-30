@@ -39,13 +39,15 @@ void main() {
     },
   );
 
-  test('default host renders to a stable cache segment (api.modrinth.com_v2)',
-      () {
-    expect(
-      GitrinthCache.hostCacheSegment('https://api.modrinth.com/v2'),
-      'api.modrinth.com_v2',
-    );
-  });
+  test(
+    'default host renders to a stable cache segment (api.modrinth.com_v2)',
+    () {
+      expect(
+        GitrinthCache.hostCacheSegment('https://api.modrinth.com/v2'),
+        'api.modrinth.com_v2',
+      );
+    },
+  );
 
   test('different hosts map to different cache segments', () {
     expect(

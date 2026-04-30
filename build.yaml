@@ -28,3 +28,4 @@ targets:
         enabled: true
         generate_for:
           - lib/src/service/modrinth_api.dart
+          - lib/src/service/curseforge_api.dart

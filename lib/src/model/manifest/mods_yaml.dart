@@ -159,9 +159,7 @@ enum GitrinthPlatformState { enabled, disabled }
 bool sectionAllowsCurseforge(Section section, PluginLoader? pluginLoader) {
   if (section != Section.plugins) return true;
   return switch (pluginLoader) {
-    PluginLoader.bukkit ||
-    PluginLoader.spigot ||
-    PluginLoader.paper => true,
+    PluginLoader.bukkit || PluginLoader.spigot || PluginLoader.paper => true,
     _ => false,
   };
 }
@@ -359,10 +357,7 @@ class ModsYaml with ModsYamlMappable {
   /// Effective Modrinth-protocol base URL for [entry]. Single source
   /// of truth so callers don't repeat the per-entry → pack-level →
   /// global default chain inline.
-  String effectiveModrinthHost(
-    ModEntry entry,
-    String defaultBaseUrl,
-  ) {
+  String effectiveModrinthHost(ModEntry entry, String defaultBaseUrl) {
     final source = entry.source;
     final entryHost = source is ModrinthEntrySource ? source.host : null;
     return entryHost ?? modrinthHost ?? defaultBaseUrl;

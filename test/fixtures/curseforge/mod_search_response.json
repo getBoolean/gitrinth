@@ -1,0 +1,37 @@
+{
+  "data": [
+    {
+      "id": 238222,
+      "gameId": 432,
+      "name": "Just Enough Items (JEI)",
+      "slug": "jei",
+      "summary": "JEI is an item and recipe viewing mod for Minecraft, built from the ground up for stability and performance.",
+      "status": 4,
+      "downloadCount": 999999999,
+      "isFeatured": false,
+      "primaryCategoryId": 423,
+      "categories": [],
+      "classId": 6,
+      "authors": [{"id": 1, "name": "mezz", "url": "https://example.com/mezz"}],
+      "logo": null,
+      "screenshots": [],
+      "mainFileId": 5814200,
+      "latestFiles": [],
+      "latestFilesIndexes": [],
+      "latestEarlyAccessFilesIndexes": [],
+      "dateCreated": "2014-09-04T00:00:00Z",
+      "dateModified": "2025-08-15T12:00:00Z",
+      "dateReleased": "2025-08-15T12:00:00Z",
+      "allowModDistribution": true,
+      "gamePopularityRank": 1,
+      "isAvailable": true,
+      "thumbsUpCount": 1234567
+    }
+  ],
+  "pagination": {
+    "index": 0,
+    "pageSize": 50,
+    "resultCount": 1,
+    "totalCount": 1
+  }
+}

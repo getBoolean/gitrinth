@@ -225,8 +225,9 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
           break;
         }
       }
-      final api = read(modrinthApiFactoryProvider)
-          .forHost(existingManifest.modrinthHost);
+      final api = read(
+        modrinthApiFactoryProvider,
+      ).forHost(existingManifest.modrinthHost);
       final Section inferredSection;
       Project? project;
       if (declaredSection != null) {

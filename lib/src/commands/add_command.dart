@@ -187,8 +187,9 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       // Modrinth source. New entries default to the pack's
       // `modrinth_host:`; per-flag `--modrinth-host` overrides land
       // with Part 7 of the bridge.
-      final api = read(modrinthApiFactoryProvider)
-          .forHost(existingManifest.modrinthHost);
+      final api = read(
+        modrinthApiFactoryProvider,
+      ).forHost(existingManifest.modrinthHost);
       final Project project;
       try {
         project = await api.getProject(slug);
@@ -366,8 +367,7 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     }
 
     if (lock == null) return;
-    final defaultBaseUrl =
-        read(modrinthApiFactoryProvider).defaultBaseUrl;
+    final defaultBaseUrl = read(modrinthApiFactoryProvider).defaultBaseUrl;
     for (final entry in lock.allEntries) {
       final locked = entry.value;
       if (locked.sourceKind != LockedSourceKind.modrinth) continue;
@@ -379,8 +379,9 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       // don't carry host metadata yet — that lands with Part 4.
       String host = existingManifest.modrinthHost ?? defaultBaseUrl;
       for (final section in Section.values) {
-        final manifestEntry =
-            existingManifest.sectionEntries(section)[entry.key];
+        final manifestEntry = existingManifest.sectionEntries(
+          section,
+        )[entry.key];
         if (manifestEntry != null) {
           host = existingManifest.effectiveModrinthHost(
             manifestEntry,

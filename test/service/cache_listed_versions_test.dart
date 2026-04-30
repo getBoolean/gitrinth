@@ -75,8 +75,7 @@ void main() {
       expect(got.map((v) => v.id), equals(['good']));
     });
 
-    test('default host and custom host map to different cache segments',
-        () {
+    test('default host and custom host map to different cache segments', () {
       const customHost = 'https://modrinth.example.com';
       expect(
         GitrinthCache.hostCacheSegment(host),
