@@ -48,16 +48,16 @@ loader:
 mc_version: 1.21.1
 mods:
   jei:
-    source: modrinth
+    kind: resolved
     version: "19.27.0.340"
-    project_id: jei-id
-    version_id: jei-version
-    file:
-      name: jei.jar
-      url: https://example.com/jei.jar
-      sha1: "0000000000000000000000000000000000000000"
-      size: 100
-    env: both
+    modrinth:
+      project_id: jei-id
+      version_id: jei-version
+      file:
+        name: jei.jar
+        url: https://example.com/jei.jar
+        sha1: "0000000000000000000000000000000000000000"
+        size: 100
 resource_packs: {}
 data_packs: {}
 shaders: {}
@@ -122,16 +122,16 @@ loader:
 mc_version: 1.21.1
 mods:
   create:
-    source: modrinth
+    kind: resolved
     version: "6.0.10+mc1.21.1"
-    project_id: c
-    version_id: v
-    file:
-      name: create.jar
-      url: https://example.com/create.jar
-      sha1: "0000000000000000000000000000000000000000"
-      size: 1
-    env: both
+    modrinth:
+      project_id: c
+      version_id: v
+      file:
+        name: create.jar
+        url: https://example.com/create.jar
+        sha1: "0000000000000000000000000000000000000000"
+        size: 1
 resource_packs: {}
 data_packs: {}
 shaders: {}
@@ -181,13 +181,13 @@ loader:
 mc_version: 1.21.1
 mods:
   custom:
-    source: url
+    kind: url
+    url: https://example.com/custom.jar
     file:
       name: custom.jar
       url: https://example.com/custom.jar
       sha1: "0000000000000000000000000000000000000000"
       size: 1
-    env: both
 resource_packs: {}
 data_packs: {}
 shaders: {}
@@ -220,29 +220,29 @@ loader:
 mc_version: 1.21.1
 mods:
   terralith:
-    source: modrinth
+    kind: resolved
     version: "2.5.8"
-    project_id: t
-    version_id: v
-    file:
-      name: t.jar
-      url: https://example.com/t.jar
-      sha1: "0000000000000000000000000000000000000000"
-      size: 1
-    env: both
+    modrinth:
+      project_id: t
+      version_id: v
+      file:
+        name: t.jar
+        url: https://example.com/t.jar
+        sha1: "0000000000000000000000000000000000000000"
+        size: 1
 resource_packs: {}
 data_packs:
   terralith:
-    source: modrinth
+    kind: resolved
     version: "2.5.8"
-    project_id: t
-    version_id: v
-    file:
-      name: t.zip
-      url: https://example.com/t.zip
-      sha1: "0000000000000000000000000000000000000000"
-      size: 1
-    env: both
+    modrinth:
+      project_id: t
+      version_id: v
+      file:
+        name: t.zip
+        url: https://example.com/t.zip
+        sha1: "0000000000000000000000000000000000000000"
+        size: 1
 shaders: {}
 ''');
 

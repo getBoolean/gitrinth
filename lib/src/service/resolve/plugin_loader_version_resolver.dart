@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
-import '../cli/exceptions.dart';
-import '../model/manifest/mods_yaml.dart';
-import '../util/url_template.dart';
-import 'dio_error_helpers.dart';
-import 'paper_api_client.dart';
-import 'sponge_api_client.dart';
+import '../../cli/exceptions.dart';
+import '../../model/manifest/mods_yaml.dart';
+import '../../util/url_template.dart';
+import '../dio_error_helpers.dart';
+import '../paper_api_client.dart';
+import '../sponge_api_client.dart';
 
 class PluginLoaderVersionResolver {
   final Dio _dio;

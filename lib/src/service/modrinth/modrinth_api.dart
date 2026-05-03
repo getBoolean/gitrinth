@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
-import '../model/modrinth/game_version.dart';
-import '../model/modrinth/project.dart';
-import '../model/modrinth/version.dart';
+import '../../model/modrinth/game_version.dart';
+import '../../model/modrinth/project.dart';
+import '../../model/modrinth/version.dart';
 import 'modrinth_auth_interceptor.dart';
 
 part 'modrinth_api.g.dart';

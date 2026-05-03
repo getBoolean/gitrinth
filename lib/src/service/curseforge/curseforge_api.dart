@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:retrofit/retrofit.dart';
 
-import '../model/curseforge/cf_search_response.dart';
+import '../../model/curseforge/cf_search_response.dart';
 
 part 'curseforge_api.g.dart';
 

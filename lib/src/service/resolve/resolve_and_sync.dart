@@ -1,38 +1,38 @@
-library;
-
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:path/path.dart' as p;
 
-import '../cli/exceptions.dart';
-import '../cli/exit_codes.dart';
-import '../model/manifest/emitter.dart';
-import '../model/manifest/mods_lock.dart';
-import '../model/manifest/mods_yaml.dart';
-import '../model/manifest/overrides_merger.dart';
-import '../model/modrinth/project.dart';
-import '../model/modrinth/version.dart' as modrinth;
-import '../model/resolver/constraint.dart';
-import '../model/resolver/pubgrub.dart';
-import '../model/resolver/resolver.dart';
-import '../model/resolver/result.dart';
-import '../model/resolver/version_selection.dart';
-import '../version.dart';
-import '../commands/version_picker.dart';
-import 'cache.dart';
-import 'console.dart';
-import 'downloader.dart';
+import '../../cli/exceptions.dart';
+import '../../cli/exit_codes.dart';
+import '../../commands/version_picker.dart';
+import '../../model/manifest/emitter.dart';
+import '../../model/manifest/mods_lock.dart';
+import '../../model/manifest/mods_yaml.dart';
+import '../../model/manifest/overrides_merger.dart';
+import '../../model/modrinth/project.dart';
+import '../../model/modrinth/version.dart' as modrinth;
+import '../../model/resolver/constraint.dart';
+import '../../model/resolver/modrinth_solver_adapter.dart';
+import '../../model/resolver/pubgrub.dart';
+import '../../model/resolver/resolver.dart';
+import '../../model/resolver/version_selection.dart';
+import '../../model/manifest/source_eligibility.dart';
+import '../cache.dart';
+import '../console.dart';
+import '../curseforge/curseforge_api_factory.dart';
+import '../downloader.dart';
+import '../manifest_io.dart';
+import '../modrinth/modrinth_api.dart';
+import '../modrinth/modrinth_api_factory.dart';
+import 'curseforge_resolver.dart';
+import 'download_artifacts.dart';
+import 'hash_scan.dart';
+import 'lock_builder.dart';
 import 'mod_loader_version_resolver.dart';
-import 'manifest_io.dart';
-import 'modrinth_api.dart';
-import 'modrinth_api_factory.dart';
 import 'plugin_loader_version_resolver.dart';
 import 'section_inference.dart';
 import 'solve_report.dart';
-
-part 'lock_builder.dart';
 
 /// Returns true when [v] is admissible under both filters used during
 /// resolve: the caller's loader filter (`null` means "any loader is OK"
@@ -89,6 +89,7 @@ Future<ResolveSyncResult> resolveAndSync({
   required ManifestIo io,
   required Console console,
   required ModrinthApiFactory apiFactory,
+  required CurseForgeApiFactory cfFactory,
   required GitrinthCache cache,
   required Downloader downloader,
   required ModLoaderVersionResolver modLoaderResolver,
@@ -247,6 +248,7 @@ Future<ResolveSyncResult> resolveAndSync({
       if (offline) {
         final lockedProjectId = existingLock
             ?.sectionFor(section)[slug]
+            ?.modrinth
             ?.projectId;
         if (lockedProjectId == null) {
           throw UserError(
@@ -260,7 +262,7 @@ Future<ResolveSyncResult> resolveAndSync({
             .where((v) => _matchesLoaderAndMc(v, loaderFilter, gameVersions))
             .toList();
         versionsPerSlug[slug] = cached;
-        return cached;
+        return cached.map(ModrinthSolverVersion.new).toList();
       }
 
       try {
@@ -274,7 +276,7 @@ Future<ResolveSyncResult> resolveAndSync({
               gameVersionsJson: encodeFilterArray(gameVersions),
             );
         versionsPerSlug[slug] = list;
-        return list;
+        return list.map(ModrinthSolverVersion.new).toList();
       } on Object catch (e) {
         final err = (e is DioException) ? e.error : e;
         if (err is GitrinthException) throw err;
@@ -317,6 +319,7 @@ Future<ResolveSyncResult> resolveAndSync({
     if (offline) {
       final lockedProjectId = existingLock
           ?.sectionFor(section)[slug]
+          ?.modrinth
           ?.projectId;
       if (lockedProjectId == null) {
         throw UserError(
@@ -360,7 +363,7 @@ Future<ResolveSyncResult> resolveAndSync({
         "$mc",
       );
     }
-    overridePins[slug] = OverridePin(slug, picked);
+    overridePins[slug] = OverridePin(slug, ModrinthSolverVersion(picked));
     versionsPerSlug[slug] = candidates;
   }
 
@@ -368,17 +371,131 @@ Future<ResolveSyncResult> resolveAndSync({
   console.solver(
     'Resolving with loader.mods=${loaderConfig.mods.name} mc=$mc...',
   );
+
+  // Dispatch gate: compute the set of slugs that Modrinth participates
+  // in. Entries whose effective sources exclude Modrinth (e.g.
+  // `sources: [curseforge]`) are passed to the CF resolver only.
+  final modrinthSlugs = <String>{};
+  for (final section in Section.values) {
+    merged.sectionEntries(section).forEach((slug, entry) {
+      if (entry.source is! ModrinthEntrySource) return;
+      if (effectiveSources(
+        merged,
+        entry,
+        section,
+      ).contains(SourceKind.modrinth)) {
+        modrinthSlugs.add(slug);
+      }
+    });
+  }
+
   final resolution = await resolver.resolve(
     manifestForResolution,
     existingLock: lockForResolution,
     overridePins: overridePins,
+    modrinthSlugs: modrinthSlugs,
   );
 
-  final newLock = _buildLock(
-    merged,
-    resolution,
-    resolvedModLoaderVersion,
-    resolvedPluginLoaderVersion,
+  // CurseForge resolution pass. Skipped under --offline (the lock's
+  // existing CF blocks are kept by re-running buildLock against the
+  // lockForResolution; for Part 4 we just emit empty CF resolution
+  // and let the cache provide the artifacts).
+  CfResolution cfResolution;
+  if (offline) {
+    console.warn(
+      'Offline: CurseForge resolution skipped; locked entries reused '
+      'from cache.',
+    );
+    cfResolution = CfResolution.empty;
+  } else {
+    cfResolution = await resolveCurseforgeEntries(
+      manifest: merged,
+      api: cfFactory.api,
+      console: console,
+    );
+  }
+
+  // Aggregate "missing on a requested platform" failures into a single
+  // ValidationError. Modrinth-side: a slug whose effective sources
+  // include Modrinth but which the resolver never decided
+  // (slugs requested but `versionsPerSlug[slug]` is empty / absent).
+  final mrNotFoundSlugs = <String>{};
+  final decidedSlugs = {for (final r in resolution.entries) r.slug};
+  for (final slug in modrinthSlugs) {
+    if (decidedSlugs.contains(slug)) continue;
+    if (overridePins.containsKey(slug)) continue;
+    final entry = merged.sectionEntries(
+      slugToSection[slug] ?? Section.mods,
+    )[slug];
+    if (entry == null) continue;
+    if (isAnyGitrinthMarker(entry.constraintRaw)) continue;
+    final mrCandidates = versionsPerSlug[slug];
+    if (mrCandidates == null || mrCandidates.isEmpty) {
+      mrNotFoundSlugs.add(slug);
+    }
+  }
+  final missingMessage = formatCrossPlatformMissingError(
+    manifest: merged,
+    mrNotFoundSlugs: mrNotFoundSlugs,
+    cfResolution: cfResolution,
+  );
+  if (missingMessage != null) {
+    throw ValidationError(missingMessage);
+  }
+
+  // Hash-scan dual-source entries. For each slug with both Modrinth
+  // and CurseForge resolution, compare SHA1s and optionally scan
+  // older pairs per `hash_scan_depth`.
+  final hashOutcomes = <String, HashOutcome>{};
+  for (final r in resolution.entries) {
+    final cf = cfResolution.resolved[r.slug];
+    if (cf == null) continue;
+    final entry = merged.sectionEntries(r.section)[r.slug];
+    final depth = entry?.hashScanDepth ?? 10;
+    final allow = entry?.allowHashMismatch ?? false;
+    final mrCandidates =
+        versionsPerSlug[r.slug] ?? <modrinth.Version>[r.version];
+    final outcome = scanForMatchingPair(
+      mrCandidates: mrCandidates,
+      cfCandidates: cf.candidates,
+      hashScanDepth: depth,
+      allowHashMismatch: allow,
+    );
+    hashOutcomes[r.slug] = outcome;
+    if (outcome is HashAcceptedMismatch) {
+      console.warn(
+        '${r.slug}: SHA1 mismatch between Modrinth (${outcome.modrinthVersion.versionNumber}) '
+        'and CurseForge (file ${outcome.curseforgeFile.fileName}); '
+        'accepting because allow_hash_mismatch: true.',
+      );
+    } else if (outcome is HashExhausted) {
+      throw ValidationError(
+        '${r.slug}: SHA1 mismatch between Modrinth and CurseForge.\n'
+        '  Modrinth (project ${outcome.newestModrinth.projectId}, version '
+        '${outcome.newestModrinth.versionNumber}): '
+        '${outcome.newestModrinth.primaryFile?.hashes['sha1']}\n'
+        '  CurseForge (project ${cf.project.id}, file '
+        '${outcome.newestCurseforge.id}): '
+        '${outcome.newestCurseforge.sha1Hash}\n'
+        '  Scanned ${outcome.depthExamined} older versions on both '
+        'platforms; no match found.\n'
+        'Resolution options:\n'
+        '  - Set `allow_hash_mismatch: true` on this entry to accept '
+        'the divergence\n'
+        '  - Restrict to a single platform: `sources: [modrinth]` or '
+        '`sources: [curseforge]`\n'
+        '  - Pin per-platform versions explicitly in mods.yaml',
+      );
+    }
+  }
+
+  final newLock = buildLock(
+    manifest: merged,
+    resolution: resolution,
+    cfResolution: cfResolution,
+    hashOutcomes: hashOutcomes,
+    resolvedModLoaderVersion: resolvedModLoaderVersion,
+    resolvedPluginLoaderVersion: resolvedPluginLoaderVersion,
   );
   final diff = diffLocks(existingLock, newLock);
 
@@ -418,100 +535,24 @@ Future<ResolveSyncResult> resolveAndSync({
   // forward edges; future `gitrinth upgrade --unlock-transitive`
   // recomputes the closure from these JSON files. Failure here warns
   // but doesn't abort — the artifact download is the contract.
-  _persistVersionMetadata(
+  persistVersionMetadata(
     resolution,
     cache,
     console,
     (r) => entryHost(r.section, r.slug, null),
   );
 
-  int downloaded = 0;
-  int hits = 0;
-  final fetchErrors = <String>[];
-  for (final section in Section.values) {
-    final sectionMap = newLock.sectionFor(section);
-    for (final entry in sectionMap.entries) {
-      final locked = entry.value;
-      try {
-        switch (locked.sourceKind) {
-          case LockedSourceKind.modrinth:
-            final file = locked.file;
-            final projectId = locked.projectId;
-            final versionId = locked.versionId;
-            if (file == null || projectId == null || versionId == null) {
-              throw FormatException(
-                'lock entry "${locked.slug}" with kind=modrinth is missing '
-                'required fields — mods.lock is malformed.',
-              );
-            }
-            final url = file.url;
-            if (url == null) continue;
-            final dest = cache.modrinthPath(
-              host: entryHost(section, locked.slug, null),
-              projectId: projectId,
-              versionId: versionId,
-              filename: file.name,
-            );
-            final existed = File(dest).existsSync();
-            await downloader.downloadTo(
-              url: url,
-              destinationPath: dest,
-              expectedSha512: file.sha512,
-            );
-            if (existed) {
-              hits++;
-              console.io('cache hit:  ${locked.slug} -> $dest');
-            } else {
-              downloaded++;
-              console.io('downloaded: ${locked.slug} -> $dest');
-            }
-            break;
-          case LockedSourceKind.url:
-            final file = locked.file;
-            if (file == null) continue;
-            final url = file.url;
-            if (url == null) continue;
-            final sha512 = file.sha512;
-            final dest = sha512 != null
-                ? cache.urlPath(sha512: sha512, filename: file.name)
-                : cache.unverifiedUrlPath(locked.slug, file.name);
-            final existed = File(dest).existsSync();
-            await downloader.downloadTo(
-              url: url,
-              destinationPath: dest,
-              expectedSha512: sha512,
-            );
-            if (existed) {
-              hits++;
-            } else {
-              downloaded++;
-            }
-            break;
-          case LockedSourceKind.path:
-            final rawPath = locked.path;
-            if (rawPath == null) {
-              throw FormatException(
-                'lock entry "${locked.slug}" with kind=path has no path '
-                '— mods.lock is malformed.',
-              );
-            }
-            final resolved = p.isAbsolute(rawPath)
-                ? rawPath
-                : p.normalize(p.join(io.directory.path, rawPath));
-            if (FileSystemEntity.typeSync(resolved) ==
-                FileSystemEntityType.notFound) {
-              throw ValidationError(
-                'path source for "${locked.slug}" points to a missing file: '
-                '$rawPath (looked in $resolved)',
-              );
-            }
-            break;
-        }
-      } on GitrinthException catch (e) {
-        fetchErrors.add(e.message);
-      }
-    }
-  }
+  final fetchResult = await downloadArtifacts(
+    lock: newLock,
+    cache: cache,
+    downloader: downloader,
+    console: console,
+    io: io,
+    hostFor: (section, slug) => entryHost(section, slug, null),
+  );
+  final downloaded = fetchResult.downloaded;
+  final hits = fetchResult.hits;
+  final fetchErrors = fetchResult.errors;
   // Verify `files:` source paths exist; mirrors the `path:` mod-entry
   // existence check above. Build-time resolution would also catch
   // this, but failing fast at `get` time matches user expectations.

@@ -2,7 +2,7 @@ import '../cli/base_command.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../service/manifest_io.dart';
-import '../service/solve_report.dart';
+import '../service/resolve/solve_report.dart';
 
 class GetCommand extends GitrinthCommand with OfflineFlag {
   @override

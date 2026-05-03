@@ -1,8 +1,8 @@
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
-import '../cli/exceptions.dart';
-import '../model/manifest/mods_yaml.dart';
+import '../../cli/exceptions.dart';
+import '../../model/manifest/mods_yaml.dart';
 
 /// Infers the `mods.yaml` [Section] from a Modrinth project response.
 ///

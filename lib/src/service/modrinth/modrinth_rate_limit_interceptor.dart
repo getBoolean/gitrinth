@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import 'console.dart';
+import '../console.dart';
 
 /// Coordinates outbound calls to the Modrinth API against the published
 /// 300 req/min/IP budget. Reads `X-Ratelimit-*` headers on every response,

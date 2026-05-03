@@ -1,8 +1,8 @@
-import '../cli/exceptions.dart';
-import '../model/manifest/mods_yaml.dart';
-import '../model/resolver/constraint.dart';
-import '../model/resolver/pubgrub.dart';
-import 'console.dart';
+import '../../cli/exceptions.dart';
+import '../../model/manifest/mods_yaml.dart';
+import '../../model/resolver/constraint.dart';
+import '../../model/resolver/pubgrub.dart';
+import '../console.dart';
 import 'resolve_and_sync.dart';
 
 /// Outcome of [resolveWithConflictAutoDisable]: the second-pass

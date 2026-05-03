@@ -140,7 +140,7 @@ mods:
     expect(entry['upgradable']['version'], '1.5.0');
     expect(entry['latest']['version'], '1.5.0');
     expect(entry['kind'], 'direct');
-    expect(entry['source'], 'modrinth');
+    expect(entry['has_modrinth_source'], isTrue);
   });
 
   test('errors out when mods.lock is missing', () async {

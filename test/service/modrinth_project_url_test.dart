@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 
-import 'package:gitrinth/src/service/modrinth_project_url.dart';
+import 'package:gitrinth/src/service/modrinth/modrinth_project_url.dart';
 
 void main() {
   group('parseModrinthProjectUrl', () {

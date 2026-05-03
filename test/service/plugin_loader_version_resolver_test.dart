@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/service/paper_api_client.dart';
-import 'package:gitrinth/src/service/plugin_loader_version_resolver.dart';
+import 'package:gitrinth/src/service/resolve/plugin_loader_version_resolver.dart';
 import 'package:gitrinth/src/service/sponge_api_client.dart';
 import 'package:test/test.dart';
 

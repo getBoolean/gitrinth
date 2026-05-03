@@ -1,5 +1,5 @@
-import 'package:gitrinth/src/service/curseforge_url.dart';
-import 'package:gitrinth/src/service/modrinth_url.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_url.dart';
+import 'package:gitrinth/src/service/modrinth/modrinth_url.dart';
 import 'package:test/test.dart';
 
 void main() {

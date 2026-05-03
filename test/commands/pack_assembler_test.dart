@@ -55,16 +55,19 @@ LockedEntry _modrinth({
 }) {
   return LockedEntry(
     slug: slug,
-    sourceKind: LockedSourceKind.modrinth,
+    kind: LockedEntryKind.resolved,
     version: '1.0.0',
-    projectId: projectId,
-    versionId: versionId,
-    file: LockedFile(
-      name: name,
-      url: url,
-      sha1: sha1,
-      sha512: sha512,
-      size: size,
+    modrinth: LockedModrinthSource(
+      projectId: projectId,
+      versionId: versionId,
+      versionNumber: '1.0.0',
+      file: LockedFile(
+        name: name,
+        url: url,
+        sha1: sha1,
+        sha512: sha512,
+        size: size,
+      ),
     ),
     client: client,
     server: server,
@@ -81,8 +84,9 @@ LockedEntry _url({
 }) {
   return LockedEntry(
     slug: slug,
-    sourceKind: LockedSourceKind.url,
-    file: LockedFile(name: filename, url: url, sha512: sha512),
+    kind: LockedEntryKind.url,
+    url: url,
+    urlFile: LockedFile(name: filename, url: url, sha512: sha512),
     client: client,
     server: server,
   );
@@ -96,7 +100,7 @@ LockedEntry _path({
 }) {
   return LockedEntry(
     slug: slug,
-    sourceKind: LockedSourceKind.path,
+    kind: LockedEntryKind.path,
     path: path,
     client: client,
     server: server,
@@ -418,13 +422,15 @@ void main() {
     test('missing sha1 on a modrinth entry is rejected with a re-run hint', () {
       final entryWithoutSha1 = LockedEntry(
         slug: 'sodium',
-        sourceKind: LockedSourceKind.modrinth,
-        projectId: 'PID',
-        versionId: 'VID',
-        file: const LockedFile(
-          name: 'sodium-0.6.0.jar',
-          sha512: 'deadbeef',
-          size: 1024,
+        kind: LockedEntryKind.resolved,
+        modrinth: const LockedModrinthSource(
+          projectId: 'PID',
+          versionId: 'VID',
+          file: LockedFile(
+            name: 'sodium-0.6.0.jar',
+            sha512: 'deadbeef',
+            size: 1024,
+          ),
         ),
       );
       final lock = _lock(mods: {'sodium': entryWithoutSha1});

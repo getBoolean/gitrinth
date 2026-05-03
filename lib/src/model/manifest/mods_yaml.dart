@@ -254,6 +254,18 @@ class ModEntry with ModEntryMappable {
   /// `gitrinth.curseforge` pack-level defaults".
   final Set<SourceKind>? sources;
 
+  /// Per-entry override for the "scan older versions on both platforms
+  /// looking for a SHA1 match" depth used when both Modrinth and
+  /// CurseForge participate. `null` falls back to the global default
+  /// (10). `0` disables the scan; only the newest pair is compared.
+  /// Mutually exclusive with a single-element [sources].
+  final int? hashScanDepth;
+
+  /// Per-entry override allowing a Modrinth/CurseForge SHA1 mismatch to
+  /// be locked despite no match in the scan window. `null` falls back
+  /// to `false`. Mutually exclusive with a single-element [sources].
+  final bool? allowHashMismatch;
+
   const ModEntry({
     required this.slug,
     this.constraintRaw,
@@ -265,6 +277,8 @@ class ModEntry with ModEntryMappable {
     this.modrinthSlug,
     this.curseforgeSlug,
     this.sources,
+    this.hashScanDepth,
+    this.allowHashMismatch,
   });
 }
 

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
-import '../cli/exceptions.dart';
-import 'dio_error_helpers.dart';
+import '../../cli/exceptions.dart';
+import '../dio_error_helpers.dart';
 import 'modrinth_url.dart';
 
 /// Marker key on `RequestOptions.extra` that opts a request into auth.

@@ -2,14 +2,17 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 
-import '../cli/exceptions.dart';
-import 'dio_error_helpers.dart';
+import '../../cli/exceptions.dart';
+import '../dio_error_helpers.dart';
 
-class ModrinthErrorInterceptor extends Interceptor {
+/// Maps raw CurseForge HTTP failures into typed [GitrinthException]s.
+/// Mirrors `ModrinthErrorInterceptor`: 401/403 surface as
+/// [AuthenticationError], 404 surfaces a slug/id-aware
+/// [UserError], and other non-2xx codes wrap as a generic [UserError]
+/// with the request URI for context.
+class CurseForgeErrorInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
-    // A prior interceptor (e.g. auth) may have already mapped this to
-    // a typed gitrinth exception — don't shroud it in UserError.
     if (err.error is GitrinthException) {
       handler.next(err);
       return;
@@ -19,25 +22,28 @@ class ModrinthErrorInterceptor extends Interceptor {
     final reqUri = err.requestOptions.uri;
     final status = response?.statusCode;
 
-    // The `/project/<slug>/check` route uses 404 as its documented "slug is
-    // available" success case. Pass these errors through unwrapped so callers
-    // can inspect the original status code without a UserError shroud.
-    if (reqUri.path.endsWith('/check')) {
-      handler.next(err);
+    if (status == 401 || status == 403) {
+      _rejectWith(
+        err,
+        handler,
+        const AuthenticationError(
+          'CurseForge rejected the download API key. Set '
+          'GITRINTH_CURSEFORGE_TOKEN or rebuild with '
+          'GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64.',
+        ),
+      );
       return;
     }
 
-    // Modrinth returns 404 on `/project/<slug>` and `/project/<slug>/version`
-    // when the slug doesn't exist (filter mismatches return an empty array
-    // with 200). Surface the slug directly instead of the raw URL + status.
     if (status == 404) {
-      final slug = _projectSlugFromPath(reqUri.path);
-      if (slug != null) {
+      final modIdent = _modIdentFromPath(reqUri.path);
+      if (modIdent != null) {
         _rejectWith(
           err,
           handler,
           UserError(
-            "Modrinth project '$slug' not found. Verify the slug on modrinth.com.",
+            "CurseForge mod '$modIdent' not found. Verify the project on "
+            'curseforge.com.',
           ),
         );
         return;
@@ -67,31 +73,30 @@ class ModrinthErrorInterceptor extends Interceptor {
     _rejectWith(
       err,
       handler,
-      UserError('Modrinth request failed for $reqUri: $summary'),
+      UserError('CurseForge request failed for $reqUri: $summary'),
     );
   }
 
   void _rejectWith(
     DioException err,
     ErrorInterceptorHandler handler,
-    UserError wrapped,
+    GitrinthException wrapped,
   ) {
     handler.reject(wrapDioError(err, wrapped));
   }
 }
 
-/// Returns the slug from `/v2/project/<slug>` or `/v2/project/<slug>/version`,
-/// or null if the path doesn't match that shape.
-String? _projectSlugFromPath(String path) {
+/// Extracts the mod identifier (numeric ID or slug-on-search) from
+/// `/v1/mods/<id>(/...)` so 404s can name the missing project.
+String? _modIdentFromPath(String path) {
   final segments = path
       .split('/')
       .where((s) => s.isNotEmpty)
       .toList(growable: false);
-  final i = segments.indexOf('project');
-  if (i < 0 || i + 1 >= segments.length) return null;
-  final tail = segments.sublist(i + 2);
-  if (tail.isEmpty || (tail.length == 1 && tail.first == 'version')) {
-    return Uri.decodeComponent(segments[i + 1]);
+  for (var i = 0; i + 1 < segments.length; i++) {
+    if (segments[i] == 'mods' && segments[i + 1] != 'search') {
+      return Uri.decodeComponent(segments[i + 1]);
+    }
   }
   return null;
 }

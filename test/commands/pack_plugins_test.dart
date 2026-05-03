@@ -24,16 +24,19 @@ void main() {
       plugins: {
         'luckperms': LockedEntry(
           slug: 'luckperms',
-          sourceKind: LockedSourceKind.modrinth,
+          kind: LockedEntryKind.resolved,
           version: '5.4.0',
-          projectId: 'luckperms_ID',
-          versionId: 'luckperms_5_4_0',
-          file: LockedFile(
-            name: 'luckperms-5.4.0.jar',
-            url: 'https://example.com/luckperms-5.4.0.jar',
-            sha1: sha1,
-            sha512: sha512,
-            size: 1024,
+          modrinth: LockedModrinthSource(
+            projectId: 'luckperms_ID',
+            versionId: 'luckperms_5_4_0',
+            versionNumber: '5.4.0',
+            file: LockedFile(
+              name: 'luckperms-5.4.0.jar',
+              url: 'https://example.com/luckperms-5.4.0.jar',
+              sha1: sha1,
+              sha512: sha512,
+              size: 1024,
+            ),
           ),
           client: SideEnv.unsupported,
           server: SideEnv.required,

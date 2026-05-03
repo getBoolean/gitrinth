@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
 
-import '../version.dart';
-import 'console.dart';
+import '../../version.dart';
+import '../console.dart';
+import '../offline_guard_interceptor.dart';
 import 'curseforge_api.dart';
 import 'curseforge_auth_interceptor.dart';
 import 'curseforge_error_interceptor.dart';
 import 'curseforge_rate_limit_interceptor.dart';
-import 'offline_guard_interceptor.dart';
 
 /// Builds and caches a single [CurseForgeApi] (with its own [Dio] +
 /// reactive [CurseForgeRateLimitInterceptor]) for the CurseForge read

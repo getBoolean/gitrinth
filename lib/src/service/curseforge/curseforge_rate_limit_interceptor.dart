@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 
-import 'console.dart';
+import '../console.dart';
 import 'curseforge_url.dart';
 
 /// Reactive 429 retry handler for the CurseForge read API.

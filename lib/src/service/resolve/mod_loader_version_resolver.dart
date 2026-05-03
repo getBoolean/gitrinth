@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:pub_semver/pub_semver.dart';
 
-import '../cli/exceptions.dart';
-import '../model/manifest/mods_yaml.dart';
-import '../util/mc_version.dart';
+import '../../cli/exceptions.dart';
+import '../../model/manifest/mods_yaml.dart';
+import '../../util/mc_version.dart';
 
 /// Resolves the docker-style `<loader>:<tag>` syntax in `mods.yaml` to a
 /// concrete loader version.

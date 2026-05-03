@@ -1,10 +1,13 @@
 import '../../cli/exceptions.dart';
 import '../manifest/mods_lock.dart';
 import '../manifest/mods_yaml.dart';
+import '../modrinth/version.dart' as modrinth;
 import 'constraint.dart';
+import 'modrinth_solver_adapter.dart';
 import 'pubgrub.dart';
 import 'result.dart';
 import 'version_selection.dart';
+import 'version_solver_types.dart';
 
 /// Resolves the merged [manifest] into a [ResolutionResult] using the supplied
 /// version-listing callback. Pure: no service/ imports.
@@ -16,6 +19,18 @@ import 'version_selection.dart';
 /// dependencies' Modrinth project IDs back to slugs. If a transitive dep
 /// cannot be resolved to a slug (returns null), it is skipped — it will not
 /// participate in conflict resolution.
+///
+/// [modrinthSlugs] (if non-null) restricts which user-declared slugs
+/// participate in the Modrinth resolution roots. Slugs absent from the
+/// set are skipped — they're handled by another platform's resolver
+/// (today, only the CurseForge resolver). Transitive deps pulled in
+/// by required-dep edges are unaffected. Pass null to include every
+/// `ModrinthEntrySource` entry (legacy behavior).
+///
+/// The PubGrub solver underneath operates on a platform-agnostic
+/// [SolverVersion] surface; [Resolver] only ever feeds it
+/// [ModrinthSolverVersion] adapters today and unwraps decisions back
+/// to Modrinth versions at the result boundary.
 class Resolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
@@ -34,6 +49,7 @@ class Resolver {
     ModsYaml manifest, {
     ModsLock? existingLock,
     Map<String, OverridePin> overridePins = const {},
+    Set<String>? modrinthSlugs,
   }) async {
     final roots = <RootConstraint>[];
     final entryBySection = <String, Section>{};
@@ -50,6 +66,13 @@ class Resolver {
           // Skipped: a `gitrinth:` marker (`not-found` or
           // `disabled-by-conflict`) takes the entry out of resolution
           // until the user re-runs `migrate` / `upgrade --major-versions`.
+          return;
+        }
+        if (modrinthSlugs != null && !modrinthSlugs.contains(slug)) {
+          // Dispatch gate: the entry's effective sources exclude
+          // Modrinth (e.g. `sources: [curseforge]` or pack-default
+          // disable). Skip it here — the CurseForge resolver pass
+          // handles it.
           return;
         }
         // The lock builder still needs to file an overridden slug
@@ -90,6 +113,7 @@ class Resolver {
     final solver = PubGrubSolver(
       listVersions: listVersions,
       resolveSlugForProjectId: resolveSlugForProjectId,
+      selectionOrder: compareModrinthSolverOrder,
       lockSuggestions: pins,
       overridePins: overridePins.values.toList(),
       solveType: solveType,
@@ -101,7 +125,16 @@ class Resolver {
       ..sort((a, b) => a.key.compareTo(b.key));
     for (final decision in sortedDecisions) {
       final slug = decision.key;
-      final v = decision.value;
+      final solverV = decision.value;
+      // `Resolver` only ever feeds Modrinth adapters into the solver;
+      // any other adapter type at this boundary is a bug in the caller.
+      if (solverV is! ModrinthSolverVersion) {
+        throw StateError(
+          'Resolver expected ModrinthSolverVersion for $slug, got '
+          '${solverV.runtimeType}',
+        );
+      }
+      final v = solverV.raw;
       final file = v.primaryFile;
       if (file == null) {
         throw ValidationError(
@@ -130,4 +163,17 @@ class Resolver {
     }
     return ResolutionResult(entries);
   }
+}
+
+/// Type alias for callers that build a Modrinth-typed list-versions
+/// callback and want to feed it into [Resolver]. Wraps each
+/// [modrinth.Version] in a [ModrinthSolverVersion] before handing off
+/// to PubGrub.
+ListVersions modrinthListVersionsAdapter(
+  Future<List<modrinth.Version>> Function(String slug) underlying,
+) {
+  return (slug) async {
+    final mr = await underlying(slug);
+    return mr.map(ModrinthSolverVersion.new).toList();
+  };
 }

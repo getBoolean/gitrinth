@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import '../model/manifest/mods_lock.dart';
-import 'cache.dart';
-import 'console.dart';
+import '../../model/manifest/mods_lock.dart';
+import '../cache.dart';
+import '../console.dart';
 
 /// Reads the `dependencies` array out of the cached `version.json`
 /// and returns the list of `project_id`s for entries whose
@@ -74,7 +74,7 @@ Set<String> walkTransitiveClosure(
   final projectIdToSlug = <String, String>{};
   for (final entry in lock.allEntries) {
     lookup[entry.key] = entry.value;
-    final pid = entry.value.projectId;
+    final pid = entry.value.modrinth?.projectId;
     if (pid != null) projectIdToSlug[pid] = entry.key;
   }
 
@@ -87,10 +87,11 @@ Set<String> walkTransitiveClosure(
       console?.io("$verboseLabel: '$slug' not in mods.lock; skipping.");
       continue;
     }
-    if (entry.sourceKind != LockedSourceKind.modrinth) continue;
-    final pid = entry.projectId;
-    final vid = entry.versionId;
-    if (pid == null || vid == null) continue;
+    final mr = entry.modrinth;
+    if (mr == null) continue;
+    final pid = mr.projectId;
+    final vid = mr.versionId;
+    if (pid.isEmpty || vid.isEmpty) continue;
 
     final children = readCachedRequiredChildren(
       cache,

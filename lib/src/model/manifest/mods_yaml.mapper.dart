@@ -1174,6 +1174,18 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     _$sources,
     opt: true,
   );
+  static int? _$hashScanDepth(ModEntry v) => v.hashScanDepth;
+  static const Field<ModEntry, int> _f$hashScanDepth = Field(
+    'hashScanDepth',
+    _$hashScanDepth,
+    opt: true,
+  );
+  static bool? _$allowHashMismatch(ModEntry v) => v.allowHashMismatch;
+  static const Field<ModEntry, bool> _f$allowHashMismatch = Field(
+    'allowHashMismatch',
+    _$allowHashMismatch,
+    opt: true,
+  );
 
   @override
   final MappableFields<ModEntry> fields = const {
@@ -1187,6 +1199,8 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     #modrinthSlug: _f$modrinthSlug,
     #curseforgeSlug: _f$curseforgeSlug,
     #sources: _f$sources,
+    #hashScanDepth: _f$hashScanDepth,
+    #allowHashMismatch: _f$allowHashMismatch,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -1201,6 +1215,8 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       modrinthSlug: data.dec(_f$modrinthSlug),
       curseforgeSlug: data.dec(_f$curseforgeSlug),
       sources: data.dec(_f$sources),
+      hashScanDepth: data.dec(_f$hashScanDepth),
+      allowHashMismatch: data.dec(_f$allowHashMismatch),
     );
   }
 
@@ -1274,6 +1290,8 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     String? modrinthSlug,
     String? curseforgeSlug,
     Set<SourceKind>? sources,
+    int? hashScanDepth,
+    bool? allowHashMismatch,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1308,6 +1326,8 @@ class _ModEntryCopyWithImpl<$R, $Out>
     Object? modrinthSlug = $none,
     Object? curseforgeSlug = $none,
     Object? sources = $none,
+    Object? hashScanDepth = $none,
+    Object? allowHashMismatch = $none,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1320,6 +1340,8 @@ class _ModEntryCopyWithImpl<$R, $Out>
       if (modrinthSlug != $none) #modrinthSlug: modrinthSlug,
       if (curseforgeSlug != $none) #curseforgeSlug: curseforgeSlug,
       if (sources != $none) #sources: sources,
+      if (hashScanDepth != $none) #hashScanDepth: hashScanDepth,
+      if (allowHashMismatch != $none) #allowHashMismatch: allowHashMismatch,
     }),
   );
   @override
@@ -1334,6 +1356,11 @@ class _ModEntryCopyWithImpl<$R, $Out>
     modrinthSlug: data.get(#modrinthSlug, or: $value.modrinthSlug),
     curseforgeSlug: data.get(#curseforgeSlug, or: $value.curseforgeSlug),
     sources: data.get(#sources, or: $value.sources),
+    hashScanDepth: data.get(#hashScanDepth, or: $value.hashScanDepth),
+    allowHashMismatch: data.get(
+      #allowHashMismatch,
+      or: $value.allowHashMismatch,
+    ),
   );
 
   @override

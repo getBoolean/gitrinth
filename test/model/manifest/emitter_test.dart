@@ -4,37 +4,69 @@ import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/manifest/parser.dart';
 import 'package:test/test.dart';
 
+LockedEntry _modrinthOnly({
+  required String slug,
+  required String version,
+  required String projectId,
+  required String versionId,
+  required String fileName,
+  String? url,
+  String? sha1,
+  String? sha512,
+  int? size,
+  List<String> gameVersions = const [],
+  List<String> acceptsMc = const [],
+  LockedDependencyKind dependency = LockedDependencyKind.direct,
+  SideEnv client = SideEnv.required,
+  SideEnv server = SideEnv.required,
+}) => LockedEntry(
+  slug: slug,
+  kind: LockedEntryKind.resolved,
+  version: version,
+  modrinth: LockedModrinthSource(
+    projectId: projectId,
+    versionId: versionId,
+    versionNumber: version,
+    file: LockedFile(
+      name: fileName,
+      url: url,
+      sha1: sha1,
+      sha512: sha512,
+      size: size,
+    ),
+    gameVersions: gameVersions,
+  ),
+  client: client,
+  server: server,
+  dependency: dependency,
+  acceptsMc: acceptsMc,
+);
+
 void main() {
-  ModsLock sample() => const ModsLock(
+  ModsLock sample() => ModsLock(
     gitrinthVersion: '0.1.0',
-    loader: LoaderConfig(mods: ModLoader.neoforge),
+    loader: const LoaderConfig(mods: ModLoader.neoforge),
     mcVersion: '1.21.1',
     mods: {
-      'create': LockedEntry(
+      'create': _modrinthOnly(
         slug: 'create',
-        sourceKind: LockedSourceKind.modrinth,
         version: '6.0.10+mc1.21.1',
         projectId: 'LNytGWDc',
         versionId: 'abc123',
-        file: LockedFile(
-          name: 'create-1.21.1-6.0.10.jar',
-          url: 'https://cdn.modrinth.com/data/create.jar',
-          sha512: 'AABBCC',
-          size: 12345,
-        ),
+        fileName: 'create-1.21.1-6.0.10.jar',
+        url: 'https://cdn.modrinth.com/data/create.jar',
+        sha512: 'AABBCC',
+        size: 12345,
       ),
-      'flywheel': LockedEntry(
+      'flywheel': _modrinthOnly(
         slug: 'flywheel',
-        sourceKind: LockedSourceKind.modrinth,
         version: '1.0.0',
         projectId: 'PROJ2',
         versionId: 'VER2',
-        file: LockedFile(
-          name: 'flywheel.jar',
-          url: 'https://cdn.modrinth.com/data/flywheel.jar',
-          sha512: '112233',
-          size: 10000,
-        ),
+        fileName: 'flywheel.jar',
+        url: 'https://cdn.modrinth.com/data/flywheel.jar',
+        sha512: '112233',
+        size: 10000,
         dependency: LockedDependencyKind.transitive,
       ),
     },
@@ -74,23 +106,20 @@ void main() {
   });
 
   test('game-versions round-trips through emit -> parse -> emit', () {
-    const lock = ModsLock(
+    final lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: ModLoader.neoforge),
+      loader: const LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
-        'appleskin': LockedEntry(
+        'appleskin': _modrinthOnly(
           slug: 'appleskin',
-          sourceKind: LockedSourceKind.modrinth,
           version: '3.0.9+mc1.21',
           projectId: 'P1',
           versionId: 'V1',
-          file: LockedFile(
-            name: 'appleskin.jar',
-            url: 'https://cdn.modrinth.com/data/appleskin.jar',
-            sha512: 'ff00',
-            size: 1,
-          ),
+          fileName: 'appleskin.jar',
+          url: 'https://cdn.modrinth.com/data/appleskin.jar',
+          sha512: 'ff00',
+          size: 1,
           gameVersions: ['1.21'],
         ),
       },
@@ -100,7 +129,7 @@ void main() {
     // emitter quotes it to preserve string-typed round-trip.
     expect(once, contains('game_versions: ["1.21"]'));
     final parsed = parseModsLock(once, filePath: 'mods.lock');
-    expect(parsed.mods['appleskin']!.gameVersions, ['1.21']);
+    expect(parsed.mods['appleskin']!.modrinth!.gameVersions, ['1.21']);
     expect(emitModsLock(parsed), once);
   });
 
@@ -110,25 +139,22 @@ void main() {
   });
 
   test('accepts-mc round-trips through emit -> parse -> emit', () {
-    const lock = ModsLock(
+    final lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: ModLoader.neoforge),
+      loader: const LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
-        'appleskin': LockedEntry(
+        'appleskin': _modrinthOnly(
           slug: 'appleskin',
-          sourceKind: LockedSourceKind.modrinth,
           version: '3.0.9+mc1.21',
           projectId: 'P1',
           versionId: 'V1',
-          file: LockedFile(
-            name: 'appleskin.jar',
-            url: 'https://cdn.modrinth.com/data/appleskin.jar',
-            sha512: 'ff00',
-            size: 1,
-          ),
-          gameVersions: ['1.21', '1.21.1'],
-          acceptsMc: ['1.21'],
+          fileName: 'appleskin.jar',
+          url: 'https://cdn.modrinth.com/data/appleskin.jar',
+          sha512: 'ff00',
+          size: 1,
+          gameVersions: const ['1.21', '1.21.1'],
+          acceptsMc: const ['1.21'],
         ),
       },
     );
@@ -145,23 +171,23 @@ void main() {
   });
 
   test('emits client/server lines and round-trips through parse', () {
-    const lock = ModsLock(
+    final lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: ModLoader.fabric, modLoaderVersion: '0.17.3'),
+      loader: const LoaderConfig(
+        mods: ModLoader.fabric,
+        modLoaderVersion: '0.17.3',
+      ),
       mcVersion: '1.21.1',
       mods: {
-        'distanthorizons': LockedEntry(
+        'distanthorizons': _modrinthOnly(
           slug: 'distanthorizons',
-          sourceKind: LockedSourceKind.modrinth,
           version: '2.3.0-b',
           projectId: 'uCdwusMi',
           versionId: 'abc123',
-          file: LockedFile(
-            name: 'distanthorizons-2.3.0-b.jar',
-            sha1: 'deadbeef',
-            sha512: 'cafebabe',
-            size: 12345,
-          ),
+          fileName: 'distanthorizons-2.3.0-b.jar',
+          sha1: 'deadbeef',
+          sha512: 'cafebabe',
+          size: 12345,
           client: SideEnv.optional,
           server: SideEnv.optional,
         ),
@@ -186,26 +212,28 @@ void main() {
   });
 
   test('dependency: enum round-trips through emit -> parse -> emit', () {
-    const lock = ModsLock(
+    final lock = ModsLock(
       gitrinthVersion: '0.1.0',
-      loader: LoaderConfig(mods: ModLoader.neoforge),
+      loader: const LoaderConfig(mods: ModLoader.neoforge),
       mcVersion: '1.21.1',
       mods: {
-        'create': LockedEntry(
+        'create': _modrinthOnly(
           slug: 'create',
-          sourceKind: LockedSourceKind.modrinth,
           version: '6.0.10',
           projectId: 'CR',
           versionId: 'CRV',
-          file: LockedFile(name: 'create.jar', sha512: 'aa', size: 1),
+          fileName: 'create.jar',
+          sha512: 'aa',
+          size: 1,
         ),
-        'flywheel': LockedEntry(
+        'flywheel': _modrinthOnly(
           slug: 'flywheel',
-          sourceKind: LockedSourceKind.modrinth,
           version: '1.0.0',
           projectId: 'FL',
           versionId: 'FLV',
-          file: LockedFile(name: 'flywheel.jar', sha512: 'bb', size: 1),
+          fileName: 'flywheel.jar',
+          sha512: 'bb',
+          size: 1,
           dependency: LockedDependencyKind.transitive,
         ),
       },
@@ -277,14 +305,15 @@ loader:
 mc_version: 1.21.1
 mods:
   flywheel:
-    source: modrinth
+    kind: resolved
     version: 1.0.0
-    project_id: FL
-    version_id: FLV
-    file:
-      name: flywheel.jar
-      sha512: bb
-      size: 1
+    modrinth:
+      project_id: FL
+      version_id: FLV
+      file:
+        name: flywheel.jar
+        sha512: bb
+        size: 1
     client: required
     server: required
     auto: true

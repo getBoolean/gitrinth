@@ -14,7 +14,7 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/mrpack_index.dart';
 import '../service/cache.dart';
 import '../service/manifest_io.dart';
-import '../service/solve_report.dart';
+import '../service/resolve/solve_report.dart';
 import 'pack_assembler.dart';
 
 const String _permissionsArticle =

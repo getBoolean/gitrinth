@@ -5,7 +5,7 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
-import '../service/modrinth_url.dart';
+import '../service/modrinth/modrinth_url.dart';
 import '../service/secret_input.dart';
 import '../service/user_config.dart';
 import 'modrinth_publish_command.dart';

@@ -1,7 +1,7 @@
-import '../model/curseforge/cf_constants.dart';
-import '../model/curseforge/cf_mod.dart';
-import '../model/curseforge/cf_mod_file.dart';
-import '../model/manifest/mods_yaml.dart';
+import '../../model/curseforge/cf_constants.dart';
+import '../../model/curseforge/cf_mod.dart';
+import '../../model/curseforge/cf_mod_file.dart';
+import '../../model/manifest/mods_yaml.dart';
 import 'curseforge_api.dart';
 
 /// Maximum [CurseForgeApi.listFiles] page size. CurseForge caps page

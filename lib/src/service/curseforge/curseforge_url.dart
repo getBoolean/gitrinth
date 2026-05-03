@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'modrinth_url.dart';
+import '../modrinth/modrinth_url.dart';
 
 /// Default CurseForge read-API base URL. The CurseForge API has a single
 /// canonical host; per-call overrides exist for testing only.

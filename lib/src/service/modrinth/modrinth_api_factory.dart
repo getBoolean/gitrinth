@@ -1,13 +1,13 @@
 import 'package:dio/dio.dart';
 
-import '../version.dart';
-import 'console.dart';
+import '../../version.dart';
+import '../console.dart';
+import '../offline_guard_interceptor.dart';
 import 'modrinth_api.dart';
 import 'modrinth_auth_interceptor.dart';
 import 'modrinth_error_interceptor.dart';
 import 'modrinth_rate_limit_interceptor.dart';
 import 'modrinth_url.dart';
-import 'offline_guard_interceptor.dart';
 
 /// Builds and caches one [ModrinthApi] (with its own [Dio] +
 /// [ModrinthRateLimitInterceptor]) per Modrinth-protocol host.

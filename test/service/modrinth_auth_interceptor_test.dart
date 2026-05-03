@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
-import 'package:gitrinth/src/service/modrinth_auth_interceptor.dart';
+import 'package:gitrinth/src/service/modrinth/modrinth_auth_interceptor.dart';
 import 'package:test/test.dart';
 
 class _RecordingAdapter implements HttpClientAdapter {

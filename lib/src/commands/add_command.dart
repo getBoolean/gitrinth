@@ -8,7 +8,6 @@ import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
-import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/dependency.dart';
 import '../model/modrinth/project.dart';
@@ -16,8 +15,8 @@ import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
 import '../service/cache.dart';
 import '../service/manifest_io.dart';
-import '../service/section_inference.dart';
-import '../service/solve_report.dart';
+import '../service/resolve/section_inference.dart';
+import '../service/resolve/solve_report.dart';
 import '_constraint_helpers.dart';
 import 'add_command_editor.dart';
 import 'slug_constraint_parser.dart';
@@ -344,7 +343,8 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     final pidToSlug = <String, String>{
       if (lock != null)
         for (final entry in lock.allEntries)
-          if (entry.value.projectId != null) entry.value.projectId!: entry.key,
+          if (entry.value.modrinth?.projectId != null)
+            entry.value.modrinth!.projectId: entry.key,
     };
     final declaredSlugs = <String>{
       for (final s in Section.values)
@@ -370,10 +370,11 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
     final defaultBaseUrl = read(modrinthApiFactoryProvider).defaultBaseUrl;
     for (final entry in lock.allEntries) {
       final locked = entry.value;
-      if (locked.sourceKind != LockedSourceKind.modrinth) continue;
-      final pid = locked.projectId;
-      final vid = locked.versionId;
-      if (pid == null || vid == null) continue;
+      final mr = locked.modrinth;
+      if (mr == null) continue;
+      final pid = mr.projectId;
+      final vid = mr.versionId;
+      if (pid.isEmpty || vid.isEmpty) continue;
       // Re-derive the host the lock entry was fetched against by
       // looking up the same slug in the live manifest. Locked entries
       // don't carry host metadata yet — that lands with Part 4.

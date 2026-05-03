@@ -36,7 +36,7 @@ void _writeFixture(
     for (final pth in modPaths) {
       final slug = p.basenameWithoutExtension(pth);
       modBlocks.writeln('  $slug:');
-      modBlocks.writeln('    source: path');
+      modBlocks.writeln('    kind: path');
       modBlocks.writeln('    path: $pth');
       modBlocks.writeln('    client: required');
       modBlocks.writeln('    server: required');

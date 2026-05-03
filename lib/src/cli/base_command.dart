@@ -6,7 +6,7 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/version_selection.dart';
 import '../service/console.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/resolve/resolve_and_sync.dart';
 import 'exceptions.dart';
 import 'runner.dart';
 
@@ -82,6 +82,7 @@ abstract class GitrinthCommand extends Command<int> {
       io: io,
       console: console,
       apiFactory: read(modrinthApiFactoryProvider),
+      cfFactory: read(curseForgeApiFactoryProvider),
       cache: read(cacheProvider),
       downloader: read(downloaderProvider),
       modLoaderResolver: read(modLoaderVersionResolverProvider),

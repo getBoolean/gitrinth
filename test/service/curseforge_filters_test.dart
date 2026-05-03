@@ -5,8 +5,8 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/model/curseforge/cf_constants.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
-import 'package:gitrinth/src/service/curseforge_api.dart';
-import 'package:gitrinth/src/service/curseforge_filters.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_api.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_filters.dart';
 import 'package:test/test.dart';
 
 void main() {

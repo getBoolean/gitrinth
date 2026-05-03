@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 
-import '../cli/exceptions.dart';
+import '../../cli/exceptions.dart';
+import '../dio_error_helpers.dart';
 import 'curseforge_api.dart';
 import 'curseforge_url.dart';
-import 'dio_error_helpers.dart';
 
 /// Attaches `x-api-key: <token>` to outbound CurseForge requests that
 /// opt into auth via `extra[kCurseForgeAuthRequired]`. Resolution order:

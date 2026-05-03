@@ -13,8 +13,8 @@ import '../cli/exit_codes.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/changelog_reader.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_auth_interceptor.dart';
-import '../service/modrinth_url.dart';
+import '../service/modrinth/modrinth_auth_interceptor.dart';
+import '../service/modrinth/modrinth_url.dart';
 import '../service/user_config.dart';
 
 class ModrinthPublishCommand extends GitrinthCommand {

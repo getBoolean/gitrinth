@@ -1,12 +1,12 @@
 import 'package:intl/intl.dart';
 import 'package:pub_semver/pub_semver.dart' as semver;
 
-import '../model/manifest/mods_lock.dart';
-import '../model/manifest/mods_yaml.dart';
-import '../model/modrinth/version.dart' as modrinth;
-import '../model/resolver/constraint.dart';
-import '../model/resolver/version_selection.dart';
-import 'console.dart';
+import '../../model/manifest/mods_lock.dart';
+import '../../model/manifest/mods_yaml.dart';
+import '../../model/modrinth/version.dart' as modrinth;
+import '../../model/resolver/constraint.dart';
+import '../../model/resolver/version_selection.dart';
+import '../console.dart';
 
 enum DiffKind { added, removed, updated, unchanged }
 
@@ -72,18 +72,52 @@ List<LockDiff> diffLocks(ModsLock? oldLock, ModsLock newLock) {
 }
 
 bool _equalLocked(LockedEntry a, LockedEntry b) {
-  return a.sourceKind == b.sourceKind &&
-      a.version == b.version &&
-      a.projectId == b.projectId &&
+  if (a.kind != b.kind ||
+      a.version != b.version ||
+      a.path != b.path ||
+      a.url != b.url ||
+      a.client != b.client ||
+      a.server != b.server ||
+      a.dependency != b.dependency) {
+    return false;
+  }
+  if (!_equalFile(a.urlFile, b.urlFile)) return false;
+  if (!_equalModrinthSource(a.modrinth, b.modrinth)) return false;
+  if (!_equalCurseforgeSource(a.curseforge, b.curseforge)) return false;
+  return true;
+}
+
+bool _equalFile(LockedFile? a, LockedFile? b) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return a.name == b.name &&
+      a.url == b.url &&
+      a.sha1 == b.sha1 &&
+      a.sha512 == b.sha512 &&
+      a.size == b.size;
+}
+
+bool _equalModrinthSource(LockedModrinthSource? a, LockedModrinthSource? b) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return a.projectId == b.projectId &&
       a.versionId == b.versionId &&
-      a.path == b.path &&
-      a.client == b.client &&
-      a.server == b.server &&
-      a.dependency == b.dependency &&
-      a.file?.name == b.file?.name &&
-      a.file?.url == b.file?.url &&
-      a.file?.sha512 == b.file?.sha512 &&
-      a.file?.size == b.file?.size;
+      a.versionNumber == b.versionNumber &&
+      a.host == b.host &&
+      _equalFile(a.file, b.file);
+}
+
+bool _equalCurseforgeSource(
+  LockedCurseforgeSource? a,
+  LockedCurseforgeSource? b,
+) {
+  if (a == null && b == null) return true;
+  if (a == null || b == null) return false;
+  return a.projectId == b.projectId &&
+      a.fileId == b.fileId &&
+      a.slug == b.slug &&
+      a.allowModDistribution == b.allowModDistribution &&
+      _equalFile(a.file, b.file);
 }
 
 /// Returns the raw `version_number` of the newest entry in [candidates]
@@ -174,7 +208,7 @@ int countOutdated(
     final sectionMap = newLock.sectionFor(section);
     for (final entry in sectionMap.entries) {
       final locked = entry.value;
-      if (locked.sourceKind != LockedSourceKind.modrinth) continue;
+      if (locked.modrinth == null) continue;
       final nr = newerAvailableThan(
         locked.version ?? '',
         versionsPerSlug[entry.key],
@@ -209,7 +243,7 @@ String? formatReportLine({
   if (kind == DiffKind.updated && diff != null) {
     final before = diff.before;
     final after = diff.after;
-    final sourceChanged = before?.sourceKind != after?.sourceKind;
+    final sourceChanged = before?.kind != after?.kind;
     if (sourceChanged) {
       icon = '* ';
     } else {
@@ -245,20 +279,17 @@ String? formatReportLine({
   if (icon == null) return null;
 
   final buf = StringBuffer(icon)..write(locked.slug);
-  switch (locked.sourceKind) {
-    case LockedSourceKind.modrinth:
+  switch (locked.kind) {
+    case LockedEntryKind.resolved:
       if (locked.version != null) {
         buf.write(' ');
         buf.write(locked.version);
       }
-      break;
-    case LockedSourceKind.url:
-      final url = locked.file?.url;
+    case LockedEntryKind.url:
+      final url = locked.urlFile?.url ?? locked.url;
       buf.write(' from url ${url ?? ''}'.trimRight());
-      break;
-    case LockedSourceKind.path:
+    case LockedEntryKind.path:
       buf.write(' from path ${locked.path}');
-      break;
   }
   if (wasVersion != null) {
     buf.write(' (was $wasVersion)');
@@ -303,7 +334,7 @@ class SolveReporter {
       for (final entry in sectionMap.entries) {
         final slug = entry.key;
         final locked = entry.value;
-        final newerRaw = locked.sourceKind == LockedSourceKind.modrinth
+        final newerRaw = locked.modrinth != null
             ? newerAvailableThan(locked.version ?? '', versionsPerSlug[slug])
             : null;
         final isOverridden = overriddenSlugs.contains(slug);

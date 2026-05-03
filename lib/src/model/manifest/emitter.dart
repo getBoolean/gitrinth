@@ -85,47 +85,77 @@ void _emitSection(
 
 void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   buf.writeln('  ${_key(slug)}:');
-  buf.writeln('    source: ${_sourceKindName(e.sourceKind)}');
+  buf.writeln('    kind: ${e.kind.name}');
   final version = e.version;
   if (version != null) buf.writeln('    version: ${_str(version)}');
-  final projectId = e.projectId;
-  if (projectId != null) buf.writeln('    project_id: ${_str(projectId)}');
-  final versionId = e.versionId;
-  if (versionId != null) buf.writeln('    version_id: ${_str(versionId)}');
-  final path = e.path;
-  if (path != null) buf.writeln('    path: ${_str(path)}');
-  final f = e.file;
-  if (f != null) {
-    buf.writeln('    file:');
-    buf.writeln('      name: ${_str(f.name)}');
-    final url = f.url;
-    if (url != null) buf.writeln('      url: ${_str(url)}');
-    final sha1 = f.sha1;
-    if (sha1 != null) {
-      buf.writeln('      sha1: ${_str(sha1.toLowerCase())}');
-    }
-    final sha512 = f.sha512;
-    if (sha512 != null) {
-      buf.writeln('      sha512: ${_str(sha512.toLowerCase())}');
-    }
-    if (f.size != null) buf.writeln('      size: ${f.size}');
-  }
   buf.writeln('    client: ${e.client.name}');
   buf.writeln('    server: ${e.server.name}');
   if (e.dependency != LockedDependencyKind.direct) {
     buf.writeln('    dependency: ${e.dependency.name}');
   }
-  if (e.gameVersions.isNotEmpty) {
-    final quoted = e.gameVersions.map(_str).join(', ');
-    buf.writeln('    game_versions: [$quoted]');
-  }
   if (e.acceptsMc.isNotEmpty) {
     final quoted = e.acceptsMc.map(_str).join(', ');
     buf.writeln('    accepts_mc: [$quoted]');
   }
+  switch (e.kind) {
+    case LockedEntryKind.resolved:
+      final mr = e.modrinth;
+      if (mr != null) _emitModrinthSource(buf, mr);
+      final cf = e.curseforge;
+      if (cf != null) _emitCurseforgeSource(buf, cf);
+    case LockedEntryKind.url:
+      final url = e.url;
+      if (url != null) buf.writeln('    url: ${_str(url)}');
+      final f = e.urlFile;
+      if (f != null) _emitFile(buf, f, indent: '    ');
+    case LockedEntryKind.path:
+      final p = e.path;
+      if (p != null) buf.writeln('    path: ${_str(p)}');
+  }
 }
 
-String _sourceKindName(LockedSourceKind k) => k.name;
+void _emitModrinthSource(StringBuffer buf, LockedModrinthSource mr) {
+  buf.writeln('    modrinth:');
+  buf.writeln('      project_id: ${_str(mr.projectId)}');
+  buf.writeln('      version_id: ${_str(mr.versionId)}');
+  final vn = mr.versionNumber;
+  if (vn != null) buf.writeln('      version_number: ${_str(vn)}');
+  final host = mr.host;
+  if (host != null) buf.writeln('      host: ${_str(host)}');
+  _emitFile(buf, mr.file, indent: '      ');
+  if (mr.gameVersions.isNotEmpty) {
+    final quoted = mr.gameVersions.map(_str).join(', ');
+    buf.writeln('      game_versions: [$quoted]');
+  }
+}
+
+void _emitCurseforgeSource(StringBuffer buf, LockedCurseforgeSource cf) {
+  buf.writeln('    curseforge:');
+  buf.writeln('      project_id: ${cf.projectId}');
+  buf.writeln('      file_id: ${cf.fileId}');
+  final slug = cf.slug;
+  if (slug != null) buf.writeln('      slug: ${_str(slug)}');
+  buf.writeln('      allow_mod_distribution: ${cf.allowModDistribution}');
+  _emitFile(buf, cf.file, indent: '      ');
+  if (cf.gameVersions.isNotEmpty) {
+    final quoted = cf.gameVersions.map(_str).join(', ');
+    buf.writeln('      game_versions: [$quoted]');
+  }
+}
+
+void _emitFile(StringBuffer buf, LockedFile f, {required String indent}) {
+  buf.writeln('${indent}file:');
+  buf.writeln('$indent  name: ${_str(f.name)}');
+  final url = f.url;
+  if (url != null) buf.writeln('$indent  url: ${_str(url)}');
+  final sha1 = f.sha1;
+  if (sha1 != null) buf.writeln('$indent  sha1: ${_str(sha1.toLowerCase())}');
+  final sha512 = f.sha512;
+  if (sha512 != null) {
+    buf.writeln('$indent  sha512: ${_str(sha512.toLowerCase())}');
+  }
+  if (f.size != null) buf.writeln('$indent  size: ${f.size}');
+}
 
 String _key(String slug) {
   if (_needsQuotes(slug)) return _str(slug);

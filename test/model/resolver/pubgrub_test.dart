@@ -3,9 +3,16 @@ import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/modrinth/dependency.dart';
 import 'package:gitrinth/src/model/modrinth/version.dart' as modrinth;
 import 'package:gitrinth/src/model/modrinth/version_file.dart';
+import 'package:gitrinth/src/model/resolver/modrinth_solver_adapter.dart';
 import 'package:gitrinth/src/model/resolver/pubgrub.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:test/test.dart';
+
+/// Wraps a Modrinth-typed version DB into the PubGrub agnostic surface.
+ListVersions _adapt(Map<String, List<modrinth.Version>> db) =>
+    (slug) async => (db[slug] ?? const <modrinth.Version>[])
+        .map(ModrinthSolverVersion.new)
+        .toList();
 
 modrinth.Version v({
   required String slug,
@@ -43,8 +50,9 @@ void main() {
       ],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (id) async => null,
+      selectionOrder: compareModrinthSolverOrder,
     );
     final out = await solver.solve([
       RootConstraint(
@@ -73,8 +81,9 @@ void main() {
       'flywheel': [v(slug: 'flywheel', number: '1.0.0')],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (id) async => id,
+      selectionOrder: compareModrinthSolverOrder,
     );
     final out = await solver.solve([
       RootConstraint(
@@ -93,8 +102,9 @@ void main() {
       'create': [v(slug: 'create', number: '5.0.0')],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (id) async => null,
+      selectionOrder: compareModrinthSolverOrder,
     );
     try {
       await solver.solve([
@@ -119,8 +129,9 @@ void main() {
       ],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (id) async => null,
+      selectionOrder: compareModrinthSolverOrder,
       lockSuggestions: const [LockSuggestion('create', '6.0.10')],
     );
     final out = await solver.solve([
@@ -142,8 +153,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       final out = await solver.solve([
         RootConstraint(
@@ -165,8 +177,9 @@ void main() {
           ],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => null,
+          selectionOrder: compareModrinthSolverOrder,
         );
         final out = await solver.solve([
           RootConstraint(
@@ -188,8 +201,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       final out = await solver.solve([
         RootConstraint(
@@ -212,8 +226,9 @@ void main() {
           ],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => null,
+          selectionOrder: compareModrinthSolverOrder,
         );
         final out = await solver.solve([
           RootConstraint(
@@ -238,8 +253,9 @@ void main() {
           ],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => null,
+          selectionOrder: compareModrinthSolverOrder,
         );
         final out = await solver.solve([
           RootConstraint(
@@ -260,8 +276,9 @@ void main() {
           'jei': [v(slug: 'jei', number: '1.0.0-alpha', versionType: 'alpha')],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => null,
+          selectionOrder: compareModrinthSolverOrder,
         );
         try {
           await solver.solve([
@@ -303,8 +320,9 @@ void main() {
           ],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => id,
+          selectionOrder: compareModrinthSolverOrder,
         );
         final out = await solver.solve([
           RootConstraint(
@@ -333,8 +351,9 @@ void main() {
           ],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => null,
+          selectionOrder: compareModrinthSolverOrder,
         );
         final out = await solver.solve([
           RootConstraint(
@@ -360,8 +379,9 @@ void main() {
           ],
         };
         final solver = PubGrubSolver(
-          listVersions: (slug) async => db[slug] ?? [],
+          listVersions: _adapt(db),
           resolveSlugForProjectId: (id) async => null,
+          selectionOrder: compareModrinthSolverOrder,
           lockSuggestions: const [LockSuggestion('jei', '1.0.1-beta')],
         );
         final out = await solver.solve([
@@ -411,8 +431,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       final out = await solver.solve([
         RootConstraint(
@@ -440,8 +461,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       final out = await solver.solve([
         RootConstraint(
@@ -461,8 +483,9 @@ void main() {
         'create': [v(slug: 'create', number: '5.0.0')],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -501,8 +524,9 @@ void main() {
         'flywheel': <modrinth.Version>[],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -543,8 +567,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -610,8 +635,9 @@ void main() {
         'flywheel': <modrinth.Version>[],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -650,8 +676,9 @@ void main() {
         'a': [v(slug: 'a', number: '1.0.0')],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -711,8 +738,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
       );
       final out = await solver.solve([
         RootConstraint(
@@ -765,8 +793,9 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
       );
       final out = await solver.solve([
         RootConstraint(
@@ -808,8 +837,9 @@ void main() {
         'b': [v(slug: 'b', number: '1.0.0')],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -852,8 +882,9 @@ void main() {
         'flywheel': <modrinth.Version>[],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -877,8 +908,9 @@ void main() {
         'create': [v(slug: 'create', number: '5.0.0')],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => null,
+        selectionOrder: compareModrinthSolverOrder,
       );
       try {
         await solver.solve([
@@ -906,9 +938,12 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [OverridePin('jei', db['jei']![2])],
+        selectionOrder: compareModrinthSolverOrder,
+        overridePins: [
+          OverridePin('jei', ModrinthSolverVersion(db['jei']![2])),
+        ],
       );
       // The user-declared root would normally cap us at 19.0.0; the
       // override pin pre-decides 19.27.0 and the root is dropped from
@@ -928,9 +963,12 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [OverridePin('flywheel', db['flywheel']![1])],
+        selectionOrder: compareModrinthSolverOrder,
+        overridePins: [
+          OverridePin('flywheel', ModrinthSolverVersion(db['flywheel']![1])),
+        ],
       );
       final out = await solver.solve(const []);
       expect(out.decisions['flywheel']!.versionNumber, '2.0.0');
@@ -954,9 +992,15 @@ void main() {
         'forge_compat': [v(slug: 'forge_compat', number: '1.0.0')],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [OverridePin('forge_compat', db['forge_compat']![0])],
+        selectionOrder: compareModrinthSolverOrder,
+        overridePins: [
+          OverridePin(
+            'forge_compat',
+            ModrinthSolverVersion(db['forge_compat']![0]),
+          ),
+        ],
       );
       final out = await solver.solve([
         RootConstraint(
@@ -996,9 +1040,12 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [OverridePin('mod_b', db['mod_b']![0])],
+        selectionOrder: compareModrinthSolverOrder,
+        overridePins: [
+          OverridePin('mod_b', ModrinthSolverVersion(db['mod_b']![0])),
+        ],
       );
       final out = await solver.solve([
         RootConstraint(
@@ -1035,9 +1082,12 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [OverridePin('mod_b', db['mod_b']![0])],
+        selectionOrder: compareModrinthSolverOrder,
+        overridePins: [
+          OverridePin('mod_b', ModrinthSolverVersion(db['mod_b']![0])),
+        ],
       );
       final out = await solver.solve([
         RootConstraint(
@@ -1073,10 +1123,14 @@ void main() {
         ],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
         overridePins: [
-          OverridePin('create_incompatible', db['create_incompatible']![0]),
+          OverridePin(
+            'create_incompatible',
+            ModrinthSolverVersion(db['create_incompatible']![0]),
+          ),
         ],
       );
       final out = await solver.solve([
@@ -1102,9 +1156,12 @@ void main() {
         'create': [v(slug: 'create', number: '5.0.0')],
       };
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
-        overridePins: [OverridePin('jei', db['jei']![0])],
+        selectionOrder: compareModrinthSolverOrder,
+        overridePins: [
+          OverridePin('jei', ModrinthSolverVersion(db['jei']![0])),
+        ],
       );
       try {
         await solver.solve([
@@ -1153,10 +1210,14 @@ void main() {
         ],
         'mod_c': [v(slug: 'mod_c', number: '1.0.0')],
       };
-      final overridePin = OverridePin('mod_c', db['mod_c']![0]);
+      final overridePin = OverridePin(
+        'mod_c',
+        ModrinthSolverVersion(db['mod_c']![0]),
+      );
       final solver = PubGrubSolver(
-        listVersions: (slug) async => db[slug] ?? [],
+        listVersions: _adapt(db),
         resolveSlugForProjectId: (id) async => id,
+        selectionOrder: compareModrinthSolverOrder,
         overridePins: [overridePin],
       );
       final out = await solver.solve([
