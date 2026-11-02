@@ -6,6 +6,10 @@ import 'package:path/path.dart' as p;
 import '../../cli/exceptions.dart';
 import '../../cli/exit_codes.dart';
 import '../../commands/version_picker.dart';
+import '../../model/curseforge/cf_constants.dart';
+import '../../model/curseforge/cf_file_hash.dart';
+import '../../model/curseforge/cf_mod.dart';
+import '../../model/curseforge/cf_mod_file.dart';
 import '../../model/manifest/emitter.dart';
 import '../../model/manifest/mods_lock.dart';
 import '../../model/manifest/mods_yaml.dart';
@@ -26,6 +30,7 @@ import '../manifest_io.dart';
 import '../modrinth/modrinth_api.dart';
 import '../modrinth/modrinth_api_factory.dart';
 import 'curseforge_resolver.dart';
+import 'cross_platform_search.dart';
 import 'download_artifacts.dart';
 import 'hash_scan.dart';
 import 'lock_builder.dart';
@@ -97,6 +102,7 @@ Future<ResolveSyncResult> resolveAndSync({
   bool offline = false,
   bool dryRun = false,
   bool enforce = false,
+  bool noSearch = false,
   Set<String> freshSlugs = const {},
   Set<String> relaxConstraints = const {},
   ModsYaml? manifestOverride,
@@ -237,14 +243,49 @@ Future<ResolveSyncResult> resolveAndSync({
     return manifest.effectiveModrinthHost(entry, defaultBaseUrl);
   }
 
+  // CurseForge resolution pass. Under --offline we skip the network
+  // walk and synthesize a CfResolution from the existing lock so the
+  // builder re-emits every prior CF source block byte-for-byte. The
+  // cache supplies the actual artifacts.
+  CfResolution cfResolution;
+  if (offline) {
+    console.warn(
+      'Offline: CurseForge resolution skipped; preserving CF source '
+      'blocks from the existing lock.',
+    );
+    cfResolution = existingLock == null
+        ? CfResolution.empty
+        : synthesizeCfResolutionFromLock(existingLock, manifest: merged);
+  } else {
+    cfResolution = await resolveCurseforgeEntries(
+      manifest: merged,
+      api: cfFactory.api,
+      console: console,
+    );
+  }
+
+  final search = CrossPlatformSearch(
+    manifest: manifestForResolution,
+    mrFactory: apiFactory,
+    cfApi: cfFactory.api,
+    console: console,
+    disabled: offline || noSearch,
+  );
+  final searchedMrVersions = <String, List<modrinth.Version>>{};
+
   final resolver = Resolver(
     listVersions: (slug) async {
       final section = slugToSection[slug] ?? Section.mods;
       final loaderFilter = filterLoadersForSection(loaderConfig, section);
-      final entry = merged.sectionEntries(section)[slug];
+      final entry = manifestForResolution.sectionEntries(section)[slug];
       final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
       final host = entryHost(section, slug, entry);
 
+      final searched = searchedMrVersions[slug];
+      if (searched != null) {
+        versionsPerSlug[slug] = searched;
+        return searched.map(ModrinthSolverVersion.new).toList();
+      }
       if (offline) {
         final lockedProjectId = existingLock
             ?.sectionFor(section)[slug]
@@ -269,7 +310,7 @@ Future<ResolveSyncResult> resolveAndSync({
         final list = await apiFactory
             .forHost(host)
             .listVersions(
-              slug,
+              entry?.modrinthSlug ?? slug,
               loadersJson: loaderFilter == null
                   ? null
                   : encodeFilterArray(loaderFilter),
@@ -278,6 +319,29 @@ Future<ResolveSyncResult> resolveAndSync({
         versionsPerSlug[slug] = list;
         return list.map(ModrinthSolverVersion.new).toList();
       } on Object catch (e) {
+        final anchor = cfResolution.resolved[slug];
+        if (e is DioException &&
+            e.response?.statusCode == 404 &&
+            entry != null &&
+            anchor != null) {
+          final found = await search.findModrinth(
+            slug: slug,
+            section: section,
+            entry: entry,
+            anchor: anchor,
+          );
+          if (found != null) {
+            searchedMrVersions[slug] = found;
+            versionsPerSlug[slug] = found;
+            return found.map(ModrinthSolverVersion.new).toList();
+          }
+          final detail = search.diagnostics[slug];
+          if (detail != null) {
+            throw ValidationError(
+              '$slug: $detail\nSet a peer slug override or restrict `sources:`.',
+            );
+          }
+        }
         final err = (e is DioException) ? e.error : e;
         if (err is GitrinthException) throw err;
         throw UserError('failed to list versions for $slug: $e');
@@ -389,30 +453,49 @@ Future<ResolveSyncResult> resolveAndSync({
     });
   }
 
-  final resolution = await resolver.resolve(
+  var resolution = await resolver.resolve(
     manifestForResolution,
     existingLock: lockForResolution,
     overridePins: overridePins,
     modrinthSlugs: modrinthSlugs,
   );
 
-  // CurseForge resolution pass. Skipped under --offline (the lock's
-  // existing CF blocks are kept by re-running buildLock against the
-  // lockForResolution; for Part 4 we just emit empty CF resolution
-  // and let the cache provide the artifacts).
-  CfResolution cfResolution;
-  if (offline) {
-    console.warn(
-      'Offline: CurseForge resolution skipped; locked entries reused '
-      'from cache.',
-    );
-    cfResolution = CfResolution.empty;
-  } else {
-    cfResolution = await resolveCurseforgeEntries(
-      manifest: merged,
-      api: cfFactory.api,
-      console: console,
-    );
+  // Slug fallback requires a resolved peer as the hash anchor.
+  if (!offline) {
+    final resolvedCf = Map<String, CfResolvedEntry>.from(cfResolution.resolved);
+    final remaining = <CfNotFound>[];
+    for (final missing in cfResolution.notFound) {
+      final entry = manifestForResolution.sectionEntries(
+        missing.section,
+      )[missing.slug];
+      final mrEntries = resolution.entries
+          .where((r) => r.slug == missing.slug)
+          .toList();
+      CfResolvedEntry? found;
+      if (missing.reason == 'slug-not-found' &&
+          entry != null &&
+          mrEntries.isNotEmpty) {
+        found = await search.findCurseforge(
+          slug: missing.slug,
+          section: missing.section,
+          entry: entry,
+          anchors: [
+            mrEntries.single.version,
+            if (!overridePins.containsKey(missing.slug))
+              ...eligibleModrinthVersions(
+                versionsPerSlug[missing.slug] ?? [],
+                entry,
+              ).where((v) => v.id != mrEntries.single.version.id),
+          ],
+        );
+      }
+      if (found == null) {
+        remaining.add(missing);
+      } else {
+        resolvedCf[missing.slug] = found;
+      }
+    }
+    cfResolution = CfResolution(resolved: resolvedCf, notFound: remaining);
   }
 
   // Aggregate "missing on a requested platform" failures into a single
@@ -440,51 +523,123 @@ Future<ResolveSyncResult> resolveAndSync({
     cfResolution: cfResolution,
   );
   if (missingMessage != null) {
-    throw ValidationError(missingMessage);
+    throw ValidationError(
+      [missingMessage, ...search.diagnostics.values].join('\n'),
+    );
   }
 
   // Hash-scan dual-source entries. For each slug with both Modrinth
   // and CurseForge resolution, compare SHA1s and optionally scan
-  // older pairs per `hash_scan_depth`.
+  // older pairs per `hash_scan_depth`. Skipped under --offline: the
+  // synthesized CF resolution carries a single locked candidate per
+  // slug, so a scan would either be a no-op or falsely report
+  // HashSingleSided.
   final hashOutcomes = <String, HashOutcome>{};
-  for (final r in resolution.entries) {
-    final cf = cfResolution.resolved[r.slug];
-    if (cf == null) continue;
-    final entry = merged.sectionEntries(r.section)[r.slug];
-    final depth = entry?.hashScanDepth ?? 10;
-    final allow = entry?.allowHashMismatch ?? false;
-    final mrCandidates =
-        versionsPerSlug[r.slug] ?? <modrinth.Version>[r.version];
-    final outcome = scanForMatchingPair(
-      mrCandidates: mrCandidates,
-      cfCandidates: cf.candidates,
-      hashScanDepth: depth,
-      allowHashMismatch: allow,
-    );
-    hashOutcomes[r.slug] = outcome;
-    if (outcome is HashAcceptedMismatch) {
-      console.warn(
-        '${r.slug}: SHA1 mismatch between Modrinth (${outcome.modrinthVersion.versionNumber}) '
-        'and CurseForge (file ${outcome.curseforgeFile.fileName}); '
-        'accepting because allow_hash_mismatch: true.',
-      );
-    } else if (outcome is HashExhausted) {
-      throw ValidationError(
-        '${r.slug}: SHA1 mismatch between Modrinth and CurseForge.\n'
-        '  Modrinth (project ${outcome.newestModrinth.projectId}, version '
-        '${outcome.newestModrinth.versionNumber}): '
-        '${outcome.newestModrinth.primaryFile?.hashes['sha1']}\n'
-        '  CurseForge (project ${cf.project.id}, file '
-        '${outcome.newestCurseforge.id}): '
-        '${outcome.newestCurseforge.sha1Hash}\n'
-        '  Scanned ${outcome.depthExamined} older versions on both '
-        'platforms; no match found.\n'
-        'Resolution options:\n'
-        '  - Set `allow_hash_mismatch: true` on this entry to accept '
-        'the divergence\n'
-        '  - Restrict to a single platform: `sources: [modrinth]` or '
-        '`sources: [curseforge]`\n'
-        '  - Pin per-platform versions explicitly in mods.yaml',
+  if (!offline) {
+    var passes = 0;
+    while (true) {
+      if (++passes > modrinthSlugs.length + 2) {
+        throw const ValidationError(
+          'Cross-platform hash selection did not converge; pin peer versions explicitly.',
+        );
+      }
+      hashOutcomes.clear();
+      var needsResolve = false;
+      for (final r in resolution.entries) {
+        var cf = cfResolution.resolved[r.slug];
+        if (cf == null) continue;
+        final entry = manifestForResolution.sectionEntries(r.section)[r.slug];
+        final depth = entry?.hashScanDepth ?? 10;
+        final allow = entry?.allowHashMismatch ?? false;
+        final allowed = eligibleModrinthVersions(
+          versionsPerSlug[r.slug] ?? [r.version],
+          entry,
+        );
+        final mrCandidates = [
+          r.version,
+          if (!overridePins.containsKey(r.slug))
+            ...allowed.where((v) => v.id != r.version.id),
+        ];
+        var outcome = scanForMatchingPair(
+          mrCandidates: mrCandidates,
+          cfCandidates: cf.candidates,
+          hashScanDepth: depth,
+          allowHashMismatch: allow,
+        );
+        if (outcome is HashExhausted && entry != null) {
+          final foundCf = await search.findCurseforge(
+            slug: r.slug,
+            section: r.section,
+            entry: entry,
+            anchors: mrCandidates,
+            excludeProject: cf.project.id,
+          );
+          if (foundCf != null) {
+            cf = foundCf;
+            cfResolution = CfResolution(
+              resolved: {...cfResolution.resolved, r.slug: cf},
+              notFound: cfResolution.notFound,
+            );
+          } else if (!overridePins.containsKey(r.slug)) {
+            final foundMr = await search.findModrinth(
+              slug: r.slug,
+              section: r.section,
+              entry: entry,
+              anchor: cf,
+              excludeProject: r.version.projectId,
+            );
+            if (foundMr != null) searchedMrVersions[r.slug] = foundMr;
+          }
+          outcome = scanForMatchingPair(
+            mrCandidates: searchedMrVersions[r.slug] ?? mrCandidates,
+            cfCandidates: cf.candidates,
+            hashScanDepth: depth,
+            allowHashMismatch: allow,
+          );
+        }
+        final matchedMr = switch (outcome) {
+          HashMatched(:final modrinthVersion) => modrinthVersion,
+          HashAcceptedMismatch(:final modrinthVersion) => modrinthVersion,
+          _ => null,
+        };
+        if (matchedMr != null && matchedMr.id != r.version.id) {
+          searchedMrVersions[r.slug] = [matchedMr];
+          needsResolve = true;
+        }
+        hashOutcomes[r.slug] = outcome;
+        if (outcome is HashAcceptedMismatch) {
+          console.warn(
+            '${r.slug}: SHA1 mismatch between Modrinth (${outcome.modrinthVersion.versionNumber}) '
+            'and CurseForge (file ${outcome.curseforgeFile.fileName}); '
+            'accepting because allow_hash_mismatch: true.',
+          );
+        } else if (outcome is HashExhausted) {
+          throw ValidationError(
+            '${r.slug}: SHA1 mismatch between Modrinth and CurseForge.\n'
+            '  Modrinth (project ${outcome.newestModrinth.projectId}, version '
+            '${outcome.newestModrinth.versionNumber}): '
+            '${outcome.newestModrinth.primaryFile?.hashes['sha1']}\n'
+            '  CurseForge (project ${cf.project.id}, file '
+            '${outcome.newestCurseforge.id}): '
+            '${outcome.newestCurseforge.sha1Hash}\n'
+            '  Scanned ${outcome.depthExamined} older versions on both '
+            'platforms; no match found.\n'
+            'Resolution options:\n'
+            '  - Set `allow_hash_mismatch: true` on this entry to accept '
+            'the divergence\n'
+            '  - Restrict to a single platform: `sources: [modrinth]` or '
+            '`sources: [curseforge]`\n'
+            '  - Pin per-platform versions explicitly in mods.yaml\n'
+            '${search.diagnostics[r.slug] ?? ''}',
+          );
+        }
+      }
+      if (!needsResolve) break;
+      resolution = await resolver.resolve(
+        manifestForResolution,
+        existingLock: lockForResolution,
+        overridePins: overridePins,
+        modrinthSlugs: modrinthSlugs,
       );
     }
   }
@@ -494,6 +649,15 @@ Future<ResolveSyncResult> resolveAndSync({
     resolution: resolution,
     cfResolution: cfResolution,
     hashOutcomes: hashOutcomes,
+    modrinthSearchSlugs: offline
+        ? {
+            for (final section in Section.values)
+              for (final e
+                  in existingLock?.sectionFor(section).entries ??
+                      <MapEntry<String, LockedEntry>>[])
+                if (e.value.modrinth?.discoveredViaSearch ?? false) e.key,
+          }
+        : search.modrinthSearchSlugs,
     resolvedModLoaderVersion: resolvedModLoaderVersion,
     resolvedPluginLoaderVersion: resolvedPluginLoaderVersion,
   );
@@ -605,6 +769,74 @@ Future<ResolveSyncResult> resolveAndSync({
     outdated: outdated,
     exitCode: exitOk,
   );
+}
+
+/// Rebuilds a [CfResolution] from the CurseForge source blocks already
+/// recorded in [lock]. Used by the offline path so [buildLock] re-emits
+/// every prior `curseforge:` block byte-for-byte without a network walk.
+///
+/// The synthesized [CfResolvedEntry.project] / [CfResolvedEntry.file]
+/// only populate the fields the lock builder actually reads
+/// (`project.id`, `project.slug`, `project.allowModDistribution`,
+/// `file.id`, `file.fileName`, `file.downloadUrl`, `file.sha1Hash`,
+/// `file.gameVersions`); other fields carry placeholder values.
+/// `candidates` holds the single locked file — the offline path skips
+/// the hash-scan loop, so the list is never walked beyond `.first`.
+CfResolution synthesizeCfResolutionFromLock(
+  ModsLock lock, {
+  ModsYaml? manifest,
+}) {
+  final resolved = <String, CfResolvedEntry>{};
+  for (final section in Section.values) {
+    for (final entry in lock.sectionFor(section).entries) {
+      final slug = entry.key;
+      if (manifest != null) {
+        final declared = manifest.sectionEntries(section)[slug];
+        if (declared == null ||
+            declared.source is! ModrinthEntrySource ||
+            !effectiveSources(
+              manifest,
+              declared,
+              section,
+            ).contains(SourceKind.curseforge)) {
+          continue;
+        }
+      }
+      final cf = entry.value.curseforge;
+      if (cf == null) continue;
+      final sha1 = cf.file.sha1;
+      final synthFile = ModFile(
+        id: cf.fileId,
+        modId: cf.projectId,
+        displayName: cf.file.name,
+        fileName: cf.file.name,
+        releaseType: 1,
+        fileDate: '',
+        gameVersions: List<String>.from(cf.gameVersions),
+        hashes: sha1 == null ? const [] : [FileHash(value: sha1, algoCode: 1)],
+        dependencies: const [],
+        downloadUrl: cf.file.url,
+      );
+      final synthMod = Mod(
+        id: cf.projectId,
+        gameId: kCurseForgeGameIdMinecraft,
+        name: cf.slug ?? slug,
+        slug: cf.slug ?? slug,
+        classId: 0,
+        latestFiles: [synthFile],
+        allowModDistribution: cf.allowModDistribution,
+      );
+      resolved[slug] = CfResolvedEntry(
+        slug: slug,
+        section: section,
+        project: synthMod,
+        file: synthFile,
+        candidates: [synthFile],
+        discoveredViaSearch: cf.discoveredViaSearch,
+      );
+    }
+  }
+  return CfResolution(resolved: resolved, notFound: const []);
 }
 
 int _countNotFoundMarkers(ModsYaml manifest) {

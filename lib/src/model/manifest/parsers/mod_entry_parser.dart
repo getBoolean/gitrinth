@@ -265,6 +265,12 @@ ModEntry _parseEntry(
     '$sectionName/$slug',
     filePath,
   );
+  final noSearch = m['no_cross_platform_search'];
+  if (noSearch != null && noSearch is! bool) {
+    throw _err(
+      '$filePath: $sectionName/$slug no_cross_platform_search must be a boolean.',
+    );
+  }
   // Both fields only make sense when both Modrinth and CurseForge
   // participate. A single-element `sources:` already pins the entry to
   // one platform — there's nothing to scan or mismatch against.
@@ -298,6 +304,7 @@ ModEntry _parseEntry(
     sources: sourceSet,
     hashScanDepth: hashScanDepth,
     allowHashMismatch: allowHashMismatch,
+    noCrossPlatformSearch: noSearch as bool? ?? false,
   );
 }
 
@@ -463,6 +470,7 @@ Map<String, LockedEntry> _parseLockSection(
         versionId: (mm['version_id'] as String?) ?? '',
         versionNumber: mm['version_number'] as String?,
         host: mm['host'] as String?,
+        discoveredViaSearch: mm['discovered_via_search'] == true,
         file: file,
         gameVersions: gameVersions,
       );
@@ -495,6 +503,7 @@ Map<String, LockedEntry> _parseLockSection(
         file: file,
         gameVersions: gameVersions,
         allowModDistribution: allow is bool ? allow : true,
+        discoveredViaSearch: cm['discovered_via_search'] == true,
       );
     }
 

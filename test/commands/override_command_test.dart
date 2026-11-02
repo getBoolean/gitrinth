@@ -32,6 +32,7 @@ void main() {
   Map<String, String> env() => {
     'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
     'GITRINTH_CACHE': cacheDir.path,
+    'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
   };
 
   String readYaml() =>

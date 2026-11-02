@@ -47,6 +47,7 @@ class LockedModrinthSource with LockedModrinthSourceMappable {
   /// resolved against the default `modrinth.com` host (or the
   /// pack-level default, depending on the resolution chain).
   final String? host;
+  final bool discoveredViaSearch;
 
   final LockedFile file;
   final List<String> gameVersions;
@@ -56,6 +57,7 @@ class LockedModrinthSource with LockedModrinthSourceMappable {
     required this.versionId,
     this.versionNumber,
     this.host,
+    this.discoveredViaSearch = false,
     required this.file,
     this.gameVersions = const [],
   });
@@ -73,6 +75,7 @@ class LockedCurseforgeSource with LockedCurseforgeSourceMappable {
   final LockedFile file;
   final List<String> gameVersions;
   final bool allowModDistribution;
+  final bool discoveredViaSearch;
 
   const LockedCurseforgeSource({
     required this.projectId,
@@ -81,6 +84,7 @@ class LockedCurseforgeSource with LockedCurseforgeSourceMappable {
     required this.file,
     this.gameVersions = const [],
     this.allowModDistribution = true,
+    this.discoveredViaSearch = false,
   });
 }
 

@@ -20,12 +20,14 @@ class CfResolvedEntry {
   final Mod project;
   final ModFile file;
   final List<ModFile> candidates;
+  final bool discoveredViaSearch;
   const CfResolvedEntry({
     required this.slug,
     required this.section,
     required this.project,
     required this.file,
     required this.candidates,
+    this.discoveredViaSearch = false,
   });
 }
 
@@ -157,7 +159,7 @@ Future<CfResolution> resolveCurseforgeEntries({
           api: api,
           projectId: project.id,
           section: section,
-          modLoader: section == Section.plugins ? null : manifest.loader.mods,
+          modLoader: section == Section.mods ? manifest.loader.mods : null,
           pluginLoader: manifest.loader.plugins,
           gameVersions: gameVersions,
           channel: channel,

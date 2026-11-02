@@ -32,7 +32,7 @@ and independently.
 - [x] [Part 2: Manifest source model](#part-2-manifest-source-model) — `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction (scalar or list), top-level `gitrinth:` block (with `gitrinth.version` semver constraint plus `gitrinth.modrinth` / `gitrinth.curseforge` defaults — replaces the old `tooling:` block), `cf:<slug>` short-form sugar, section-aware source eligibility, plugin source limits.
 - [x] [Part 3: CurseForge API client](#part-3-curseforge-api-client) — typed client, env-only download key lookup, content-type filters, loader/version filters, file/hash/dependency models, cache boundaries.
 - [x] [Part 4: Resolver and lockfile](#part-4-resolver-and-lockfile) — multi-source resolution, per-platform lock blocks, hard-fail on missing platforms (no `not_found` lockfile state), plugin lock behavior, cross-platform SHA1 verification, `hash_scan_depth`, `allow_hash_mismatch`. Includes a refactor of PubGrub to drop its Modrinth-specific imports so future cross-platform graph work can plug in.
-- [ ] [Part 5: Search fallback](#part-5-search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, section-aware search filters, `no_cross_platform_search` / `--no-search` opt-outs.
+- [x] [Part 5: Search fallback](#part-5-search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, section-aware search filters, `no_cross_platform_search` / `--no-search` opt-outs.
 - [ ] [Part 6: Transitive dependencies and deduplication](#part-6-transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
 - [ ] [Part 7: CLI integration](#part-7-cli-integration) — `add` entry-write matrix, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, `cf:` handling, token commands.
 - [ ] [Part 8: Pack and publish](#part-8-pack-and-publish) — `publish_to` target selector/config map, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`, plugin publishing constraints.
@@ -246,9 +246,25 @@ What landed:
 
 ### Part 5: Search fallback
 
-Implement search only after deterministic resolution and hash
-verification are in place. Details live in
+Shipped. Search runs after deterministic lookup or an exhausted hash
+scan, using the resolved peer as a hash anchor. Details live in
 [Search fallback](#search-fallback).
+
+What landed:
+
+- Both missing-slug and hash-mismatch paths search the eligible peer
+  platform, including hosted Modrinth. A unique project with a SHA1
+  match within `hash_scan_depth` is selected; fuzzy and ambiguous
+  matches remain candidate diagnostics.
+- Search respects source restrictions, section, loader, Minecraft
+  versions, channel, and Modrinth version constraints. Hash-selected
+  Modrinth versions go through dependency solving before locking.
+- Per-entry `no_cross_platform_search: true` and `--no-search` on
+  `get`, `add`, and `upgrade` suppress fallback. Offline runs never
+  search and preserve the lock's discovery markers.
+- Source blocks record `discovered_via_search: true`; notices suggest
+  explicit peer slugs. Search responses are cached for the resolution
+  session, with host and compatibility filters in the cache key.
 
 Done means:
 
@@ -776,16 +792,10 @@ scored using the already-resolved platform's entry as the anchor:
 3. **Author** match against the anchor's author.
 4. **Category** compatibility.
 
-A hash match is definitive. Without a hash match, behavior depends
-on the triggering path:
-
-- **Slug-not-found path** — at least one of name or author must
-  align for auto-lock; otherwise fail with a candidate list.
-- **Hash-mismatch path** — auto-lock requires a hash match.
-  Name/author matches are listed as candidates in the error output
-  but never auto-applied, because a declared slug already matches
-  (just with divergent content) and silently switching to a
-  different slug based on fuzzy signals is too risky.
+A unique hash match is definitive. On both triggering paths,
+name, author, and category matches rank candidate diagnostics but
+are never auto-applied. Multiple projects with matching hashes are
+ambiguous and require an explicit peer slug override.
 
 ### Outcomes
 
@@ -859,10 +869,11 @@ debugging resolver behavior.
 ### Performance
 
 Search adds at most one API call per platform per not-found slug.
-Results are cached in the gitrinth cache keyed by `(host, platform,
-query, loader, mc_version)` for the resolution session, so repeated
-`get`/`upgrade` runs don't re-query and labrinth queries don't
-pollute the modrinth.com cache (or vice versa). To avoid search entirely at
+Search responses are cached in memory for the resolution session,
+keyed by host, platform, query, section, loader, and Minecraft versions.
+Repeated lookups within that session reuse the response, and labrinth
+queries remain separate from modrinth.com queries. A new CLI run
+starts a new session. To avoid search entirely at
 scale, migrate discovered slugs into explicit `modrinth:` /
 `curseforge:` overrides in `mods.yaml`; gitrinth's notice output
 includes the exact override to paste.

@@ -305,6 +305,14 @@ class LockedModrinthSourceMapper extends ClassMapperBase<LockedModrinthSource> {
     _$host,
     opt: true,
   );
+  static bool _$discoveredViaSearch(LockedModrinthSource v) =>
+      v.discoveredViaSearch;
+  static const Field<LockedModrinthSource, bool> _f$discoveredViaSearch = Field(
+    'discoveredViaSearch',
+    _$discoveredViaSearch,
+    opt: true,
+    def: false,
+  );
   static LockedFile _$file(LockedModrinthSource v) => v.file;
   static const Field<LockedModrinthSource, LockedFile> _f$file = Field(
     'file',
@@ -320,6 +328,7 @@ class LockedModrinthSourceMapper extends ClassMapperBase<LockedModrinthSource> {
     #versionId: _f$versionId,
     #versionNumber: _f$versionNumber,
     #host: _f$host,
+    #discoveredViaSearch: _f$discoveredViaSearch,
     #file: _f$file,
     #gameVersions: _f$gameVersions,
   };
@@ -330,6 +339,7 @@ class LockedModrinthSourceMapper extends ClassMapperBase<LockedModrinthSource> {
       versionId: data.dec(_f$versionId),
       versionNumber: data.dec(_f$versionNumber),
       host: data.dec(_f$host),
+      discoveredViaSearch: data.dec(_f$discoveredViaSearch),
       file: data.dec(_f$file),
       gameVersions: data.dec(_f$gameVersions),
     );
@@ -412,6 +422,7 @@ abstract class LockedModrinthSourceCopyWith<
     String? versionId,
     String? versionNumber,
     String? host,
+    bool? discoveredViaSearch,
     LockedFile? file,
     List<String>? gameVersions,
   });
@@ -444,6 +455,7 @@ class _LockedModrinthSourceCopyWithImpl<$R, $Out>
     String? versionId,
     Object? versionNumber = $none,
     Object? host = $none,
+    bool? discoveredViaSearch,
     LockedFile? file,
     List<String>? gameVersions,
   }) => $apply(
@@ -452,6 +464,8 @@ class _LockedModrinthSourceCopyWithImpl<$R, $Out>
       if (versionId != null) #versionId: versionId,
       if (versionNumber != $none) #versionNumber: versionNumber,
       if (host != $none) #host: host,
+      if (discoveredViaSearch != null)
+        #discoveredViaSearch: discoveredViaSearch,
       if (file != null) #file: file,
       if (gameVersions != null) #gameVersions: gameVersions,
     }),
@@ -462,6 +476,10 @@ class _LockedModrinthSourceCopyWithImpl<$R, $Out>
     versionId: data.get(#versionId, or: $value.versionId),
     versionNumber: data.get(#versionNumber, or: $value.versionNumber),
     host: data.get(#host, or: $value.host),
+    discoveredViaSearch: data.get(
+      #discoveredViaSearch,
+      or: $value.discoveredViaSearch,
+    ),
     file: data.get(#file, or: $value.file),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
   );
@@ -522,6 +540,15 @@ class LockedCurseforgeSourceMapper
         opt: true,
         def: true,
       );
+  static bool _$discoveredViaSearch(LockedCurseforgeSource v) =>
+      v.discoveredViaSearch;
+  static const Field<LockedCurseforgeSource, bool> _f$discoveredViaSearch =
+      Field(
+        'discoveredViaSearch',
+        _$discoveredViaSearch,
+        opt: true,
+        def: false,
+      );
 
   @override
   final MappableFields<LockedCurseforgeSource> fields = const {
@@ -531,6 +558,7 @@ class LockedCurseforgeSourceMapper
     #file: _f$file,
     #gameVersions: _f$gameVersions,
     #allowModDistribution: _f$allowModDistribution,
+    #discoveredViaSearch: _f$discoveredViaSearch,
   };
 
   static LockedCurseforgeSource _instantiate(DecodingData data) {
@@ -541,6 +569,7 @@ class LockedCurseforgeSourceMapper
       file: data.dec(_f$file),
       gameVersions: data.dec(_f$gameVersions),
       allowModDistribution: data.dec(_f$allowModDistribution),
+      discoveredViaSearch: data.dec(_f$discoveredViaSearch),
     );
   }
 
@@ -623,6 +652,7 @@ abstract class LockedCurseforgeSourceCopyWith<
     LockedFile? file,
     List<String>? gameVersions,
     bool? allowModDistribution,
+    bool? discoveredViaSearch,
   });
   LockedCurseforgeSourceCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
@@ -656,6 +686,7 @@ class _LockedCurseforgeSourceCopyWithImpl<$R, $Out>
     LockedFile? file,
     List<String>? gameVersions,
     bool? allowModDistribution,
+    bool? discoveredViaSearch,
   }) => $apply(
     FieldCopyWithData({
       if (projectId != null) #projectId: projectId,
@@ -665,6 +696,8 @@ class _LockedCurseforgeSourceCopyWithImpl<$R, $Out>
       if (gameVersions != null) #gameVersions: gameVersions,
       if (allowModDistribution != null)
         #allowModDistribution: allowModDistribution,
+      if (discoveredViaSearch != null)
+        #discoveredViaSearch: discoveredViaSearch,
     }),
   );
   @override
@@ -677,6 +710,10 @@ class _LockedCurseforgeSourceCopyWithImpl<$R, $Out>
     allowModDistribution: data.get(
       #allowModDistribution,
       or: $value.allowModDistribution,
+    ),
+    discoveredViaSearch: data.get(
+      #discoveredViaSearch,
+      or: $value.discoveredViaSearch,
     ),
   );
 

@@ -90,6 +90,9 @@ abstract class GitrinthCommand extends Command<int> {
       offline: offline,
       dryRun: dryRun,
       enforce: enforce,
+      noSearch:
+          argResults?.options.contains('search') == true &&
+          !(argResults!['search'] as bool),
       freshSlugs: freshSlugs,
       relaxConstraints: relaxConstraints,
       manifestOverride: manifestOverride,

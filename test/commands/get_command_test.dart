@@ -80,6 +80,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -146,6 +147,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 2, reason: out.stderr);
@@ -175,6 +177,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 2, reason: out.stderr);
@@ -209,6 +212,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -253,6 +257,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -306,6 +311,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -334,6 +340,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, isNot(0), reason: out.stderr);
@@ -382,6 +389,7 @@ mods:
     final env = {
       'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
       'GITRINTH_CACHE': cacheDir.path,
+      'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
     };
     final first = await runCli(['-C', packDir.path, 'get'], environment: env);
     expect(first.exitCode, 0, reason: first.stderr);
@@ -442,6 +450,7 @@ shaders:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -505,6 +514,7 @@ resource_packs:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -567,6 +577,7 @@ data_packs:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -642,6 +653,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, isNot(0), reason: out.stdout);
@@ -695,6 +707,7 @@ mods:
           environment: {
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -721,6 +734,7 @@ mods: {}
           environment: {
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 2, reason: out.stdout);
@@ -748,6 +762,7 @@ mods:
         final env = {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
         final first = await runCli([
           '-C',
@@ -786,6 +801,7 @@ mods:
       final env = {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       };
       await runCli(['-C', packDir.path, 'get'], environment: env);
       expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
@@ -839,6 +855,7 @@ mods:
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -876,6 +893,7 @@ mods:
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -918,6 +936,7 @@ mods:
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -952,6 +971,7 @@ mods:
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
         await runCli(['-C', packDir.path, 'get'], environment: env);
         await runCli(['-C', packDir.path, 'get'], environment: env);
@@ -983,6 +1003,7 @@ mods:
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       };
       await runCli(['-C', packDir.path, 'get'], environment: env);
       await runCli(['-C', packDir.path, 'get'], environment: env);
@@ -1049,6 +1070,7 @@ mods:
           'GITRINTH_FORGE_VERSIONS_URL': modrinth.forgeVersionsUrl,
           'GITRINTH_FORGE_PROMOTIONS_URL': modrinth.forgePromotionsUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
 
         await writeManifest('''
@@ -1111,6 +1133,7 @@ mods:
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
 
         await writeManifest('''
@@ -1188,6 +1211,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1223,6 +1247,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1274,6 +1299,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1313,6 +1339,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1363,6 +1390,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1410,6 +1438,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');

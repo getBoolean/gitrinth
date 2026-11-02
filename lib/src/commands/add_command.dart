@@ -34,6 +34,12 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
 
   AddCommand() {
     argParser
+      ..addFlag(
+        'search',
+        defaultsTo: true,
+        help:
+            'Search for cross-platform peers when a slug is missing or hashes differ.',
+      )
       ..addOption(
         'env',
         allowed: ['client', 'server', 'both'],

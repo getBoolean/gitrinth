@@ -17,6 +17,16 @@ abstract class ModrinthApi {
   @GET('/project/{slug}')
   Future<Project> getProject(@Path('slug') String slug);
 
+  @GET('/project/{slug}/members')
+  Future<HttpResponse<dynamic>> getProjectMembers(@Path('slug') String slug);
+
+  @GET('/search')
+  Future<HttpResponse<dynamic>> searchProjects({
+    @Query('query') required String query,
+    @Query('facets') required String facets,
+    @Query('limit') int limit = 20,
+  });
+
   /// Modrinth's project-validity endpoint. Returns 200 with `{"id": ...}` if a
   /// project with the given slug already exists, or 404 if the slug is free.
   /// Despite the published docs page describing the route as HEAD, the actual

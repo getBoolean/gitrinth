@@ -33,6 +33,7 @@ ModsLock buildLock({
   required Map<String, HashOutcome> hashOutcomes,
   required String? resolvedModLoaderVersion,
   required String? resolvedPluginLoaderVersion,
+  Set<String> modrinthSearchSlugs = const {},
 }) {
   final mods = <String, LockedEntry>{};
   final resourcePacks = <String, LockedEntry>{};
@@ -68,6 +69,7 @@ ModsLock buildLock({
       mrEntry: r,
       cfEntry: cf,
       hashOutcome: outcome,
+      modrinthDiscoveredViaSearch: modrinthSearchSlugs.contains(r.slug),
     );
   }
 
@@ -157,6 +159,7 @@ LockedEntry _buildResolvedEntry({
   required ResolvedEntry? mrEntry,
   required CfResolvedEntry? cfEntry,
   required HashOutcome? hashOutcome,
+  bool modrinthDiscoveredViaSearch = false,
 }) {
   // For dual-source entries, prefer the (mrPicked, cfPicked) returned
   // by the hash scan when it found a match (or accepted a mismatch).
@@ -177,11 +180,12 @@ LockedEntry _buildResolvedEntry({
 
   LockedModrinthSource? mrSource;
   if (finalMr != null && mrEntry != null) {
-    final file = mrEntry.file;
+    final file = finalMr.primaryFile!;
     mrSource = LockedModrinthSource(
       projectId: finalMr.projectId,
       versionId: finalMr.id,
       versionNumber: finalMr.versionNumber,
+      discoveredViaSearch: modrinthDiscoveredViaSearch,
       file: LockedFile(
         name: file.filename,
         url: file.url,
@@ -207,6 +211,7 @@ LockedEntry _buildResolvedEntry({
       ),
       gameVersions: List.unmodifiable(finalCf.gameVersions),
       allowModDistribution: cfEntry.project.allowModDistribution,
+      discoveredViaSearch: cfEntry.discoveredViaSearch,
     );
   }
 

@@ -117,6 +117,8 @@ Map<String, ModEntry> _applyTo(
       server: ov.server,
       source: ov.source,
       acceptsMc: ov.acceptsMc.isNotEmpty ? ov.acceptsMc : entry.acceptsMc,
+      noCrossPlatformSearch:
+          ov.noCrossPlatformSearch || entry.noCrossPlatformSearch,
     );
   });
   return result;

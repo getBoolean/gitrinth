@@ -34,6 +34,7 @@ void main() {
     env = {
       'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
       'GITRINTH_CACHE': cacheDir.path,
+      'GITRINTH_PAPER_API_URL': modrinth.paperBuildsUrl,
       'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
     };
   });

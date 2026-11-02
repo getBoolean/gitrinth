@@ -1186,6 +1186,13 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     _$allowHashMismatch,
     opt: true,
   );
+  static bool _$noCrossPlatformSearch(ModEntry v) => v.noCrossPlatformSearch;
+  static const Field<ModEntry, bool> _f$noCrossPlatformSearch = Field(
+    'noCrossPlatformSearch',
+    _$noCrossPlatformSearch,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<ModEntry> fields = const {
@@ -1201,6 +1208,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     #sources: _f$sources,
     #hashScanDepth: _f$hashScanDepth,
     #allowHashMismatch: _f$allowHashMismatch,
+    #noCrossPlatformSearch: _f$noCrossPlatformSearch,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -1217,6 +1225,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       sources: data.dec(_f$sources),
       hashScanDepth: data.dec(_f$hashScanDepth),
       allowHashMismatch: data.dec(_f$allowHashMismatch),
+      noCrossPlatformSearch: data.dec(_f$noCrossPlatformSearch),
     );
   }
 
@@ -1292,6 +1301,7 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     Set<SourceKind>? sources,
     int? hashScanDepth,
     bool? allowHashMismatch,
+    bool? noCrossPlatformSearch,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1328,6 +1338,7 @@ class _ModEntryCopyWithImpl<$R, $Out>
     Object? sources = $none,
     Object? hashScanDepth = $none,
     Object? allowHashMismatch = $none,
+    bool? noCrossPlatformSearch,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1342,6 +1353,8 @@ class _ModEntryCopyWithImpl<$R, $Out>
       if (sources != $none) #sources: sources,
       if (hashScanDepth != $none) #hashScanDepth: hashScanDepth,
       if (allowHashMismatch != $none) #allowHashMismatch: allowHashMismatch,
+      if (noCrossPlatformSearch != null)
+        #noCrossPlatformSearch: noCrossPlatformSearch,
     }),
   );
   @override
@@ -1360,6 +1373,10 @@ class _ModEntryCopyWithImpl<$R, $Out>
     allowHashMismatch: data.get(
       #allowHashMismatch,
       or: $value.allowHashMismatch,
+    ),
+    noCrossPlatformSearch: data.get(
+      #noCrossPlatformSearch,
+      or: $value.noCrossPlatformSearch,
     ),
   );
 

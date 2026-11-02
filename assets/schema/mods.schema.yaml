@@ -462,6 +462,9 @@ $defs:
           scan looking for a SHA1 match before failing. `0` disables
           the scan; the default is `10`. Mutually exclusive with a
           single-element `sources:`.
+      no_cross_platform_search:
+        type: boolean
+        description: Disable cross-platform search fallback for this entry.
       allow_hash_mismatch:
         type: boolean
         description: |

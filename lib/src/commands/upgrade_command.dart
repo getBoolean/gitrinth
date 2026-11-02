@@ -32,6 +32,12 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
   UpgradeCommand() {
     argParser
       ..addFlag(
+        'search',
+        defaultsTo: true,
+        help:
+            'Search for cross-platform peers when a slug is missing or hashes differ.',
+      )
+      ..addFlag(
         'major-versions',
         negatable: false,
         help:

@@ -265,6 +265,7 @@ class ModEntry with ModEntryMappable {
   /// be locked despite no match in the scan window. `null` falls back
   /// to `false`. Mutually exclusive with a single-element [sources].
   final bool? allowHashMismatch;
+  final bool noCrossPlatformSearch;
 
   const ModEntry({
     required this.slug,
@@ -279,6 +280,7 @@ class ModEntry with ModEntryMappable {
     this.sources,
     this.hashScanDepth,
     this.allowHashMismatch,
+    this.noCrossPlatformSearch = false,
   });
 }
 

@@ -11,6 +11,7 @@ class Project with ProjectMappable {
   final String projectType;
   @MappableField(key: 'loaders')
   final List<String> loaders;
+  final List<String> categories;
 
   const Project({
     required this.id,
@@ -18,5 +19,6 @@ class Project with ProjectMappable {
     required this.title,
     required this.projectType,
     this.loaders = const [],
+    this.categories = const [],
   });
 }

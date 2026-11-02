@@ -17,6 +17,12 @@ class GetCommand extends GitrinthCommand with OfflineFlag {
   GetCommand() {
     argParser
       ..addFlag(
+        'search',
+        defaultsTo: true,
+        help:
+            'Search for cross-platform peers when a slug is missing or hashes differ.',
+      )
+      ..addFlag(
         'dry-run',
         negatable: false,
         help: "Report what entries would change but don't change any.",

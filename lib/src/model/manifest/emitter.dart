@@ -116,6 +116,7 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
 
 void _emitModrinthSource(StringBuffer buf, LockedModrinthSource mr) {
   buf.writeln('    modrinth:');
+  if (mr.discoveredViaSearch) buf.writeln('      discovered_via_search: true');
   buf.writeln('      project_id: ${_str(mr.projectId)}');
   buf.writeln('      version_id: ${_str(mr.versionId)}');
   final vn = mr.versionNumber;
@@ -131,6 +132,7 @@ void _emitModrinthSource(StringBuffer buf, LockedModrinthSource mr) {
 
 void _emitCurseforgeSource(StringBuffer buf, LockedCurseforgeSource cf) {
   buf.writeln('    curseforge:');
+  if (cf.discoveredViaSearch) buf.writeln('      discovered_via_search: true');
   buf.writeln('      project_id: ${cf.projectId}');
   buf.writeln('      file_id: ${cf.fileId}');
   final slug = cf.slug;

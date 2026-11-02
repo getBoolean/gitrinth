@@ -13,6 +13,8 @@ class Mod with ModMappable {
   final String name;
   final String slug;
   final String? summary;
+  final List<Map<String, dynamic>> authors;
+  final List<Map<String, dynamic>> categories;
 
   /// CurseForge `classId` — content type (mods=6, plugins=5,
   /// resourcePacks=12, etc.). Mapped from the manifest [Section]
@@ -34,6 +36,8 @@ class Mod with ModMappable {
     required this.name,
     required this.slug,
     this.summary,
+    this.authors = const [],
+    this.categories = const [],
     required this.classId,
     this.latestFiles = const [],
     this.allowModDistribution = true,

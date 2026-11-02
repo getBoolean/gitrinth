@@ -8,7 +8,6 @@ import 'package:gitrinth/src/service/curseforge/curseforge_api_factory.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_auth_interceptor.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_error_interceptor.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_rate_limit_interceptor.dart';
-import 'package:gitrinth/src/service/curseforge/curseforge_url.dart';
 import 'package:gitrinth/src/service/offline_guard_interceptor.dart';
 import 'package:gitrinth/src/version.dart';
 import 'package:test/test.dart';

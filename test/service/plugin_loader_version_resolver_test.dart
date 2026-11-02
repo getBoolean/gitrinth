@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/service/paper_api_client.dart';
 import 'package:gitrinth/src/service/resolve/plugin_loader_version_resolver.dart';
@@ -92,6 +93,60 @@ void main() {
       );
     },
   );
+
+  test('Fill v3 uses ids and the supplied object download URL', () async {
+    stub.listen((req) async {
+      expect(
+        req.headers.value('user-agent'),
+        contains('github.com/getBoolean/gitrinth'),
+      );
+      req.response.headers.contentType = ContentType.json;
+      req.response.write('''
+[
+  {"id": 12, "channel": "ALPHA", "downloads": {"server:default": {"name": "paper-12.jar", "url": "https://fill-data.papermc.io/objects/12/paper.jar"}}},
+  {"id": 10, "channel": "STABLE", "downloads": {"server:default": {"name": "paper-10.jar", "url": "https://fill-data.papermc.io/objects/10/paper.jar"}}},
+  {"id": 11, "channel": "STABLE", "downloads": {"server:default": {"name": "paper-11.jar", "url": "https://fill-data.papermc.io/objects/11/paper.jar"}}}
+]
+''');
+      await req.response.close();
+    });
+    final api = PaperApiClient(
+      dio: dio,
+      buildsUrlTemplate: 'http://127.0.0.1:${stub.port}/builds',
+    );
+    final stable = await api.latestStableBuild(project: 'paper', mc: '1.21.1');
+    expect(stable.build, 11);
+    expect(
+      stable.downloadUrl.toString(),
+      'https://fill-data.papermc.io/objects/11/paper.jar',
+    );
+    expect((await api.latestBuild(project: 'paper', mc: '1.21.1')).build, 12);
+    expect(
+      (await api.buildByNumber(
+        project: 'paper',
+        mc: '1.21.1',
+        build: 10,
+      )).filename,
+      'paper-10.jar',
+    );
+  });
+
+  test('Fill v3 rejects a build without a valid download URL', () async {
+    stub.listen((req) async {
+      req.response.write(
+        '[{"id":1,"channel":"STABLE","downloads":{"server:default":{"name":"paper.jar"}}}]',
+      );
+      await req.response.close();
+    });
+    final api = PaperApiClient(
+      dio: dio,
+      buildsUrlTemplate: 'http://127.0.0.1:${stub.port}/builds',
+    );
+    await expectLater(
+      api.latestStableBuild(project: 'paper', mc: '1.21.1'),
+      throwsA(isA<UserError>()),
+    );
+  });
 
   test('Sponge stable uses recommended builds while latest uses any', () async {
     stub.listen((req) async {
