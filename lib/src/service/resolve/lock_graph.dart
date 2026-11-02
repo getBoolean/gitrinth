@@ -107,14 +107,21 @@ final class LockedDependencyGraph {
             // Metadata already supplies the qualified edges.
             continue;
           }
+        }
+        final child = item.value;
+        if (child.modrinth != null) {
+          candidates = candidates.where((node) {
+            final parent = entries[node]!;
+            return (parent.modrinth != null &&
+                    identity.host(node) == identity.host(item.key)) ||
+                (parent.curseforge != null && child.curseforge != null);
+          }).toList();
+        }
+        if (candidates.length > 1) {
           final sameSection = candidates
               .where((node) => node.section == item.key.section)
               .toList();
           if (sameSection.isNotEmpty) candidates = sameSection;
-          final sameHost = candidates
-              .where((node) => identity.host(node) == identity.host(item.key))
-              .toList();
-          if (sameHost.isNotEmpty) candidates = sameHost;
         }
         if (candidates.length == 1) {
           graph.addEdge(candidates.single, item.key);

@@ -170,7 +170,7 @@ class Resolver {
       final file = v.primaryFile;
       if (file == null) {
         throw ValidationError(
-          'Resolved $slug version ${v.versionNumber} has no downloadable file.',
+          'Resolved ${localNameFor?.call(slug) ?? slug} version ${v.versionNumber} has no downloadable file.',
         );
       }
       final section =

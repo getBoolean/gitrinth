@@ -140,6 +140,21 @@ void main() {
     );
   });
 
+  test('cold-cache parents match source host before section', () {
+    final locked = lock({
+      'root': entry('root', 'root-a'),
+      'child': entry('child', 'child-b', host: hostedHost, parents: ['root']),
+    }).copyWith(plugins: {'root': entry('root', 'root-b', host: hostedHost)});
+    final indexed = LockedDependencyGraph(
+      locked,
+      cache,
+      defaultHost: defaultHost,
+    );
+    expect(indexed.graph.parents(const LocalEntryKey(Section.mods, 'child')), {
+      const LocalEntryKey(Section.plugins, 'root'),
+    });
+  });
+
   test(
     'ambiguous bare parents are reported and omitted instead of guessed',
     () {
