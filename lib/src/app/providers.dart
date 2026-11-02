@@ -10,18 +10,21 @@ import '../service/java_runtime_fetcher.dart';
 import '../service/java_runtime_resolver.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/loader_client_installer.dart';
-import '../service/mod_loader_version_resolver.dart';
+import '../service/resolve/mod_loader_version_resolver.dart';
 import '../service/minecraft_launcher_locator.dart';
 import '../service/paper_api_client.dart';
-import '../service/plugin_loader_version_resolver.dart';
+import '../service/resolve/plugin_loader_version_resolver.dart';
 import '../service/server_installer.dart';
 import '../service/sponge_api_client.dart';
 import '../service/vanilla_server_source.dart';
-import '../service/modrinth_api_factory.dart';
-import '../service/modrinth_auth_interceptor.dart';
-import '../service/modrinth_error_interceptor.dart';
-import '../service/modrinth_rate_limit_interceptor.dart';
-import '../service/modrinth_url.dart';
+import '../service/curseforge/curseforge_api_factory.dart';
+import '../service/curseforge/curseforge_auth_interceptor.dart';
+import '../service/curseforge/curseforge_url.dart';
+import '../service/modrinth/modrinth_api_factory.dart';
+import '../service/modrinth/modrinth_auth_interceptor.dart';
+import '../service/modrinth/modrinth_error_interceptor.dart';
+import '../service/modrinth/modrinth_rate_limit_interceptor.dart';
+import '../service/modrinth/modrinth_url.dart';
 import '../service/offline_guard_interceptor.dart';
 import '../service/user_config.dart';
 import '../cli/exceptions.dart';
@@ -87,6 +90,27 @@ final modrinthApiFactoryProvider = Provider<ModrinthApiFactory>((ref) {
     auth: ref.read(modrinthAuthInterceptorProvider),
     offline: () => ref.read(offlineProvider),
     defaultBaseUrl: resolveModrinthBaseUrl(ref.read(environmentProvider)),
+  );
+  ref.onDispose(factory.close);
+  return factory;
+});
+
+final curseForgeAuthInterceptorProvider = Provider<CurseForgeAuthInterceptor>((
+  ref,
+) {
+  final env = ref.read(environmentProvider);
+  return CurseForgeAuthInterceptor(
+    envTokenLookup: () => env['GITRINTH_CURSEFORGE_TOKEN'],
+    baseUrl: resolveCurseForgeBaseUrl(env),
+  );
+});
+
+final curseForgeApiFactoryProvider = Provider<CurseForgeApiFactory>((ref) {
+  final factory = CurseForgeApiFactory(
+    console: ref.read(consoleProvider),
+    auth: ref.read(curseForgeAuthInterceptorProvider),
+    offline: () => ref.read(offlineProvider),
+    baseUrl: resolveCurseForgeBaseUrl(ref.read(environmentProvider)),
   );
   ref.onDispose(factory.close);
   return factory;

@@ -2,7 +2,7 @@ import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/modrinth/version.dart' as modrinth;
 import 'package:gitrinth/src/service/console.dart';
-import 'package:gitrinth/src/service/solve_report.dart';
+import 'package:gitrinth/src/service/resolve/solve_report.dart';
 import 'package:test/test.dart';
 
 class _CaptureConsole extends Console {
@@ -25,27 +25,31 @@ LockedEntry _modrinth(
 }) {
   return LockedEntry(
     slug: slug,
-    sourceKind: LockedSourceKind.modrinth,
+    kind: LockedEntryKind.resolved,
     version: version,
-    projectId: projectId,
-    versionId: versionId,
-    file: LockedFile(
-      name: '$slug-$version.jar',
-      url: 'https://cdn/$slug-$version.jar',
-      sha512: sha512,
-      size: 1024,
+    modrinth: LockedModrinthSource(
+      projectId: projectId,
+      versionId: versionId,
+      versionNumber: version,
+      file: LockedFile(
+        name: '$slug-$version.jar',
+        url: 'https://cdn/$slug-$version.jar',
+        sha512: sha512,
+        size: 1024,
+      ),
     ),
   );
 }
 
 LockedEntry _url(String slug, String url) => LockedEntry(
   slug: slug,
-  sourceKind: LockedSourceKind.url,
-  file: LockedFile(name: 'x.jar', url: url),
+  kind: LockedEntryKind.url,
+  url: url,
+  urlFile: LockedFile(name: 'x.jar', url: url),
 );
 
 LockedEntry _path(String slug, String path) =>
-    LockedEntry(slug: slug, sourceKind: LockedSourceKind.path, path: path);
+    LockedEntry(slug: slug, kind: LockedEntryKind.path, path: path);
 
 ModsLock _lock({
   Map<String, LockedEntry> mods = const {},

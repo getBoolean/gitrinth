@@ -14,9 +14,9 @@ import '../service/console.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/manifest_io.dart';
 import '../service/plugin_server_source.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/resolve/resolve_and_sync.dart';
+import '../service/resolve/solve_report.dart';
 import '../service/server_installer.dart';
-import '../service/solve_report.dart';
 import '../service/vanilla_server_source.dart';
 import '../version.dart';
 import 'build_assembler.dart';
@@ -81,12 +81,14 @@ Future<int> runBuild({
     }
   } else {
     final apiFactory = container.read(modrinthApiFactoryProvider);
+    final cfFactory = container.read(curseForgeApiFactoryProvider);
     final downloader = container.read(downloaderProvider);
     final modLoaderResolver = container.read(modLoaderVersionResolverProvider);
     final result = await resolveAndSync(
       io: manifestIo,
       console: console,
       apiFactory: apiFactory,
+      cfFactory: cfFactory,
       cache: cache,
       downloader: downloader,
       modLoaderResolver: modLoaderResolver,
@@ -542,7 +544,7 @@ _AssembleResult _assembleEnv({
       ledgerFiles[relKey] = LedgerModSource(
         section: section.name,
         slug: entry.slug,
-        sha512: entry.file?.sha512,
+        sha512: entry.primaryFile?.sha512,
       );
       count++;
     }

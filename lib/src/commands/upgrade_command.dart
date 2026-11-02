@@ -9,12 +9,12 @@ import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
-import '../service/conflict_disable.dart';
-import '../service/lock_graph.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_api.dart';
-import '../service/resolve_and_sync.dart';
-import '../service/solve_report.dart';
+import '../service/modrinth/modrinth_api.dart';
+import '../service/resolve/conflict_disable.dart';
+import '../service/resolve/lock_graph.dart';
+import '../service/resolve/resolve_and_sync.dart';
+import '../service/resolve/solve_report.dart';
 import 'caret_rewriter.dart';
 import 'migrate_editor.dart';
 
@@ -31,6 +31,12 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
 
   UpgradeCommand() {
     argParser
+      ..addFlag(
+        'search',
+        defaultsTo: true,
+        help:
+            'Search for cross-platform peers when a slug is missing or hashes differ.',
+      )
       ..addFlag(
         'major-versions',
         negatable: false,

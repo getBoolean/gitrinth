@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
-import 'package:gitrinth/src/service/mod_loader_version_resolver.dart';
+import 'package:gitrinth/src/service/resolve/mod_loader_version_resolver.dart';
 import 'package:test/test.dart';
 
 import '../helpers/fake_modrinth.dart';

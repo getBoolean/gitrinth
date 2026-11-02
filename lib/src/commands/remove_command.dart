@@ -6,7 +6,7 @@ import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/manifest_io.dart';
-import '../service/solve_report.dart';
+import '../service/resolve/solve_report.dart';
 import 'add_command_editor.dart';
 import 'remove_command_editor.dart';
 

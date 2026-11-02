@@ -20,12 +20,12 @@ class PaperBuild {
   });
 }
 
-/// Small typed wrapper over the PaperMC v2 REST API. Mirrors the URL-
+/// Small typed wrapper over the PaperMC Fill v3 REST API. Mirrors the URL-
 /// template + env-var override pattern used by [LoaderBinaryFetcher].
 class PaperApiClient {
   final Dio _dio;
   final String _buildsUrlTemplate;
-  final String _downloadUrlTemplate;
+  final String? _downloadUrlTemplate;
 
   PaperApiClient({
     required Dio dio,
@@ -36,22 +36,19 @@ class PaperApiClient {
        _buildsUrlTemplate =
            buildsUrlTemplate ??
            (environment ?? Platform.environment)['GITRINTH_PAPER_API_URL'] ??
-           'https://api.papermc.io/v2/projects/{project}/versions/{mc}/builds',
+           'https://fill.papermc.io/v3/projects/{project}/versions/{mc}/builds',
        _downloadUrlTemplate =
            downloadUrlTemplate ??
-           (environment ??
-               Platform.environment)['GITRINTH_PAPER_DOWNLOAD_URL'] ??
-           'https://api.papermc.io/v2/projects/{project}/versions/{mc}/'
-               'builds/{build}/downloads/{filename}';
+           (environment ?? Platform.environment)['GITRINTH_PAPER_DOWNLOAD_URL'];
 
-  /// Returns the latest stable (`channel: "default"`) build of [project]
+  /// Returns the latest stable (`channel: "STABLE"`) build of [project]
   /// for Minecraft [mc]. Throws [UserError] when no stable build exists.
   Future<PaperBuild> latestStableBuild({
     required String project,
     required String mc,
   }) async {
     final builds = await _listBuilds(project: project, mc: mc);
-    // PaperMC's `channel` is uppercase (`STABLE` / `EXPERIMENTAL`). Match
+    // PaperMC's `channel` is uppercase (`STABLE` / `ALPHA` / `BETA`). Match
     // case-insensitively to tolerate any future casing changes. Within
     // stable builds, pick the highest build number rather than relying on
     // API ordering.
@@ -63,7 +60,7 @@ class PaperApiClient {
       if (channel is! String) continue;
       final normalized = channel.toLowerCase();
       if (normalized != 'stable' && normalized != 'default') continue;
-      final build = raw['build'];
+      final build = raw['id'] ?? raw['build'];
       if (build is! int) continue;
       if (build > latestBuild) {
         latestBuild = build;
@@ -90,7 +87,7 @@ class PaperApiClient {
     int latestBuild = -1;
     for (final raw in builds) {
       if (raw is! Map) continue;
-      final build = raw['build'];
+      final build = raw['id'] ?? raw['build'];
       if (build is! int) continue;
       if (build > latestBuild) {
         latestBuild = build;
@@ -112,7 +109,7 @@ class PaperApiClient {
     final builds = await _listBuilds(project: project, mc: mc);
     for (final raw in builds) {
       if (raw is! Map) continue;
-      if (raw['build'] == build) {
+      if ((raw['id'] ?? raw['build']) == build) {
         return _buildFromEntry(
           project: project,
           mc: mc,
@@ -135,18 +132,24 @@ class PaperApiClient {
     });
     final Response<dynamic> response;
     try {
-      response = await _dio.get<dynamic>(url);
+      response = await _dio.get<dynamic>(
+        url,
+        options: Options(
+          headers: {
+            'User-Agent': 'gitrinth (https://github.com/getBoolean/gitrinth)',
+          },
+        ),
+      );
     } on DioException catch (e) {
       unwrapOrThrow(e, context: 'failed to query PaperMC API at $url');
     }
     final decoded = response.data is String
         ? jsonDecode(response.data as String)
         : response.data;
-    if (decoded is! Map) {
+    if (decoded is! Map && decoded is! List) {
       throw UserError('PaperMC API at $url returned unexpected payload.');
     }
-    final data = decoded.cast<String, dynamic>();
-    final builds = data['builds'];
+    final builds = decoded is List ? decoded : (decoded as Map)['builds'];
     if (builds is! List || builds.isEmpty) {
       throw UserError('PaperMC reported no $project builds for Minecraft $mc.');
     }
@@ -158,14 +161,14 @@ class PaperApiClient {
     required String mc,
     required Map<String, dynamic> entry,
   }) {
-    final build = entry['build'];
+    final build = entry['id'] ?? entry['build'];
     final downloads = entry['downloads'];
     if (build is! int || downloads is! Map) {
       throw UserError(
         'PaperMC returned a malformed build entry for $project $mc.',
       );
     }
-    final application = downloads['application'];
+    final application = downloads['server:default'] ?? downloads['application'];
     if (application is! Map) {
       throw UserError(
         'PaperMC build $build for $project did not list an `application` '
@@ -178,14 +181,23 @@ class PaperApiClient {
         'PaperMC build $build for $project did not name its application jar.',
       );
     }
-    final downloadUrl = Uri.parse(
-      fillUrlTemplate(_downloadUrlTemplate, {
-        'project': project,
-        'mc': mc,
-        'build': build.toString(),
-        'filename': filename,
-      }),
-    );
+    final template = _downloadUrlTemplate;
+    final rawUrl = template != null
+        ? fillUrlTemplate(template, {
+            'project': project,
+            'mc': mc,
+            'build': build.toString(),
+            'filename': filename,
+          })
+        : application['url'];
+    final downloadUrl = rawUrl is String ? Uri.tryParse(rawUrl) : null;
+    if (downloadUrl == null ||
+        !downloadUrl.hasAuthority ||
+        !{'http', 'https'}.contains(downloadUrl.scheme)) {
+      throw UserError(
+        'PaperMC build $build for $project has no valid download URL.',
+      );
+    }
     return PaperBuild(
       build: build,
       filename: filename,

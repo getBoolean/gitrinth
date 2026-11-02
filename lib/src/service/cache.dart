@@ -9,7 +9,7 @@ import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import 'console.dart';
-import 'modrinth_url.dart';
+import 'modrinth/modrinth_url.dart';
 
 class GitrinthCache {
   final String root;

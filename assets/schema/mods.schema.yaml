@@ -119,12 +119,31 @@ properties:
         description: Server-side compatibility.
 
   publish_to:
-    description: |
-      URL of the Modrinth-compatible server `gitrinth publish` uploads
-      to. Omit (or set `null`) to publish to modrinth.com. Set to
-      `none` to disable publishing.
-    type: [ string, "null" ]
-    format: uri
+    description: Publish targets; omitted/null follows enabled gitrinth platforms.
+    oneOf:
+      - type: "null"
+      - enum: [none, modrinth, curseforge]
+      - type: array
+        minItems: 1
+        uniqueItems: true
+        items:
+          enum: [modrinth, curseforge]
+      - type: object
+        minProperties: 1
+        additionalProperties: false
+        properties:
+          modrinth:
+            oneOf:
+              - type: "null"
+              - type: string
+                pattern: '^https?://[^/]+.*$'
+              - type: object
+                maxProperties: 0
+          curseforge:
+            oneOf:
+              - type: "null"
+              - type: object
+                maxProperties: 0
 
   loader:
     type: object
@@ -453,6 +472,25 @@ $defs:
           Per-entry override for the Modrinth source kind's base URL.
           Co-exists with the Modrinth source — the entry still speaks
           the Modrinth API, just against a different host.
+      hash_scan_depth:
+        type: integer
+        minimum: 0
+        description: |
+          When both Modrinth and CurseForge participate for this entry,
+          how many additional version pairs beyond the newest pair to
+          scan looking for a SHA1 match before failing. `0` disables
+          the scan; the default is `10`. Mutually exclusive with a
+          single-element `sources:`.
+      no_cross_platform_search:
+        type: boolean
+        description: Disable cross-platform search fallback for this entry.
+      allow_hash_mismatch:
+        type: boolean
+        description: |
+          When both Modrinth and CurseForge participate for this entry
+          and no SHA1 match is found within the scan window, accept the
+          mismatch and lock the newest pair instead of failing.
+          Mutually exclusive with a single-element `sources:`.
       url:
         type: string
         format: uri
@@ -468,6 +506,30 @@ $defs:
           required: [ modrinth_host, path ]
       - not:
           required: [ url, path ]
+      # `hash_scan_depth` / `allow_hash_mismatch` only make sense when
+      # both platforms participate. A single-element `sources:` already
+      # pins the entry to one platform, so combining the fields is a
+      # parse-time error.
+      - not:
+          allOf:
+            - required: [ hash_scan_depth ]
+            - properties:
+                sources:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      maxItems: 1
+              required: [ sources ]
+      - not:
+          allOf:
+            - required: [ allow_hash_mismatch ]
+            - properties:
+                sources:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      maxItems: 1
+              required: [ sources ]
 
   modMap:
     type: object

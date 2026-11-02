@@ -1,4 +1,4 @@
-import '../service/modrinth_project_url.dart';
+import '../service/modrinth/modrinth_project_url.dart';
 
 /// Parses an `add`/`override` positional of the form
 /// `<slug>[@<constraint>]`, accepting full Modrinth project URLs in

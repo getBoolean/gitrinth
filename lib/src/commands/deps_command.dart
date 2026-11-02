@@ -6,7 +6,7 @@ import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
-import '../service/lock_graph.dart';
+import '../service/resolve/lock_graph.dart';
 import '../service/manifest_io.dart';
 import '../util/ascii_tree.dart' as ascii_tree;
 
@@ -93,19 +93,20 @@ class DepsCommand extends GitrinthCommand {
     var coldCacheCount = 0;
     final projectIdToSlug = <String, String>{
       for (final entry in lockBySlug.entries)
-        if (entry.value.locked.projectId != null)
-          entry.value.locked.projectId!: entry.key,
+        if (entry.value.locked.modrinth?.projectId != null)
+          entry.value.locked.modrinth!.projectId: entry.key,
     };
     for (final entry in lockBySlug.entries) {
       final slug = entry.key;
       final locked = entry.value.locked;
-      if (locked.sourceKind != LockedSourceKind.modrinth) {
+      final mr = locked.modrinth;
+      if (mr == null) {
         children[slug] = const [];
         continue;
       }
-      final pid = locked.projectId;
-      final vid = locked.versionId;
-      if (pid == null || vid == null) {
+      final pid = mr.projectId;
+      final vid = mr.versionId;
+      if (pid.isEmpty || vid.isEmpty) {
         children[slug] = const [];
         continue;
       }
@@ -124,6 +125,14 @@ class DepsCommand extends GitrinthCommand {
         ..sort();
     }
 
+    for (final entry in lockBySlug.entries) {
+      for (final parent in entry.value.locked.requiredBy) {
+        if (!lockBySlug.containsKey(parent)) continue;
+        final edges = <String>{...?children[parent], entry.key}.toList()
+          ..sort();
+        children[parent] = edges;
+      }
+    }
     final visibleSlugs = _filterByEnv(lockBySlug, env);
 
     if (targetSlug != null) {
@@ -503,8 +512,8 @@ class DepsCommand extends GitrinthCommand {
         'slug': slug,
         'version': ver.isEmpty ? null : ver,
         'kind': entry.locked.dependency.name,
+        'entry_kind': entry.locked.kind.name,
         'section': entry.section.name,
-        'source': entry.locked.sourceKind.name,
         'dependencies': kids,
       });
     }

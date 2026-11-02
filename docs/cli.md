@@ -34,6 +34,23 @@ Use [`--directory`](#global-options) to target a different modpack.
 
 ## Commands
 
+### Platform defaults and credentials
+
+`gitrinth modrinth enable|disable` and `gitrinth curseforge enable|disable`
+edit the matching `gitrinth:` setting in `mods.yaml`, preserving its version
+constraint and existing entries. They do not resolve or download artifacts.
+
+`gitrinth token add <server-url> [--token <value>]`, `token list`, and
+`token remove <server-url>` manage credentials. Without `--token`, add reads
+a hidden prompt or piped stdin. Modrinth and labrinth URLs are validated against
+their `/user` endpoint before storage. `gitrinth token add curseforge.com`
+stores a CurseForge **publish** key without invoking a Modrinth endpoint; obtain
+it from https://authors-old.curseforge.com/account/api-tokens. Listing masks
+tokens and identifies environment overrides. `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`
+overrides the stored publish key. Downloads use the separate
+`GITRINTH_CURSEFORGE_TOKEN` or embedded official-build key, never this stored key.
+The existing `gitrinth modrinth token` commands remain available.
+
 ### Dependencies
 
 | Command                   | Purpose                                                          |
@@ -332,6 +349,22 @@ non-zero.
 
 ### `add`
 
+Platform entries resolve against the enabled, eligible platforms. Modrinth is
+enabled by default; CurseForge is disabled. `--modrinth`, `--no-modrinth`,
+`--curseforge`, and `--no-curseforge` override those defaults for the new entry.
+Explicit choices persist as `sources:` restrictions. An automatic dual-platform
+add writes shorthand when hashes align, or a one-platform restriction when only
+one requested platform has a compatible release. A hash mismatch fails before
+writing; `--allow-hash-mismatch` persists `allow_hash_mismatch: true` to accept it.
+`--no-search` suppresses peer discovery for both preview and final resolution.
+
+`gitrinth add cf:<slug>[@<constraint>]` selects CurseForge alone without changing
+the pack defaults. All sections support this syntax; CurseForge plugin entries
+require Bukkit, Spigot, or Paper. Use `--type plugin` to select the plugin section
+in a pack that also has mods. Sponge and Folia reject explicit CurseForge plugin
+requests before querying the network. The Modrinth side uses the pack's
+`modrinth_host`, including cross-platform hash comparison on hosted servers.
+
 Add an entry to [`mods`](mods-yaml.md#mods),
 [`resource_packs`](mods-yaml.md#resource_packs),
 [`data_packs`](mods-yaml.md#data_packs),
@@ -341,7 +374,7 @@ Add an entry to [`mods`](mods-yaml.md#mods),
 ```text
 gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--url <url> | --path <path>]
-            [--type <mod|resourcepack|datapack|shader>]
+            [--type <mod|resourcepack|datapack|shader|plugin>]
             [--accepts-mc <mc-version>]...
             [--exact | --pin] [--dry-run] [--offline]
 ```
@@ -709,17 +742,18 @@ Non-existent paths are a silent no-op.
 
 ### `pack`
 
-Modpack-specific. Produce Modrinth `.mrpack` archives.
+Modpack-specific. Produce Modrinth `.mrpack` archives or CurseForge `.zip` archives.
 
 ```text
-gitrinth pack [--output <path>] [--combined] [--publishable] [--offline]
+gitrinth pack [--output <path>] [--combined] [--curseforge] [--publishable] [--offline]
 ```
 
 | Option           | Description                                                                                                                                       |
 |------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--output`, `-o` | Override the base output path. Defaults to `./build/<slug>-<version>.mrpack`. The server pack is derived by inserting `-server` before `.mrpack`. |
 | `--combined`     | Produce a single `.mrpack` that contains both client and server files instead of a client + server pair.                                          |
-| `--publishable`  | Refuse to pack if any [`mods`](mods-yaml.md#mods) entry uses a `url` or `path` source. Other sections are unaffected.                             |
+| `--publishable` | Refuse entries unavailable on the selected platform or marked `allow_hash_mismatch: true`, scoped to the side being built. |
+| `--curseforge` | Write CurseForge `manifest.json` plus `overrides/` in `.zip` archives. |
 | `--offline`      | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.                                            |
 
 By default `pack` produces two artifacts:
@@ -750,11 +784,16 @@ written, containing every file partitioned by the per-file `env` map.
 list because every entry there needs a Modrinth CDN URL, so they are
 packed as loose files under `overrides/<subdir>/<filename>` (routed to
 `client-overrides/` / `server-overrides/` when their `environment`
-narrows the side). `--publishable` gates this for the
-[`mods`](mods-yaml.md#mods) section only, since per Modrinth's policy
-executable mod artifacts require explicit author permission to
-redistribute. Resource packs, data packs, and shaders remain free to
-bundle non-Modrinth artifacts even with `--publishable`.
+narrows the side). Entries missing the selected target platform are
+also bundled loose, with author permission. `--publishable` rejects
+these entries across all content sections and also rejects entries
+marked `allow_hash_mismatch: true`.
+
+`--curseforge` changes the extension to `.zip`, writes CurseForge
+project/file references, and routes loose files through `overrides/`.
+Side filtering still produces client/server archives by default.
+Sponge and Folia plugins cannot be CurseForge project references;
+their loose overrides retain the `plugins/<jar>` path.
 
 [`files:`](mods-yaml.md#files) entries are bundled the same way: the
 destination key carries the full sub-path (e.g.
@@ -1043,7 +1082,7 @@ gitrinth modrinth publish [--dry-run] [--force] [--draft]
 | `--changelog <path>`       | Markdown changelog. Defaults to the matching `## [<version>]` section of `CHANGELOG.md` in the project directory; absent → empty changelog. |
 | `--pack <path>`            | Override the `.mrpack` location. Defaults to `build/<slug>-<version>.mrpack` (the path produced by `gitrinth pack`).                        |
 
-The target server is resolved from `mods.yaml.publish_to` if set,
+The target server is resolved from `mods.yaml.publish_to.modrinth` if set,
 otherwise from `GITRINTH_MODRINTH_URL` / the built-in default. A
 `publish_to: 'none'` disables publishing for the pack.
 
@@ -1051,6 +1090,34 @@ Authentication uses the same token resolution as the rest of the
 CLI (`GITRINTH_TOKEN` → stored token for the resolved host). If
 neither source has a token, `publish` exits with code `4` before
 hitting the network.
+
+### `publish`
+
+Publish built artifacts to every platform selected by
+[`publish_to`](mods-yaml.md#publish_to), or the enabled `gitrinth`
+platforms when that field is omitted. Build each target with `pack`
+first. Credentials and artifact paths are checked for every target
+before the first upload; a remote failure can still leave an earlier
+target successfully published.
+
+```text
+gitrinth publish --dry-run --curseforge-project 12345
+gitrinth publish --force --curseforge-project 12345
+gitrinth curseforge publish --force --curseforge-project 12345
+```
+
+Common flags match `modrinth publish`. `--curseforge-project` supplies
+the numeric project ID required by CurseForge. The default CurseForge
+artifact is `build/<slug>-<version>.zip`; `--pack` overrides the path for
+a single target, and `--curseforge-pack` overrides the ZIP path when
+publishing both. `--publishable` rejects target-missing entries and
+hash-mismatch overrides using `mods.lock` (required with this flag).
+Without it, publishing warns about content bundled as loose overrides.
+
+CurseForge authenticates with `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`, falling
+back to `gitrinth token add curseforge.com`. Its resolver download key
+cannot authorize uploads. `--draft` requests manual release after
+CurseForge approval. `--dry-run` assembles metadata without upload.
 
 ### `completion`
 

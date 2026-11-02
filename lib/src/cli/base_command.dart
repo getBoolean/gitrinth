@@ -6,7 +6,7 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/version_selection.dart';
 import '../service/console.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/resolve/resolve_and_sync.dart';
 import 'exceptions.dart';
 import 'runner.dart';
 
@@ -75,6 +75,7 @@ abstract class GitrinthCommand extends Command<int> {
     bool enforce = false,
     Set<String> freshSlugs = const {},
     Set<String> relaxConstraints = const {},
+    Set<String> allowMissingSourcesForSlugs = const {},
     ModsYaml? manifestOverride,
     SolveType solveType = SolveType.get,
   }) {
@@ -82,6 +83,7 @@ abstract class GitrinthCommand extends Command<int> {
       io: io,
       console: console,
       apiFactory: read(modrinthApiFactoryProvider),
+      cfFactory: read(curseForgeApiFactoryProvider),
       cache: read(cacheProvider),
       downloader: read(downloaderProvider),
       modLoaderResolver: read(modLoaderVersionResolverProvider),
@@ -89,8 +91,12 @@ abstract class GitrinthCommand extends Command<int> {
       offline: offline,
       dryRun: dryRun,
       enforce: enforce,
+      noSearch:
+          argResults?.options.contains('search') == true &&
+          !(argResults!['search'] as bool),
       freshSlugs: freshSlugs,
       relaxConstraints: relaxConstraints,
+      allowMissingSourcesForSlugs: allowMissingSourcesForSlugs,
       manifestOverride: manifestOverride,
       solveType: solveType,
     );

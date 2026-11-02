@@ -37,6 +37,20 @@ class ModMapper extends ClassMapperBase<Mod> {
     _$summary,
     opt: true,
   );
+  static List<Map<String, dynamic>> _$authors(Mod v) => v.authors;
+  static const Field<Mod, List<Map<String, dynamic>>> _f$authors = Field(
+    'authors',
+    _$authors,
+    opt: true,
+    def: const [],
+  );
+  static List<Map<String, dynamic>> _$categories(Mod v) => v.categories;
+  static const Field<Mod, List<Map<String, dynamic>>> _f$categories = Field(
+    'categories',
+    _$categories,
+    opt: true,
+    def: const [],
+  );
   static int _$classId(Mod v) => v.classId;
   static const Field<Mod, int> _f$classId = Field('classId', _$classId);
   static List<ModFile> _$latestFiles(Mod v) => v.latestFiles;
@@ -61,6 +75,8 @@ class ModMapper extends ClassMapperBase<Mod> {
     #name: _f$name,
     #slug: _f$slug,
     #summary: _f$summary,
+    #authors: _f$authors,
+    #categories: _f$categories,
     #classId: _f$classId,
     #latestFiles: _f$latestFiles,
     #allowModDistribution: _f$allowModDistribution,
@@ -73,6 +89,8 @@ class ModMapper extends ClassMapperBase<Mod> {
       name: data.dec(_f$name),
       slug: data.dec(_f$slug),
       summary: data.dec(_f$summary),
+      authors: data.dec(_f$authors),
+      categories: data.dec(_f$categories),
       classId: data.dec(_f$classId),
       latestFiles: data.dec(_f$latestFiles),
       allowModDistribution: data.dec(_f$allowModDistribution),
@@ -125,6 +143,18 @@ extension ModValueCopy<$R, $Out> on ObjectCopyWith<$R, Mod, $Out> {
 
 abstract class ModCopyWith<$R, $In extends Mod, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
+  ListCopyWith<
+    $R,
+    Map<String, dynamic>,
+    ObjectCopyWith<$R, Map<String, dynamic>, Map<String, dynamic>>
+  >
+  get authors;
+  ListCopyWith<
+    $R,
+    Map<String, dynamic>,
+    ObjectCopyWith<$R, Map<String, dynamic>, Map<String, dynamic>>
+  >
+  get categories;
   ListCopyWith<$R, ModFile, ModFileCopyWith<$R, ModFile, ModFile>>
   get latestFiles;
   $R call({
@@ -133,6 +163,8 @@ abstract class ModCopyWith<$R, $In extends Mod, $Out>
     String? name,
     String? slug,
     String? summary,
+    List<Map<String, dynamic>>? authors,
+    List<Map<String, dynamic>>? categories,
     int? classId,
     List<ModFile>? latestFiles,
     bool? allowModDistribution,
@@ -147,6 +179,28 @@ class _ModCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, Mod, $Out>
   @override
   late final ClassMapperBase<Mod> $mapper = ModMapper.ensureInitialized();
   @override
+  ListCopyWith<
+    $R,
+    Map<String, dynamic>,
+    ObjectCopyWith<$R, Map<String, dynamic>, Map<String, dynamic>>
+  >
+  get authors => ListCopyWith(
+    $value.authors,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(authors: v),
+  );
+  @override
+  ListCopyWith<
+    $R,
+    Map<String, dynamic>,
+    ObjectCopyWith<$R, Map<String, dynamic>, Map<String, dynamic>>
+  >
+  get categories => ListCopyWith(
+    $value.categories,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(categories: v),
+  );
+  @override
   ListCopyWith<$R, ModFile, ModFileCopyWith<$R, ModFile, ModFile>>
   get latestFiles => ListCopyWith(
     $value.latestFiles,
@@ -160,6 +214,8 @@ class _ModCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, Mod, $Out>
     String? name,
     String? slug,
     Object? summary = $none,
+    List<Map<String, dynamic>>? authors,
+    List<Map<String, dynamic>>? categories,
     int? classId,
     List<ModFile>? latestFiles,
     bool? allowModDistribution,
@@ -170,6 +226,8 @@ class _ModCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, Mod, $Out>
       if (name != null) #name: name,
       if (slug != null) #slug: slug,
       if (summary != $none) #summary: summary,
+      if (authors != null) #authors: authors,
+      if (categories != null) #categories: categories,
       if (classId != null) #classId: classId,
       if (latestFiles != null) #latestFiles: latestFiles,
       if (allowModDistribution != null)
@@ -183,6 +241,8 @@ class _ModCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, Mod, $Out>
     name: data.get(#name, or: $value.name),
     slug: data.get(#slug, or: $value.slug),
     summary: data.get(#summary, or: $value.summary),
+    authors: data.get(#authors, or: $value.authors),
+    categories: data.get(#categories, or: $value.categories),
     classId: data.get(#classId, or: $value.classId),
     latestFiles: data.get(#latestFiles, or: $value.latestFiles),
     allowModDistribution: data.get(

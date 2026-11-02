@@ -7,7 +7,7 @@ import '../app/env.dart';
 import '../app/runner_settings.dart';
 import '../cli/exceptions.dart';
 import '../util/safe_yaml.dart';
-import 'modrinth_url.dart';
+import 'modrinth/modrinth_url.dart';
 
 /// User-level config. Holds per-host Modrinth tokens keyed by
 /// [normalizeServerKey]; mutate via [withToken] / [withoutToken].

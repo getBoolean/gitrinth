@@ -254,6 +254,19 @@ class ModEntry with ModEntryMappable {
   /// `gitrinth.curseforge` pack-level defaults".
   final Set<SourceKind>? sources;
 
+  /// Per-entry override for the "scan older versions on both platforms
+  /// looking for a SHA1 match" depth used when both Modrinth and
+  /// CurseForge participate. `null` falls back to the global default
+  /// (10). `0` disables the scan; only the newest pair is compared.
+  /// Mutually exclusive with a single-element [sources].
+  final int? hashScanDepth;
+
+  /// Per-entry override allowing a Modrinth/CurseForge SHA1 mismatch to
+  /// be locked despite no match in the scan window. `null` falls back
+  /// to `false`. Mutually exclusive with a single-element [sources].
+  final bool? allowHashMismatch;
+  final bool noCrossPlatformSearch;
+
   const ModEntry({
     required this.slug,
     this.constraintRaw,
@@ -265,6 +278,9 @@ class ModEntry with ModEntryMappable {
     this.modrinthSlug,
     this.curseforgeSlug,
     this.sources,
+    this.hashScanDepth,
+    this.allowHashMismatch,
+    this.noCrossPlatformSearch = false,
   });
 }
 
@@ -330,10 +346,17 @@ class ModsYaml with ModsYamlMappable {
   /// pubgrub, mrpack `files[]` resolution, or the globalpacks tree.
   final Map<String, FileEntry> files;
 
-  /// Modrinth-compatible server URL `gitrinth modrinth publish`
-  /// uploads to. `null` means the default (modrinth.com); the literal
-  /// string `none` means publishing is disabled for this pack.
-  final String? publishTo;
+  /// Explicit publish targets with optional Modrinth publishing host.
+  /// Null follows enabled gitrinth platforms; empty disables publication.
+  final Map<SourceKind, String?>? publishTo;
+
+  /// Null follows enabled platforms; an empty map disables publishing.
+  Map<SourceKind, String?> get publishTargets =>
+      publishTo ??
+      {
+        for (final kind in SourceKind.values)
+          if (gitrinth.isPlatformEnabled(kind)) kind: null,
+      };
 
   const ModsYaml({
     required this.slug,

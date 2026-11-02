@@ -115,18 +115,7 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
   );
   final files = _parseFilesSection(map['files'], filePath);
 
-  final publishToRaw = map['publish_to'];
-  final String? publishTo;
-  if (publishToRaw == null) {
-    publishTo = null;
-  } else if (publishToRaw is String) {
-    final trimmed = publishToRaw.trim();
-    publishTo = trimmed.isEmpty ? null : trimmed;
-  } else {
-    throw _err(
-      "$filePath: 'publish_to' must be a string URL, 'none', or omitted.",
-    );
-  }
+  final publishTo = _parsePublishTo(map['publish_to'], filePath);
 
   if (shaders.isNotEmpty && loader.shaders == null) {
     throw _err(
@@ -164,6 +153,56 @@ ModsYaml parseModsYaml(String yamlText, {required String filePath}) {
     files: files,
     publishTo: publishTo,
   );
+}
+
+Map<SourceKind, String?>? _parsePublishTo(dynamic raw, String filePath) {
+  if (raw == null) return null;
+  if (raw == 'none') return const {};
+  final result = <SourceKind, String?>{};
+  void add(dynamic name, dynamic config) {
+    final kind = switch (name) {
+      'modrinth' => SourceKind.modrinth,
+      'curseforge' => SourceKind.curseforge,
+      _ => throw _err("$filePath: invalid publish_to target '$name'."),
+    };
+    if (result.containsKey(kind)) {
+      throw _err("$filePath: duplicate publish_to target '$name'.");
+    }
+    String? host;
+    if (kind == SourceKind.modrinth && config is String) {
+      final uri = Uri.tryParse(config);
+      if (uri == null ||
+          !uri.hasAuthority ||
+          !['https', 'http'].contains(uri.scheme) ||
+          uri.userInfo.isNotEmpty ||
+          uri.hasQuery ||
+          uri.hasFragment) {
+        throw _err('$filePath: publish_to.modrinth must be an HTTP(S) URL.');
+      }
+      host = config;
+    } else if (config != null && !(config is Map && config.isEmpty)) {
+      throw _err('$filePath: invalid publish_to.$name configuration.');
+    }
+    result[kind] = host;
+  }
+
+  if (raw is String) {
+    add(raw, null);
+  } else if (raw is List) {
+    for (final name in raw) {
+      add(name, null);
+    }
+  } else if (raw is Map) {
+    for (final item in raw.entries) {
+      add(item.key, item.value);
+    }
+  } else {
+    throw _err('$filePath: publish_to must be a target, list, or mapping.');
+  }
+  if (result.isEmpty) {
+    throw _err('$filePath: publish_to cannot be empty; use none to disable.');
+  }
+  return result;
 }
 
 String? _parseModrinthHost(dynamic raw, String filePath) {

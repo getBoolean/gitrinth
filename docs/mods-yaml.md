@@ -66,7 +66,7 @@ project:
   client_side: required
   server_side: required
 
-publish_to: https://modrinth.com
+publish_to: modrinth
 
 loader:
   mods: neoforge
@@ -408,24 +408,30 @@ project:
 
 ### `publish_to`
 
-**Optional.** URL of the Modrinth-compatible server
-[`gitrinth modrinth publish`](cli.md#gitrinth-modrinth-publish)
-uploads the modpack to.
+**Optional.** Select the targets used by `gitrinth publish`. Omit or set
+`null` to follow the enabled `gitrinth` platforms (Modrinth by default).
+Use `none` to disable publishing, `modrinth` or `curseforge` for one
+target, or `[modrinth, curseforge]` for both. Explicit CurseForge
+selection works even when the resolution default is disabled.
 
-| Value   | Meaning                                                                          |
-|---------|----------------------------------------------------------------------------------|
-| *unset* | Publish to the default host (`GITRINTH_MODRINTH_URL` if set, else modrinth.com). |
-| *URL*   | Publish to the Modrinth-compatible server at that URL instead.                   |
-| `none`  | Publishing is disabled for this pack — `publish` exits with an error.            |
+A mapping selects targets by key presence and can override the
+Modrinth publishing host independently of `modrinth_host`:
 
 ```yaml
-publish_to: https://modrinth.example.com
+publish_to:
+  modrinth: https://modrinth.example.com
+  curseforge: null
 ```
 
-Authentication uses the per-host token configured via
-[`gitrinth modrinth token add <url>`](cli.md#gitrinth-modrinth-token).
-For the default host, use [`login`](cli.md#gitrinth-modrinth-login) or
-the `GITRINTH_TOKEN` env var instead.
+Both values may be null or empty mappings; only Modrinth accepts a URL.
+Empty target lists/maps, duplicate targets, unknown target names, and
+`none` inside a list/map are errors. Top-level URL scalars are no
+longer accepted.
+
+Modrinth uses the per-host token store or `GITRINTH_TOKEN` for the
+default host. CurseForge requires a personal upload token from
+`GITRINTH_CURSEFORGE_UPLOAD_TOKEN` or `gitrinth token add curseforge.com`.
+The download API key is a separate credential and cannot publish packs.
 
 ### `loader`
 

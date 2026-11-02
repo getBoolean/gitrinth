@@ -4,7 +4,7 @@ import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
-import '../service/modrinth_api.dart';
+import '../service/modrinth/modrinth_api.dart';
 
 /// Picks the latest **release** version of [slug] satisfying the
 /// supplied loader/mc filter. Returns null when no eligible version

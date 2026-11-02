@@ -77,24 +77,33 @@ String resolveSourcePath(
   required String projectDir,
   required String modrinthHost,
 }) {
-  switch (entry.sourceKind) {
-    case LockedSourceKind.modrinth:
-      final file = entry.file;
-      final projectId = entry.projectId;
-      final versionId = entry.versionId;
-      if (file == null || projectId == null || versionId == null) {
-        throw ValidationError(
-          'lockfile entry "${entry.slug}" is missing modrinth source fields.',
+  switch (entry.kind) {
+    case LockedEntryKind.resolved:
+      // Per-platform preference: Modrinth first (matches the legacy
+      // single-source build behavior); CurseForge as fallback for
+      // entries that excluded Modrinth via `sources:`.
+      final mr = entry.modrinth;
+      if (mr != null) {
+        return cache.modrinthPath(
+          host: mr.host ?? modrinthHost,
+          projectId: mr.projectId,
+          versionId: mr.versionId,
+          filename: mr.file.name,
         );
       }
-      return cache.modrinthPath(
-        host: modrinthHost,
-        projectId: projectId,
-        versionId: versionId,
-        filename: file.name,
+      final cf = entry.curseforge;
+      if (cf != null) {
+        return cache.curseforgePath(
+          projectId: cf.projectId,
+          fileId: cf.fileId,
+          filename: cf.file.name,
+        );
+      }
+      throw ValidationError(
+        'lockfile entry "${entry.slug}" has no source block to fetch.',
       );
-    case LockedSourceKind.url:
-      final file = entry.file;
+    case LockedEntryKind.url:
+      final file = entry.urlFile;
       if (file == null) {
         throw ValidationError(
           'lockfile entry "${entry.slug}" is missing url source fields.',
@@ -110,7 +119,7 @@ String resolveSourcePath(
         return cache.urlPath(sha512: sha512, filename: file.name);
       }
       return cache.unverifiedUrlPath(entry.slug, file.name);
-    case LockedSourceKind.path:
+    case LockedEntryKind.path:
       final raw = entry.path;
       if (raw == null) {
         throw ValidationError(
@@ -122,7 +131,7 @@ String resolveSourcePath(
 }
 
 String destFilenameFor(LockedEntry entry) {
-  final file = entry.file;
+  final file = entry.primaryFile;
   if (file != null) return file.name;
   final path = entry.path;
   if (path != null) return p.basename(path);

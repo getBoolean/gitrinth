@@ -15,7 +15,7 @@ import '../model/resolver/version_selection.dart';
 import '../service/cache.dart';
 import '../service/console.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_api.dart';
+import '../service/modrinth/modrinth_api.dart';
 import 'version_picker.dart';
 
 class OutdatedCommand extends GitrinthCommand with OfflineFlag {
@@ -134,12 +134,13 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     final marker = manifestEntry == null
         ? null
         : _markerOf(manifestEntry.constraintRaw);
-    if (locked.sourceKind != LockedSourceKind.modrinth) {
+    if (locked.modrinth == null) {
       return _Row(
         slug: slug,
         section: section,
         kind: locked.dependency,
-        sourceKind: locked.sourceKind,
+        hasModrinthSource: locked.modrinth != null,
+        sourceKind: locked.kind,
         current: currentVersion,
         upgradable: null,
         latest: null,
@@ -152,7 +153,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         slug: slug,
         section: section,
         kind: locked.dependency,
-        sourceKind: locked.sourceKind,
+        hasModrinthSource: locked.modrinth != null,
+        sourceKind: locked.kind,
         current: currentVersion,
         upgradable: null,
         latest: null,
@@ -169,13 +171,14 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
 
     final List<modrinth.Version> versions;
     if (offline) {
-      final pid = locked.projectId;
+      final pid = locked.modrinth?.projectId;
       if (pid == null) {
         return _Row(
           slug: slug,
           section: section,
           kind: locked.dependency,
-          sourceKind: locked.sourceKind,
+          hasModrinthSource: locked.modrinth != null,
+          sourceKind: locked.kind,
           current: currentVersion,
           upgradable: null,
           latest: null,
@@ -204,7 +207,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             slug: slug,
             section: section,
             kind: locked.dependency,
-            sourceKind: locked.sourceKind,
+            hasModrinthSource: locked.modrinth != null,
+            sourceKind: locked.kind,
             current: currentVersion,
             upgradable: null,
             latest: null,
@@ -231,7 +235,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       slug: slug,
       section: section,
       kind: locked.dependency,
-      sourceKind: locked.sourceKind,
+      hasModrinthSource: locked.modrinth != null,
+      sourceKind: locked.kind,
       current: currentVersion,
       upgradable: upgradable?.versionNumber,
       latest: latest?.versionNumber,
@@ -262,7 +267,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             'slug': r.slug,
             'section': r.section.name,
             'kind': r.kind.name,
-            'source': r.sourceKind.name,
+            'source': r.source,
+            'has_modrinth_source': r.hasModrinthSource,
             'current': r.current.isEmpty ? null : {'version': r.current},
             'upgradable': r.upgradable == null
                 ? null
@@ -413,7 +419,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
   }
 
   bool _isUpToDate(_Row r) {
-    if (r.sourceKind != LockedSourceKind.modrinth) return true;
+    if (!r.hasModrinthSource) return true;
     if (r.upgradable == null && r.latest == null) return true;
     if (r.latest == null) return r.upgradable == r.current;
     return r.current == r.latest;
@@ -447,7 +453,11 @@ class _Row {
   final String slug;
   final Section section;
   final LockedDependencyKind kind;
-  final LockedSourceKind sourceKind;
+  final bool hasModrinthSource;
+  final LockedEntryKind sourceKind;
+  String get source => sourceKind == LockedEntryKind.resolved
+      ? (hasModrinthSource ? 'modrinth' : 'curseforge')
+      : sourceKind.name;
   final String current;
   final String? upgradable;
   final String? latest;
@@ -457,6 +467,7 @@ class _Row {
     required this.slug,
     required this.section,
     required this.kind,
+    required this.hasModrinthSource,
     required this.sourceKind,
     required this.current,
     required this.upgradable,

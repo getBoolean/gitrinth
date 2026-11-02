@@ -15,7 +15,7 @@ Planned improvements:
 - [x] [`pin` / `unpin` commands](#pin--unpin-commands)
 - [x] [Shell completion](#shell-completion)
 - [x] [`add` writes caret semver constraints](#add-writes-caret-semver-constraints-by-default)
-- [ ] [CurseForge bridge](curseforge-bridge.md)
+- [x] [CurseForge bridge](curseforge-bridge.md)
 - [x] [Modrinth API rate-limit handling](#modrinth-api-rate-limit-handling)
 - [x] Add plugin loader flag to `create` command, mod loader becomes optional in `create` (e.g. for data packs or resource packs)
 - [x] Allow specifying plugin loader version
@@ -23,7 +23,7 @@ Planned improvements:
 Deferred MVP work:
 
 - [x] [Modrinth slug-validity check in `create`](#modrinth-slug-validity-check-in-create)
-- [ ] [Hosted source support](curseforge-bridge.md#hosted-modrinth-labrinth)
+- [x] [Hosted source support](curseforge-bridge.md#hosted-modrinth-labrinth)
 - [x] [Plugin-loader support](#plugin-loader-support)
 - [x] [Global options: `-q`/`--quiet`, `--no-color`, `--config`](#deferred-global-options) (`--offline` shipped per-command)
 - [x] [Loose-files override support in `.mrpack`](#loose-files-override-support)

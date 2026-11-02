@@ -13,11 +13,18 @@ import '../cli/exit_codes.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/changelog_reader.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_auth_interceptor.dart';
-import '../service/modrinth_url.dart';
+import '../service/modrinth/modrinth_auth_interceptor.dart';
+import '../service/modrinth/modrinth_url.dart';
 import '../service/user_config.dart';
+import '../service/curseforge/curseforge_url.dart';
+import '../service/curseforge/curseforge_upload_client.dart';
+import 'pack_assembler.dart';
+import 'curseforge_pack_assembler.dart';
 
 class ModrinthPublishCommand extends GitrinthCommand {
+  final bool platformAware;
+  final SourceKind? forcedPlatform;
+  bool _confirmed = false;
   @override
   String get name => 'publish';
 
@@ -28,7 +35,7 @@ class ModrinthPublishCommand extends GitrinthCommand {
   @override
   String get invocation => 'gitrinth modrinth publish [arguments]';
 
-  ModrinthPublishCommand() {
+  ModrinthPublishCommand({this.platformAware = false, this.forcedPlatform}) {
     argParser
       ..addFlag(
         'dry-run',
@@ -49,6 +56,22 @@ class ModrinthPublishCommand extends GitrinthCommand {
         help:
             'Upload as a draft (Modrinth `status: draft`) instead of '
             'publicly listed.',
+      )
+      ..addOption(
+        'curseforge-pack',
+        valueHelp: 'path',
+        help: 'CurseForge .zip artifact path when publishing both targets.',
+      )
+      ..addOption(
+        'curseforge-project',
+        valueHelp: 'id',
+        help:
+            'Numeric CurseForge project ID (required for CurseForge uploads).',
+      )
+      ..addFlag(
+        'publishable',
+        negatable: false,
+        help: 'Reject target-missing sources and allow_hash_mismatch entries.',
       )
       ..addOption(
         'version-type',
@@ -82,17 +105,131 @@ class ModrinthPublishCommand extends GitrinthCommand {
     final io = ManifestIo();
     final yaml = io.readModsYaml();
 
-    if (yaml.publishTo?.toLowerCase() == 'none') {
+    if (yaml.publishTargets.isEmpty) {
       throw const UserError(
         "publish_to: 'none' in mods.yaml — publishing is disabled for this pack.",
       );
     }
 
     final env = read(environmentProvider);
-    final publishTo = yaml.publishTo;
-    final baseUrl = publishTo == null || publishTo.isEmpty
-        ? resolveModrinthBaseUrl(env)
-        : publishTo;
+    final targets = platformAware
+        ? yaml.publishTargets.keys.toList()
+        : [forcedPlatform ?? SourceKind.modrinth];
+    for (final target in targets) {
+      if (!yaml.publishTargets.containsKey(target)) {
+        throw UserError('${target.name} is not selected by publish_to.');
+      }
+    }
+    final lock = io.readModsLock();
+    if (lock == null && argResults!['publishable'] as bool) {
+      throw const UserError(
+        '--publishable requires mods.lock. Run `gitrinth get` first.',
+      );
+    }
+    for (final target in targets) {
+      if (target == SourceKind.curseforge &&
+          (int.tryParse(argResults!['curseforge-project'] as String? ?? '') ??
+                  0) <=
+              0) {
+        throw const UsageError(
+          'CurseForge publishing requires --curseforge-project <numeric id>.',
+        );
+      }
+      final stored = _readTokens();
+      if (target == SourceKind.curseforge) {
+        if (resolveCurseForgeUploadToken(env: env, userTokens: stored) ==
+            null) {
+          throw const AuthenticationError(
+            'No CurseForge publish token configured. '
+            'Set GITRINTH_CURSEFORGE_UPLOAD_TOKEN or run `gitrinth token add curseforge.com`.',
+          );
+        }
+      } else {
+        final host = yaml.publishTargets[target] ?? resolveModrinthBaseUrl(env);
+        final envTokenApplies =
+            normalizeServerKey(host) ==
+                normalizeServerKey(resolveModrinthBaseUrl(env)) &&
+            (env['GITRINTH_TOKEN'] ?? '').isNotEmpty;
+        if (!envTokenApplies && _bestTokenFor(stored, host) == null) {
+          throw AuthenticationError(
+            'No token configured for $host. Run `gitrinth token add $host`.',
+          );
+        }
+      }
+      final pack = _artifactFor(yaml, target, targets.length > 1);
+      if (!pack.existsSync()) {
+        throw UserError(
+          'Pack artifact not found at ${pack.path}. Run `gitrinth pack${target == SourceKind.curseforge ? ' --curseforge' : ''}` first.',
+        );
+      }
+      if (lock != null) {
+        if (target == SourceKind.modrinth) {
+          buildIndex(
+            yaml: yaml,
+            lock: lock,
+            target: PackTarget.client,
+            publishable: argResults!['publishable'] as bool,
+          );
+        } else {
+          buildCurseForgeManifest(
+            yaml: yaml,
+            lock: lock,
+            target: PackTarget.client,
+            publishable: argResults!['publishable'] as bool,
+          );
+        }
+        final overrides = collectOverrides(
+          lock: lock,
+          cache: read(cacheProvider),
+          projectDir: io.directory.path,
+          target: PackTarget.client,
+          platform: target,
+          modrinthHost: yaml.modrinthHost ?? resolveModrinthBaseUrl(env),
+        );
+        for (final entry in overrides.entries.where((e) => e.section != null)) {
+          console.message(
+            'Warning: ${entry.slug} is unavailable on ${target.name}; '
+            'bundled as a loose override with author permission.',
+          );
+        }
+      }
+    }
+    _resolveChangelog(yaml: yaml, projectDir: io.directory);
+    if (!(argResults!['dry-run'] as bool) && !(argResults!['force'] as bool)) {
+      if (!stdin.hasTerminal) {
+        throw const UsageError(
+          'publish: refusing to upload without --force when stdin is not a terminal.',
+        );
+      }
+      stdout.write(
+        'Publish ${yaml.slug} v${yaml.version} to ${targets.map((e) => e.name).join(', ')}? [y/N] ',
+      );
+      final answer = (stdin.readLineSync() ?? '').trim().toLowerCase();
+      if (answer != 'y' && answer != 'yes') {
+        console.message('Aborted.');
+        return exitOk;
+      }
+    }
+    _confirmed = true;
+    var exitCode = exitOk;
+    for (final target in targets) {
+      if (target == SourceKind.curseforge) {
+        exitCode = await _publishCurseForge(yaml, io);
+      } else {
+        exitCode = await _publishModrinth(yaml, io, env);
+      }
+      if (exitCode != exitOk) return exitCode;
+    }
+    return exitCode;
+  }
+
+  Future<int> _publishModrinth(
+    ModsYaml yaml,
+    ManifestIo io,
+    Map<String, String> env,
+  ) async {
+    final baseUrl =
+        yaml.publishTargets[SourceKind.modrinth] ?? resolveModrinthBaseUrl(env);
 
     final hasEnvToken = (env['GITRINTH_TOKEN'] ?? '').isNotEmpty;
     final stored = _readTokens();
@@ -145,7 +282,7 @@ class ModrinthPublishCommand extends GitrinthCommand {
     }
 
     final force = argResults!['force'] as bool;
-    if (!force) {
+    if (!force && !_confirmed) {
       if (!stdin.hasTerminal) {
         throw const UsageError(
           'publish: refusing to upload without --force when stdin is not a '
@@ -192,6 +329,78 @@ class ModrinthPublishCommand extends GitrinthCommand {
     return exitOk;
   }
 
+  Future<int> _publishCurseForge(ModsYaml yaml, ManifestIo io) async {
+    final env = read(environmentProvider);
+    final token = resolveCurseForgeUploadToken(
+      env: env,
+      userTokens: _readTokens(),
+    );
+    if (token == null) {
+      throw const AuthenticationError(
+        'No CurseForge publish token configured. '
+        'Set GITRINTH_CURSEFORGE_UPLOAD_TOKEN or run `gitrinth token add curseforge.com`.',
+      );
+    }
+    final pack = _artifactFor(
+      yaml,
+      SourceKind.curseforge,
+      platformAware && yaml.publishTargets.length > 1,
+    );
+    if (!pack.existsSync()) {
+      throw UserError(
+        'Pack artifact not found at ${pack.path}. Run `gitrinth pack --curseforge` first.',
+      );
+    }
+    final metadata = <String, dynamic>{
+      'displayName': '${yaml.name} ${yaml.version}',
+      'changelog':
+          _resolveChangelog(yaml: yaml, projectDir: io.directory) ?? '',
+      'changelogType': 'markdown',
+      'gameVersionNames': [yaml.mcVersion],
+      'releaseType':
+          (argResults!['version-type'] as String?) ??
+          _defaultVersionType(yaml.version),
+      'isMarkedForManualRelease': argResults!['draft'] as bool,
+    };
+    if (argResults!['dry-run'] as bool) {
+      console.message('Dry run: would publish to CurseForge');
+      console.message(const JsonEncoder.withIndent('  ').convert(metadata));
+      return exitOk;
+    }
+    if (!(argResults!['force'] as bool) && !_confirmed) {
+      if (!stdin.hasTerminal) {
+        throw const UsageError(
+          'publish: refusing to upload without --force when stdin is not a terminal.',
+        );
+      }
+      stdout.write(
+        'Publish ${yaml.slug} v${yaml.version} to CurseForge? [y/N] ',
+      );
+      final answer = (stdin.readLineSync() ?? '').trim().toLowerCase();
+      if (answer != 'y' && answer != 'yes') {
+        console.message('Aborted.');
+        return exitOk;
+      }
+    }
+    final client = CurseForgeUploadClient(
+      read(dioProvider),
+      baseUrl:
+          env['GITRINTH_CURSEFORGE_UPLOAD_URL'] ??
+          defaultCurseForgeUploadBaseUrl,
+    );
+    final result = await client.upload(
+      projectId: int.parse(argResults!['curseforge-project'] as String),
+      token: token,
+      archive: pack,
+      metadata: metadata,
+    );
+    console.message(
+      'Published ${yaml.slug} v${yaml.version} to CurseForge'
+      '${result is Map ? ' (file id: ${result['id']})' : ''}.',
+    );
+    return exitOk;
+  }
+
   Map<String, String> _readTokens() {
     try {
       return read(userConfigStoreProvider).read().tokens;
@@ -218,6 +427,17 @@ class ModrinthPublishCommand extends GitrinthCommand {
         (argResults!['pack'] as String?) ??
         p.join('build', '${yaml.slug}-${yaml.version}.mrpack');
     return File(p.normalize(p.absolute(raw)));
+  }
+
+  File _artifactFor(ModsYaml yaml, SourceKind target, bool multiple) {
+    if (target == SourceKind.modrinth) return _resolvePackPath(yaml: yaml);
+    return File(
+      p.absolute(
+        (argResults!['curseforge-pack'] as String?) ??
+            (multiple ? null : argResults!['pack'] as String?) ??
+            p.join('build', '${yaml.slug}-${yaml.version}.zip'),
+      ),
+    );
   }
 
   /// Reads `--changelog <path>` if provided, else extracts the matching

@@ -5,10 +5,12 @@ import '../app/providers.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
-import '../service/modrinth_url.dart';
+import '../service/modrinth/modrinth_url.dart';
 import '../service/secret_input.dart';
 import '../service/user_config.dart';
+import '../service/curseforge/curseforge_url.dart';
 import 'modrinth_publish_command.dart';
+import 'platform_command.dart';
 
 class ModrinthCommand extends GitrinthCommand {
   @override
@@ -22,6 +24,8 @@ class ModrinthCommand extends GitrinthCommand {
   String get invocation => 'gitrinth modrinth <subcommand>';
 
   ModrinthCommand() {
+    addSubcommand(PlatformToggleCommand('modrinth', true));
+    addSubcommand(PlatformToggleCommand('modrinth', false));
     addSubcommand(ModrinthLoginCommand());
     addSubcommand(ModrinthLogoutCommand());
     addSubcommand(ModrinthTokenCommand());
@@ -185,7 +189,7 @@ class ModrinthTokenAddCommand extends GitrinthCommand {
     }
     final String key;
     try {
-      key = normalizeServerKey(rest.single);
+      key = normalizeTokenServerKey(rest.single);
     } on FormatException catch (e) {
       throw UserError(e.message);
     }
@@ -195,21 +199,37 @@ class ModrinthTokenAddCommand extends GitrinthCommand {
     if (flag != null && flag.isNotEmpty) {
       token = flag;
     } else {
-      final piped = readSecret(prompt: 'Modrinth token for $key: ').trim();
+      final piped = readSecret(
+        prompt:
+            '${key == curseForgeUploadTokenKey ? 'CurseForge publish' : 'Modrinth'} token for $key: ',
+      ).trim();
       if (piped.isEmpty) throw const UserError('No token provided.');
       token = piped;
     }
 
-    final username = await _validateTokenAgainstUserEndpoint(
-      read(dioProvider),
-      key,
-      token,
-    );
+    final username = key == curseForgeUploadTokenKey
+        ? null
+        : await _validateTokenAgainstUserEndpoint(
+            read(dioProvider),
+            key,
+            token,
+          );
 
     final store = read(userConfigStoreProvider);
     store.write(store.read().withToken(key, token));
 
-    console.message('Stored token for $key (user: $username).');
+    console.message(
+      username == null
+          ? 'Stored CurseForge publish token for $key.'
+          : 'Stored token for $key (user: $username).',
+    );
+    if (key == curseForgeUploadTokenKey &&
+        (read(environmentProvider)['GITRINTH_CURSEFORGE_UPLOAD_TOKEN'] ?? '')
+            .isNotEmpty) {
+      console.warn(
+        'GITRINTH_CURSEFORGE_UPLOAD_TOKEN overrides the stored publish token.',
+      );
+    }
     return exitOk;
   }
 }
@@ -233,6 +253,8 @@ class ModrinthTokenListCommand extends GitrinthCommand {
     final env = read(environmentProvider);
     final defaultKey = normalizeServerKey(resolveModrinthBaseUrl(env));
     final envOverride = (env['GITRINTH_TOKEN'] ?? '').isNotEmpty;
+    final cfOverride =
+        (env['GITRINTH_CURSEFORGE_UPLOAD_TOKEN'] ?? '').isNotEmpty;
 
     final cfg = read(userConfigStoreProvider).read();
     if (cfg.tokens.isEmpty) {
@@ -241,6 +263,11 @@ class ModrinthTokenListCommand extends GitrinthCommand {
             ? '(no stored tokens; GITRINTH_TOKEN override active for $defaultKey)'
             : '(no stored tokens)',
       );
+      if (cfOverride) {
+        console.message(
+          '$curseForgeUploadTokenKey  <env>  (GITRINTH_CURSEFORGE_UPLOAD_TOKEN override)',
+        );
+      }
       return exitOk;
     }
     final entries = cfg.tokens.entries.toList()
@@ -249,11 +276,19 @@ class ModrinthTokenListCommand extends GitrinthCommand {
       final masked = _maskToken(entry.value);
       final suffix = (envOverride && entry.key == defaultKey)
           ? ' (GITRINTH_TOKEN override)'
+          : entry.key == curseForgeUploadTokenKey &&
+                (env['GITRINTH_CURSEFORGE_UPLOAD_TOKEN'] ?? '').isNotEmpty
+          ? ' (GITRINTH_CURSEFORGE_UPLOAD_TOKEN override)'
           : '';
       console.message('${entry.key}  $masked$suffix');
     }
     if (envOverride && !cfg.tokens.containsKey(defaultKey)) {
       console.message('$defaultKey  <env>  (GITRINTH_TOKEN override)');
+    }
+    if (cfOverride && !cfg.tokens.containsKey(curseForgeUploadTokenKey)) {
+      console.message(
+        '$curseForgeUploadTokenKey  <env>  (GITRINTH_CURSEFORGE_UPLOAD_TOKEN override)',
+      );
     }
     return exitOk;
   }
@@ -280,7 +315,7 @@ class ModrinthTokenRemoveCommand extends GitrinthCommand {
     }
     final String key;
     try {
-      key = normalizeServerKey(rest.single);
+      key = normalizeTokenServerKey(rest.single);
     } on FormatException catch (e) {
       throw UserError(e.message);
     }
@@ -326,4 +361,14 @@ Future<String> _validateTokenAgainstUserEndpoint(
 String _maskToken(String token) {
   if (token.length <= 8) return '*' * token.length;
   return '${token.substring(0, 4)}…${token.substring(token.length - 4)}';
+}
+
+String normalizeTokenServerKey(String input) {
+  final value = input.trim();
+  if (value == 'curseforge.com' ||
+      value == 'https://curseforge.com' ||
+      value == 'https://curseforge.com/') {
+    return curseForgeUploadTokenKey;
+  }
+  return normalizeServerKey(value);
 }

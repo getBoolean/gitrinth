@@ -602,14 +602,12 @@ mods:
         expect(lock, contains('version: 1.5.0'));
         expect(
           lock,
-          contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.0\.0\b')),
+          contains(RegExp(r'bar:\s+kind: resolved\s+version: 1\.0\.0\b')),
           reason: 'bar must stay at 1.0.0',
         );
         expect(
           lock,
-          isNot(
-            contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0')),
-          ),
+          isNot(contains(RegExp(r'bar:\s+kind: resolved\s+version: 1\.5\.0'))),
           reason: 'bar must stay at 1.0.0',
         );
       },
@@ -653,15 +651,15 @@ mods:
       // foo and bar both move; baz (root, unrelated) keeps its pin.
       expect(
         lock,
-        contains(RegExp(r'foo:\s+source: modrinth\s+version: 1\.5\.0')),
+        contains(RegExp(r'foo:\s+kind: resolved\s+version: 1\.5\.0')),
       );
       expect(
         lock,
-        contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0')),
+        contains(RegExp(r'bar:\s+kind: resolved\s+version: 1\.5\.0')),
       );
       expect(
         lock,
-        contains(RegExp(r'baz:\s+source: modrinth\s+version: 1\.0\.0')),
+        contains(RegExp(r'baz:\s+kind: resolved\s+version: 1\.0\.0')),
       );
     });
 
@@ -701,11 +699,11 @@ mods:
         final lock = readLock();
         expect(
           lock,
-          contains(RegExp(r'foo:\s+source: modrinth\s+version: 2\.0\.0')),
+          contains(RegExp(r'foo:\s+kind: resolved\s+version: 2\.0\.0')),
         );
         expect(
           lock,
-          contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.0\.0')),
+          contains(RegExp(r'bar:\s+kind: resolved\s+version: 1\.0\.0')),
           reason: 'bar must stay locked at 1.0.0',
         );
         expect(readManifest(), contains('foo: ^2.0.0'));
@@ -755,15 +753,15 @@ mods:
         final lock = readLock();
         expect(
           lock,
-          contains(RegExp(r'foo:\s+source: modrinth\s+version: 2\.0\.0')),
+          contains(RegExp(r'foo:\s+kind: resolved\s+version: 2\.0\.0')),
         );
         expect(
           lock,
-          contains(RegExp(r'bar:\s+source: modrinth\s+version: 1\.5\.0')),
+          contains(RegExp(r'bar:\s+kind: resolved\s+version: 1\.5\.0')),
         );
         expect(
           lock,
-          contains(RegExp(r'baz:\s+source: modrinth\s+version: 1\.0\.0')),
+          contains(RegExp(r'baz:\s+kind: resolved\s+version: 1\.0\.0')),
           reason: 'baz is not in foo\'s closure; must stay locked',
         );
       },

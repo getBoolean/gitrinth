@@ -19,6 +19,43 @@ void main() {
 
   Future<Section> stubInferSection(String slug) async => Section.mods;
 
+  test(
+    'version-only overrides preserve platform participation and peer identity',
+    () async {
+      final m = base().copyWith(
+        gitrinth: const GitrinthConfig(
+          curseforge: GitrinthPlatformState.enabled,
+        ),
+        modrinthHost: 'https://labrinth.example/v2',
+        mods: {
+          'jei': const ModEntry(
+            slug: 'jei',
+            source: ModrinthEntrySource(host: 'https://entry.example/v2'),
+            sources: {SourceKind.curseforge},
+            curseforgeSlug: 'just-enough-items',
+            noCrossPlatformSearch: true,
+          ),
+        },
+      );
+      final out = await applyOverrides(
+        m,
+        const ProjectOverrides(
+          entries: {'jei': ModEntry(slug: 'jei', constraintRaw: '19.0.0')},
+        ),
+        inferSectionForTransitive: stubInferSection,
+      );
+      expect(out.manifest.gitrinth.curseforge, GitrinthPlatformState.enabled);
+      expect(out.manifest.modrinthHost, m.modrinthHost);
+      expect(out.manifest.mods['jei']!.sources, {SourceKind.curseforge});
+      expect(out.manifest.mods['jei']!.curseforgeSlug, 'just-enough-items');
+      expect(out.manifest.mods['jei']!.noCrossPlatformSearch, isTrue);
+      expect(
+        (out.manifest.mods['jei']!.source as ModrinthEntrySource).host,
+        'https://entry.example/v2',
+      );
+    },
+  );
+
   test('overrides win over matching entries (in-file overrides)', () async {
     final m = base();
     final withOv = ModsYaml(

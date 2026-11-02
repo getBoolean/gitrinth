@@ -11,10 +11,10 @@ import '../model/manifest/loader_ref.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
-import '../service/conflict_disable.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_api.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/modrinth/modrinth_api.dart';
+import '../service/resolve/conflict_disable.dart';
+import '../service/resolve/resolve_and_sync.dart';
 import 'caret_rewriter.dart';
 import 'migrate_editor.dart';
 
@@ -283,6 +283,7 @@ Future<int> _runMigrate({
   };
 
   final cache = command.read(cacheProvider);
+  final cfFactory = command.read(curseForgeApiFactoryProvider);
   final downloader = command.read(downloaderProvider);
   final modLoaderResolver = command.read(modLoaderVersionResolverProvider);
   final pluginLoaderResolver = command.read(
@@ -304,6 +305,7 @@ Future<int> _runMigrate({
           io: io,
           console: console,
           apiFactory: apiFactory,
+          cfFactory: cfFactory,
           cache: cache,
           downloader: downloader,
           modLoaderResolver: modLoaderResolver,

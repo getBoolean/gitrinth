@@ -883,6 +883,123 @@ mods:
       expect(m.mods['fabric-api']!.modrinthSlug, 'fabric-api');
       expect(m.mods['fabric-api']!.curseforgeSlug, 'fabric-api-cf-slug');
     });
+
+    test('parses hash_scan_depth and allow_hash_mismatch', () {
+      final m = parseModsYaml(
+        wrap('''
+mods:
+  jei:
+    version: ^19.0.0
+    hash_scan_depth: 5
+    allow_hash_mismatch: true
+'''),
+        filePath: 'mods.yaml',
+      );
+      expect(m.mods['jei']!.hashScanDepth, 5);
+      expect(m.mods['jei']!.allowHashMismatch, isTrue);
+    });
+
+    test('hash_scan_depth: 0 (disable) parses to 0, not null', () {
+      final m = parseModsYaml(
+        wrap('''
+mods:
+  jei:
+    version: ^19.0.0
+    hash_scan_depth: 0
+'''),
+        filePath: 'mods.yaml',
+      );
+      expect(m.mods['jei']!.hashScanDepth, 0);
+    });
+
+    test('rejects negative hash_scan_depth', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+mods:
+  jei:
+    hash_scan_depth: -1
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects non-bool allow_hash_mismatch', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+mods:
+  jei:
+    allow_hash_mismatch: "yes"
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects hash_scan_depth paired with single-element sources list', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+mods:
+  jei:
+    sources: [modrinth]
+    hash_scan_depth: 5
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects hash_scan_depth paired with scalar sources string', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+mods:
+  jei:
+    sources: modrinth
+    hash_scan_depth: 5
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test('rejects allow_hash_mismatch paired with single-element sources', () {
+      expect(
+        () => parseModsYaml(
+          wrap('''
+mods:
+  jei:
+    sources: curseforge
+    allow_hash_mismatch: true
+'''),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
+
+    test(
+      'allow_hash_mismatch with sources: [modrinth, curseforge] is allowed',
+      () {
+        final m = parseModsYaml(
+          wrap('''
+mods:
+  jei:
+    sources: [modrinth, curseforge]
+    allow_hash_mismatch: true
+'''),
+          filePath: 'mods.yaml',
+        );
+        expect(m.mods['jei']!.allowHashMismatch, isTrue);
+      },
+    );
   });
 
   group('gitrinth: block', () {
@@ -1256,22 +1373,22 @@ loader:
 mc_version: 1.21.1
 mods:
   sodium:
-    source: modrinth
-    project_id: AANobbMI
-    version_id: abcdef
-    file:
-      name: sodium-0.6.0.jar
-      url: https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/sodium-0.6.0.jar
-      sha1: 0123456789abcdef
-      sha512: deadbeef
-      size: 1024
-    env: both
+    kind: resolved
+    modrinth:
+      project_id: AANobbMI
+      version_id: abcdef
+      file:
+        name: sodium-0.6.0.jar
+        url: https://cdn.modrinth.com/data/AANobbMI/versions/abcdef/sodium-0.6.0.jar
+        sha1: 0123456789abcdef
+        sha512: deadbeef
+        size: 1024
 resource_packs: {}
 data_packs: {}
 shaders: {}
 ''';
       final l = parseModsLock(lock, filePath: 'mods.lock');
-      final f = l.mods['sodium']!.file!;
+      final f = l.mods['sodium']!.modrinth!.file;
       expect(f.sha1, '0123456789abcdef');
       expect(f.sha512, 'deadbeef');
     });
@@ -1284,15 +1401,16 @@ loader:
 mc_version: 1.21.1
 mods:
   distanthorizons:
-    source: modrinth
+    kind: resolved
     version: "2.3.0-b"
-    project_id: uCdwusMi
-    version_id: abc123
-    file:
-      name: distanthorizons-2.3.0-b.jar
-      sha1: deadbeef
-      sha512: cafebabe
-      size: 12345
+    modrinth:
+      project_id: uCdwusMi
+      version_id: abc123
+      file:
+        name: distanthorizons-2.3.0-b.jar
+        sha1: deadbeef
+        sha512: cafebabe
+        size: 12345
     client: optional
     server: optional
 resource_packs: {}

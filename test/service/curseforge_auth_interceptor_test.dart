@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
-import 'package:gitrinth/src/service/curseforge_api.dart';
-import 'package:gitrinth/src/service/curseforge_auth_interceptor.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_api.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_auth_interceptor.dart';
 import 'package:test/test.dart';
 
 class _RecordingAdapter implements HttpClientAdapter {
