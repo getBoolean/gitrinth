@@ -142,8 +142,7 @@ enum Channel { release, beta, alpha }
 /// Cross-platform source kinds an entry can resolve against.
 /// `modrinth` covers any Modrinth-protocol host (default modrinth.com
 /// or a labrinth deployment named via [ModrinthEntrySource.host] /
-/// [ModsYaml.modrinthHost]). `curseforge` parses today; resolver
-/// support lands in a later part of the CurseForge bridge.
+/// [ModsYaml.modrinthHost]).
 @MappableEnum()
 enum SourceKind { modrinth, curseforge }
 
@@ -244,9 +243,7 @@ class ModEntry with ModEntryMappable {
   /// a local identifier and the entry's slug on Modrinth differs.
   final String? modrinthSlug;
 
-  /// CurseForge project slug or numeric project ID. Parsed today so
-  /// manifests can be authored ahead of CurseForge resolver support;
-  /// resolution itself lands in a later part of the bridge.
+  /// CurseForge project slug or numeric project ID.
   final String? curseforgeSlug;
 
   /// Explicit restriction on which platforms participate for this
@@ -400,4 +397,38 @@ class ModsYaml with ModsYamlMappable {
         return plugins;
     }
   }
+
+  /// Transforms each artifact section while preserving pack configuration,
+  /// project overrides, and loose files.
+  ModsYaml mapSectionEntries(
+    Map<String, ModEntry> Function(
+      Section section,
+      Map<String, ModEntry> entries,
+    )
+    transform,
+  ) {
+    final sections = {
+      for (final section in Section.values)
+        section: transform(section, sectionEntries(section)),
+    };
+    return copyWith(
+      mods: sections[Section.mods]!,
+      resourcePacks: sections[Section.resourcePacks]!,
+      dataPacks: sections[Section.dataPacks]!,
+      shaders: sections[Section.shaders]!,
+      plugins: sections[Section.plugins]!,
+    );
+  }
+
+  ModsYaml withSectionEntries(Section section, Map<String, ModEntry> entries) =>
+      mapSectionEntries(
+        (current, previous) => current == section ? entries : previous,
+      );
+
+  ModsYaml withoutEntrySlugs(Set<String> slugs) => mapSectionEntries(
+    (_, entries) => {
+      for (final entry in entries.entries)
+        if (!slugs.contains(entry.key)) entry.key: entry.value,
+    },
+  );
 }

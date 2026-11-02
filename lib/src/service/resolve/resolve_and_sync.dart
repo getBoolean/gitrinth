@@ -1608,13 +1608,7 @@ ModsYaml _withResolutionEntry(
   ModEntry entry,
 ) {
   final entries = {...manifest.sectionEntries(section), entry.slug: entry};
-  return switch (section) {
-    Section.mods => manifest.copyWith(mods: entries),
-    Section.resourcePacks => manifest.copyWith(resourcePacks: entries),
-    Section.dataPacks => manifest.copyWith(dataPacks: entries),
-    Section.shaders => manifest.copyWith(shaders: entries),
-    Section.plugins => manifest.copyWith(plugins: entries),
-  };
+  return manifest.withSectionEntries(section, entries);
 }
 
 ModsYaml _withoutResolutionEntry(
@@ -1623,13 +1617,7 @@ ModsYaml _withoutResolutionEntry(
   String slug,
 ) {
   final entries = {...manifest.sectionEntries(section)}..remove(slug);
-  return switch (section) {
-    Section.mods => manifest.copyWith(mods: entries),
-    Section.resourcePacks => manifest.copyWith(resourcePacks: entries),
-    Section.dataPacks => manifest.copyWith(dataPacks: entries),
-    Section.shaders => manifest.copyWith(shaders: entries),
-    Section.plugins => manifest.copyWith(plugins: entries),
-  };
+  return manifest.withSectionEntries(section, entries);
 }
 
 /// Returns [merged] with each section entry whose slug is in [relaxConstraints]
@@ -1644,11 +1632,5 @@ ModsYaml _relaxManifestConstraints(ModsYaml merged, Set<String> relax) {
           ? e.value.copyWith(constraintRaw: null)
           : e.value,
   };
-  return merged.copyWith(
-    mods: relaxSection(merged.mods),
-    resourcePacks: relaxSection(merged.resourcePacks),
-    dataPacks: relaxSection(merged.dataPacks),
-    shaders: relaxSection(merged.shaders),
-    plugins: relaxSection(merged.plugins),
-  );
+  return merged.mapSectionEntries((_, entries) => relaxSection(entries));
 }
