@@ -12,6 +12,7 @@ import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/changelog_reader.dart';
+import '../service/file_digest.dart';
 import '../service/curseforge/curseforge_upload_client.dart';
 import '../service/curseforge/curseforge_url.dart';
 import '../service/manifest_io.dart';
@@ -324,11 +325,12 @@ abstract class PublicationCommand extends GitrinthCommand {
       );
       return;
     }
-    final bytes = plan.artifact.readAsBytesSync();
     if (dryRun) {
+      final sha1Digest = await fileDigest(plan.artifact, sha1);
+      final sha512Digest = await fileDigest(plan.artifact, sha512);
       console.message('Dry run: would publish to ${plan.serverUrl}');
       console.message(
-        'Pack: ${plan.artifact.path} (sha1=${sha1.convert(bytes)} sha512=${sha512.convert(bytes)})',
+        'Pack: ${plan.artifact.path} (sha1=$sha1Digest sha512=$sha512Digest)',
       );
       console.message(const JsonEncoder.withIndent('  ').convert(plan.payload));
       return;
@@ -341,8 +343,8 @@ abstract class PublicationCommand extends GitrinthCommand {
           filename: 'data.json',
           contentType: DioMediaType('application', 'json'),
         ),
-        'file': MultipartFile.fromBytes(
-          bytes,
+        'file': await MultipartFile.fromFile(
+          plan.artifact.path,
           filename: p.basename(plan.artifact.path),
           contentType: DioMediaType('application', 'x-modrinth-modpack+zip'),
         ),

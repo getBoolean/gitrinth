@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
-
 import '../cli/exceptions.dart';
 import '../model/curseforge/cf_constants.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/cache.dart';
 import '../service/modrinth/modrinth_url.dart';
+import '../service/pack_archive_writer.dart';
 import 'pack_assembler.dart';
 
 /// CurseForge's manifest/overrides format has one override root. Separate
@@ -94,11 +93,9 @@ void writePackArchive(
   required Map<String, dynamic> manifest,
   required List<OverridePlan> overrides,
 }) {
-  final archive = Archive();
   final json = utf8.encode(
     const JsonEncoder.withIndent('  ').convert(manifest),
   );
-  archive.addFile(ArchiveFile(manifestName, json.length, json));
   for (final entry in overrides) {
     final source = File(entry.sourcePath);
     if (!source.existsSync()) {
@@ -106,11 +103,16 @@ void writePackArchive(
         'override source for "${entry.slug}" missing on disk: ${entry.sourcePath}. Re-run `gitrinth get`.',
       );
     }
-    final bytes = source.readAsBytesSync();
-    archive.addFile(ArchiveFile(entry.zipPath, bytes.length, bytes));
   }
   output.parent.createSync(recursive: true);
-  output.writeAsBytesSync(ZipEncoder().encode(archive));
+  writeArchive(
+    output,
+    manifestName: manifestName,
+    manifest: json,
+    entries: overrides.map(
+      (entry) => (path: entry.zipPath, source: File(entry.sourcePath)),
+    ),
+  );
 }
 
 OverridesPlan curseForgeOverrides({

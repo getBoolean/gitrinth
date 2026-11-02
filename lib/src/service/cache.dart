@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +8,7 @@ import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import 'console.dart';
+import 'file_digest.dart';
 import 'modrinth/modrinth_url.dart';
 
 class GitrinthCache {
@@ -234,8 +234,7 @@ class GitrinthCache {
 
   /// Verifies the contents of [file] against [expectedSha512].
   static Future<void> verifyFileSha512(File file, String expectedSha512) async {
-    final bytes = await file.readAsBytes();
-    verifySha512(Uint8List.fromList(bytes), expectedSha512);
+    await verifyFileDigest(file, sha512, expectedSha512);
   }
 
   /// Verifies [bytes] against [expectedSha256] (case-insensitive). Throws
@@ -251,8 +250,7 @@ class GitrinthCache {
 
   /// Verifies the contents of [file] against [expectedSha256].
   static Future<void> verifyFileSha256(File file, String expectedSha256) async {
-    final bytes = await file.readAsBytes();
-    verifySha256(Uint8List.fromList(bytes), expectedSha256);
+    await verifyFileDigest(file, sha256, expectedSha256);
   }
 
   /// Verifies [bytes] against [expectedSha1] (case-insensitive). Throws
@@ -267,7 +265,6 @@ class GitrinthCache {
 
   /// Verifies the contents of [file] against [expectedSha1].
   static Future<void> verifyFileSha1(File file, String expectedSha1) async {
-    final bytes = await file.readAsBytes();
-    verifySha1(Uint8List.fromList(bytes), expectedSha1);
+    await verifyFileDigest(file, sha1, expectedSha1);
   }
 }

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 
 import '../app/providers.dart';
@@ -14,6 +13,7 @@ import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/mrpack_index.dart';
 import '../service/cache.dart';
+import '../service/pack_archive_writer.dart';
 import '../service/modrinth/modrinth_url.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve/solve_report.dart';
@@ -110,9 +110,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       platform: argResults!['curseforge'] as bool
           ? SourceKind.curseforge
           : SourceKind.modrinth,
-      modrinthHost:
-          yaml.modrinthHost ??
-          resolveModrinthBaseUrl(read(environmentProvider)),
+      modrinthHost: resolveModrinthBaseUrl(read(environmentProvider)),
     );
 
     final basePath = _resolveBasePath(yaml: yaml, outputOpt: outputOpt);
@@ -202,9 +200,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
         cache: cache,
         projectDir: projectDir,
         target: target,
-        modrinthHost:
-            yaml.modrinthHost ??
-            resolveModrinthBaseUrl(read(environmentProvider)),
+        modrinthHost: resolveModrinthBaseUrl(read(environmentProvider)),
       );
       writePackArchive(
         File(outputPath),
@@ -226,6 +222,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       projectDir: projectDir,
       target: target,
+      modrinthHost: resolveModrinthBaseUrl(read(environmentProvider)),
     );
 
     for (final o in overrides.entries) {
@@ -261,13 +258,8 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
     required MrpackIndex index,
     required List<OverridePlan> overrides,
   }) {
-    final archive = Archive();
-
     final indexJson = const JsonEncoder.withIndent('  ').convert(index.toMap());
     final indexBytes = utf8.encode(indexJson);
-    archive.addFile(
-      ArchiveFile('modrinth.index.json', indexBytes.length, indexBytes),
-    );
 
     for (final o in overrides) {
       final src = File(o.sourcePath);
@@ -277,12 +269,16 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
           'Re-run `gitrinth get` to repopulate the cache.',
         );
       }
-      final bytes = src.readAsBytesSync();
-      archive.addFile(ArchiveFile(o.zipPath, bytes.length, bytes));
     }
 
-    final encoded = ZipEncoder().encode(archive);
-    outputFile.writeAsBytesSync(encoded);
+    writeArchive(
+      outputFile,
+      manifestName: 'modrinth.index.json',
+      manifest: indexBytes,
+      entries: overrides.map(
+        (entry) => (path: entry.zipPath, source: File(entry.sourcePath)),
+      ),
+    );
   }
 
   void _printPermissionsWarning(List<OverridePlan> overrides) {
