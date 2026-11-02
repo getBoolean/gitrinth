@@ -7,6 +7,7 @@ import '../../model/modrinth/version.dart' as modrinth;
 import '../../model/resolver/constraint.dart';
 import '../../model/resolver/version_selection.dart';
 import '../console.dart';
+import '../source_identity.dart';
 
 enum DiffKind { added, removed, updated, unchanged }
 
@@ -201,7 +202,7 @@ String? newerAvailableThan(
 /// sources are ignored — there's no "latest" concept for them.
 int countOutdated(
   ModsLock newLock,
-  Map<String, List<modrinth.Version>> versionsPerSlug,
+  Map<LocalEntryKey, List<modrinth.Version>> versionsPerSlug,
 ) {
   var n = 0;
   for (final section in Section.values) {
@@ -211,7 +212,7 @@ int countOutdated(
       if (locked.modrinth == null) continue;
       final nr = newerAvailableThan(
         locked.version ?? '',
-        versionsPerSlug[entry.key],
+        versionsPerSlug[LocalEntryKey(section, entry.key)],
       );
       if (nr != null) n++;
     }
@@ -321,7 +322,7 @@ class SolveReporter {
   void printReport({
     required ModsLock newLock,
     required List<LockDiff> diff,
-    required Map<String, List<modrinth.Version>> versionsPerSlug,
+    required Map<LocalEntryKey, List<modrinth.Version>> versionsPerSlug,
     required Set<String> overriddenSlugs,
   }) {
     final diffByKey = <String, LockDiff>{
@@ -335,7 +336,10 @@ class SolveReporter {
         final slug = entry.key;
         final locked = entry.value;
         final newerRaw = locked.modrinth != null
-            ? newerAvailableThan(locked.version ?? '', versionsPerSlug[slug])
+            ? newerAvailableThan(
+                locked.version ?? '',
+                versionsPerSlug[LocalEntryKey(section, slug)],
+              )
             : null;
         final isOverridden = overriddenSlugs.contains(slug);
         final d = diffByKey['${section.name}/$slug'];

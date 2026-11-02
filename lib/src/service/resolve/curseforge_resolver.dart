@@ -7,6 +7,7 @@ import '../../model/manifest/mods_yaml.dart';
 import '../../model/manifest/source_eligibility.dart';
 import '../../model/resolver/constraint.dart';
 import '../console.dart';
+import '../source_identity.dart';
 import '../curseforge/curseforge_api.dart';
 import '../curseforge/curseforge_filters.dart';
 import '../curseforge/curseforge_version.dart';
@@ -66,7 +67,7 @@ class CfNotFound {
 /// Aggregate result of a CurseForge resolution pass: per-entry
 /// resolved blocks and per-entry not-found markers.
 class CfResolution {
-  final Map<String, CfResolvedEntry> resolved;
+  final Map<LocalEntryKey, CfResolvedEntry> resolved;
   final List<CfNotFound> notFound;
   const CfResolution({this.resolved = const {}, this.notFound = const []});
 
@@ -93,9 +94,9 @@ Future<CfResolution> resolveCurseforgeEntries({
   required ModsYaml manifest,
   required CurseForgeApi api,
   required Console console,
-  Map<int, int> selectedFiles = const {},
+  Map<LocalEntryKey, int> selectedFiles = const {},
 }) async {
-  final resolved = <String, CfResolvedEntry>{};
+  final resolved = <LocalEntryKey, CfResolvedEntry>{};
   final notFound = <CfNotFound>[];
   final mcVersions = <String>{manifest.mcVersion};
 
@@ -225,13 +226,15 @@ Future<CfResolution> resolveCurseforgeEntries({
           continue;
         }
       }
-      resolved[slug] = CfResolvedEntry(
+      resolved[LocalEntryKey(section, slug)] = CfResolvedEntry(
         slug: slug,
         section: section,
         project: project,
         file:
             files
-                .where((f) => f.id == selectedFiles[project!.id])
+                .where(
+                  (f) => f.id == selectedFiles[LocalEntryKey(section, slug)],
+                )
                 .firstOrNull ??
             files.first,
         candidates: files,
@@ -241,13 +244,13 @@ Future<CfResolution> resolveCurseforgeEntries({
 
   // Walk only selected required edges. Each project is expanded once, so
   // dependency cycles terminate while every parent edge is still retained.
-  final expanded = <int>{};
+  final expanded = <LocalEntryKey>{};
   final queue = resolved.keys.toList();
-  final parents = <String, Set<String>>{};
+  final parents = <LocalEntryKey, Set<LocalEntryKey>>{};
   while (queue.isNotEmpty) {
     final parentKey = queue.removeLast();
     final parent = resolved[parentKey]!;
-    if (!expanded.add(parent.project.id)) continue;
+    if (!expanded.add(parentKey)) continue;
     for (final dep in parent.file.dependencies) {
       if (dep.relationType != RelationType.requiredDependency) continue;
       final project = (await api.getMod(dep.modId)).data;
@@ -281,14 +284,25 @@ Future<CfResolution> resolveCurseforgeEntries({
         }
       }
       key ??= project.slug;
-      final prior = resolved[key];
+      final aliases = resolved.entries
+          .where((e) => e.value.project.id == project.id)
+          .map((e) => e.key)
+          .toList();
+      if (aliases.isNotEmpty) {
+        for (final alias in aliases) {
+          (parents[alias] ??= {}).add(parentKey);
+        }
+        continue;
+      }
+      final node = LocalEntryKey(section, key);
+      final prior = resolved[node];
       if (prior != null &&
           (prior.project.id != project.id || prior.section != section)) {
         throw ValidationError(
           'Dependency identity collision for $key; declare a top-level entry with explicit peer slugs and section.',
         );
       }
-      (parents[key] ??= {}).add(parentKey);
+      (parents[node] ??= {}).add(parentKey);
       if (prior != null) continue;
       final declared = manifest.sectionEntries(section)[key];
       final files = await listCompatibleFiles(
@@ -305,17 +319,17 @@ Future<CfResolution> resolveCurseforgeEntries({
           '${parent.slug} requires ${project.slug}, which has no compatible CurseForge files.',
         );
       }
-      resolved[key] = CfResolvedEntry(
+      resolved[node] = CfResolvedEntry(
         slug: key,
         section: section,
         project: project,
         file:
-            files.where((f) => f.id == selectedFiles[project.id]).firstOrNull ??
+            files.where((f) => f.id == selectedFiles[node]).firstOrNull ??
             files.first,
         candidates: files,
         transitive: declared == null,
       );
-      queue.add(key);
+      queue.add(node);
     }
   }
   return CfResolution(
@@ -329,7 +343,12 @@ Future<CfResolution> resolveCurseforgeEntries({
           candidates: e.value.candidates,
           discoveredViaSearch: e.value.discoveredViaSearch,
           transitive: e.value.transitive,
-          requiredBy: (parents[e.key] ?? {}).toList()..sort(),
+          requiredBy:
+              (parents[e.key] ?? {})
+                  .map((node) => node.localKey)
+                  .toSet()
+                  .toList()
+                ..sort(),
         ),
     },
     notFound: notFound,

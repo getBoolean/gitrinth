@@ -4,6 +4,7 @@ import '../../version.dart';
 import '../console.dart';
 import '../offline_guard_interceptor.dart';
 import 'modrinth_api.dart';
+import 'modrinth_api_source.dart';
 import 'modrinth_auth_interceptor.dart';
 import 'modrinth_error_interceptor.dart';
 import 'modrinth_rate_limit_interceptor.dart';
@@ -17,10 +18,11 @@ import 'modrinth_url.dart';
 /// error behavior are wired the same way the global `dioProvider`
 /// wires them — they're just one factory away now instead of one
 /// shared singleton.
-class ModrinthApiFactory {
+class ModrinthApiFactory implements ModrinthApiSource {
   final Console _console;
   final ModrinthAuthInterceptor _auth;
   final bool Function() _offline;
+  @override
   final String defaultBaseUrl;
 
   final Map<String, _HostBundle> _bundles = {};
@@ -36,6 +38,7 @@ class ModrinthApiFactory {
 
   /// Returns the cached [ModrinthApi] for [hostUrl], building one if
   /// missing. `null` / empty resolves to [_defaultBaseUrl].
+  @override
   ModrinthApi forHost(String? hostUrl) {
     final raw = (hostUrl == null || hostUrl.trim().isEmpty)
         ? defaultBaseUrl

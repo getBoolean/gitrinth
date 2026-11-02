@@ -26,6 +26,7 @@ import 'package:gitrinth/src/service/sponge_api_client.dart';
 import 'package:gitrinth/src/version.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+import 'package:gitrinth/src/service/source_identity.dart';
 
 const _console = Console(level: LogLevel.error);
 
@@ -85,9 +86,9 @@ void main() {
       final out = synthesizeCfResolutionFromLock(_dualSourceLock());
 
       expect(out.notFound, isEmpty);
-      expect(out.resolved.keys, ['jei']);
+      expect(out.resolved.keys.map((node) => node.localKey), ['jei']);
 
-      final entry = out.resolved['jei']!;
+      final entry = out.resolved[const LocalEntryKey(Section.mods, 'jei')]!;
       expect(entry.slug, 'jei');
       expect(entry.section, Section.mods);
       expect(entry.project.id, 238222);
@@ -153,7 +154,7 @@ void main() {
         },
       );
       final out = synthesizeCfResolutionFromLock(lock);
-      final entry = out.resolved['opaque']!;
+      final entry = out.resolved[const LocalEntryKey(Section.mods, 'opaque')]!;
       expect(entry.project.allowModDistribution, isFalse);
       expect(entry.file.downloadUrl, isNull);
       expect(entry.file.sha1Hash, isNull);

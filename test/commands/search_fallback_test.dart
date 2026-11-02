@@ -157,6 +157,8 @@ $extra
     final lock = File(p.join(root.path, 'mods.lock')).readAsStringSync();
     expect(lock, contains('discovered_via_search: true'));
     expect(lock, contains('slug: different-slug'));
+    // Project metadata is shared between dependency resolution and peer ranking.
+    expect(mr.requestCounts['/v2/project/anchor_ID'], 1);
     final offline = await run(flags: ['--offline'], dryRun: false);
     expect(offline.exitCode, 0, reason: offline.stderr);
     expect(File(p.join(root.path, 'mods.lock')).readAsStringSync(), lock);

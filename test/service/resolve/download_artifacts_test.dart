@@ -88,7 +88,7 @@ void main() {
           downloader: downloader,
           console: const Console(level: LogLevel.error),
           io: io,
-          hostFor: (_, _) => 'unused',
+          defaultModrinthHost: 'unused',
         );
         if (scenario == 'corrupt download') {
           expect(result.errors, hasLength(1));
@@ -122,7 +122,7 @@ void main() {
         downloader: downloader,
         console: const Console(level: LogLevel.error),
         io: io,
-        hostFor: (_, _) => 'https://api.modrinth.com/v2',
+        defaultModrinthHost: 'https://api.modrinth.com/v2',
       );
       expect(result.errors, hasLength(1));
       expect(result.errors.first, contains('CurseForge does not allow'));
@@ -150,7 +150,7 @@ void main() {
         downloader: downloader,
         console: const Console(level: LogLevel.error),
         io: io,
-        hostFor: (_, _) => 'https://api.modrinth.com/v2',
+        defaultModrinthHost: 'https://api.modrinth.com/v2',
       );
       expect(result.errors, isEmpty);
     });
@@ -171,7 +171,7 @@ void main() {
           downloader: downloader,
           console: const Console(level: LogLevel.error),
           io: io,
-          hostFor: (_, _) => 'https://api.modrinth.com/v2',
+          defaultModrinthHost: 'https://api.modrinth.com/v2',
         );
         expect(result.errors, hasLength(1));
         expect(result.errors.first, contains('does-not-exist.jar'));
@@ -192,7 +192,7 @@ void main() {
         downloader: downloader,
         console: const Console(level: LogLevel.error),
         io: io,
-        hostFor: (_, _) => 'https://api.modrinth.com/v2',
+        defaultModrinthHost: 'https://api.modrinth.com/v2',
       );
       expect(result.errors, isEmpty);
       expect(result.downloaded, 0);
@@ -215,7 +215,7 @@ void main() {
           downloader: downloader,
           console: const Console(level: LogLevel.error),
           io: io,
-          hostFor: (_, _) => 'https://api.modrinth.com/v2',
+          defaultModrinthHost: 'https://api.modrinth.com/v2',
         );
         expect(result.errors, isEmpty);
       },

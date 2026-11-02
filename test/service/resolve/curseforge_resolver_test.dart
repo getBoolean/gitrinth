@@ -8,6 +8,10 @@ import 'package:gitrinth/src/service/console.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_api.dart';
 import 'package:gitrinth/src/service/resolve/curseforge_resolver.dart';
 import 'package:test/test.dart';
+import 'package:gitrinth/src/service/source_identity.dart';
+import 'package:gitrinth/src/service/resolve/lock_builder.dart';
+import 'package:gitrinth/src/service/resolve/resolve_and_sync.dart';
+import 'package:gitrinth/src/model/resolver/result.dart';
 
 class _FakeCfApi implements CurseForgeApi {
   /// slug → Mod (or null to simulate not-found)
@@ -142,6 +146,84 @@ void main() {
   });
 
   group('resolveCurseforgeEntries', () {
+    test('same local key retains both CurseForge sections', () async {
+      final api = _FakeCfApi(
+        modsById: {
+          1: Mod(
+            id: 1,
+            gameId: kCurseForgeGameIdMinecraft,
+            name: 'Mod',
+            slug: 'mod-peer',
+            classId: 6,
+          ),
+          2: Mod(
+            id: 2,
+            gameId: kCurseForgeGameIdMinecraft,
+            name: 'Resources',
+            slug: 'resource-peer',
+            classId: 12,
+          ),
+        },
+        filesByProject: {
+          1: [
+            _file(
+              id: 11,
+              modId: 1,
+              fileName: 'mod.jar',
+              fileDate: '2025-01-01',
+            ),
+          ],
+          2: [
+            _file(
+              id: 22,
+              modId: 2,
+              fileName: 'resources.zip',
+              fileDate: '2025-01-01',
+            ),
+          ],
+        },
+      );
+      final manifest =
+          _pack(
+            modsMap: {
+              'same': const ModEntry(
+                slug: 'same',
+                curseforgeSlug: '1',
+                sources: {SourceKind.curseforge},
+              ),
+            },
+          ).withSectionEntries(Section.resourcePacks, {
+            'same': const ModEntry(
+              slug: 'same',
+              curseforgeSlug: '2',
+              sources: {SourceKind.curseforge},
+            ),
+          });
+      final out = await resolveCurseforgeEntries(
+        manifest: manifest,
+        api: api,
+        console: const Console(level: LogLevel.error),
+      );
+      expect(out.notFound, isEmpty);
+      expect(
+        out.resolved.values.map((e) => (e.section, e.project.id)),
+        unorderedEquals([(Section.mods, 1), (Section.resourcePacks, 2)]),
+      );
+      final lock = buildLock(
+        manifest: manifest,
+        resolution: const ResolutionResult([]),
+        cfResolution: out,
+        hashOutcomes: {},
+        resolvedModLoaderVersion: '0.16.0',
+        resolvedPluginLoaderVersion: null,
+      );
+      expect(lock.mods['same']!.curseforge!.projectId, 1);
+      expect(lock.resourcePacks['same']!.curseforge!.projectId, 2);
+      final offline = synthesizeCfResolutionFromLock(lock, manifest: manifest);
+      expect(offline.resolved.keys, out.resolved.keys);
+      expect(offline.resolved.values.map((e) => e.project.id), [1, 2]);
+    });
+
     test('newest pick wins (sorted by fileDate descending)', () async {
       final cfApi = _FakeCfApi(
         projectsBySlug: {
@@ -177,8 +259,14 @@ void main() {
         console: const Console(level: LogLevel.error),
       );
       expect(out.notFound, isEmpty);
-      expect(out.resolved['jei']!.file.id, 2000);
-      expect(out.resolved['jei']!.candidates, hasLength(2));
+      expect(
+        out.resolved[const LocalEntryKey(Section.mods, 'jei')]!.file.id,
+        2000,
+      );
+      expect(
+        out.resolved[const LocalEntryKey(Section.mods, 'jei')]!.candidates,
+        hasLength(2),
+      );
     });
 
     test('slug not found surfaces CfNotFound(slug-not-found)', () async {
@@ -252,7 +340,10 @@ void main() {
           api: cfApi,
           console: const Console(level: LogLevel.error),
         );
-        expect(out.resolved['jei']!.project.slug, 'jei-peer');
+        expect(
+          out.resolved[const LocalEntryKey(Section.mods, 'jei')]!.project.slug,
+          'jei-peer',
+        );
         expect(cfApi.calls, contains('searchMods(jei-peer)'));
       },
     );
@@ -287,7 +378,10 @@ void main() {
         api: cfApi,
         console: const Console(level: LogLevel.error),
       );
-      expect(out.resolved['jei']!.project.id, 32274);
+      expect(
+        out.resolved[const LocalEntryKey(Section.mods, 'jei')]!.project.id,
+        32274,
+      );
       expect(cfApi.calls, contains('getMod(32274)'));
       // searchMods should NOT have been called.
       expect(cfApi.calls.where((c) => c.startsWith('searchMods')), isEmpty);

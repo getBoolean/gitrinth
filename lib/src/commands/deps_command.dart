@@ -66,73 +66,35 @@ class DepsCommand extends GitrinthCommand {
 
     final cache = read(cacheProvider);
     final defaultBaseUrl = read(modrinthApiFactoryProvider).defaultBaseUrl;
-    String hostForSlug(String slug) {
-      for (final section in Section.values) {
-        final manifestEntry = manifest.sectionEntries(section)[slug];
-        if (manifestEntry != null) {
-          return manifest.effectiveModrinthHost(manifestEntry, defaultBaseUrl);
-        }
-      }
-      return manifest.modrinthHost ?? defaultBaseUrl;
+    final indexed = LockedDependencyGraph(
+      lock,
+      cache,
+      defaultHost: defaultBaseUrl,
+    );
+    for (final diagnostic in indexed.diagnostics) {
+      console.warn(diagnostic);
     }
-
-    // Index entries by slug for quick lookup; capture sections so the
-    // renderer can prefix `mods/` etc. on direct entries (mirrors dart
-    // pub's `mods/<slug>` flavor).
-    final lockBySlug = <String, _LockedWithSection>{};
-    for (final section in Section.values) {
-      lock.sectionFor(section).forEach((slug, locked) {
-        lockBySlug[slug] = _LockedWithSection(locked, section);
-      });
+    // Qualify only colliding names; ordinary reports keep their existing labels.
+    final counts = <String, int>{};
+    for (final node in indexed.entries.keys) {
+      counts.update(node.localKey, (n) => n + 1, ifAbsent: () => 1);
     }
-
-    // Build child edges per slug from the cached version.json sidecars.
-    // Cold-cache entries get an empty edge list; we count them so a
-    // trailing footer can warn the user.
-    final children = <String, List<String>>{};
-    var coldCacheCount = 0;
-    final projectIdToSlug = <String, String>{
-      for (final entry in lockBySlug.entries)
-        if (entry.value.locked.modrinth?.projectId != null)
-          entry.value.locked.modrinth!.projectId: entry.key,
+    final labels = {
+      for (final node in indexed.entries.keys)
+        node: counts[node.localKey] == 1 ? node.localKey : node.toString(),
     };
-    for (final entry in lockBySlug.entries) {
-      final slug = entry.key;
-      final locked = entry.value.locked;
-      final mr = locked.modrinth;
-      if (mr == null) {
-        children[slug] = const [];
-        continue;
-      }
-      final pid = mr.projectId;
-      final vid = mr.versionId;
-      if (pid.isEmpty || vid.isEmpty) {
-        children[slug] = const [];
-        continue;
-      }
-      final raw = readCachedRequiredChildren(
-        cache,
-        hostForSlug(slug),
-        pid,
-        vid,
-      );
-      if (raw == null) {
-        coldCacheCount++;
-        children[slug] = const [];
-        continue;
-      }
-      children[slug] = [for (final childPid in raw) ?projectIdToSlug[childPid]]
-        ..sort();
-    }
+    final lockBySlug = <String, _LockedWithSection>{
+      for (final item in indexed.entries.entries)
+        labels[item.key]!: _LockedWithSection(item.value, item.key.section),
+    };
+    final children = <String, List<String>>{
+      for (final node in indexed.entries.keys)
+        labels[node]!: [
+          for (final child in indexed.graph.children(node)) labels[child]!,
+        ]..sort(),
+    };
+    final coldCacheCount = indexed.coldCacheCount;
 
-    for (final entry in lockBySlug.entries) {
-      for (final parent in entry.value.locked.requiredBy) {
-        if (!lockBySlug.containsKey(parent)) continue;
-        final edges = <String>{...?children[parent], entry.key}.toList()
-          ..sort();
-        children[parent] = edges;
-      }
-    }
     final visibleSlugs = _filterByEnv(lockBySlug, env);
 
     if (targetSlug != null) {
@@ -260,7 +222,10 @@ class DepsCommand extends GitrinthCommand {
       final entry = lockBySlug[slug];
       if (entry == null) return slug;
       final ver = entry.locked.version ?? entry.locked.path ?? '';
-      final prefix = prefixSection ? '${entry.section.name}/' : '';
+      final prefix =
+          prefixSection && slug != '${entry.section.name}/${entry.locked.slug}'
+          ? '${entry.section.name}/'
+          : '';
       return ver.isEmpty ? '$prefix$slug' : '$prefix$slug $ver';
     }
 
@@ -404,7 +369,10 @@ class DepsCommand extends GitrinthCommand {
     final entry = lockBySlug[slug];
     if (entry == null) return;
     final ver = entry.locked.version ?? entry.locked.path ?? '';
-    final label = sectionPrefix ? '${entry.section.name}/$slug' : slug;
+    final label =
+        sectionPrefix && slug != '${entry.section.name}/${entry.locked.slug}'
+        ? '${entry.section.name}/$slug'
+        : slug;
     console.message('- $label${ver.isEmpty ? '' : ' $ver'}');
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
@@ -475,7 +443,10 @@ class DepsCommand extends GitrinthCommand {
     final entry = lockBySlug[slug];
     if (entry == null) return;
     final ver = entry.locked.version ?? entry.locked.path ?? '';
-    final label = sectionPrefix ? '${entry.section.name}/$slug' : slug;
+    final label =
+        sectionPrefix && slug != '${entry.section.name}/${entry.locked.slug}'
+        ? '${entry.section.name}/$slug'
+        : slug;
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
         .toList();
