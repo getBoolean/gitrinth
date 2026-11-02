@@ -28,9 +28,6 @@ final class ArtifactLocator {
   String preferred(LockedEntry entry) {
     switch (entry.kind) {
       case LockedEntryKind.resolved:
-        // Per-platform preference: Modrinth first (matches the legacy
-        // single-source build behavior); CurseForge as fallback for
-        // entries that excluded Modrinth via `sources:`.
         final mr = entry.modrinth;
         if (mr != null) {
           return modrinth(mr);

@@ -242,8 +242,10 @@ Future<CfResolution> resolveCurseforgeEntries({
     }
   }
 
-  // Walk only selected required edges. Each project is expanded once, so
-  // dependency cycles terminate while every parent edge is still retained.
+  final aliasesByProject = <int, Set<LocalEntryKey>>{};
+  for (final entry in resolved.entries) {
+    (aliasesByProject[entry.value.project.id] ??= {}).add(entry.key);
+  }
   final expanded = <LocalEntryKey>{};
   final queue = resolved.keys.toList();
   final parents = <LocalEntryKey, Set<LocalEntryKey>>{};
@@ -284,10 +286,7 @@ Future<CfResolution> resolveCurseforgeEntries({
         }
       }
       key ??= project.slug;
-      final aliases = resolved.entries
-          .where((e) => e.value.project.id == project.id)
-          .map((e) => e.key)
-          .toList();
+      final aliases = aliasesByProject[project.id] ?? const <LocalEntryKey>{};
       if (aliases.isNotEmpty) {
         for (final alias in aliases) {
           (parents[alias] ??= {}).add(parentKey);
@@ -295,15 +294,12 @@ Future<CfResolution> resolveCurseforgeEntries({
         continue;
       }
       final node = LocalEntryKey(section, key);
-      final prior = resolved[node];
-      if (prior != null &&
-          (prior.project.id != project.id || prior.section != section)) {
+      if (resolved.containsKey(node)) {
         throw ValidationError(
           'Dependency identity collision for $key; declare a top-level entry with explicit peer slugs and section.',
         );
       }
       (parents[node] ??= {}).add(parentKey);
-      if (prior != null) continue;
       final declared = manifest.sectionEntries(section)[key];
       final files = await listCompatibleFiles(
         api: api,
@@ -329,6 +325,7 @@ Future<CfResolution> resolveCurseforgeEntries({
         candidates: files,
         transitive: declared == null,
       );
+      (aliasesByProject[project.id] ??= {}).add(node);
       queue.add(node);
     }
   }

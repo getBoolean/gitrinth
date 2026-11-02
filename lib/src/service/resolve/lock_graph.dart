@@ -96,15 +96,13 @@ final class LockedDependencyGraph {
     }
     for (final item in entries.entries) {
       for (final parentName in item.value.requiredBy) {
-        var candidates = entries.keys
-            .where((node) => node.localKey == parentName)
-            .toList();
+        var candidates = identity.nodesNamed(parentName).toList();
         if (candidates.length > 1) {
+          final knownParents = graph.parents(item.key);
           final metadataParents = candidates
-              .where((node) => graph.children(node).contains(item.key))
+              .where(knownParents.contains)
               .toList();
           if (metadataParents.isNotEmpty) {
-            // Metadata already supplies the qualified edges.
             continue;
           }
         }
@@ -155,9 +153,7 @@ Set<String> walkTransitiveClosure(
   }
   final nodes = <LocalEntryKey>[];
   for (final seed in seeds) {
-    final matches = indexed.entries.keys
-        .where((node) => node.localKey == seed)
-        .toList();
+    final matches = indexed.identity.nodesNamed(seed);
     if (matches.length > 1) {
       throw UserError(
         "Ambiguous entry '$seed' in mods.lock; cannot unlock its transitive closure.",
@@ -172,10 +168,7 @@ Set<String> walkTransitiveClosure(
   }
   final reachable = indexed.graph.reachable(nodes);
   for (final node in reachable) {
-    if (indexed.entries.keys
-            .where((other) => other.localKey == node.localKey)
-            .length >
-        1) {
+    if (indexed.identity.nodesNamed(node.localKey).length > 1) {
       throw UserError(
         "Ambiguous entry '${node.localKey}' in mods.lock; cannot unlock its transitive closure.",
       );

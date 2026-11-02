@@ -51,6 +51,7 @@ final class CurseforgeProjectKey extends RemoteProjectKey {
 final class SourceIdentity {
   final _nodes = <LocalEntryKey, ({String host, String projectSlug})>{};
   final _remote = <RemoteProjectKey, Set<LocalEntryKey>>{};
+  final _names = <String, Set<LocalEntryKey>>{};
   final _solverKeys = <String, LocalEntryKey>{};
   final _keys = <LocalEntryKey, String>{};
 
@@ -60,6 +61,7 @@ final class SourceIdentity {
     required String host,
     String? projectSlug,
   }) {
+    (_names[node.localKey] ??= {}).add(node);
     _nodes[node] = (
       host: normalizeServerKey(host),
       projectSlug: projectSlug ?? node.localKey,
@@ -93,12 +95,15 @@ final class SourceIdentity {
     return message;
   }
 
+  Set<LocalEntryKey> nodesNamed(String localKey) =>
+      Set.unmodifiable(_names[localKey] ?? const <LocalEntryKey>{});
+
   LocalEntryKey? find(String localKey, [Section? section]) {
     if (section != null) {
       final node = LocalEntryKey(section, localKey);
       return _nodes.containsKey(node) ? node : null;
     }
-    final matches = _nodes.keys.where((node) => node.localKey == localKey);
+    final matches = nodesNamed(localKey);
     return matches.length == 1 ? matches.single : null;
   }
 }

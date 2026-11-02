@@ -549,8 +549,6 @@ Future<ResolveSyncResult> resolveAndSync({
     },
     resolveSlugForProjectId: (projectId) async {
       try {
-        // Fallback for solver clients without parent context. Normal
-        // dependency resolution above inherits the parent's registered host.
         final Project proj = await apiReads
             .forHost(packHost)
             .getProject(projectId);
@@ -1034,10 +1032,6 @@ Future<ResolveSyncResult> resolveAndSync({
     cfResolution = CfResolution(resolved: resolvedCf, notFound: remaining);
   }
 
-  // Aggregate "missing on a requested platform" failures into a single
-  // ValidationError. Modrinth-side: a slug whose effective sources
-  // include Modrinth but which the resolver never decided
-  // (slugs requested but the per-node candidate list is empty / absent).
   final mrNotFoundSlugs = <LocalEntryKey>{};
   for (final key in modrinthSlugs) {
     final node = identities.nodeForSolverKey(key);

@@ -74,7 +74,6 @@ class DepsCommand extends GitrinthCommand {
     for (final diagnostic in indexed.diagnostics) {
       console.warn(diagnostic);
     }
-    // Qualify only colliding names; ordinary reports keep their existing labels.
     final counts = <String, int>{};
     for (final node in indexed.entries.keys) {
       counts.update(node.localKey, (n) => n + 1, ifAbsent: () => 1);
@@ -221,12 +220,7 @@ class DepsCommand extends GitrinthCommand {
     String label(String slug, {bool prefixSection = false}) {
       final entry = lockBySlug[slug];
       if (entry == null) return slug;
-      final ver = entry.locked.version ?? entry.locked.path ?? '';
-      final prefix =
-          prefixSection && slug != '${entry.section.name}/${entry.locked.slug}'
-          ? '${entry.section.name}/'
-          : '';
-      return ver.isEmpty ? '$prefix$slug' : '$prefix$slug $ver';
+      return entry.label(slug, prefixSection: prefixSection);
     }
 
     final seen = <String>{};
@@ -368,12 +362,8 @@ class DepsCommand extends GitrinthCommand {
   }) {
     final entry = lockBySlug[slug];
     if (entry == null) return;
-    final ver = entry.locked.version ?? entry.locked.path ?? '';
-    final label =
-        sectionPrefix && slug != '${entry.section.name}/${entry.locked.slug}'
-        ? '${entry.section.name}/$slug'
-        : slug;
-    console.message('- $label${ver.isEmpty ? '' : ' $ver'}');
+    final label = entry.label(slug, prefixSection: sectionPrefix);
+    console.message('- $label');
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
         .toList();
@@ -442,16 +432,12 @@ class DepsCommand extends GitrinthCommand {
   }) {
     final entry = lockBySlug[slug];
     if (entry == null) return;
-    final ver = entry.locked.version ?? entry.locked.path ?? '';
-    final label =
-        sectionPrefix && slug != '${entry.section.name}/${entry.locked.slug}'
-        ? '${entry.section.name}/$slug'
-        : slug;
+    final label = entry.label(slug, prefixSection: sectionPrefix);
     final kids = (children[slug] ?? const [])
         .where(visibleSlugs.contains)
         .toList();
     final kidsText = kids.isEmpty ? '[]' : '[${kids.join(' ')}]';
-    console.message('- $label${ver.isEmpty ? '' : ' $ver'} $kidsText');
+    console.message('- $label $kidsText');
   }
 
   void _printJson({
@@ -518,4 +504,12 @@ class _LockedWithSection {
   final LockedEntry locked;
   final Section section;
   const _LockedWithSection(this.locked, this.section);
+
+  String label(String slug, {bool prefixSection = false}) {
+    final version = locked.version ?? locked.path ?? '';
+    final name = prefixSection && slug != '${section.name}/${locked.slug}'
+        ? '${section.name}/$slug'
+        : slug;
+    return version.isEmpty ? name : '$name $version';
+  }
 }

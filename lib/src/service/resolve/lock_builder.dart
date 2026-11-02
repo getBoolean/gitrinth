@@ -54,7 +54,6 @@ ModsLock buildLock({
     Section.plugins: plugins,
   };
 
-  // Keep local section identity when merging platform resolutions.
   final mrNodes = {
     for (final r in resolution.entries) LocalEntryKey(r.section, r.slug),
   };
