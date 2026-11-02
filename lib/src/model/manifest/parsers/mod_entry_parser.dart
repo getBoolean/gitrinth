@@ -442,6 +442,17 @@ Map<String, LockedEntry> _parseLockSection(
       filePath,
     );
     final dependency = _parseLockDependencyKind(m['dependency'], m['auto']);
+    final requiredByRaw = m['required_by'];
+    if (requiredByRaw != null &&
+        (requiredByRaw is! List ||
+            requiredByRaw.any((v) => v is! String || v.isEmpty))) {
+      throw _err(
+        '$filePath: $sectionName/$slug required_by must be a list of non-empty strings.',
+      );
+    }
+    final requiredBy = requiredByRaw == null
+        ? <String>[]
+        : List<String>.from(requiredByRaw as List);
     final acceptsMcRaw = m['accepts_mc'];
     final acceptsMc = acceptsMcRaw is List
         ? List<String>.unmodifiable(acceptsMcRaw.map((v) => v.toString()))
@@ -523,6 +534,7 @@ Map<String, LockedEntry> _parseLockSection(
       client: client,
       server: server,
       dependency: dependency,
+      requiredBy: requiredBy,
       acceptsMc: acceptsMc,
     );
   });

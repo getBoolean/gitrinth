@@ -87,6 +87,11 @@ Set<String> walkTransitiveClosure(
       console?.io("$verboseLabel: '$slug' not in mods.lock; skipping.");
       continue;
     }
+    for (final child in lookup.entries) {
+      if (child.value.requiredBy.contains(slug) && closure.add(child.key)) {
+        queue.add(child.key);
+      }
+    }
     final mr = entry.modrinth;
     if (mr == null) continue;
     final pid = mr.projectId;

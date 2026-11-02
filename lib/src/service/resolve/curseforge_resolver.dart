@@ -1,11 +1,15 @@
 import '../../cli/exceptions.dart';
 import '../../model/curseforge/cf_mod.dart';
 import '../../model/curseforge/cf_mod_file.dart';
+import '../../model/curseforge/cf_constants.dart';
+import '../../model/curseforge/cf_file_relation.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../../model/manifest/source_eligibility.dart';
+import '../../model/resolver/constraint.dart';
 import '../console.dart';
 import '../curseforge/curseforge_api.dart';
 import '../curseforge/curseforge_filters.dart';
+import '../curseforge/curseforge_version.dart';
 
 /// One CF entry that successfully resolved. The lock builder uses
 /// these to populate per-entry [LockedCurseforgeSource] blocks.
@@ -21,6 +25,8 @@ class CfResolvedEntry {
   final ModFile file;
   final List<ModFile> candidates;
   final bool discoveredViaSearch;
+  final List<String> requiredBy;
+  final bool transitive;
   const CfResolvedEntry({
     required this.slug,
     required this.section,
@@ -28,6 +34,8 @@ class CfResolvedEntry {
     required this.file,
     required this.candidates,
     this.discoveredViaSearch = false,
+    this.requiredBy = const [],
+    this.transitive = false,
   });
 }
 
@@ -85,6 +93,7 @@ Future<CfResolution> resolveCurseforgeEntries({
   required ModsYaml manifest,
   required CurseForgeApi api,
   required Console console,
+  Map<int, int> selectedFiles = const {},
 }) async {
   final resolved = <String, CfResolvedEntry>{};
   final notFound = <CfNotFound>[];
@@ -97,6 +106,7 @@ Future<CfResolution> resolveCurseforgeEntries({
       final entry = mapEntry.value;
       // url:/path: sources never enter CF resolution.
       if (entry.source is! ModrinthEntrySource) continue;
+      if (isAnyGitrinthMarker(entry.constraintRaw)) continue;
       // Honor entry- and pack-level source restrictions before any
       // network call. Section/loader matrix-ineligibility silently
       // drops CF here; the `sources: curseforge` explicit-error path is
@@ -152,6 +162,11 @@ Future<CfResolution> resolveCurseforgeEntries({
         );
         continue;
       }
+      if (project.classId != section.cfClassId) {
+        throw ValidationError(
+          'CurseForge ${project.slug} has a different content type from ${section.name}; declare it in its intended section.',
+        );
+      }
 
       List<ModFile> files;
       try {
@@ -192,18 +207,131 @@ Future<CfResolution> resolveCurseforgeEntries({
         continue;
       }
 
-      // CF version-constraint filtering is intentionally not applied
-      // in Part 4 — CF version strings are semver-loose. The newest
-      // candidate (per `listCompatibleFiles` sort order) is picked.
+      // For dual-source roots the Modrinth version constraint anchors the
+      // hash scan; CF labels need not share Modrinth's numbering scheme.
+      if (!effective.contains(SourceKind.modrinth)) {
+        files = files
+            .where((f) => curseForgeFileSatisfies(f, entry.constraintRaw))
+            .toList();
+        if (files.isEmpty) {
+          notFound.add(
+            CfNotFound(
+              slug: slug,
+              section: section,
+              slugUsed: slugUsed,
+              reason: 'no-compatible-files',
+            ),
+          );
+          continue;
+        }
+      }
       resolved[slug] = CfResolvedEntry(
         slug: slug,
         section: section,
         project: project,
-        file: files.first,
+        file:
+            files
+                .where((f) => f.id == selectedFiles[project!.id])
+                .firstOrNull ??
+            files.first,
         candidates: files,
       );
     }
   }
 
-  return CfResolution(resolved: resolved, notFound: notFound);
+  // Walk only selected required edges. Each project is expanded once, so
+  // dependency cycles terminate while every parent edge is still retained.
+  final expanded = <int>{};
+  final queue = resolved.keys.toList();
+  final parents = <String, Set<String>>{};
+  while (queue.isNotEmpty) {
+    final parentKey = queue.removeLast();
+    final parent = resolved[parentKey]!;
+    if (!expanded.add(parent.project.id)) continue;
+    for (final dep in parent.file.dependencies) {
+      if (dep.relationType != RelationType.requiredDependency) continue;
+      final project = (await api.getMod(dep.modId)).data;
+      final sections = Section.values.where(
+        (s) => s.cfClassId == project.classId,
+      );
+      if (sections.isEmpty) {
+        throw ValidationError(
+          'Cannot infer content type for CurseForge dependency ${project.slug}; declare a top-level entry in its intended section.',
+        );
+      }
+      final section = sections.single;
+      String? key;
+      for (final e in manifest.sectionEntries(section).entries) {
+        if (e.value.source is! ModrinthEntrySource) continue;
+        if (e.value.curseforgeSlug == project.slug ||
+            e.value.curseforgeSlug == project.id.toString() ||
+            (e.value.curseforgeSlug == null && e.key == project.slug)) {
+          if (!effectiveSources(
+                manifest,
+                e.value,
+                section,
+              ).contains(SourceKind.curseforge) ||
+              isAnyGitrinthMarker(e.value.constraintRaw)) {
+            throw ValidationError(
+              '${parent.slug} requires CurseForge ${project.slug}, but top-level ${e.key} excludes that source.',
+            );
+          }
+          key = e.key;
+          break;
+        }
+      }
+      key ??= project.slug;
+      final prior = resolved[key];
+      if (prior != null &&
+          (prior.project.id != project.id || prior.section != section)) {
+        throw ValidationError(
+          'Dependency identity collision for $key; declare a top-level entry with explicit peer slugs and section.',
+        );
+      }
+      (parents[key] ??= {}).add(parentKey);
+      if (prior != null) continue;
+      final declared = manifest.sectionEntries(section)[key];
+      final files = await listCompatibleFiles(
+        api: api,
+        projectId: project.id,
+        section: section,
+        modLoader: section == Section.mods ? manifest.loader.mods : null,
+        pluginLoader: manifest.loader.plugins,
+        gameVersions: [manifest.mcVersion, ...?declared?.acceptsMc],
+        channel: declared?.channel ?? Channel.alpha,
+      );
+      if (files.isEmpty) {
+        throw ValidationError(
+          '${parent.slug} requires ${project.slug}, which has no compatible CurseForge files.',
+        );
+      }
+      resolved[key] = CfResolvedEntry(
+        slug: key,
+        section: section,
+        project: project,
+        file:
+            files.where((f) => f.id == selectedFiles[project.id]).firstOrNull ??
+            files.first,
+        candidates: files,
+        transitive: declared == null,
+      );
+      queue.add(key);
+    }
+  }
+  return CfResolution(
+    resolved: {
+      for (final e in resolved.entries)
+        e.key: CfResolvedEntry(
+          slug: e.value.slug,
+          section: e.value.section,
+          project: e.value.project,
+          file: e.value.file,
+          candidates: e.value.candidates,
+          discoveredViaSearch: e.value.discoveredViaSearch,
+          transitive: e.value.transitive,
+          requiredBy: (parents[e.key] ?? {}).toList()..sort(),
+        ),
+    },
+    notFound: notFound,
+  );
 }

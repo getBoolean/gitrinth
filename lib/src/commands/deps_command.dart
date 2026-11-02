@@ -125,6 +125,14 @@ class DepsCommand extends GitrinthCommand {
         ..sort();
     }
 
+    for (final entry in lockBySlug.entries) {
+      for (final parent in entry.value.locked.requiredBy) {
+        if (!lockBySlug.containsKey(parent)) continue;
+        final edges = <String>{...?children[parent], entry.key}.toList()
+          ..sort();
+        children[parent] = edges;
+      }
+    }
     final visibleSlugs = _filterByEnv(lockBySlug, env);
 
     if (targetSlug != null) {

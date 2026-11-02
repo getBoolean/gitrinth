@@ -34,6 +34,9 @@ import 'version_solver_types.dart';
 class Resolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
+  final Future<String?> Function(String projectId, String parentSlug)?
+  resolveDependencySlug;
+  final Section Function(String slug)? sectionForSlug;
 
   /// Selection direction passed through to [PubGrubSolver]. Defaults to
   /// [SolveType.get] so existing callers keep newest-first behavior.
@@ -42,6 +45,8 @@ class Resolver {
   Resolver({
     required this.listVersions,
     required this.resolveSlugForProjectId,
+    this.resolveDependencySlug,
+    this.sectionForSlug,
     this.solveType = SolveType.get,
   });
 
@@ -50,6 +55,7 @@ class Resolver {
     ModsLock? existingLock,
     Map<String, OverridePin> overridePins = const {},
     Set<String>? modrinthSlugs,
+    Map<String, String> requiredVersionIds = const {},
   }) async {
     final roots = <RootConstraint>[];
     final entryBySection = <String, Section>{};
@@ -113,9 +119,11 @@ class Resolver {
     final solver = PubGrubSolver(
       listVersions: listVersions,
       resolveSlugForProjectId: resolveSlugForProjectId,
+      resolveDependencySlug: resolveDependencySlug,
       selectionOrder: compareModrinthSolverOrder,
       lockSuggestions: pins,
       overridePins: overridePins.values.toList(),
+      requiredVersionIds: requiredVersionIds,
       solveType: solveType,
     );
     final result = await solver.solve(roots);
@@ -141,7 +149,8 @@ class Resolver {
           'Resolved $slug version ${v.versionNumber} has no downloadable file.',
         );
       }
-      final section = entryBySection[slug] ?? Section.mods;
+      final section =
+          entryBySection[slug] ?? sectionForSlug?.call(slug) ?? Section.mods;
       final declared = entryBySlug[slug];
       final defaults = defaultSidesFor(section);
       final client = declared?.client ?? defaults.client;

@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:path/path.dart' as p;
 
 import '../app/providers.dart';
+import '../app/env.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -13,9 +14,11 @@ import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/mrpack_index.dart';
 import '../service/cache.dart';
+import '../service/modrinth/modrinth_url.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve/solve_report.dart';
 import 'pack_assembler.dart';
+import 'curseforge_pack_assembler.dart';
 
 const String _permissionsArticle =
     'https://support.modrinth.com/en/articles/8797527-obtaining-modpack-permissions';
@@ -29,7 +32,8 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
   String get name => 'pack';
 
   @override
-  String get description => 'Produce Modrinth .mrpack artifacts.';
+  String get description =>
+      'Produce Modrinth .mrpack or CurseForge .zip artifacts.';
 
   @override
   String get invocation => 'gitrinth pack [arguments]';
@@ -54,8 +58,13 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       ..addFlag(
         'publishable',
         negatable: false,
-        help: 'Refuse to pack if any mod uses a url: or path: source.',
+        help: 'Reject target-missing sources and allow_hash_mismatch entries.',
       );
+    argParser.addFlag(
+      'curseforge',
+      negatable: false,
+      help: 'Produce CurseForge .zip archives.',
+    );
     addOfflineFlag();
   }
 
@@ -98,6 +107,12 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       cache: cache,
       projectDir: io.directory.path,
       target: PackTarget.combined,
+      platform: argResults!['curseforge'] as bool
+          ? SourceKind.curseforge
+          : SourceKind.modrinth,
+      modrinthHost:
+          yaml.modrinthHost ??
+          resolveModrinthBaseUrl(read(environmentProvider)),
     );
 
     final basePath = _resolveBasePath(yaml: yaml, outputOpt: outputOpt);
@@ -131,10 +146,13 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
         projectDir: io.directory.path,
         publishable: publishable,
       );
-      console.message(_serverInstallerHint);
+      if (!(argResults!['curseforge'] as bool)) {
+        console.message(_serverInstallerHint);
+      }
     }
 
-    if (!publishable && allOverridesForWarning.hasModOverrides) {
+    if (!publishable &&
+        allOverridesForWarning.entries.any((e) => e.section != null)) {
       _printPermissionsWarning(allOverridesForWarning.entries);
     }
 
@@ -148,8 +166,9 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
     required ModsYaml yaml,
     required String? outputOpt,
   }) {
+    final extension = argResults!['curseforge'] as bool ? 'zip' : 'mrpack';
     final raw =
-        outputOpt ?? p.join('build', '${yaml.slug}-${yaml.version}.mrpack');
+        outputOpt ?? p.join('build', '${yaml.slug}-${yaml.version}.$extension');
     return p.normalize(p.absolute(raw));
   }
 
@@ -171,6 +190,31 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
     required String projectDir,
     required bool publishable,
   }) {
+    if (argResults!['curseforge'] as bool) {
+      final manifest = buildCurseForgeManifest(
+        yaml: yaml,
+        lock: lock,
+        target: target,
+        publishable: publishable,
+      );
+      final overrides = curseForgeOverrides(
+        lock: lock,
+        cache: cache,
+        projectDir: projectDir,
+        target: target,
+        modrinthHost:
+            yaml.modrinthHost ??
+            resolveModrinthBaseUrl(read(environmentProvider)),
+      );
+      writePackArchive(
+        File(outputPath),
+        manifestName: 'manifest.json',
+        manifest: manifest,
+        overrides: overrides.entries,
+      );
+      console.message('Wrote ${target.name} CurseForge pack: $outputPath');
+      return;
+    }
     final index = buildIndex(
       yaml: yaml,
       lock: lock,
@@ -242,18 +286,12 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
   }
 
   void _printPermissionsWarning(List<OverridePlan> overrides) {
-    // Mod overrides may live under any of the three loose-files roots
-    // (overrides/, client-overrides/, server-overrides/) depending on
-    // env, so filter by section rather than by zipPath prefix.
-    final modOverrides =
-        overrides.where((o) => o.section == Section.mods).toList()
-          ..sort((a, b) => a.slug.compareTo(b.slug));
+    final artifactOverrides = overrides.where((o) => o.section != null).toList()
+      ..sort((a, b) => a.slug.compareTo(b.slug));
     final buf = StringBuffer()
-      ..writeln(
-        'Note: this pack bundles non-Modrinth mod artifacts. You may need',
-      )
+      ..writeln('Note: this pack bundles loose artifacts. You may need')
       ..writeln('permission from each mod author to distribute them:');
-    for (final o in modOverrides) {
+    for (final o in artifactOverrides) {
       buf.writeln('  - ${o.slug} (${o.sourceKind})');
     }
     buf.write('See: $_permissionsArticle');

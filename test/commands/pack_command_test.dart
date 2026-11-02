@@ -54,6 +54,51 @@ void main() {
   };
 
   test(
+    '--curseforge emits split ZIPs with target-missing cached Modrinth overrides',
+    () async {
+      modrinth.registerVersion(
+        slug: 'sodium',
+        versionNumber: '0.6.0',
+        loader: 'fabric',
+      );
+      await writeManifest('''
+slug: cfpack
+name: CF Pack
+version: 1.0.0
+description: test
+loader:
+  mods: fabric:0.17.3
+mc_version: 1.21.1
+mods:
+  sodium: ^0.6.0
+''');
+      final out = await runCli([
+        '-C',
+        packDir.path,
+        'pack',
+        '--curseforge',
+      ], environment: defaultEnv());
+      expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
+      for (final suffix in ['', '-server']) {
+        final file = File(
+          p.join(packDir.path, 'build', 'cfpack-1.0.0$suffix.zip'),
+        );
+        final archive = ZipDecoder().decodeBytes(file.readAsBytesSync());
+        final manifest = jsonDecode(
+          utf8.decode(archive.findFile('manifest.json')!.content),
+        );
+        expect(manifest['manifestType'], 'minecraftModpack');
+        expect(manifest['files'], isEmpty);
+        expect(archive.findFile('overrides/mods/sodium-0.6.0.jar'), isNotNull);
+      }
+      expect(
+        out.stdout,
+        isNot(contains('Install the server pack with mrpack-install')),
+      );
+    },
+  );
+
+  test(
     'default: writes both client and server .mrpack with valid indexes; mentions mrpack-install',
     () async {
       modrinth.registerVersion(
@@ -258,7 +303,7 @@ mods:
     },
   );
 
-  test('--publishable allows a url-source resource pack (not a mod)', () async {
+  test('--publishable refuses a target-missing resource pack', () async {
     modrinth.registerVersion(
       slug: 'sodium',
       versionNumber: '0.6.0',
@@ -297,20 +342,8 @@ resource_packs:
       'pack',
       '--publishable',
     ], environment: defaultEnv());
-    expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-
-    final mrpack = File(p.join(packDir.path, 'build', 'pack-0.1.0.mrpack'));
-    expect(mrpack.existsSync(), isTrue);
-
-    // RP went to overrides/, not files[]. Resource packs default to
-    // `client: optional, server: unsupported`, so the override lands in
-    // the client-only root.
-    final paths = _zipPaths(mrpack);
-    expect(paths, contains('client-overrides/resourcepacks/custom-pack.zip'));
-    final fileEntries = (_readIndex(mrpack)['files'] as List)
-        .cast<Map<String, dynamic>>();
-    expect(fileEntries, hasLength(1));
-    expect(fileEntries.single['path'], 'mods/sodium-0.6.0.jar');
+    expect(out.exitCode, isNot(0));
+    expect(out.stderr, contains('custom-pack'));
   });
 
   test(
@@ -459,12 +492,12 @@ shaders:
       expect(out.stdout, contains('- both-mod (url)'));
       expect(out.stdout, contains('- client-mod (url)'));
       expect(out.stdout, contains('- server-mod (url)'));
-      expect(out.stdout, isNot(contains('- custom-shader')));
+      expect(out.stdout, contains('- custom-shader'));
     },
   );
 
   test(
-    'non-publishable run with only a url-source RESOURCE PACK: no permissions warning',
+    'non-publishable run warns about loose RESOURCE PACK permission',
     () async {
       modrinth.registerVersion(
         slug: 'sodium',
@@ -502,11 +535,7 @@ resource_packs:
         'pack',
       ], environment: defaultEnv());
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
-      expect(
-        out.stdout,
-        isNot(contains('permission from each mod author')),
-        reason: 'RP overrides do not require Modrinth-style mod permissions',
-      );
+      expect(out.stdout, contains('permission from each mod author'));
     },
   );
 }

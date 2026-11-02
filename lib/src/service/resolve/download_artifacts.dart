@@ -199,7 +199,7 @@ Future<_Counts> _fetchCurseforge({
   await downloader.downloadTo(
     url: url,
     destinationPath: dest,
-    expectedSha512: null,
+    expectedSha1: file.sha1,
   );
   if (existed) {
     console.io('cache hit:  $slug (cf) -> $dest');

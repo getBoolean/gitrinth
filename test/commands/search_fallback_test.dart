@@ -12,6 +12,7 @@ void main() {
   late Directory root;
   late FakeModrinth mr;
   late HttpServer cf;
+  late String cfBaseUrl;
   late List<Map<String, dynamic>> candidates;
   late Map<int, List<Map<String, dynamic>>> files;
   late List<Uri> requests;
@@ -23,6 +24,7 @@ void main() {
     await mr.start();
     mr.registerVersion(slug: 'anchor', versionNumber: '1.0.0');
     cf = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    cfBaseUrl = 'http://127.0.0.1:${cf.port}';
     requests = [];
     exactProjects = [];
     candidates = [
@@ -59,10 +61,26 @@ void main() {
     };
     cf.listen((req) async {
       requests.add(req.uri);
+      if (RegExp(r'^/v1/mods/\d+$').hasMatch(req.uri.path)) {
+        final id = int.parse(req.uri.pathSegments.last);
+        final project = [
+          ...exactProjects,
+          ...candidates,
+        ].where((p) => p['id'] == id).firstOrNull;
+        req.response.headers.contentType = ContentType.json;
+        if (project == null) req.response.statusCode = 404;
+        req.response.write(jsonEncode({'data': project}));
+        await req.response.close();
+        return;
+      }
       final data = req.uri.path.endsWith('/search')
           ? (req.uri.queryParameters.containsKey('searchFilter')
-                ? candidates
-                : exactProjects)
+                ? (req.uri.queryParameters['searchFilter'] == 'anchor'
+                      ? candidates
+                      : [])
+                : (req.uri.queryParameters['slug'] == 'anchor'
+                      ? exactProjects
+                      : []))
           : files[int.tryParse(req.uri.path.split('/')[3])] ?? [];
       req.response.headers.contentType = ContentType.json;
       req.response.write(
@@ -117,7 +135,7 @@ $extra
         'GITRINTH_NEOFORGE_VERSIONS_URL': mr.neoforgeVersionsUrl,
         'GITRINTH_PAPER_API_URL': mr.paperBuildsUrl,
         'GITRINTH_MODRINTH_URL': mr.baseUrl,
-        'GITRINTH_CURSEFORGE_URL': 'http://127.0.0.1:${cf.port}',
+        'GITRINTH_CURSEFORGE_URL': cfBaseUrl,
         'GITRINTH_CURSEFORGE_TOKEN': 'test-key',
       },
     );
@@ -143,6 +161,126 @@ $extra
     expect(offline.exitCode, 0, reason: offline.stderr);
     expect(File(p.join(root.path, 'mods.lock')).readAsStringSync(), lock);
   });
+
+  test('CF-only get writes a complete lock and reuses it offline', () async {
+    exactProjects = candidates;
+    final online = await run(extra: '    sources: curseforge', dryRun: false);
+    expect(online.exitCode, 0, reason: online.stderr);
+    final lock = File(p.join(root.path, 'mods.lock'));
+    final before = lock.readAsStringSync();
+    expect(before, contains('project_id: 42'));
+    expect(before, isNot(contains('    modrinth:')));
+    expect(
+      mr.requestCounts.keys.where(
+        (k) => k.startsWith('/v2/project/') || k == '/v2/search',
+      ),
+      isEmpty,
+    );
+    await cf.close(force: true);
+    final offline = await run(
+      extra: '    sources: curseforge',
+      flags: ['--offline'],
+      dryRun: false,
+    );
+    expect(offline.exitCode, 0, reason: offline.stderr);
+    expect(lock.readAsStringSync(), before);
+  });
+
+  test('allow_hash_mismatch locks both verified artifacts and warns', () async {
+    exactProjects = candidates;
+    mr.registerVersion(slug: 'cf-artifact', versionNumber: '2.0.0');
+    final cfSha = sha1
+        .convert(mr.artifacts['cf-artifact/cf-artifact-2.0.0.jar']!)
+        .toString();
+    files[42]!.single['hashes'] = [
+      {'algo': 1, 'value': cfSha},
+    ];
+    files[42]!.single['downloadUrl'] =
+        '${mr.downloadBaseUrl}/cf-artifact/cf-artifact-2.0.0.jar';
+    final out = await run(
+      extra: '    allow_hash_mismatch: true',
+      dryRun: false,
+    );
+    expect(out.exitCode, 0, reason: out.stderr);
+    expect(out.stderr, contains('accepting because allow_hash_mismatch: true'));
+    final text = File(p.join(root.path, 'mods.lock')).readAsStringSync();
+    expect(text, contains('    modrinth:'));
+    expect(text, contains('    curseforge:'));
+    expect(text, contains('sha1: $cfSha'));
+    expect(
+      requests.where((u) => u.queryParameters.containsKey('searchFilter')),
+      isEmpty,
+    );
+  });
+
+  for (final marker in [
+    'gitrinth:not-found',
+    'gitrinth:disabled-by-conflict',
+  ]) {
+    test(
+      '$marker is excluded from CF resolution, online and offline',
+      () async {
+        final initial = await run(dryRun: false);
+        expect(initial.exitCode, 0, reason: initial.stderr);
+        requests.clear();
+        exactProjects = candidates;
+        final offline = await run(
+          constraint: marker,
+          flags: ['--offline'],
+          dryRun: false,
+        );
+        expect(offline.exitCode, 0, reason: offline.stderr);
+        expect(
+          File(p.join(root.path, 'mods.lock')).readAsStringSync(),
+          isNot(contains('  anchor:')),
+        );
+        final online = await run(constraint: marker, dryRun: false);
+        expect(online.exitCode, 0, reason: online.stderr);
+        expect(requests, isEmpty);
+        expect(
+          File(p.join(root.path, 'mods.lock')).readAsStringSync(),
+          isNot(contains('  anchor:')),
+        );
+      },
+    );
+  }
+
+  test('offline rejects a CF-only entry without a prior lock', () async {
+    final out = await run(
+      extra: '    sources: curseforge',
+      flags: ['--offline'],
+      dryRun: false,
+    );
+    expect(out.exitCode, 2);
+    expect(out.stderr, contains('anchor'));
+    expect(out.stderr, contains('offline'));
+    expect(File(p.join(root.path, 'mods.lock')).existsSync(), isFalse);
+  });
+
+  test(
+    'offline rejects a newly added CF-only entry without replacing the lock',
+    () async {
+      final initial = await run(dryRun: false);
+      expect(initial.exitCode, 0, reason: initial.stderr);
+      final lock = File(p.join(root.path, 'mods.lock'));
+      final before = lock.readAsStringSync();
+      File(p.join(root.path, 'mods.yaml')).writeAsStringSync('''
+  additional:
+    sources: curseforge
+    curseforge: "99"
+''', mode: FileMode.append);
+      final out = await runCli(
+        ['-C', root.path, 'get', '--offline'],
+        environment: {
+          'GITRINTH_CACHE': p.join(root.path, 'cache'),
+          'GITRINTH_MODRINTH_URL': mr.baseUrl,
+        },
+      );
+      expect(out.exitCode, 2);
+      expect(out.stderr, contains('additional'));
+      expect(lock.readAsStringSync(), before);
+    },
+  );
 
   test('global and per-entry opt-outs suppress fallback requests', () async {
     for (final flags in [
@@ -246,6 +384,45 @@ $extra
     expect(out.stderr, isEmpty);
     expect(requests, isEmpty);
   });
+
+  for (final change in ['version', 'minecraft', 'peer']) {
+    test(
+      'offline rejects changed CF-only $change before writing lock',
+      () async {
+        exactProjects = candidates;
+        final online = await run(
+          extra: '    sources: curseforge',
+          dryRun: false,
+        );
+        expect(online.exitCode, 0, reason: online.stderr);
+        final lock = File(p.join(root.path, 'mods.lock'));
+        final before = lock.readAsStringSync();
+        final manifest = File(p.join(root.path, 'mods.yaml'));
+        var text = manifest.readAsStringSync();
+        text = switch (change) {
+          'version' => text.replaceFirst('version: null', 'version: ^2.0.0'),
+          'minecraft' => text.replaceFirst(
+            'mc_version: 1.21.1',
+            'mc_version: 1.21.4',
+          ),
+          _ => '$text    curseforge: another-project\n',
+        };
+        manifest.writeAsStringSync(text);
+        final beforeRequests = requests.length;
+        final offline = await runCli(
+          ['-C', root.path, 'get', '--offline'],
+          environment: {
+            'GITRINTH_CACHE': p.join(root.path, 'cache'),
+            'GITRINTH_MODRINTH_URL': mr.baseUrl,
+          },
+        );
+        expect(offline.exitCode, 2);
+        expect(offline.stderr, contains('does not satisfy'));
+        expect(lock.readAsStringSync(), before);
+        expect(requests.length, beforeRequests);
+      },
+    );
+  }
 
   test(
     'Modrinth fallback uses the entry host and leaves the default host alone',
@@ -437,12 +614,11 @@ $extra
         (u) => u.queryParameters.containsKey('searchFilter'),
       );
       expect(search.queryParameters['classId'], '6');
+      final fileRequests = requests.where((u) => u.path.endsWith('/42/files'));
+      expect(fileRequests, isNotEmpty);
       expect(
-        requests
-            .where((u) => u.path.endsWith('/42/files'))
-            .single
-            .queryParameters['modLoaderType'],
-        '6',
+        fileRequests.every((u) => u.queryParameters['modLoaderType'] == '6'),
+        isTrue,
       );
       expect(requests.where((u) => u.path.endsWith('/43/files')), isEmpty);
     },
@@ -479,11 +655,91 @@ $extra
     expect(lock, isNot(contains('anchor-2.0.0.jar')));
   });
 
+  test('hash-selected older CF file replaces its dependency graph', () async {
+    final rootFile = files[42]!.single;
+    exactProjects = [
+      ...candidates,
+      {...candidates.single, 'id': 43, 'slug': 'old-cf-child'},
+      {...candidates.single, 'id': 44, 'slug': 'new-cf-child'},
+    ];
+    files[43] = [
+      {...rootFile, 'id': 43, 'modId': 43, 'fileName': 'old-child.jar'},
+    ];
+    files[44] = [
+      {...rootFile, 'id': 44, 'modId': 44, 'fileName': 'new-child.jar'},
+    ];
+    files[42] = [
+      {
+        ...rootFile,
+        'id': 8,
+        'fileDate': '2027-01-01T00:00:00Z',
+        'hashes': [
+          {'algo': 1, 'value': 'different'},
+        ],
+        'dependencies': [
+          {'modId': 44, 'relationType': 3},
+        ],
+      },
+      {
+        ...rootFile,
+        'dependencies': [
+          {'modId': 43, 'relationType': 3},
+        ],
+      },
+    ];
+    final out = await run(dryRun: false, flags: ['--no-search']);
+    expect(out.exitCode, 0, reason: out.stderr);
+    final lock = File(p.join(root.path, 'mods.lock')).readAsStringSync();
+    expect(lock, contains('  old-cf-child:'));
+    expect(lock, isNot(contains('  new-cf-child:')));
+    expect(lock, contains('file_id: 7'));
+  });
+
   test('hash scan cannot escape the manifest version constraint', () async {
     mr.registerVersion(slug: 'anchor', versionNumber: '2.0.0');
     final out = await run(constraint: '^2.0.0', dryRun: false);
     expect(out.exitCode, 2);
     expect(out.stdout, isNot(contains('via search')));
+    expect(File(p.join(root.path, 'mods.lock')).existsSync(), isFalse);
+  });
+
+  test('hash selection preserves dependency version_id minimums', () async {
+    mr.registerVersion(slug: 'child', versionNumber: '1.0.0');
+    mr.registerVersion(slug: 'child', versionNumber: '2.0.0');
+    mr.versions['anchor']!.single['dependencies'] = [
+      {
+        'project_id': 'child_ID',
+        'version_id': 'child_2_0_0',
+        'dependency_type': 'required',
+      },
+    ];
+    exactProjects = [
+      ...candidates,
+      {...candidates.single, 'id': 43, 'slug': 'child'},
+    ];
+    files[42]!.single['dependencies'] = [
+      {'modId': 43, 'relationType': 3},
+    ];
+    files[43] = [
+      {
+        ...files[42]!.single,
+        'id': 43,
+        'modId': 43,
+        'dependencies': [],
+        'displayName': '1.0.0',
+        'hashes': [
+          {
+            'algo': 1,
+            'value': sha1
+                .convert(mr.artifacts['child/child-1.0.0.jar']!)
+                .toString(),
+          },
+        ],
+        'downloadUrl': '${mr.downloadBaseUrl}/child/child-1.0.0.jar',
+      },
+    ];
+    final out = await run(dryRun: false, flags: ['--no-search']);
+    expect(out.exitCode, 2, reason: '${out.stdout}\n${out.stderr}');
     expect(File(p.join(root.path, 'mods.lock')).existsSync(), isFalse);
   });
 
@@ -529,6 +785,8 @@ $extra
     files[42]!.single['hashes'] = [
       {'algo': 1, 'value': hashes['sha1']},
     ];
+    files[42]!.single['downloadUrl'] =
+        '${mr.downloadBaseUrl}/other/other-2.0.0.jar';
     mr.searchHits = [
       {
         'project_id': 'other_ID',

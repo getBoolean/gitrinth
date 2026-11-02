@@ -140,6 +140,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         section: section,
         kind: locked.dependency,
         hasModrinthSource: locked.modrinth != null,
+        sourceKind: locked.kind,
         current: currentVersion,
         upgradable: null,
         latest: null,
@@ -153,6 +154,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         section: section,
         kind: locked.dependency,
         hasModrinthSource: locked.modrinth != null,
+        sourceKind: locked.kind,
         current: currentVersion,
         upgradable: null,
         latest: null,
@@ -176,6 +178,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           section: section,
           kind: locked.dependency,
           hasModrinthSource: locked.modrinth != null,
+          sourceKind: locked.kind,
           current: currentVersion,
           upgradable: null,
           latest: null,
@@ -205,6 +208,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             section: section,
             kind: locked.dependency,
             hasModrinthSource: locked.modrinth != null,
+            sourceKind: locked.kind,
             current: currentVersion,
             upgradable: null,
             latest: null,
@@ -232,6 +236,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       section: section,
       kind: locked.dependency,
       hasModrinthSource: locked.modrinth != null,
+      sourceKind: locked.kind,
       current: currentVersion,
       upgradable: upgradable?.versionNumber,
       latest: latest?.versionNumber,
@@ -262,6 +267,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             'slug': r.slug,
             'section': r.section.name,
             'kind': r.kind.name,
+            'source': r.source,
             'has_modrinth_source': r.hasModrinthSource,
             'current': r.current.isEmpty ? null : {'version': r.current},
             'upgradable': r.upgradable == null
@@ -448,6 +454,10 @@ class _Row {
   final Section section;
   final LockedDependencyKind kind;
   final bool hasModrinthSource;
+  final LockedEntryKind sourceKind;
+  String get source => sourceKind == LockedEntryKind.resolved
+      ? (hasModrinthSource ? 'modrinth' : 'curseforge')
+      : sourceKind.name;
   final String current;
   final String? upgradable;
   final String? latest;
@@ -458,6 +468,7 @@ class _Row {
     required this.section,
     required this.kind,
     required this.hasModrinthSource,
+    required this.sourceKind,
     required this.current,
     required this.upgradable,
     required this.latest,

@@ -87,8 +87,11 @@ class PubGrubResult {
 class PubGrubSolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
+  final Future<String?> Function(String projectId, String parentSlug)?
+  resolveDependencySlug;
   final List<LockSuggestion> lockSuggestions;
   final List<OverridePin> overridePins;
+  final Map<String, String> requiredVersionIds;
   final SelectionOrder selectionOrder;
 
   /// Selection direction — `get`/`upgrade` pick newest, `downgrade`
@@ -101,9 +104,11 @@ class PubGrubSolver {
   PubGrubSolver({
     required this.listVersions,
     required this.resolveSlugForProjectId,
+    this.resolveDependencySlug,
     required this.selectionOrder,
     this.lockSuggestions = const [],
     this.overridePins = const [],
+    this.requiredVersionIds = const {},
     this.solveType = SolveType.get,
   });
 
@@ -136,7 +141,9 @@ class PubGrubSolver {
         if (dep.type == SolverDependencyType.required) {
           final depProjectId = dep.targetProjectId;
           if (depProjectId == null) continue;
-          final depSlug = await resolveSlugForProjectId(depProjectId);
+          final depSlug =
+              await (resolveDependencySlug?.call(depProjectId, pin.slug) ??
+                  resolveSlugForProjectId(depProjectId));
           if (depSlug == null) continue;
           if (state.overriddenSlugs.contains(depSlug)) continue;
           final depConstraint = await _constraintFromVersionId(
@@ -296,6 +303,8 @@ class PubGrubSolver {
     // Collect candidates that pass the channel + constraint filter.
     final candidates = <SolverVersion>[];
     for (final v in allVersions) {
+      final requiredId = requiredVersionIds[slug];
+      if (requiredId != null && v.id != requiredId) continue;
       if (!allowedChannels.contains(v.channel)) continue;
       if (constraint.allows(v.parsedVersion)) {
         candidates.add(v);
@@ -347,7 +356,9 @@ class PubGrubSolver {
         if (dep.type == SolverDependencyType.required) {
           final depProjectId = dep.targetProjectId;
           if (depProjectId == null) continue;
-          final depSlug = await resolveSlugForProjectId(depProjectId);
+          final depSlug =
+              await (resolveDependencySlug?.call(depProjectId, slug) ??
+                  resolveSlugForProjectId(depProjectId));
           if (depSlug == null) {
             // Cannot resolve transitive dependency to a slug — skip.
             // The user can pin it explicitly if desired.
@@ -378,7 +389,9 @@ class PubGrubSolver {
         } else if (dep.type == SolverDependencyType.incompatible) {
           final depProjectId = dep.targetProjectId;
           if (depProjectId == null) continue;
-          final depSlug = await resolveSlugForProjectId(depProjectId);
+          final depSlug =
+              await (resolveDependencySlug?.call(depProjectId, slug) ??
+                  resolveSlugForProjectId(depProjectId));
           if (depSlug == null) continue;
           // Spec case 3: incompatible edges that target an override
           // slug are silently dropped. (Edges originating from an

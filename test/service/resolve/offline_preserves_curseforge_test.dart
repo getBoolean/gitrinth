@@ -238,7 +238,19 @@ mods:
         //    the running packageVersion so the prior lock matches what
         //    buildLock will produce — otherwise the diff would be
         //    non-empty on a gitrinth-version line.
-        final priorLock = _dualSourceLock(gitrinthVersion: packageVersion);
+        final template = _dualSourceLock(gitrinthVersion: packageVersion);
+        final cf = template.mods['jei']!.curseforge!;
+        final priorLock = template.copyWith(
+          mods: {
+            'jei': template.mods['jei']!.copyWith(
+              curseforge: cf.copyWith(
+                file: cf.file.copyWith(
+                  sha1: sha1.convert(const [0]).toString(),
+                ),
+              ),
+            ),
+          },
+        );
         final priorLockText = emitModsLock(priorLock);
         File(
           p.join(tempDir.path, 'mods.lock'),

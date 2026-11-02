@@ -74,6 +74,27 @@ void main() {
       expect(out, isA<HashAcceptedMismatch>());
     });
 
+    test(
+      'an older matching pair takes precedence over accepting a mismatch',
+      () {
+        final out = scanForMatchingPair(
+          mrCandidates: [
+            _mr(number: '2.0.0', sha1: 'new-mr'),
+            _mr(number: '1.0.0', sha1: 'same'),
+          ],
+          cfCandidates: [
+            _cf(id: 2, sha1: 'new-cf'),
+            _cf(id: 1, sha1: 'same'),
+          ],
+          hashScanDepth: 1,
+          allowHashMismatch: true,
+        );
+        expect(out, isA<HashMatched>());
+        expect((out as HashMatched).modrinthVersion.versionNumber, '1.0.0');
+        expect(out.curseforgeFile.id, 1);
+      },
+    );
+
     test('depth=10 finds a match at index 3 → HashMatched', () {
       final mr = [
         for (var i = 0; i < 6; i++) _mr(number: '1.0.$i', sha1: 'mr$i'),

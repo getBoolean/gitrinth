@@ -75,6 +75,7 @@ abstract class GitrinthCommand extends Command<int> {
     bool enforce = false,
     Set<String> freshSlugs = const {},
     Set<String> relaxConstraints = const {},
+    Set<String> allowMissingSourcesForSlugs = const {},
     ModsYaml? manifestOverride,
     SolveType solveType = SolveType.get,
   }) {
@@ -95,6 +96,7 @@ abstract class GitrinthCommand extends Command<int> {
           !(argResults!['search'] as bool),
       freshSlugs: freshSlugs,
       relaxConstraints: relaxConstraints,
+      allowMissingSourcesForSlugs: allowMissingSourcesForSlugs,
       manifestOverride: manifestOverride,
       solveType: solveType,
     );

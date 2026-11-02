@@ -8,7 +8,9 @@ import '../../model/manifest/mods_lock.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../../model/manifest/source_eligibility.dart';
 import '../../model/modrinth/version.dart' as modrinth;
+import '../../model/modrinth/dependency.dart';
 import '../../model/resolver/result.dart';
+import '../../model/resolver/constraint.dart';
 import '../../version.dart';
 import '../cache.dart';
 import '../console.dart';
@@ -34,6 +36,7 @@ ModsLock buildLock({
   required String? resolvedModLoaderVersion,
   required String? resolvedPluginLoaderVersion,
   Set<String> modrinthSearchSlugs = const {},
+  String? Function(Section section, String slug)? hostFor,
 }) {
   final mods = <String, LockedEntry>{};
   final resourcePacks = <String, LockedEntry>{};
@@ -52,6 +55,24 @@ ModsLock buildLock({
   final mrBySlug = <String, ResolvedEntry>{
     for (final r in resolution.entries) r.slug: r,
   };
+  final requiredBy = <String, Set<String>>{};
+  for (final parent in resolution.entries) {
+    for (final dep in parent.version.dependencies) {
+      if (dep.dependencyType != DependencyType.required) continue;
+      for (final child in resolution.entries) {
+        if (child.version.projectId != dep.projectId) continue;
+        if (hostFor != null &&
+            hostFor(parent.section, parent.slug) !=
+                hostFor(child.section, child.slug)) {
+          continue;
+        }
+        (requiredBy[child.slug] ??= {}).add(parent.slug);
+      }
+    }
+  }
+  for (final child in cfResolution.resolved.values) {
+    (requiredBy[child.slug] ??= {}).addAll(child.requiredBy);
+  }
 
   // Walk every Modrinth-resolved slug, applying any matching CF block
   // and hash outcome. Modrinth-only entries pass through unchanged.
@@ -70,6 +91,13 @@ ModsLock buildLock({
       cfEntry: cf,
       hashOutcome: outcome,
       modrinthDiscoveredViaSearch: modrinthSearchSlugs.contains(r.slug),
+    ).copyWith(requiredBy: (requiredBy[r.slug] ?? {}).toList()..sort());
+    // Persist the source host for dependency lookups and cache addressing.
+    final built = sectionMap[r.slug]!;
+    sectionMap[r.slug] = built.copyWith(
+      modrinth: built.modrinth?.copyWith(
+        host: hostFor?.call(r.section, r.slug),
+      ),
     );
   }
 
@@ -215,9 +243,10 @@ LockedEntry _buildResolvedEntry({
     );
   }
 
-  // Joint label: Modrinth's versionNumber when present, else
-  // CurseForge's fileName. Used for the human-facing `version:` line.
-  final jointLabel = mrSource?.versionNumber ?? cfSource?.file.name;
+  final jointLabel =
+      mrSource?.versionNumber ??
+      cfEntry?.file.displayName ??
+      cfSource?.file.name;
 
   // Sides + dependency follow Modrinth's resolved entry when present,
   // else fall back to manifest defaults (CF-only entries don't go
@@ -227,7 +256,9 @@ LockedEntry _buildResolvedEntry({
   );
   final client = mrEntry?.client ?? manifestEntry?.client ?? defaults.client;
   final server = mrEntry?.server ?? manifestEntry?.server ?? defaults.server;
-  final dependency = mrEntry?.dependency ?? LockedDependencyKind.direct;
+  final dependency = manifestEntry != null
+      ? LockedDependencyKind.direct
+      : LockedDependencyKind.transitive;
 
   return LockedEntry(
     slug: slug,
@@ -238,6 +269,7 @@ LockedEntry _buildResolvedEntry({
     client: client,
     server: server,
     dependency: dependency,
+    requiredBy: cfEntry?.requiredBy ?? const [],
     acceptsMc: List.unmodifiable(manifestEntry?.acceptsMc ?? const <String>[]),
   );
 }
@@ -255,6 +287,7 @@ String? formatCrossPlatformMissingError({
   required ModsYaml manifest,
   required Set<String> mrNotFoundSlugs,
   required CfResolution cfResolution,
+  Set<String> allowedMissingSlugs = const {},
 }) {
   final cfNotFoundBySlug = {for (final f in cfResolution.notFound) f.slug: f};
   final lines = <String>[];
@@ -263,8 +296,10 @@ String? formatCrossPlatformMissingError({
     final entries = manifest.sectionEntries(section);
     for (final mapEntry in entries.entries) {
       final slug = mapEntry.key;
+      if (allowedMissingSlugs.contains(slug)) continue;
       final entry = mapEntry.value;
       if (entry.source is! ModrinthEntrySource) continue;
+      if (isAnyGitrinthMarker(entry.constraintRaw)) continue;
       final effective = effectiveSources(manifest, entry, section);
       final missing = <String>[];
       if (effective.contains(SourceKind.modrinth) &&

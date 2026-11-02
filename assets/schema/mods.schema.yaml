@@ -119,12 +119,31 @@ properties:
         description: Server-side compatibility.
 
   publish_to:
-    description: |
-      URL of the Modrinth-compatible server `gitrinth publish` uploads
-      to. Omit (or set `null`) to publish to modrinth.com. Set to
-      `none` to disable publishing.
-    type: [ string, "null" ]
-    format: uri
+    description: Publish targets; omitted/null follows enabled gitrinth platforms.
+    oneOf:
+      - type: "null"
+      - enum: [none, modrinth, curseforge]
+      - type: array
+        minItems: 1
+        uniqueItems: true
+        items:
+          enum: [modrinth, curseforge]
+      - type: object
+        minProperties: 1
+        additionalProperties: false
+        properties:
+          modrinth:
+            oneOf:
+              - type: "null"
+              - type: string
+                pattern: '^https?://[^/]+.*$'
+              - type: object
+                maxProperties: 0
+          curseforge:
+            oneOf:
+              - type: "null"
+              - type: object
+                maxProperties: 0
 
   loader:
     type: object

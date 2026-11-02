@@ -9,6 +9,11 @@ import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../model/manifest/parser.dart';
+import '../model/manifest/source_eligibility.dart';
+import '../model/curseforge/cf_constants.dart';
+import '../service/curseforge/curseforge_filters.dart';
+import '../service/curseforge/curseforge_version.dart';
 import '../model/modrinth/dependency.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart' as modrinth;
@@ -34,6 +39,13 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
 
   AddCommand() {
     argParser
+      ..addFlag('modrinth', help: 'Resolve on Modrinth for this entry.')
+      ..addFlag('curseforge', help: 'Resolve on CurseForge for this entry.')
+      ..addFlag(
+        'allow-hash-mismatch',
+        negatable: false,
+        help: 'Accept and record different platform hashes.',
+      )
       ..addFlag(
         'search',
         defaultsTo: true,
@@ -133,7 +145,13 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       );
     }
 
-    final (:slug, :constraintRaw) = parseSlugConstraint(positional);
+    final cfSugar = positional.startsWith('cf:');
+    final (:slug, :constraintRaw) = parseSlugConstraint(
+      cfSugar ? positional.substring(3) : positional,
+    );
+    if (slug.isEmpty) {
+      throw const UsageError('Missing CurseForge slug after cf:.');
+    }
     validateConstraintFlags(
       exact: exactFlag,
       pin: pinFlag,
@@ -142,6 +160,26 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
 
     final io = ManifestIo();
     final existingManifest = io.readModsYaml();
+
+    final platformFlags =
+        argResults!.wasParsed('modrinth') ||
+        argResults!.wasParsed('curseforge');
+    final mismatch = argResults!['allow-hash-mismatch'] as bool;
+    if ((cfSugar || platformFlags || mismatch) &&
+        (urlOpt != null || pathOpt != null)) {
+      throw const UsageError(
+        'Platform options cannot be combined with --url or --path.',
+      );
+    }
+    if (cfSugar &&
+        ((argResults!.wasParsed('modrinth') &&
+                argResults!['modrinth'] == true) ||
+            (argResults!.wasParsed('curseforge') &&
+                argResults!['curseforge'] == false))) {
+      throw const UsageError(
+        'cf: requires CurseForge enabled and Modrinth disabled.',
+      );
+    }
 
     // Duplicate check — scan every section. `dart pub add` rejects adds for
     // already-declared packages; we mirror that.
@@ -153,6 +191,33 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
           'Edit the entry directly or remove it first.',
         );
       }
+    }
+
+    if (urlOpt == null &&
+        pathOpt == null &&
+        (cfSugar ||
+            platformFlags ||
+            mismatch ||
+            existingManifest.gitrinth.isPlatformEnabled(
+              SourceKind.curseforge,
+            ) ||
+            !existingManifest.gitrinth.isPlatformEnabled(
+              SourceKind.modrinth,
+            ))) {
+      return _addPlatformEntry(
+        io: io,
+        manifest: existingManifest,
+        slug: slug,
+        constraint: constraintRaw,
+        cfSugar: cfSugar,
+        sectionOverride: typeOverride,
+        env: envOpt,
+        acceptsMc: acceptsMc,
+        exact: exactFlag,
+        pin: pinFlag,
+        dryRun: dryRun,
+        offline: offline,
+      );
     }
 
     final Section section;
@@ -189,9 +254,6 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       longForm = long;
       writtenValue = null;
     } else {
-      // Modrinth source. New entries default to the pack's
-      // `modrinth_host:`; per-flag `--modrinth-host` overrides land
-      // with Part 7 of the bridge.
       final api = read(
         modrinthApiFactoryProvider,
       ).forHost(existingManifest.modrinthHost);
@@ -334,6 +396,245 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       );
     }
     return exitOk;
+  }
+
+  Future<int> _addPlatformEntry({
+    required ManifestIo io,
+    required ModsYaml manifest,
+    required String slug,
+    required String? constraint,
+    required bool cfSugar,
+    required Section? sectionOverride,
+    required String? env,
+    required List<String> acceptsMc,
+    required bool exact,
+    required bool pin,
+    required bool dryRun,
+    required bool offline,
+  }) async {
+    final requested = <SourceKind>{};
+    for (final kind in SourceKind.values) {
+      final selected = cfSugar
+          ? kind == SourceKind.curseforge
+          : argResults!.wasParsed(kind.name)
+          ? argResults![kind.name] as bool
+          : manifest.gitrinth.isPlatformEnabled(kind);
+      if (selected) requested.add(kind);
+    }
+    if (requested.isEmpty) {
+      throw const UsageError('At least one platform must be enabled for add.');
+    }
+    var section = sectionOverride;
+    section ??=
+        !manifest.loader.hasModRuntime && manifest.loader.plugins != null
+        ? Section.plugins
+        : null;
+    void checkEligibility() {
+      if (section != null &&
+          requested.contains(SourceKind.curseforge) &&
+          !sectionAllowsCurseforge(section, manifest.loader.plugins)) {
+        if (cfSugar ||
+            argResults!.wasParsed('curseforge') ||
+            (argResults!.wasParsed('modrinth') &&
+                argResults!['modrinth'] == false)) {
+          throw const ValidationError(
+            'CurseForge plugins require loader.plugins bukkit, spigot, or paper. See the source eligibility matrix.',
+          );
+        }
+        requested.remove(SourceKind.curseforge);
+      }
+    }
+
+    checkEligibility();
+    if (section == null && requested.contains(SourceKind.modrinth)) {
+      try {
+        final project = await read(
+          modrinthApiFactoryProvider,
+        ).forHost(manifest.modrinthHost).getProject(slug);
+        section = inferSectionFromProject(
+          projectType: project.projectType,
+          loaders: project.loaders,
+        );
+      } on DioException catch (e) {
+        if (e.response?.statusCode != 404) rethrow;
+      }
+    }
+    if (section == null && requested.contains(SourceKind.curseforge)) {
+      final api = read(curseForgeApiFactoryProvider).api;
+      if (int.tryParse(slug) case final int id) {
+        final project = (await api.getMod(id)).data;
+        section = Section.values
+            .where((s) => s.cfClassId == project.classId)
+            .firstOrNull;
+      } else {
+        for (final candidate in Section.values) {
+          if (!sectionAllowsCurseforge(candidate, manifest.loader.plugins)) {
+            continue;
+          }
+          if (await findModBySlug(api, slug: slug, section: candidate) !=
+              null) {
+            section = candidate;
+            break;
+          }
+        }
+      }
+    }
+    if (section == null) throw UserError('No eligible platform has "$slug".');
+    checkEligibility();
+    if (requested.isEmpty) {
+      throw const UsageError(
+        'No eligible platform is enabled for this section.',
+      );
+    }
+    if (section == Section.mods && !manifest.loader.hasModRuntime) {
+      throw UserError('cannot add mod "$slug": loader.mods is not set.');
+    }
+    final original = File(io.modsYamlPath).readAsStringSync();
+    final fields = <String, Object?>{
+      'version': constraint ?? 'release',
+      'sources': requested.map((k) => k.name).toList(),
+      if (argResults!['allow-hash-mismatch'] as bool)
+        'allow_hash_mismatch': true,
+      if (acceptsMc.isNotEmpty)
+        'accepts_mc': acceptsMc.length == 1 ? acceptsMc.first : acceptsMc,
+    };
+    writeSideFields(fields, env);
+    String render(Map<String, Object?> value) => injectEntry(
+      original,
+      section: section!,
+      slug: slug,
+      shorthandValue: value.length == 1 ? value['version'] as String : null,
+      longForm: value.length == 1 ? null : value,
+    );
+    final preview =
+        await runResolveAndSync(
+          io: io,
+          offline: offline,
+          dryRun: true,
+          manifestOverride: parseModsYaml(
+            render(fields),
+            filePath: io.modsYamlPath,
+          ),
+          allowMissingSourcesForSlugs: {slug},
+        ).catchError((Object error) {
+          if (error is ValidationError) {
+            throw ValidationError(
+              '${error.message}\nFor add, select a source with '
+              '--[no-]modrinth / --[no-]curseforge, or accept divergent hashes '
+              'with --allow-hash-mismatch.',
+            );
+          }
+          throw error;
+        });
+    final locked = preview.newLock?.allEntries
+        .where((e) => e.key == slug)
+        .firstOrNull
+        ?.value;
+    if (locked == null) {
+      throw UserError(
+        'No eligible platform has a compatible version of "$slug".',
+      );
+    }
+    final resolved = <SourceKind>{
+      if (locked.modrinth != null) SourceKind.modrinth,
+      if (locked.curseforge != null) SourceKind.curseforge,
+    };
+    if (resolved.isEmpty) {
+      throw UserError(
+        'No eligible platform has a compatible version of "$slug".',
+      );
+    }
+    if (locked.modrinth != null && locked.curseforge != null) {
+      final latestMr = locked.modrinth!.discoveredViaSearch
+          ? null
+          : await pickLatestReleaseVersion(
+              api: read(
+                modrinthApiFactoryProvider,
+              ).forHost(manifest.modrinthHost),
+              slug: slug,
+              section: section,
+              loaderConfig: manifest.loader,
+              mcVersion: manifest.mcVersion,
+              acceptsMc: acceptsMc,
+            );
+      final latestCf = await listCompatibleFiles(
+        api: read(curseForgeApiFactoryProvider).api,
+        projectId: locked.curseforge!.projectId,
+        section: section,
+        modLoader: section == Section.mods ? manifest.loader.mods : null,
+        pluginLoader: manifest.loader.plugins,
+        gameVersions: [manifest.mcVersion, ...acceptsMc],
+        channel: Channel.release,
+      );
+      if ((latestMr != null && latestMr.id != locked.modrinth!.versionId) ||
+          (latestCf.isNotEmpty &&
+              latestCf.first.id != locked.curseforge!.fileId)) {
+        console.message(
+          'Selected matching version ${locked.modrinth!.versionNumber}; '
+          'latest Modrinth: ${latestMr?.versionNumber ?? "<none>"}, '
+          'latest CurseForge: ${latestCf.firstOrNull?.displayName ?? "<none>"}.',
+        );
+      }
+    }
+    if (constraint == null) {
+      var version = locked.modrinth?.versionNumber;
+      if (version == null && locked.curseforge != null) {
+        final cf = locked.curseforge!;
+        final file = (await read(
+          curseForgeApiFactoryProvider,
+        ).api.getFile(cf.projectId, cf.fileId)).data;
+        version = curseForgeFileVersion(file);
+      }
+      // CF display names need not contain a semantic version.
+      version ??= 'release';
+      fields['version'] = exact
+          ? '^$version'
+          : pin
+          ? bareVersionForPin(version)
+          : caretOrPinFallback(version);
+    }
+    final explicit =
+        cfSugar ||
+        argResults!.wasParsed('modrinth') ||
+        argResults!.wasParsed('curseforge');
+    final defaults = effectiveSources(manifest, ModEntry(slug: slug), section);
+    if (resolved.length == requested.length &&
+        !explicit &&
+        defaults.length == resolved.length &&
+        defaults.containsAll(resolved)) {
+      fields.remove('sources');
+    } else {
+      fields['sources'] = cfSugar
+          ? 'curseforge'
+          : resolved.map((k) => k.name).toList();
+    }
+    if (resolved.length < requested.length) {
+      console.message(
+        'Only ${resolved.single.name} has a compatible version of $slug; restricting sources.',
+      );
+    }
+    final updated = render(fields);
+    parseModsYaml(updated, filePath: io.modsYamlPath);
+    if (dryRun) {
+      console.message('Would add to ${sectionKeyFor(section)}:');
+      console.message(
+        _describeEntry(
+          slug: slug,
+          shorthand: fields.length == 1 ? fields['version'] as String : null,
+          longForm: fields.length == 1 ? null : fields,
+        ),
+      );
+      return exitOk;
+    }
+    io.writeModsYaml(updated);
+    final result = await runResolveAndSync(io: io, offline: offline);
+    if (result.exitCode == exitOk) {
+      SolveReporter(console).printSummary(
+        changeCount: result.changeCount,
+        outdated: result.outdated,
+      );
+    }
+    return result.exitCode;
   }
 
   // Same permissive pattern the YAML parser uses for accepts-mc.

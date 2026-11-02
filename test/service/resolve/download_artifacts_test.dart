@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
@@ -44,6 +45,63 @@ void main() {
   });
 
   group('downloadArtifacts', () {
+    for (final scenario in [
+      'valid cache',
+      'corrupt cache',
+      'corrupt download',
+    ]) {
+      test('CurseForge SHA1 verification: $scenario', () async {
+        final good = [1, 2, 3, 4];
+        final dest = File(
+          cache.curseforgePath(projectId: 42, fileId: 7, filename: 'mod.jar'),
+        );
+        if (scenario != 'corrupt download') {
+          dest.parent.createSync(recursive: true);
+          dest.writeAsBytesSync(scenario == 'valid cache' ? good : [0]);
+        }
+        var requests = 0;
+        final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(() => server.close(force: true));
+        server.listen((req) async {
+          requests++;
+          req.response.add(scenario == 'corrupt download' ? [0] : good);
+          await req.response.close();
+        });
+        final lock = _lockWith({
+          'mod': LockedEntry(
+            slug: 'mod',
+            kind: LockedEntryKind.resolved,
+            curseforge: LockedCurseforgeSource(
+              projectId: 42,
+              fileId: 7,
+              file: LockedFile(
+                name: 'mod.jar',
+                url: 'http://127.0.0.1:${server.port}/mod.jar',
+                sha1: sha1.convert(good).toString(),
+              ),
+            ),
+          ),
+        });
+        final result = await downloadArtifacts(
+          lock: lock,
+          cache: cache,
+          downloader: downloader,
+          console: const Console(level: LogLevel.error),
+          io: io,
+          hostFor: (_, _) => 'unused',
+        );
+        if (scenario == 'corrupt download') {
+          expect(result.errors, hasLength(1));
+          expect(result.errors.single, contains('checksum mismatch'));
+          expect(dest.existsSync(), isFalse);
+        } else {
+          expect(result.errors, isEmpty);
+          expect(dest.readAsBytesSync(), good);
+          expect(requests, scenario == 'valid cache' ? 0 : 1);
+        }
+      });
+    }
+
     test('CurseForge entry with allowModDistribution=false aggregates an error '
         'and does not attempt a fetch', () async {
       final lock = _lockWith({

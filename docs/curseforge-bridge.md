@@ -33,9 +33,9 @@ and independently.
 - [x] [Part 3: CurseForge API client](#part-3-curseforge-api-client) — typed client, env-only download key lookup, content-type filters, loader/version filters, file/hash/dependency models, cache boundaries.
 - [x] [Part 4: Resolver and lockfile](#part-4-resolver-and-lockfile) — multi-source resolution, per-platform lock blocks, hard-fail on missing platforms (no `not_found` lockfile state), plugin lock behavior, cross-platform SHA1 verification, `hash_scan_depth`, `allow_hash_mismatch`. Includes a refactor of PubGrub to drop its Modrinth-specific imports so future cross-platform graph work can plug in.
 - [x] [Part 5: Search fallback](#part-5-search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, section-aware search filters, `no_cross_platform_search` / `--no-search` opt-outs.
-- [ ] [Part 6: Transitive dependencies and deduplication](#part-6-transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
-- [ ] [Part 7: CLI integration](#part-7-cli-integration) — `add` entry-write matrix, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, `cf:` handling, token commands.
-- [ ] [Part 8: Pack and publish](#part-8-pack-and-publish) — `publish_to` target selector/config map, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`, plugin publishing constraints.
+- [x] [Part 6: Transitive dependencies and deduplication](#part-6-transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
+- [x] [Part 7: CLI integration](#part-7-cli-integration) — `add` entry-write matrix, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, `cf:` handling, token commands.
+- [x] [Part 8: Pack and publish](#part-8-pack-and-publish) — `publish_to` target selector/config map, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`, plugin publishing constraints.
 
 The [Mixing CF and Modrinth in one pack](#mixing-cf-and-modrinth-in-one-pack)
 section describes the resulting lockfile shape — it's not a task on
@@ -278,11 +278,11 @@ Done means:
 
 ### Part 6: Transitive dependencies and deduplication
 
-Layer graph behavior on top of stable source resolution. Details live
+Shipped. The graph resolver builds on stable source resolution. Details live
 in
 [Transitive dependencies and deduplication](#transitive-dependencies-and-deduplication).
 
-Done means:
+What landed:
 
 - Top-level entries are indexed by source/host/slug.
 - Transitive dependencies are assigned to lockfile sections by the
@@ -290,16 +290,19 @@ Done means:
 - Synthetic entries are created only when no top-level entry matches.
 - Cross-platform synthetics merge only on hash evidence.
 - `required_by:` is retained for `deps` output.
+- Hash-selected files are re-walked until both dependency graphs stabilize;
+  obsolete children are pruned. Offline resolution retains reachable peers
+  from the lock and cached metadata without network access.
 
 ### Part 7: CLI integration
 
-Expose the new behavior through commands after parser and resolver
-semantics are stable. Details live in
+Shipped. The CLI exposes source selection, peer discovery, and credentials.
+Details live in
 [`add` command cross-platform behavior](#add-command-cross-platform-behavior)
 and the command docs linked from
 [Implementation touches](#implementation-touches).
 
-Done means:
+What landed:
 
 - `gitrinth add` writes the minimal source shape for one-sided or
   dual-source entries.
@@ -314,10 +317,10 @@ Done means:
 
 ### Part 8: Pack and publish
 
-Finish with archive output and remote upload behavior. Details live
+Shipped. Archive output and remote upload share the target selection model. Details live
 in [Publishing to CurseForge](#publishing-to-curseforge).
 
-Done means:
+What landed:
 
 - `pack --curseforge` emits a CF-compatible archive.
 - `publish` can target Modrinth, CurseForge, or both.
@@ -331,6 +334,9 @@ Done means:
 - Plugin publishing is limited to Bukkit/Spigot/Paper-compatible
   plugin entries; Sponge and Folia plugin entries are excluded from
   the CurseForge target unless represented as loose overrides.
+
+Archive contents and multipart uploads are covered by local HTTP tests;
+verification does not publish a release to either service.
 
 ## Reference architecture
 
@@ -1066,7 +1072,7 @@ mods:
   jei:
     version: 19.27.0
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
-    curseforge: { project_id: 238222, file_id: ..., sha512: ... }
+    curseforge: { project_id: 238222, file_id: ..., file: { sha1: ... } }
   distanthorizons:
     version: 2.3.0
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
@@ -1084,7 +1090,7 @@ plugins:
   luckperms:
     version: 5.5.17
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
-    curseforge: { project_id: ..., file_id: ..., sha512: ... }
+    curseforge: { project_id: ..., file_id: ..., file: { sha1: ... } }
 ```
 
 [`deps`](todo.md#deps-command) surfaces per-platform source

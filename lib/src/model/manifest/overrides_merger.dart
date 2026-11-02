@@ -35,15 +35,7 @@ Future<MergedManifest> applyOverrides(
         base.plugins.containsKey(slug);
     if (alreadyDeclared) continue;
     final section = await inferSectionForTransitive(slug);
-    final synthesized = ModEntry(
-      slug: slug,
-      constraintRaw: ov.constraintRaw,
-      channel: ov.channel,
-      client: ov.client,
-      server: ov.server,
-      source: ov.source,
-      acceptsMc: ov.acceptsMc,
-    );
+    final synthesized = ov.copyWith(slug: slug);
     switch (section) {
       case Section.mods:
         mods[slug] = synthesized;
@@ -63,13 +55,7 @@ Future<MergedManifest> applyOverrides(
     }
   }
 
-  final mergedManifest = ModsYaml(
-    slug: base.slug,
-    name: base.name,
-    version: base.version,
-    description: base.description,
-    loader: base.loader,
-    mcVersion: base.mcVersion,
+  final mergedManifest = base.copyWith(
     mods: mods,
     resourcePacks: resourcePacks,
     dataPacks: dataPacks,
@@ -109,14 +95,22 @@ Map<String, ModEntry> _applyTo(
       return;
     }
     // Override version/source, and replace any transient gitrinth marker.
-    result[slug] = ModEntry(
-      slug: slug,
+    result[slug] = entry.copyWith(
       constraintRaw: ov.constraintRaw ?? entry.constraintRaw,
       channel: ov.channel ?? entry.channel,
       client: ov.client,
       server: ov.server,
-      source: ov.source,
+      source: switch ((entry.source, ov.source)) {
+        (ModrinthEntrySource(), ModrinthEntrySource(host: null)) =>
+          entry.source,
+        _ => ov.source,
+      },
       acceptsMc: ov.acceptsMc.isNotEmpty ? ov.acceptsMc : entry.acceptsMc,
+      modrinthSlug: ov.modrinthSlug ?? entry.modrinthSlug,
+      curseforgeSlug: ov.curseforgeSlug ?? entry.curseforgeSlug,
+      sources: ov.sources ?? entry.sources,
+      hashScanDepth: ov.hashScanDepth ?? entry.hashScanDepth,
+      allowHashMismatch: ov.allowHashMismatch ?? entry.allowHashMismatch,
       noCrossPlatformSearch:
           ov.noCrossPlatformSearch || entry.noCrossPlatformSearch,
     );

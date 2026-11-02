@@ -360,24 +360,23 @@ void main() {
       },
     );
 
-    test(
-      '--publishable allows url-source RESOURCE PACK (different policy)',
-      () {
-        final lock = _lock(
-          mods: {'sodium': _modrinth(slug: 'sodium')},
-          resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
-        );
-        final idx = buildIndex(
+    test('--publishable rejects target-missing RESOURCE PACK', () {
+      final lock = _lock(
+        mods: {'sodium': _modrinth(slug: 'sodium')},
+        resourcePacks: {'custom-rp': _url(slug: 'custom-rp')},
+      );
+      expect(
+        () => buildIndex(
           yaml: _yaml(),
           lock: lock,
           target: PackTarget.combined,
           publishable: true,
-        );
-        expect(idx.files, hasLength(1));
-      },
-    );
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+    });
 
-    test('--publishable allows url-source DATA PACK and SHADER too', () {
+    test('--publishable rejects target-missing DATA PACK and SHADER too', () {
       final lock = _lock(
         dataPacks: {'custom-dp': _url(slug: 'custom-dp')},
         shaders: {
@@ -388,13 +387,15 @@ void main() {
           ),
         },
       );
-      final idx = buildIndex(
-        yaml: _yaml(),
-        lock: lock,
-        target: PackTarget.combined,
-        publishable: true,
+      expect(
+        () => buildIndex(
+          yaml: _yaml(),
+          lock: lock,
+          target: PackTarget.combined,
+          publishable: true,
+        ),
+        throwsA(isA<ValidationError>()),
       );
-      expect(idx.files, isEmpty);
     });
 
     test(

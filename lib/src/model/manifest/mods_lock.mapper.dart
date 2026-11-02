@@ -807,6 +807,14 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: LockedDependencyKind.direct,
   );
+  static List<String> _$requiredBy(LockedEntry v) => v.requiredBy;
+  static const Field<LockedEntry, List<String>> _f$requiredBy = Field(
+    'requiredBy',
+    _$requiredBy,
+    key: r'required_by',
+    opt: true,
+    def: const [],
+  );
   static List<String> _$acceptsMc(LockedEntry v) => v.acceptsMc;
   static const Field<LockedEntry, List<String>> _f$acceptsMc = Field(
     'acceptsMc',
@@ -828,6 +836,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     #client: _f$client,
     #server: _f$server,
     #dependency: _f$dependency,
+    #requiredBy: _f$requiredBy,
     #acceptsMc: _f$acceptsMc,
   };
 
@@ -844,6 +853,7 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
       client: data.dec(_f$client),
       server: data.dec(_f$server),
       dependency: data.dec(_f$dependency),
+      requiredBy: data.dec(_f$requiredBy),
       acceptsMc: data.dec(_f$acceptsMc),
     );
   }
@@ -917,6 +927,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
   >?
   get curseforge;
   LockedFileCopyWith<$R, LockedFile, LockedFile>? get urlFile;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get requiredBy;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc;
   $R call({
     String? slug,
@@ -930,6 +941,7 @@ abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     SideEnv? client,
     SideEnv? server,
     LockedDependencyKind? dependency,
+    List<String>? requiredBy,
     List<String>? acceptsMc,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -958,6 +970,13 @@ class _LockedEntryCopyWithImpl<$R, $Out>
   LockedFileCopyWith<$R, LockedFile, LockedFile>? get urlFile =>
       $value.urlFile?.copyWith.$chain((v) => call(urlFile: v));
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get requiredBy =>
+      ListCopyWith(
+        $value.requiredBy,
+        (v, t) => ObjectCopyWith(v, $identity, t),
+        (v) => call(requiredBy: v),
+      );
+  @override
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc =>
       ListCopyWith(
         $value.acceptsMc,
@@ -977,6 +996,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     SideEnv? client,
     SideEnv? server,
     LockedDependencyKind? dependency,
+    List<String>? requiredBy,
     List<String>? acceptsMc,
   }) => $apply(
     FieldCopyWithData({
@@ -991,6 +1011,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
       if (client != null) #client: client,
       if (server != null) #server: server,
       if (dependency != null) #dependency: dependency,
+      if (requiredBy != null) #requiredBy: requiredBy,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
     }),
   );
@@ -1007,6 +1028,7 @@ class _LockedEntryCopyWithImpl<$R, $Out>
     client: data.get(#client, or: $value.client),
     server: data.get(#server, or: $value.server),
     dependency: data.get(#dependency, or: $value.dependency),
+    requiredBy: data.get(#requiredBy, or: $value.requiredBy),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
   );
 

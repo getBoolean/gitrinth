@@ -20,6 +20,9 @@ import '../commands/get_command.dart';
 import '../commands/launch_command.dart';
 import '../commands/migrate_command.dart';
 import '../commands/modrinth_command.dart';
+import '../commands/platform_command.dart';
+import '../commands/token_command.dart';
+import '../commands/publish_command.dart';
 import '../commands/outdated_command.dart';
 import '../commands/override_command.dart';
 import '../commands/pack_command.dart';
@@ -113,6 +116,9 @@ class GitrinthRunner extends CommandRunner<int> {
     addCommand(MigrateCommand());
     addCommand(CacheCommand());
     addCommand(ModrinthCommand());
+    addCommand(CurseForgeCommand());
+    addCommand(TokenCommand());
+    addCommand(PublishCommand());
     addCommand(CompletionCommand());
   }
 

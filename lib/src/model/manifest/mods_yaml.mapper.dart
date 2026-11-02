@@ -1554,6 +1554,7 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       GitrinthConfigMapper.ensureInitialized();
       ModEntryMapper.ensureInitialized();
       FileEntryMapper.ensureInitialized();
+      SourceKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1641,8 +1642,8 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     opt: true,
     def: const {},
   );
-  static String? _$publishTo(ModsYaml v) => v.publishTo;
-  static const Field<ModsYaml, String> _f$publishTo = Field(
+  static Map<SourceKind, String?>? _$publishTo(ModsYaml v) => v.publishTo;
+  static const Field<ModsYaml, Map<SourceKind, String?>> _f$publishTo = Field(
     'publishTo',
     _$publishTo,
     opt: true,
@@ -1767,6 +1768,8 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     FileEntryCopyWith<$R, FileEntry, FileEntry>
   >
   get files;
+  MapCopyWith<$R, SourceKind, String?, ObjectCopyWith<$R, String?, String?>?>?
+  get publishTo;
   $R call({
     String? slug,
     String? name,
@@ -1783,7 +1786,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     Map<String, ModEntry>? plugins,
     Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
-    String? publishTo,
+    Map<SourceKind, String?>? publishTo,
   });
   ModsYamlCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1856,6 +1859,15 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     (v, t) => v.copyWith.$chain(t),
     (v) => call(files: v),
   );
+  @override
+  MapCopyWith<$R, SourceKind, String?, ObjectCopyWith<$R, String?, String?>?>?
+  get publishTo => $value.publishTo != null
+      ? MapCopyWith(
+          $value.publishTo!,
+          (v, t) => ObjectCopyWith(v, $identity, t),
+          (v) => call(publishTo: v),
+        )
+      : null;
   @override
   $R call({
     String? slug,

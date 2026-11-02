@@ -93,6 +93,9 @@ void _emitEntry(StringBuffer buf, String slug, LockedEntry e) {
   if (e.dependency != LockedDependencyKind.direct) {
     buf.writeln('    dependency: ${e.dependency.name}');
   }
+  if (e.requiredBy.isNotEmpty) {
+    buf.writeln('    required_by: [${e.requiredBy.map(_str).join(', ')}]');
+  }
   if (e.acceptsMc.isNotEmpty) {
     final quoted = e.acceptsMc.map(_str).join(', ');
     buf.writeln('    accepts_mc: [$quoted]');

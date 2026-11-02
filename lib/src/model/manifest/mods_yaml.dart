@@ -346,10 +346,17 @@ class ModsYaml with ModsYamlMappable {
   /// pubgrub, mrpack `files[]` resolution, or the globalpacks tree.
   final Map<String, FileEntry> files;
 
-  /// Modrinth-compatible server URL `gitrinth modrinth publish`
-  /// uploads to. `null` means the default (modrinth.com); the literal
-  /// string `none` means publishing is disabled for this pack.
-  final String? publishTo;
+  /// Explicit publish targets with optional Modrinth publishing host.
+  /// Null follows enabled gitrinth platforms; empty disables publication.
+  final Map<SourceKind, String?>? publishTo;
+
+  /// Null follows enabled platforms; an empty map disables publishing.
+  Map<SourceKind, String?> get publishTargets =>
+      publishTo ??
+      {
+        for (final kind in SourceKind.values)
+          if (gitrinth.isPlatformEnabled(kind)) kind: null,
+      };
 
   const ModsYaml({
     required this.slug,

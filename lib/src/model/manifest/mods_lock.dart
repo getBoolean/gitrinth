@@ -121,6 +121,10 @@ class LockedEntry with LockedEntryMappable {
   /// Whether this entry is direct or transitive.
   final LockedDependencyKind dependency;
 
+  /// Logical parents requiring this entry, across all resolved platforms.
+  @MappableField(key: 'required_by')
+  final List<String> requiredBy;
+
   /// Per-entry `accepts-mc` override from `mods.yaml`.
   final List<String> acceptsMc;
 
@@ -136,6 +140,7 @@ class LockedEntry with LockedEntryMappable {
     this.client = SideEnv.required,
     this.server = SideEnv.required,
     this.dependency = LockedDependencyKind.direct,
+    this.requiredBy = const [],
     this.acceptsMc = const [],
   });
 
