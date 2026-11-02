@@ -24,8 +24,6 @@ import 'curseforge_pack_assembler.dart';
 import 'pack_assembler.dart';
 
 class PublishCommand extends PublicationCommand {
-  PublishCommand() : super(platformAware: true);
-
   @override
   String get invocation => 'gitrinth publish [arguments]';
 
@@ -45,13 +43,12 @@ class CurseForgePublishCommand extends PublicationCommand {
 }
 
 abstract class PublicationCommand extends GitrinthCommand {
-  final bool platformAware;
   final SourceKind? forcedPlatform;
 
   @override
   String get name => 'publish';
 
-  PublicationCommand({this.platformAware = false, this.forcedPlatform}) {
+  PublicationCommand({this.forcedPlatform}) {
     argParser
       ..addFlag(
         'dry-run',
@@ -120,9 +117,9 @@ abstract class PublicationCommand extends GitrinthCommand {
         "publish_to: 'none' in mods.yaml — publishing is disabled for this pack.",
       );
     }
-    final targets = platformAware
+    final targets = forcedPlatform == null
         ? yaml.publishTargets.keys.toList()
-        : [forcedPlatform ?? SourceKind.modrinth];
+        : [forcedPlatform!];
     for (final target in targets) {
       if (!yaml.publishTargets.containsKey(target)) {
         throw UserError('${target.name} is not selected by publish_to.');
@@ -326,8 +323,10 @@ abstract class PublicationCommand extends GitrinthCommand {
       return;
     }
     if (dryRun) {
-      final sha1Digest = await fileDigest(plan.artifact, sha1);
-      final sha512Digest = await fileDigest(plan.artifact, sha512);
+      final [sha1Digest, sha512Digest] = await fileDigests(plan.artifact, [
+        sha1,
+        sha512,
+      ]);
       console.message('Dry run: would publish to ${plan.serverUrl}');
       console.message(
         'Pack: ${plan.artifact.path} (sha1=$sha1Digest sha512=$sha512Digest)',
