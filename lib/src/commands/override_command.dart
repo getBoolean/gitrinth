@@ -9,7 +9,6 @@ import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/project.dart';
-import '../model/resolver/constraint.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve/section_inference.dart';
 import '../service/resolve/solve_report.dart';
@@ -255,7 +254,6 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
         section = inferredSection;
       }
 
-      // Version resolution (mirrors `add`'s no-`@constraint` path).
       final String effectiveConstraint;
       if (constraintRaw == null) {
         final latest = await pickLatestReleaseVersion(
@@ -267,49 +265,34 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
           acceptsMc: acceptsMc,
         );
         if (latest == null) {
-          final widened = acceptsMc.isEmpty
-              ? ''
-              : ' (widened with accepts-mc=${acceptsMc.join(",")})';
           throw UserError(
-            "No release version of '$slug' is compatible with "
-            "loader=${loaderNameForSection(existingManifest.loader, section) ?? '<none>'} "
-            "mc=${existingManifest.mcVersion}$widened. "
-            'Pass `@<version>` explicitly to pin an alpha/beta.',
+            noCompatibleReleaseMessage(
+              slug,
+              loaderName: loaderNameForSection(
+                existingManifest.loader,
+                section,
+              ),
+              mcVersion: existingManifest.mcVersion,
+              acceptsMc: acceptsMc,
+            ),
           );
         }
-        if (exactFlag) {
-          effectiveConstraint = '^${latest.versionNumber}';
-        } else if (pinFlag) {
-          effectiveConstraint = bareVersionForPin(latest.versionNumber);
-        } else {
-          effectiveConstraint = caretOrPinFallback(latest.versionNumber);
-        }
+        effectiveConstraint = constraintForSelectedVersion(
+          latest.versionNumber,
+          exact: exactFlag,
+          pin: pinFlag,
+        );
       } else {
-        // Validate the user-supplied constraint so a bad `@xyz` fails
-        // fast with a single-line error before we touch any file.
-        final channel = parseChannelToken(constraintRaw);
-        if (channel == null) {
-          parseConstraint(constraintRaw); // throws ValidationError
-        }
-        effectiveConstraint = constraintRaw;
+        effectiveConstraint = validatedEntryConstraint(constraintRaw);
       }
 
-      final needsLongForm =
-          (envOpt != null && envOpt != 'both') || acceptsMc.isNotEmpty;
-      if (needsLongForm) {
-        final long = <String, Object?>{'version': effectiveConstraint};
-        writeSideFields(long, envOpt);
-        if (acceptsMc.isNotEmpty) {
-          long['accepts_mc'] = acceptsMc.length == 1
-              ? acceptsMc.first
-              : acceptsMc;
-        }
-        longForm = long;
-        writtenValue = null;
-      } else {
-        longForm = null;
-        writtenValue = effectiveConstraint;
-      }
+      final fields = versionEntryFields(
+        effectiveConstraint,
+        env: envOpt,
+        acceptsMc: acceptsMc,
+      );
+      longForm = fields.length == 1 ? null : fields;
+      writtenValue = longForm == null ? effectiveConstraint : null;
     }
 
     final String updated;

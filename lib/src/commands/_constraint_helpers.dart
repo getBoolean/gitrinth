@@ -1,4 +1,49 @@
 import '../cli/exceptions.dart';
+import '../model/resolver/constraint.dart';
+import 'version_picker.dart';
+
+String constraintForSelectedVersion(
+  String version, {
+  required bool exact,
+  required bool pin,
+}) => exact
+    ? '^$version'
+    : pin
+    ? bareVersionForPin(version)
+    : caretOrPinFallback(version);
+
+String validatedEntryConstraint(String constraint) {
+  if (parseChannelToken(constraint) == null) parseConstraint(constraint);
+  return constraint;
+}
+
+Map<String, Object?> versionEntryFields(
+  String version, {
+  String? env,
+  List<String> acceptsMc = const [],
+}) {
+  final fields = <String, Object?>{'version': version};
+  writeSideFields(fields, env);
+  if (acceptsMc.isNotEmpty) {
+    fields['accepts_mc'] = acceptsMc.length == 1 ? acceptsMc.first : acceptsMc;
+  }
+  return fields;
+}
+
+String noCompatibleReleaseMessage(
+  String slug, {
+  required String? loaderName,
+  required String mcVersion,
+  required List<String> acceptsMc,
+}) {
+  final widened = acceptsMc.isEmpty
+      ? ''
+      : ' (widened with accepts-mc=${acceptsMc.join(",")})';
+  return "No release version of '$slug' is compatible with "
+      "loader=${loaderName ?? '<none>'} "
+      'mc=$mcVersion$widened. '
+      'Pass `@<version>` explicitly to pin an alpha/beta.';
+}
 
 /// Accepts releases, pre/rc, and snapshots; Modrinth validates the
 /// actual tag server-side.
