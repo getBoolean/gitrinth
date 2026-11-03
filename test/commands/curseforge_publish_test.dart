@@ -460,7 +460,7 @@ void main() {
             metadata: {'releaseType': 'release'},
           );
       await requestFuture;
-      expect(result['id'], 123);
+      expect(result.fileId, 123);
     },
   );
 }

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../../cli/exceptions.dart';
 import '../../version.dart';
 import '../console.dart';
 import '../offline_guard_interceptor.dart';
@@ -80,6 +81,81 @@ class CurseForgeApiFactory {
   /// Returns the underlying [Dio] for the cached bundle. Visible for
   /// tests that need to inspect interceptor wiring.
   Dio? get dio => _bundle?.dio;
+
+  /// Publication verification retains additional-file/server-pack fields.
+  Future<Map<String, dynamic>> publicationFile(
+    int projectId,
+    int fileId,
+  ) async {
+    final response = await _publicationGet('/v1/mods/$projectId/files/$fileId');
+    final data = response['data'];
+    if (data is! Map) {
+      throw const ValidationError(
+        'CurseForge publication file must be an object.',
+      );
+    }
+    return Map<String, dynamic>.from(data);
+  }
+
+  Future<List<Map<String, dynamic>>> publicationFiles(int projectId) async {
+    final files = <Map<String, dynamic>>[];
+    var index = 0;
+    while (index < 10000) {
+      final remaining = 10000 - index;
+      final response = await _publicationGet(
+        '/v1/mods/$projectId/files',
+        query: {'index': index, 'pageSize': remaining < 50 ? remaining : 50},
+      );
+      final data = response['data'];
+      final pagination = response['pagination'];
+      final total = pagination is Map ? pagination['totalCount'] : null;
+      if (data is! List || total is! int || total > 10000) {
+        throw const ValidationError(
+          'Cannot reconcile an incomplete CurseForge file history.',
+        );
+      }
+      files.addAll(
+        data.map((entry) => Map<String, dynamic>.from(entry as Map)),
+      );
+      index += data.length;
+      if (index >= total) return files;
+      if (data.isEmpty) break;
+    }
+    throw const ValidationError(
+      'Cannot reconcile an incomplete CurseForge file history.',
+    );
+  }
+
+  Future<Map<String, dynamic>> _publicationGet(
+    String path, {
+    Map<String, dynamic>? query,
+  }) async {
+    api;
+    final client = dio;
+    if (client == null) {
+      throw StateError('CurseForge bundle was not initialized.');
+    }
+    final Response<dynamic> response;
+    try {
+      response = await client.get<dynamic>(
+        '$baseUrl$path',
+        queryParameters: query,
+        options: Options(extra: const {kCurseForgeAuthRequired: true}),
+      );
+    } on DioException catch (e) {
+      final cause = e.error;
+      if (cause is GitrinthException) throw cause;
+      throw UserError(
+        'CurseForge publication verification failed (HTTP ${e.response?.statusCode ?? "unavailable"}).',
+      );
+    }
+    if (response.data is! Map) {
+      throw const ValidationError(
+        'Invalid CurseForge publication verification response.',
+      );
+    }
+    return Map<String, dynamic>.from(response.data as Map);
+  }
 
   /// Disposes the cached client.
   void close() {

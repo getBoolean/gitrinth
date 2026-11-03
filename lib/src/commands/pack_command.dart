@@ -20,6 +20,7 @@ import '../service/manifest_io.dart';
 import '../service/resolve/solve_report.dart';
 import 'pack_assembler.dart';
 import 'curseforge_pack_assembler.dart';
+import 'server_distribution_assembler.dart';
 
 const String _permissionsArticle =
     'https://support.modrinth.com/en/articles/8797527-obtaining-modpack-permissions';
@@ -66,6 +67,12 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       negatable: false,
       help: 'Produce CurseForge .zip archives.',
     );
+    argParser.addFlag(
+      'server-distribution',
+      negatable: false,
+      help:
+          'With --curseforge, bundle physical server files in a distinct ZIP; runtime is not bundled.',
+    );
     addOfflineFlag();
   }
 
@@ -77,6 +84,15 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
 
     final outputOpt = argResults!['output'] as String?;
     final combined = argResults!['combined'] as bool;
+    final serverDistribution = argResults!['server-distribution'] as bool;
+    if (serverDistribution && !(argResults!['curseforge'] as bool)) {
+      throw const UsageError('--server-distribution requires --curseforge.');
+    }
+    if (serverDistribution && combined) {
+      throw const UsageError(
+        '--server-distribution cannot be combined with --combined.',
+      );
+    }
     final publishable = argResults!['publishable'] as bool;
     final offline = readOfflineFlag();
 
@@ -98,6 +114,33 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       throw const UserError(
         'mods.lock was not written; resolver produced no lockfile.',
       );
+    }
+
+    if (serverDistribution) {
+      final output = p.normalize(
+        p.absolute(
+          outputOpt ??
+              p.join(
+                'build',
+                '${yaml.slug}-${yaml.version}-server-distribution.zip',
+              ),
+        ),
+      );
+      await writeServerDistribution(
+        File(output),
+        yaml: yaml,
+        lock: lock,
+        cache: cache,
+        projectDir: io.directory.path,
+        registry: read(loaderRegistryProvider),
+        modrinthHost: resolveModrinthBaseUrl(read(environmentProvider)),
+        publishable: publishable,
+      );
+      console.message('Wrote CurseForge server distribution: $output');
+      console.message(
+        'The server runtime is not bundled. Install the matching runtime separately; Minecraft EULA acceptance is required before running it.',
+      );
+      return exitOk;
     }
 
     // The permissions warning fires on the union of all mod overrides

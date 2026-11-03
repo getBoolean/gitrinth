@@ -80,6 +80,40 @@ to redistribute manually downloaded bytes.
 
 ## Implementation plan
 
+### Server distributions and parent-linked publication
+
+`pack --curseforge --server-distribution` produces actual server artifacts and
+configs in `<slug>-<version>-server-distribution.zip`, with a versioned
+`gitrinth-server-distribution.json` marker and SHA256 file inventory. The marker
+preserves mod and plugin loader identities and concrete locked versions.
+Client-only files, credential/cache paths, and EULA acceptance files are
+excluded. A denied CurseForge redistribution flag blocks physical bundling.
+The distribution does not include a runtime; metadata-only loaders can still
+produce it. The existing `-server.zip` manifest-based archive remains available.
+
+`publish --with-server` uploads the client, requires its positive returned ID,
+and uploads the server ZIP as an additional file with that exact `parentFileID`.
+Child uploads omit `gameVersions` and `gameVersionNames`; channel and
+manual-release settings are propagated deliberately. All selected artifacts,
+credentials, descriptors, and existing receipts are checked before the first
+upload. `--server-only --curseforge-parent-file <id>` retries against a verified
+matching project and client release without reuploading the client or Modrinth.
+
+The public [upload API](https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-upload-api)
+does not document a server-classification switch. A generic parent association
+is reported as pending manual classification in the author console until
+read-back confirms `isServerPack` and the parent's `serverPackFileId`. No private
+classification endpoint is used. Successful additional-file uploads can remain
+pending while moderation/read visibility catches up.
+
+Atomic, token-free receipts under `.gitrinth/publications/curseforge/` record
+artifact identities, returned IDs, dependent-step outcomes, and classification.
+They preserve partial successes across retries and prevent duplicate POSTs
+after an ambiguous timeout or crash. Unknown server outcomes require a unique
+remote parent/hash match before proceeding; unknown client outcomes require an
+explicit verified parent. Changed artifacts cannot resume the old receipt.
+See [publish recovery](cli.md#publish) for flags and the tested retry workflow.
+
 ### Part 1: Foundation and hosted Modrinth
 
 Shipped. The foundational refactor lands the multi-host resolver, the

@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../app/env.dart';
 import '../app/providers.dart';
 import '../app/loader_registry_provider.dart';
+import '../app/runner_settings.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -15,6 +16,8 @@ import '../model/manifest/mods_yaml.dart';
 import '../service/changelog_reader.dart';
 import '../service/file_digest.dart';
 import '../service/curseforge/curseforge_upload_client.dart';
+import '../service/curseforge/curseforge_publication_receipt.dart';
+import '../service/curseforge/curseforge_publication_service.dart';
 import '../service/curseforge/curseforge_url.dart';
 import '../service/manifest_io.dart';
 import '../service/modrinth/modrinth_auth_interceptor.dart';
@@ -68,6 +71,29 @@ abstract class PublicationCommand extends GitrinthCommand {
         negatable: false,
         help:
             'Upload as a draft (Modrinth `status: draft`) instead of publicly listed.',
+      )
+      ..addFlag(
+        'with-server',
+        negatable: false,
+        help:
+            'Upload the client, then associate a server-distribution ZIP as an additional file.',
+      )
+      ..addFlag(
+        'server-only',
+        negatable: false,
+        help:
+            'Retry only the CurseForge server distribution against an explicit verified parent.',
+      )
+      ..addOption(
+        'curseforge-parent-file',
+        valueHelp: 'id',
+        help: 'Existing client file ID required by --server-only.',
+      )
+      ..addOption(
+        'curseforge-server-pack',
+        valueHelp: 'path',
+        help:
+            'Actual server-distribution ZIP, distinct from the legacy manifest-server ZIP.',
       )
       ..addOption(
         'curseforge-pack',
@@ -136,9 +162,101 @@ abstract class PublicationCommand extends GitrinthCommand {
         throw UserError('${target.name} is not selected by publish_to.');
       }
     }
+    final withServer = argResults!['with-server'] as bool;
+    final serverOnly = argResults!['server-only'] as bool;
+    final parentRaw = argResults!['curseforge-parent-file'] as String?;
+    final parentId = int.tryParse(parentRaw ?? '');
+    if (withServer && serverOnly) {
+      throw const UsageError(
+        '--with-server and --server-only cannot be combined.',
+      );
+    }
+    if ((withServer || serverOnly) &&
+        !targets.contains(SourceKind.curseforge)) {
+      throw const UsageError(
+        'Server publication requires CurseForge as a selected target.',
+      );
+    }
+    if (serverOnly && targets.contains(SourceKind.modrinth)) {
+      throw const UsageError(
+        '--server-only cannot publish Modrinth. Use `gitrinth curseforge publish --server-only` for a CurseForge-only retry.',
+      );
+    }
+    if (serverOnly && (parentId == null || parentId <= 0)) {
+      throw const UsageError(
+        '--server-only requires --curseforge-parent-file <positive id>.',
+      );
+    }
+    if (!serverOnly && parentRaw != null) {
+      throw const UsageError(
+        '--curseforge-parent-file is only valid with --server-only.',
+      );
+    }
+    if (!withServer &&
+        !serverOnly &&
+        argResults!['curseforge-server-pack'] != null) {
+      throw const UsageError(
+        '--curseforge-server-pack requires --with-server or --server-only.',
+      );
+    }
     await prepareLoaderRegistry(container, yaml, offline: true);
-    final plans = _preparePublications(yaml, io, targets);
+    final plans = _preparePublications(
+      yaml,
+      io,
+      targets,
+      withServer: withServer,
+      serverOnly: serverOnly,
+      parentId: parentId,
+    );
     final dryRun = argResults!['dry-run'] as bool;
+    final cfPlan = plans
+        .where(
+          (plan) =>
+              plan.role == PublicationArtifactRole.server ||
+              plan.dependentServer != null,
+        )
+        .firstOrNull;
+    final factory = cfPlan == null ? null : read(curseForgeApiFactoryProvider);
+    final service = factory == null
+        ? null
+        : CurseForgePublicationService(
+            uploadClient: CurseForgeUploadClient(
+              read(dioProvider),
+              baseUrl: cfPlan?.serverUrl ?? defaultCurseForgeUploadBaseUrl,
+            ),
+            readFile: factory.publicationFile,
+            listFiles: factory.publicationFiles,
+            store: CurseForgePublicationReceiptStore(io.directory.path),
+          );
+    final locked = io.readModsLock();
+    final loader = locked?.loader ?? yaml.loader;
+    final prepared = cfPlan == null || service == null
+        ? null
+        : await service.prepare(
+            plan: cfPlan,
+            slug: yaml.slug,
+            version: yaml.version,
+            displayName: '${yaml.name} ${yaml.version}',
+            minecraft: yaml.mcVersion,
+            loaderId: loader.mods.name,
+            loaderVersion: loader.modLoaderVersion,
+            pluginLoaderId: loader.plugins?.name,
+            pluginLoaderVersion: loader.pluginLoaderVersion,
+            clientLoaderToken: read(
+              loaderRegistryProvider,
+            )[loader.mods]?.curseforgeArchiveToken,
+            requireLoaderVersionMatch: !const {
+              'stable',
+              'latest',
+            }.contains(loader.modLoaderVersion),
+            requirePluginVersionMatch: !const {
+              'stable',
+              'latest',
+            }.contains(loader.pluginLoaderVersion),
+            peers: plans
+                .where((plan) => plan.target == SourceKind.modrinth)
+                .toList(),
+          );
     if (!dryRun && !(argResults!['force'] as bool)) {
       if (!stdin.hasTerminal) {
         throw const UsageError(
@@ -154,8 +272,96 @@ abstract class PublicationCommand extends GitrinthCommand {
         return exitOk;
       }
     }
+    final completed = <String>[];
     for (final plan in plans) {
-      await _publish(plan, yaml, dryRun: dryRun);
+      if (identical(plan, cfPlan) && service != null && prepared != null) {
+        if (dryRun) {
+          final payload =
+              {
+                  ...prepared.server.payload,
+                  'parentFileID':
+                      prepared.receipt.parentId ?? '<returned client file ID>',
+                }
+                ..remove('gameVersions')
+                ..remove('gameVersionNames');
+          console.message(
+            'Dry run: CurseForge client -> server additional file (server-pack classification requires verification).',
+          );
+          console.message(
+            jsonEncode({
+              'client': serverOnly
+                  ? {'existingFileID': parentId}
+                  : {'artifact': plan.artifact.path, 'metadata': plan.payload},
+              'server': {
+                'artifact': prepared.server.artifact.path,
+                'metadata': payload,
+              },
+            }),
+          );
+        } else {
+          try {
+            final result = await service.publish(prepared);
+            console.message(
+              'Published CurseForge client file ${result.parentId} and additional server file ${result.childId}.',
+            );
+            if (result.classificationConfirmed) {
+              console.message(
+                'Server-pack classification confirmed by CurseForge read-back.',
+              );
+            } else {
+              console.message(
+                'Server-pack classification pending: open the matching client release in the CurseForge author console and classify the additional file as its server pack. Rerun the same command to verify; completed uploads are reused.',
+              );
+            }
+          } on CurseForgePublicationFailure catch (e) {
+            final parent = e.parentId;
+            final surviving = [
+              if (completed.isNotEmpty) completed.join(', '),
+              if (parent != null) 'CurseForge client file $parent',
+              if (e.childId != null) 'CurseForge child file ${e.childId}',
+            ];
+            final retry = parent == null
+                ? 'Inspect remote files before any retry.'
+                : 'Retry only the server: ${_serverRetryCommand(io.directory.path, prepared, parent)}';
+            final pendingPeers = plans
+                .where(
+                  (peer) =>
+                      peer.target == SourceKind.modrinth &&
+                      !service.peerComplete(prepared, peer),
+                )
+                .map((peer) => peer.target.name)
+                .toList();
+            throw UserError(
+              '${surviving.isEmpty ? "Publication failed" : "Partial publication; ${surviving.join(', ')} survives"}: ${e.message}\n${e.unknownOutcome ? "Remote outcome is unknown; inspect remote files before retrying. Reconciliation must succeed before another POST.\n" : ""}$retry${pendingPeers.isEmpty ? "" : "\nOther selected targets remain pending: ${pendingPeers.join(', ')}."}',
+            );
+          }
+        }
+      } else if (service != null &&
+          prepared != null &&
+          plan.target == SourceKind.modrinth &&
+          !dryRun) {
+        if (service.peerComplete(prepared, plan)) {
+          console.message(
+            'Reusing completed Modrinth version ${service.peerId(prepared, plan)}.',
+          );
+          completed.add('Modrinth version ${service.peerId(prepared, plan)}');
+          continue;
+        }
+        await service.startPeer(prepared, plan);
+        try {
+          final id = await _publish(plan, yaml, dryRun: false);
+          service.completePeer(prepared, plan, id);
+          completed.add('Modrinth version $id');
+        } on Object catch (e) {
+          service.failPeer(prepared, plan, e);
+          throw UserError(
+            'Peer-platform publication failed. ${e is GitrinthException ? e.message : "Inspect its remote release and the publication receipt before retrying."}',
+          );
+        }
+      } else {
+        final id = await _publish(plan, yaml, dryRun: dryRun);
+        if (!dryRun) completed.add('${plan.target.name} file $id');
+      }
     }
     return exitOk;
   }
@@ -163,8 +369,11 @@ abstract class PublicationCommand extends GitrinthCommand {
   List<PreparedPublication> _preparePublications(
     ModsYaml yaml,
     ManifestIo io,
-    List<SourceKind> targets,
-  ) {
+    List<SourceKind> targets, {
+    required bool withServer,
+    required bool serverOnly,
+    required int? parentId,
+  }) {
     final lock = io.readModsLock();
     final publishable = argResults!['publishable'] as bool;
     if (lock == null && publishable) {
@@ -219,13 +428,15 @@ abstract class PublicationCommand extends GitrinthCommand {
           );
         }
       }
-      final artifact = _artifactFor(yaml, target, targets.length > 1);
+      final artifact = serverOnly && target == SourceKind.curseforge
+          ? _serverArtifactFor(yaml)
+          : _artifactFor(yaml, target, targets.length > 1);
       if (!artifact.existsSync()) {
         throw UserError(
           'Pack artifact not found at ${artifact.path}. Run `gitrinth pack${target == SourceKind.curseforge ? ' --curseforge' : ''}` first.',
         );
       }
-      if (lock != null) {
+      if (lock != null && !serverOnly) {
         if (target == SourceKind.modrinth) {
           buildIndex(
             registry: read(loaderRegistryProvider),
@@ -279,6 +490,27 @@ abstract class PublicationCommand extends GitrinthCommand {
           token: target.token,
           artifact: target.artifact,
           curseforgeProjectId: target.projectId,
+          role: serverOnly
+              ? PublicationArtifactRole.server
+              : PublicationArtifactRole.client,
+          parentFileId: serverOnly ? parentId : null,
+          dependentServer: withServer && target.target == SourceKind.curseforge
+              ? PreparedPublication(
+                  target: SourceKind.curseforge,
+                  serverUrl: target.serverUrl,
+                  token: target.token,
+                  artifact: _serverArtifactFor(yaml),
+                  curseforgeProjectId: target.projectId,
+                  role: PublicationArtifactRole.server,
+                  payload: {
+                    'displayName': '${yaml.name} ${yaml.version} Server',
+                    'changelog': changelog,
+                    'changelogType': 'markdown',
+                    'releaseType': versionType,
+                    'isMarkedForManualRelease': draft,
+                  },
+                )
+              : null,
           payload: target.target == SourceKind.modrinth
               ? {
                   'name': '${yaml.name} ${yaml.version}',
@@ -297,7 +529,8 @@ abstract class PublicationCommand extends GitrinthCommand {
                   'primary_file': 'file',
                 }
               : {
-                  'displayName': '${yaml.name} ${yaml.version}',
+                  'displayName':
+                      '${yaml.name} ${yaml.version}${serverOnly ? ' Server' : ''}',
                   'changelog': changelog,
                   'changelogType': 'markdown',
                   'gameVersionNames': List<String>.unmodifiable([
@@ -310,7 +543,7 @@ abstract class PublicationCommand extends GitrinthCommand {
     ];
   }
 
-  Future<void> _publish(
+  Future<String?> _publish(
     PreparedPublication plan,
     ModsYaml yaml, {
     required bool dryRun,
@@ -321,7 +554,7 @@ abstract class PublicationCommand extends GitrinthCommand {
         console.message(
           const JsonEncoder.withIndent('  ').convert(plan.payload),
         );
-        return;
+        return null;
       }
       final result =
           await CurseForgeUploadClient(
@@ -334,9 +567,9 @@ abstract class PublicationCommand extends GitrinthCommand {
             metadata: plan.payload,
           );
       console.message(
-        'Published ${yaml.slug} v${yaml.version} to CurseForge${result is Map ? ' (file id: ${result['id']})' : ''}.',
+        'Published ${yaml.slug} v${yaml.version} to CurseForge (file id: ${result.fileId}).',
       );
-      return;
+      return result.fileId.toString();
     }
     if (dryRun) {
       final [sha1Digest, sha512Digest] = await fileDigests(plan.artifact, [
@@ -348,7 +581,7 @@ abstract class PublicationCommand extends GitrinthCommand {
         'Pack: ${plan.artifact.path} (sha1=$sha1Digest sha512=$sha512Digest)',
       );
       console.message(const JsonEncoder.withIndent('  ').convert(plan.payload));
-      return;
+      return null;
     }
     final response = await read(dioProvider).post<dynamic>(
       '${plan.serverUrl.replaceFirst(RegExp(r'/$'), '')}/project/${yaml.slug}/version',
@@ -375,7 +608,61 @@ abstract class PublicationCommand extends GitrinthCommand {
     console.message(
       'Published ${yaml.slug} v${yaml.version} to ${plan.serverUrl}${versionId == null ? '' : ' (version id: $versionId)'}.',
     );
+    return versionId?.toString();
   }
+
+  File _serverArtifactFor(ModsYaml yaml) {
+    final raw =
+        (argResults!['curseforge-server-pack'] as String?) ??
+        p.join('build', '${yaml.slug}-${yaml.version}-server-distribution.zip');
+    final file = File(p.normalize(p.absolute(raw)));
+    if (!file.existsSync()) {
+      throw UserError(
+        'Server distribution not found at ${file.path}. Run `gitrinth pack --curseforge --server-distribution` first.',
+      );
+    }
+    return file;
+  }
+
+  String _serverRetryCommand(
+    String projectDir,
+    PreparedCurseForgePublication prepared,
+    int parent,
+  ) {
+    final settings = read(runnerSettingsProvider);
+    final config = settings.configPath;
+    final descriptors = settings.loaderDescriptorsPath;
+    return [
+      'gitrinth',
+      '-C',
+      _shellQuote(p.normalize(p.absolute(projectDir))),
+      if (config != null && config.isNotEmpty) ...[
+        '--config',
+        _shellQuote(read(userConfigPathProvider)),
+      ],
+      'curseforge',
+      'publish',
+      if (descriptors != null) ...[
+        '--loader-descriptors',
+        _shellQuote(p.normalize(p.absolute(descriptors))),
+      ],
+      '--server-only',
+      '--curseforge-project',
+      prepared.receipt.projectId.toString(),
+      '--curseforge-parent-file',
+      parent.toString(),
+      '--curseforge-server-pack',
+      _shellQuote(prepared.server.artifact.path),
+      '--version-type',
+      prepared.receipt.releaseType,
+      if (prepared.receipt.manualRelease) '--draft',
+      '--force',
+    ].join(' ');
+  }
+
+  String _shellQuote(String value) => Platform.isWindows
+      ? "'${value.replaceAll("'", "''")}'"
+      : "'${value.replaceAll("'", "'\\''")}'";
 
   Map<String, String> _readTokens() {
     try {

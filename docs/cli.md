@@ -769,7 +769,7 @@ Non-existent paths are a silent no-op.
 Modpack-specific. Produce Modrinth `.mrpack` archives or CurseForge `.zip` archives.
 
 ```text
-gitrinth pack [--output <path>] [--combined] [--curseforge] [--publishable] [--offline]
+gitrinth pack [--output <path>] [--combined] [--curseforge] [--server-distribution] [--publishable] [--offline]
 ```
 
 | Option           | Description                                                                                                                                       |
@@ -818,6 +818,15 @@ project/file references, and routes loose files through `overrides/`.
 Side filtering still produces client/server archives by default.
 Sponge and Folia plugins cannot be CurseForge project references;
 their loose overrides retain the `plugins/<jar>` path.
+
+`pack --curseforge --server-distribution` instead writes
+`build/<slug>-<version>-server-distribution.zip` with actual server-side
+artifacts and configs at their installation paths. The legacy `-server.zip`
+contains a CurseForge manifest and remains available through the default
+`pack --curseforge` invocation. The distribution excludes client-only files,
+private cache/credential paths, and EULA acceptance files. Explicit CurseForge
+redistribution denial prevents bundling those bytes. This mode does not bundle
+a runtime or start a server; install the matching runtime separately.
 
 [`files:`](mods-yaml.md#files) entries are bundled the same way: the
 destination key carries the full sub-path (e.g.
@@ -1142,6 +1151,56 @@ CurseForge authenticates with `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`, falling
 back to `gitrinth token add curseforge.com`. Its resolver download key
 cannot authorize uploads. `--draft` requests manual release after
 CurseForge approval. `--dry-run` assembles metadata without upload.
+
+To publish a client release with its actual server distribution:
+
+```console
+$ gitrinth pack --curseforge
+$ gitrinth pack --curseforge --server-distribution
+$ gitrinth curseforge publish --with-server --curseforge-project 12345 --force
+```
+
+`--with-server` prevalidates both ZIPs, uploads the client first, then uses
+its returned file ID as the server file's `parentFileID`. Override the server
+path with `--curseforge-server-pack <path>`; the default is
+`build/<slug>-<version>-server-distribution.zip`. A missing or modified server
+distribution fails preflight. A legacy manifest-server ZIP is rejected.
+`--draft` deliberately applies manual-release marking to both uploads.
+
+The documented upload API creates a generic additional-file association.
+Unless read-back confirms both the child's server-pack flag and its parent's
+server-pack file ID, the command reports **classification pending**. Open the
+matching client release in the CurseForge author console and classify the
+additional file as its server pack. Rerun the same command to verify; completed
+uploads are reused. Moderation visibility can keep classification pending.
+
+If the client succeeds and the server fails, the command exits nonzero, prints
+the surviving IDs, and supplies an exact server-only retry:
+
+```console
+$ gitrinth curseforge publish --server-only --curseforge-project 12345 --curseforge-parent-file 67890 --force
+```
+
+The printed command includes the absolute project `-C` path and preserves
+explicit `--config` and `--loader-descriptors` paths, so it can be pasted from
+the original working directory. It contains paths and IDs, never token values.
+
+The explicit parent must belong to the project and match the intended client
+release display name (`<name> <version>`) and channel. Keep the original
+`--version-type` and `--draft` settings. Server-only retries do not upload a
+client or Modrinth release; use the `curseforge publish` command when
+`publish_to` selects both platforms.
+
+Token-free receipts live under
+`.gitrinth/publications/curseforge/<projectId>/<releaseKey>.json`; this tree is
+ignored by Git. They bind artifact SHA256 hashes and per-step outcomes to the
+project, release, and endpoint. Changed artifacts require a new release rather
+than silently replacing an existing receipt. In-flight, timeout, and invalid-ID
+outcomes are unknown: inspect remote files before retrying. A server retry
+proceeds only after a unique remote file matches its parent and artifact hash,
+or the missing client outcome is supplied as an explicit verified parent ID.
+CurseForge upload POSTs are not retried automatically. A dry run prints the dependent upload plan
+without creating receipts or remote files.
 
 ### `completion`
 
