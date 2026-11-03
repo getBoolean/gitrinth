@@ -54,7 +54,46 @@ Dio _buildDio({int responseStatus = 200, String body = _emptyDataEnvelope}) {
 _RecordingAdapter _adapterOf(Dio dio) =>
     dio.httpClientAdapter as _RecordingAdapter;
 
+class _SlowPublicationAdapter implements HttpClientAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? stream,
+    Future<void>? cancelFuture,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    return ResponseBody.fromString(
+      '{"data":{"id":100}}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: ['application/json'],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 void main() {
+  test('publication read deadline also bounds a stalled transport', () async {
+    final factory = CurseForgeApiFactory(
+      console: const Console(),
+      auth: CurseForgeAuthInterceptor(envTokenLookup: () => 'fixture'),
+      offline: () => false,
+      baseUrl: _baseUrl,
+    );
+    addTearDown(factory.close);
+    factory.api;
+    final client = factory.dio;
+    if (client == null) throw StateError('missing client');
+    client.options.receiveTimeout = const Duration(milliseconds: 20);
+    client.httpClientAdapter = _SlowPublicationAdapter();
+    await expectLater(
+      factory.publicationFile(42, 100),
+      throwsA(isA<UserError>()),
+    );
+  });
   group('CurseForgeApi retrofit interface', () {
     test('getMod issues GET /v1/mods/{id} with cf_auth extra', () async {
       final dio = _buildDio();

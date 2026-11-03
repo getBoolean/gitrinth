@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../../cli/exceptions.dart';
+import '../../util/atomic_file_writer.dart';
 
 enum PublicationStepState { pending, inFlight, failed, complete, unknown }
 
@@ -172,24 +172,40 @@ class CurseForgePublicationReceiptStore {
     }
   }
 
-  void write(CurseForgePublicationReceipt receipt) {
+  /// Replaces only the snapshot this invocation actually prepared against.
+  String writeIfUnchanged(
+    CurseForgePublicationReceipt receipt,
+    String? expected,
+  ) {
     final file = File(path(receipt.projectId, receipt.release));
-    final random = Random.secure();
-    final suffix = List.generate(
-      16,
-      (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
-    ).join();
-    final temporary = File('${file.path}.tmp-$suffix');
     try {
       file.parent.createSync(recursive: true);
-      temporary.writeAsStringSync(jsonEncode(receipt.toMap()), flush: true);
-      temporary.renameSync(file.path);
+      final lock = File(
+        '${file.path}.transaction.lock',
+      ).openSync(mode: FileMode.append);
+      try {
+        lock.lockSync(FileLock.blockingExclusive);
+        try {
+          final current = read(receipt.projectId, receipt.release);
+          final snapshot = current == null ? null : jsonEncode(current.toMap());
+          if (snapshot != expected) {
+            throw const ValidationError(
+              'Publication receipt changed after preparation. Another invocation may have uploaded files; rerun to reload and reconcile its state before any further POST.',
+            );
+          }
+          final contents = jsonEncode(receipt.toMap());
+          atomicReplaceString(file.path, contents);
+          return contents;
+        } finally {
+          lock.unlockSync();
+        }
+      } finally {
+        lock.closeSync();
+      }
     } on FileSystemException {
       throw UserError(
         'Cannot persist publication receipt at ${file.path}. No further uploads were attempted; inspect remote files before retrying.',
       );
-    } finally {
-      if (temporary.existsSync()) temporary.deleteSync();
     }
   }
 }

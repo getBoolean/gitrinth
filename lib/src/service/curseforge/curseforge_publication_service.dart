@@ -19,12 +19,15 @@ class PreparedCurseForgePublication {
   final PreparedPublication server;
   final CurseForgePublicationReceipt receipt;
   final Map<PreparedPublication, String> peerKeys;
+  String? _persistedSnapshot;
   PreparedCurseForgePublication({
     required this.root,
     required this.server,
     required this.receipt,
     required Map<PreparedPublication, String> peerKeys,
-  }) : peerKeys = Map.unmodifiable(peerKeys);
+    required String? persistedSnapshot,
+  }) : peerKeys = Map.unmodifiable(peerKeys),
+       _persistedSnapshot = persistedSnapshot;
 }
 
 class CurseForgePublicationResult {
@@ -169,6 +172,7 @@ class CurseForgePublicationService {
       );
     }
     final prior = store.read(project, version);
+    final persistedSnapshot = prior == null ? null : jsonEncode(prior.toMap());
     final receipt =
         prior ??
         CurseForgePublicationReceipt(
@@ -282,6 +286,7 @@ class CurseForgePublicationService {
       server: server,
       receipt: receipt,
       peerKeys: peerKeys,
+      persistedSnapshot: persistedSnapshot,
     );
   }
 
@@ -314,7 +319,7 @@ class CurseForgePublicationService {
     final step = _peerStep(plan, peer);
     await _unchanged(peer.artifact, step.sha256);
     step.state = PublicationStepState.inFlight;
-    store.write(plan.receipt);
+    _persist(plan);
   }
 
   void completePeer(
@@ -325,14 +330,14 @@ class CurseForgePublicationService {
     final step = _peerStep(plan, peer);
     if (id == null || id.isEmpty) {
       step.state = PublicationStepState.unknown;
-      store.write(plan.receipt);
+      _persist(plan);
       throw const UserError(
         'Peer-platform upload returned no version ID; its outcome is unknown. Inspect remote releases before retrying.',
       );
     }
     step.id = id;
     step.state = PublicationStepState.complete;
-    store.write(plan.receipt);
+    _persist(plan);
   }
 
   void failPeer(
@@ -344,7 +349,7 @@ class CurseForgePublicationService {
     step.state = _unknownFailure(error)
         ? PublicationStepState.unknown
         : PublicationStepState.failed;
-    store.write(plan.receipt);
+    _persist(plan);
   }
 
   Future<CurseForgePublicationResult> publish(
@@ -352,7 +357,7 @@ class CurseForgePublicationService {
   ) async {
     final receipt = prepared.receipt;
     try {
-      store.write(receipt);
+      _persist(prepared);
       if (receipt.client.state != PublicationStepState.complete) {
         await _upload(
           prepared,
@@ -391,7 +396,7 @@ class CurseForgePublicationService {
       } on Object {
         // Moderation/read visibility can lag successful additional-file uploads.
       }
-      store.write(receipt);
+      _persist(prepared);
       return CurseForgePublicationResult(
         parent,
         child,
@@ -418,7 +423,7 @@ class CurseForgePublicationService {
   ) async {
     await _unchanged(artifact.artifact, step.sha256);
     step.state = PublicationStepState.inFlight;
-    store.write(prepared.receipt);
+    _persist(prepared);
     final CurseForgeUploadResult result;
     try {
       result = await uploadClient.upload(
@@ -431,12 +436,19 @@ class CurseForgePublicationService {
       step.state = _unknownFailure(e)
           ? PublicationStepState.unknown
           : PublicationStepState.failed;
-      store.write(prepared.receipt);
+      _persist(prepared);
       rethrow;
     }
     step.id = result.fileId.toString();
     step.state = PublicationStepState.complete;
-    store.write(prepared.receipt);
+    _persist(prepared);
+  }
+
+  void _persist(PreparedCurseForgePublication prepared) {
+    prepared._persistedSnapshot = store.writeIfUnchanged(
+      prepared.receipt,
+      prepared._persistedSnapshot,
+    );
   }
 
   static Future<void> _unchanged(File artifact, String? expected) async {

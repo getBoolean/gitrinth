@@ -91,7 +91,18 @@ Future<void> writeServerDistribution(
     )) {
       continue;
     }
-    include(entry.destination, File(locator.path(entry.sourcePath)));
+    final source = File(locator.path(entry.sourcePath));
+    if (!source.existsSync()) {
+      include(entry.destination, source);
+      continue;
+    }
+    final resolved = File(source.resolveSymbolicLinksSync());
+    if (isPrivateServerDistributionPath(
+      p.posix.joinAll(p.split(resolved.path)),
+    )) {
+      continue;
+    }
+    include(entry.destination, resolved);
   }
   if (sources.isEmpty) {
     throw const ValidationError(

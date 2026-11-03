@@ -65,6 +65,38 @@ files:
     File(p.join(root.path, 'build', name)).readAsBytesSync(),
   );
 
+  for (final target in ['.env', '.gitrinth/private.json']) {
+    test('private source alias $target is excluded', () async {
+      final private = File(p.join(root.path, target));
+      private.parent.createSync(recursive: true);
+      private.writeAsStringSync('private source bytes');
+      File(p.join(root.path, 'settings.json')).deleteSync();
+      Link(p.join(root.path, 'settings.json')).createSync(private.path);
+      final result = await pack(['--curseforge', '--server-distribution']);
+      expect(result.exitCode, 0, reason: result.stderr);
+      final zip = archive('pack-1.0.0-server-distribution.zip');
+      expect(zip.findFile('config/settings.json'), isNull);
+    });
+  }
+
+  test('nonprivate source aliases preserve selected config bytes', () async {
+    File(
+      p.join(root.path, 'settings.json'),
+    ).renameSync(p.join(root.path, 'settings-original.json'));
+    Link(
+      p.join(root.path, 'settings.json'),
+    ).createSync(p.join(root.path, 'settings-original.json'));
+    final result = await pack(['--curseforge', '--server-distribution']);
+    expect(result.exitCode, 0, reason: result.stderr);
+    expect(
+      utf8.decode(
+        archive(
+          'pack-1.0.0-server-distribution.zip',
+        ).findFile('config/settings.json')!.content,
+      ),
+      '{"setting":true}',
+    );
+  });
   test('legacy server ZIP remains a side-filtered manifest archive', () async {
     final result = await pack(['--curseforge']);
     expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');

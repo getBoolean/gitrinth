@@ -136,12 +136,30 @@ class CurseForgeApiFactory {
       throw StateError('CurseForge bundle was not initialized.');
     }
     final Response<dynamic> response;
+    final cancellation = CancelToken();
+    final configured = client.options.receiveTimeout;
+    final deadline = configured != null && configured > Duration.zero
+        ? configured
+        : const Duration(seconds: 30);
     try {
-      response = await client.get<dynamic>(
-        '$baseUrl$path',
-        queryParameters: query,
-        options: Options(extra: const {kCurseForgeAuthRequired: true}),
-      );
+      response = await client
+          .get<dynamic>(
+            '$baseUrl$path',
+            queryParameters: query,
+            options: Options(extra: const {kCurseForgeAuthRequired: true}),
+            cancelToken: cancellation,
+          )
+          .timeout(
+            deadline,
+            onTimeout: () {
+              cancellation.cancel(
+                'Publication verification deadline exceeded.',
+              );
+              throw const UserError(
+                'CurseForge publication verification timed out. Uploaded files remain recorded; retry verification after read access recovers.',
+              );
+            },
+          );
     } on DioException catch (e) {
       final cause = e.error;
       if (cause is GitrinthException) throw cause;

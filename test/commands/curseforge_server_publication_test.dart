@@ -47,6 +47,8 @@ void main() {
   late bool rejectParent;
   late bool invalidClientId;
   late bool classified;
+  late bool rejectPeer;
+  late bool unknownPeer;
   late int parentProject;
   late String parentRelease;
 
@@ -60,6 +62,8 @@ void main() {
     rejectParent = false;
     invalidClientId = false;
     classified = false;
+    rejectPeer = false;
+    unknownPeer = false;
     parentProject = 42;
     parentRelease = 'Test 1.0.0';
     File(p.join(root.path, 'mods.yaml')).writeAsStringSync('''
@@ -111,7 +115,8 @@ publish_to: curseforge
         if (request.uri.path == '/project/test/version') {
           expect(request.headers.value('Authorization'), 'private-mr-token');
           await request.drain<void>();
-          request.response.write('{"id":"mr-version"}');
+          if (rejectPeer) request.response.statusCode = 401;
+          request.response.write(unknownPeer ? '{}' : '{"id":"mr-version"}');
           await request.response.close();
           return;
         }
@@ -206,7 +211,13 @@ publish_to: curseforge
     final dir = Directory(
       p.join(root.path, '.gitrinth', 'publications', 'curseforge', '42'),
     );
-    return dir.existsSync() ? dir.listSync().whereType<File>().toList() : [];
+    return dir.existsSync()
+        ? dir
+              .listSync()
+              .whereType<File>()
+              .where((file) => file.path.endsWith('.json'))
+              .toList()
+        : [];
   }
 
   test(
@@ -406,6 +417,71 @@ publish_to: curseforge
       );
     },
   );
+  for (final unknown in [false, true]) {
+    test(
+      'CurseForge-first survives peer failure (unknown: $unknown)',
+      () async {
+        final yaml = File(p.join(root.path, 'mods.yaml'));
+        yaml.writeAsStringSync(
+          yaml.readAsStringSync().replaceFirst(
+            'publish_to: curseforge',
+            'publish_to: [curseforge, modrinth]',
+          ),
+        );
+        File(
+          p.join(root.path, 'build', 'test-1.0.0.mrpack'),
+        ).writeAsBytesSync([4]);
+        rejectPeer = !unknown;
+        unknownPeer = unknown;
+        final first = await publish(['--with-server']);
+        expect(first.exitCode, isNot(0));
+        expect(first.stdout, contains('client file 100'));
+        final receipt = jsonDecode(receipts().single.readAsStringSync());
+        expect(receipt['client']['id'], '100');
+        expect(receipt['server']['id'], '200');
+        rejectPeer = false;
+        unknownPeer = false;
+        final second = await publish(['--with-server']);
+        expect(second.exitCode, unknown ? isNot(0) : 0, reason: second.stderr);
+        expect(uploads, hasLength(2));
+        expect(
+          paths.where((path) => path == '/project/test/version'),
+          hasLength(unknown ? 1 : 2),
+        );
+      },
+    );
+  }
+  for (final change in ['tampered', 'unlisted', 'missing']) {
+    test('server inventory rejects $change payload before any POST', () async {
+      final file = File(
+        p.join(root.path, 'build', 'test-1.0.0-server-distribution.zip'),
+      );
+      final old = ZipDecoder().decodeBytes(file.readAsBytesSync());
+      final marker = old.findFile('gitrinth-server-distribution.json');
+      final payload = old.findFile('mods/server.jar');
+      if (marker == null || payload == null) {
+        throw StateError('missing fixture');
+      }
+      final archive = Archive()
+        ..addFile(
+          ArchiveFile(marker.name, marker.content.length, marker.content),
+        );
+      if (change != 'missing') {
+        final bytes = change == 'tampered'
+            ? utf8.encode('changed bytes')
+            : payload.content;
+        archive.addFile(ArchiveFile(payload.name, bytes.length, bytes));
+      }
+      if (change == 'unlisted') {
+        archive.addFile(ArchiveFile('mods/extra.jar', 1, [1]));
+      }
+      file.writeAsBytesSync(ZipEncoder().encode(archive));
+      final result = await publish(['--with-server']);
+      expect(result.exitCode, 2, reason: result.stderr);
+      expect(result.stderr, contains('inventory'));
+      expect(uploads, isEmpty);
+    });
+  }
   test(
     'in-flight parent requires an explicit verified ID instead of another POST',
     () async {
