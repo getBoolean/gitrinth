@@ -45,12 +45,16 @@ class LoaderRegistryService {
       }
     }
 
-    mergeCached(
-      'modrinth',
-      mrHost,
-      (current, entries) => mergeModrinth(current, mrHost, entries),
-    );
-    mergeCached('curseforge', cfHost, mergeCurseforge);
+    if (discoverModrinth) {
+      mergeCached(
+        'modrinth',
+        mrHost,
+        (current, entries) => mergeModrinth(current, mrHost, entries),
+      );
+    }
+    if (readCurseforge != null) {
+      mergeCached('curseforge', cfHost, mergeCurseforge);
+    }
     final missing = needed
         .where(
           (id) =>
@@ -121,6 +125,7 @@ class LoaderRegistryService {
     List<Map<String, dynamic>> entries,
   ) {
     final additions = <LoaderDescriptor>[];
+    final projectTypes = <LoaderId, Set<String>>{};
     for (final entry in entries) {
       final rawName = entry['name'];
       final rawTypes = entry['supported_project_types'];
@@ -137,7 +142,11 @@ class LoaderRegistryService {
           'Invalid loader catalog identity from $host: ${e.message}',
         );
       }
-      final types = rawTypes.cast<String>();
+      (projectTypes[id] ??= {}).addAll(rawTypes.cast<String>());
+    }
+    for (final entry in projectTypes.entries) {
+      final id = entry.key;
+      final types = entry.value;
       final existing = registry[id];
       if (existing != null) {
         // Exact names are identities, never aliases for a different provider ID.
@@ -148,12 +157,12 @@ class LoaderRegistryService {
         additions.add(existing.withProvider(host: host, tag: id.name));
         continue;
       }
-      final role = types.contains('mod')
-          ? LoaderRole.mod
-          : types.contains('plugin')
+      final role = types.contains('plugin')
           ? LoaderRole.plugin
           : types.contains('shader')
           ? LoaderRole.shader
+          : types.contains('mod')
+          ? LoaderRole.mod
           : null;
       if (role == null) continue;
       additions.add(
@@ -172,12 +181,21 @@ class LoaderRegistryService {
     LoaderRegistry registry,
     List<Map<String, dynamic>> entries,
   ) {
-    final byType = <int, List<String>>{};
+    final byType = <int, List<LoaderCatalogVersion>>{};
     for (final entry in entries) {
       final type = entry['type'];
       final name = entry['name'];
-      if (type is! int || name is! String) continue;
-      (byType[type] ??= []).add(name);
+      if (type is! int || type <= 0 || name is! String) continue;
+      (byType[type] ??= []).add(
+        LoaderCatalogVersion(
+          name: name,
+          gameVersion: entry['gameVersion'] is String
+              ? entry['gameVersion'] as String
+              : null,
+          latest: entry['latest'] == true,
+          recommended: entry['recommended'] == true,
+        ),
+      );
     }
     final additions = <LoaderDescriptor>[];
     for (final entry in byType.entries) {
@@ -185,19 +203,42 @@ class LoaderRegistryService {
           .where((d) => d.curseforgeType == entry.key)
           .firstOrNull;
       if (existing != null) {
-        additions.add(existing.withProvider(versions: entry.value));
+        additions.add(
+          existing.withProvider(
+            versions: entry.value.map((v) => v.name).toList(),
+            catalogVersions: entry.value,
+          ),
+        );
       } else {
         additions.add(
           LoaderDescriptor(
             id: LoaderId('curseforge-type-${entry.key}'),
             role: LoaderRole.mod,
             curseforgeType: entry.key,
-            versions: entry.value,
+            versions: entry.value.map((v) => v.name).toList(),
+            catalogVersions: entry.value,
             versionSource: VersionSourceFamily.catalog,
           ),
         );
       }
     }
     return registry.merge(additions);
+  }
+}
+
+/// Rejects hybrid combinations whose explicit compatibility excludes the mod runtime.
+void validateLoaderCompatibility(
+  LoaderRegistry registry,
+  LoaderId mods,
+  LoaderId? plugins,
+) {
+  final descriptor = registry[plugins];
+  if (mods != LoaderId.vanilla &&
+      descriptor != null &&
+      descriptor.compatibleMods.isNotEmpty &&
+      !descriptor.compatibleMods.contains(mods)) {
+    throw ValidationError(
+      'Plugin loader ${descriptor.id.name} does not support mod loader ${mods.name}; compatible mod loaders: ${descriptor.compatibleMods.join(', ')}.',
+    );
   }
 }

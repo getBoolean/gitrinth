@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:crypto/crypto.dart';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -51,6 +54,62 @@ void main() {
         tempCacheRoot.deleteSync(recursive: true);
       }
     });
+
+    test(
+      'online Quilt fetch repairs truncated metadata after verifying cached bytes',
+      () async {
+        final bytes = utf8.encode('verified quilt installer');
+        final digest = sha512.convert(bytes).toString();
+        final destination = cache.loaderArtifactPath(
+          loader: LoaderId.quilt,
+          mcVersion: '1.21.1',
+          modLoaderVersion: '0.30.2',
+          filename: 'quilt-installer.jar',
+        );
+        File(destination)
+          ..parent.createSync(recursive: true)
+          ..writeAsBytesSync(bytes);
+        final metadata = File('$destination.metadata.json')
+          ..writeAsStringSync('{"version":');
+        var calls = 0;
+        dio.interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              calls++;
+              handler.resolve(
+                Response(
+                  requestOptions: options,
+                  data: [
+                    {
+                      'version': '1.0.0',
+                      'hashes': {'sha512': digest},
+                      'url':
+                          'https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-installer/1.0.0/quilt-installer-1.0.0.jar',
+                    },
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+        final quilt = LoaderBinaryFetcher(
+          cache: cache,
+          downloader: downloader,
+          environment: {},
+        );
+        final artifact = await quilt.fetchServerArtifact(
+          loader: LoaderId.quilt,
+          mcVersion: '1.21.1',
+          modLoaderVersion: '0.30.2',
+        );
+        expect(artifact.readAsBytesSync(), bytes);
+        expect(calls, 1);
+        expect(
+          (jsonDecode(metadata.readAsStringSync()) as Map)['version'],
+          '1.0.0',
+        );
+      },
+    );
 
     test('fetches Forge installer to the loaders cache', () async {
       final bytes = Uint8List.fromList(List<int>.generate(64, (i) => i));

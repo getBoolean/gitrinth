@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:gitrinth/src/app/env.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/commands/build_orchestrator.dart';
 import 'package:gitrinth/src/commands/launch_command.dart';
@@ -157,6 +158,44 @@ void main() {
     void writeLock(ModsLock lock) {
       File(io.modsLockPath).writeAsStringSync(emitModsLock(lock));
     }
+
+    test('metadata-only no-build launch has no side effects', () async {
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          environmentProvider.overrideWithValue({
+            'GITRINTH_CONFIG': p.join(tempRoot.path, 'config.yaml'),
+          }),
+        ],
+      );
+      writeLock(_lock(loader: LoaderId('future-runtime')));
+      final fake = _FakeRunProcess();
+      await expectLater(
+        runLaunchServer(
+          options: const LaunchServerOptions(
+            autoBuild: false,
+            acceptEula: true,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+      expect(fakeResolver.lastMcVersion, isNull);
+      expect(File(p.join(serverDir.path, 'eula.txt')).existsSync(), isFalse);
+      expect(fake.executable, isNull);
+    });
 
     test('--accept-eula writes eula.txt with eula=true', () async {
       writeLock(_lock());

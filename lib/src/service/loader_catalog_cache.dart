@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../cli/exceptions.dart';
+import '../util/atomic_file_writer.dart';
 import 'cache.dart';
 
 /// Provider/host-scoped raw catalogs. Remote metadata cannot carry recipes.
@@ -40,22 +41,14 @@ class LoaderCatalogCache {
   }
 
   void write(String provider, String host, List<Map<String, dynamic>> entries) {
-    final file = File(path(provider, host));
-    file.parent.createSync(recursive: true);
-    final temp = File('${file.path}.tmp');
-    try {
-      temp.writeAsStringSync(
-        jsonEncode({
-          'version': 1,
-          'provider': provider,
-          'host': host,
-          'entries': entries,
-        }),
-        flush: true,
-      );
-      temp.renameSync(file.path);
-    } finally {
-      if (temp.existsSync()) temp.deleteSync();
-    }
+    atomicReplaceString(
+      path(provider, host),
+      jsonEncode({
+        'version': 1,
+        'provider': provider,
+        'host': host,
+        'entries': entries,
+      }),
+    );
   }
 }

@@ -143,6 +143,11 @@ Future<LoaderRegistry> prepareLoaderRegistry(
       );
     }
   }
+  validateLoaderCompatibility(
+    registry,
+    manifest.loader.mods,
+    manifest.loader.plugins,
+  );
   container.read(loaderRegistryProvider.notifier).replace(registry);
   return registry;
 }

@@ -297,6 +297,13 @@ Future<int> runLaunchServer({
     );
   }
 
+  final registry = container.read(loaderRegistryProvider);
+  if (registry[lock.loader.mods]?.installer == null) {
+    throw ValidationError(
+      'Loader ${lock.loader.mods.name} has no installed launch adapter.',
+    );
+  }
+
   final outputDir = Directory(
     p.normalize(
       p.absolute(
@@ -326,7 +333,7 @@ Future<int> runLaunchServer({
   }
 
   final (executable, args, useShell) = _serverLaunchCommand(
-    registry: container.read(loaderRegistryProvider),
+    registry: registry,
     loader: lock.loader.mods,
     serverDir: serverDir,
     memoryMax: options.memoryMax,
@@ -795,6 +802,15 @@ Future<int> runLaunchClient({
       'launch client: pack has no mod runtime (loader.mods is vanilla). '
       'gitrinth does not install vanilla Minecraft launchers; use the '
       'official launcher to play this pack.',
+    );
+  }
+
+  if (container
+          .read(loaderRegistryProvider)[lock.loader.mods]
+          ?.canInstallClient !=
+      true) {
+    throw ValidationError(
+      'Loader ${lock.loader.mods.name} has no installed client launch adapter.',
     );
   }
 

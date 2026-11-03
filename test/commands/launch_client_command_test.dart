@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:gitrinth/src/app/env.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/commands/build_orchestrator.dart';
 import 'package:gitrinth/src/commands/launch_command.dart';
@@ -133,6 +134,61 @@ void main() {
       container.dispose();
       if (tempRoot.existsSync()) tempRoot.deleteSync(recursive: true);
     });
+
+    test(
+      'metadata-only no-build launch leaves directories untouched',
+      () async {
+        container.dispose();
+        container = ProviderContainer(
+          overrides: [
+            environmentProvider.overrideWithValue({
+              'GITRINTH_CONFIG': p.join(tempRoot.path, 'config.yaml'),
+            }),
+          ],
+        );
+        File(io.modsLockPath).writeAsStringSync(
+          emitModsLock(_lock(loader: LoaderId('future-runtime'))),
+        );
+        final fakeFetcher = _FakeFetcher(installerJar);
+        final fakeInstaller = _FakeClientInstaller('future-profile');
+        Object? failure;
+        try {
+          await runLaunchClient(
+            options: const LaunchClientOptions(
+              autoBuild: false,
+              offline: false,
+              verbose: false,
+            ),
+            container: container,
+            console: const Console(),
+            io: io,
+            fetcher: fakeFetcher,
+            clientInstaller: fakeInstaller,
+            locator: _FakeLocator(launcherExecutable: launcherExe),
+            cache: cache,
+            runProcess:
+                (
+                  exe,
+                  args, {
+                  Directory? workingDirectory,
+                  bool runInShell = false,
+                  Map<String, String>? environment,
+                  ProcessStartMode mode = ProcessStartMode.inheritStdio,
+                }) async => (pid: 9001, exitCode: null),
+          );
+        } catch (e) {
+          failure = e;
+        }
+        expect(
+          Directory(cache.launcherWorkDir(slug: 'pack')).existsSync(),
+          isFalse,
+        );
+        expect(Directory(p.join(clientDir.path, 'mods')).existsSync(), isFalse);
+        expect(fakeFetcher.called, isFalse);
+        expect(fakeInstaller.called, isFalse);
+        expect(failure, isA<ValidationError>());
+      },
+    );
 
     test('--offline refuses to launch up front', () async {
       await expectLater(

@@ -111,6 +111,30 @@ void main() {
   });
 
   group('listCompatibleFiles', () {
+    test('Any cannot act as a concrete loader filter', () async {
+      final adapter = _ScriptedAdapter([]);
+      final loader = LoaderId('future');
+      await expectLater(
+        listCompatibleFiles(
+          api: _apiWith(adapter),
+          registry: LoaderRegistry.builtins.merge([
+            LoaderDescriptor(
+              id: loader,
+              role: LoaderRole.mod,
+              curseforgeType: 0,
+            ),
+          ]),
+          projectId: 1,
+          section: Section.mods,
+          modLoader: loader,
+          gameVersions: ['1.21.1'],
+          channel: Channel.release,
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+      expect(adapter.requests, isEmpty);
+    });
+
     final filesFixture = File(
       'test/fixtures/curseforge/mod_files_response.json',
     ).readAsStringSync();

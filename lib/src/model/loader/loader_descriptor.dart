@@ -27,6 +27,20 @@ enum VersionSourceFamily {
 bool isSafeRuntimeToken(String value) =>
     RegExp(r'^[A-Za-z0-9][A-Za-z0-9._+\-]*$').hasMatch(value) && value != '..';
 
+/// Provider release applicability, retained independently of its display name.
+class LoaderCatalogVersion {
+  final String name;
+  final String? gameVersion;
+  final bool latest;
+  final bool recommended;
+  const LoaderCatalogVersion({
+    required this.name,
+    this.gameVersion,
+    this.latest = false,
+    this.recommended = false,
+  });
+}
+
 /// Immutable metadata. Discovery never grants an installer family.
 class LoaderDescriptor {
   final LoaderId id;
@@ -44,6 +58,7 @@ class LoaderDescriptor {
   final LoaderId? declaredId;
   final Map<String, LoaderId> variants;
   final List<String> versions;
+  final List<LoaderCatalogVersion>? catalogVersions;
   final String? runtimeArtifact;
 
   const LoaderDescriptor._({
@@ -62,6 +77,7 @@ class LoaderDescriptor {
     this.declaredId,
     this.variants = const {},
     this.versions = const [],
+    this.catalogVersions,
     this.runtimeArtifact,
   });
 
@@ -81,6 +97,7 @@ class LoaderDescriptor {
     LoaderId? declaredId,
     Map<String, LoaderId> variants = const {},
     List<String> versions = const [],
+    List<LoaderCatalogVersion>? catalogVersions,
     String? runtimeArtifact,
   }) => LoaderDescriptor._(
     id: id,
@@ -98,6 +115,9 @@ class LoaderDescriptor {
     declaredId: declaredId,
     variants: Map.unmodifiable(variants),
     versions: List.unmodifiable(versions),
+    catalogVersions: catalogVersions == null
+        ? null
+        : List.unmodifiable(catalogVersions),
     runtimeArtifact: runtimeArtifact,
   );
 
@@ -133,6 +153,7 @@ class LoaderDescriptor {
     String? host,
     String? tag,
     List<String>? versions,
+    List<LoaderCatalogVersion>? catalogVersions,
   }) => LoaderDescriptor(
     id: id,
     role: role,
@@ -149,6 +170,7 @@ class LoaderDescriptor {
     declaredId: declaredId,
     variants: variants,
     versions: versions ?? this.versions,
+    catalogVersions: catalogVersions ?? this.catalogVersions,
     runtimeArtifact: runtimeArtifact,
   );
 }

@@ -161,4 +161,54 @@ void main() {
       ]);
     },
   );
+  for (final outputs in [
+    <String>[],
+    ['quilt-server-launch.jar'],
+    ['server.jar'],
+  ]) {
+    test(
+      'Quilt exit-zero with incomplete outputs $outputs is not installed',
+      () async {
+        final root = Directory.systemTemp.createTempSync('quilt_incomplete_');
+        addTearDown(() => root.deleteSync(recursive: true));
+        final output = Directory(p.join(root.path, 'server'));
+        final installer = File(p.join(root.path, 'installer.jar'))
+          ..writeAsStringSync('fixture');
+        final service = ServerInstaller(
+          runProcess:
+              (
+                exe,
+                args, {
+                workingDirectory,
+                runInShell = false,
+                environment,
+              }) async {
+                for (final filename in outputs) {
+                  File(
+                    p.join(output.path, filename),
+                  ).writeAsStringSync('fixture');
+                }
+                return 0;
+              },
+        );
+        await expectLater(
+          service.installServer(
+            loader: LoaderId.quilt,
+            mcVersion: '1.21.1',
+            modLoaderVersion: '0.30.2',
+            outputDir: output,
+            installerOrServerJar: installer,
+            offline: false,
+          ),
+          throwsA(isA<UserError>()),
+        );
+        expect(
+          File(
+            p.join(output.path, '.gitrinth-installed-quilt-0.30.2'),
+          ).existsSync(),
+          isFalse,
+        );
+      },
+    );
+  }
 }

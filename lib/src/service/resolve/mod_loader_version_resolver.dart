@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:pub_semver/pub_semver.dart';
 
+import 'catalog_loader_version.dart';
+
 import '../../cli/exceptions.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../../util/mc_version.dart';
-
 /// Resolves the docker-style `<loader>:<tag>` syntax in `mods.yaml` to a
 /// concrete loader version.
 ///
@@ -94,19 +95,7 @@ class ModLoaderVersionResolver {
             ? _resolveNeoforgeLegacy(tag)
             : _resolveNeoforge(tag, mcVersion);
       case VersionSourceFamily.catalog:
-        if (tag != 'stable' &&
-            tag != 'latest' &&
-            (descriptor.versions.isEmpty ||
-                descriptor.versions.contains(tag))) {
-          return tag;
-        }
-        if (descriptor.versions.isNotEmpty &&
-            (tag == 'stable' || tag == 'latest')) {
-          return descriptor.versions.first;
-        }
-        throw ValidationError(
-          'Loader ${loader.name} has no discovered version matching $tag; supply a concrete version or refresh its provider catalog.',
-        );
+        return resolveCatalogLoaderVersion(descriptor, tag, mcVersion);
       default:
         throw ValidationError(
           'Loader ${loader.name} has no version-discovery capability for mods.',

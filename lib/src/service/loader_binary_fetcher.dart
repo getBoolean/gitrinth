@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
+import '../util/atomic_file_writer.dart';
 import '../util/url_template.dart';
 import 'cache.dart';
 import 'dio_error_helpers.dart';
@@ -261,19 +262,44 @@ class LoaderBinaryFetcher {
     final metadataFile = File('$destination.metadata.json');
     Map<String, dynamic>? selected;
     if (metadataFile.existsSync()) {
-      final raw = jsonDecode(metadataFile.readAsStringSync());
-      if (raw is Map<String, dynamic>) selected = raw;
+      try {
+        final raw = jsonDecode(metadataFile.readAsStringSync());
+        if (raw is Map<String, dynamic>) {
+          _quiltInstallerSource(raw);
+          selected = raw;
+        }
+      } on FormatException {
+        // Invalid cache metadata is refreshed through the guarded transport.
+      } on FileSystemException {
+        // A concurrent cache replacement can be recovered the same way.
+      } on ValidationError {
+        // Revalidate provider metadata rather than trusting a broken sidecar.
+      }
     }
     if (selected == null) {
-      final response = await _downloader.dio.get<dynamic>(
-        _quiltInstallerMetaUrl,
-      );
+      final Response<dynamic> response;
+      try {
+        response = await _downloader.dio.get<dynamic>(_quiltInstallerMetaUrl);
+      } on DioException catch (e) {
+        unwrapOrThrow(e, context: 'failed to refresh Quilt installer metadata');
+      }
       final raw = response.data;
       if (raw is! List || raw.isEmpty || raw.first is! Map) {
         throw const ValidationError('Quilt installer metadata is empty.');
       }
       selected = Map<String, dynamic>.from(raw.first as Map);
     }
+    final (url, hash) = _quiltInstallerSource(selected);
+    final artifact = await _downloader.downloadTo(
+      url: url,
+      destinationPath: destination,
+      expectedSha512: hash,
+    );
+    atomicReplaceString(metadataFile.path, jsonEncode(selected));
+    return artifact;
+  }
+
+  static (String, String) _quiltInstallerSource(Map<String, dynamic> selected) {
     final installerVersion = selected['version'];
     final hashes = selected['hashes'];
     final hash = hashes is Map ? hashes['sha512'] : null;
@@ -292,13 +318,6 @@ class LoaderBinaryFetcher {
         'Quilt installer metadata has an untrusted artifact URL.',
       );
     }
-    final artifact = await _downloader.downloadTo(
-      url: url,
-      destinationPath: destination,
-      expectedSha512: hash,
-    );
-    metadataFile.parent.createSync(recursive: true);
-    metadataFile.writeAsStringSync(jsonEncode(selected), flush: true);
-    return artifact;
+    return (url, hash);
   }
 }

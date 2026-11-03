@@ -50,7 +50,7 @@ Future<List<ModFile>> listCompatibleFiles({
   final modLoaderType = section == Section.plugins
       ? null
       : (modLoader == null ? null : registry[modLoader]?.curseforgeType);
-  if (modLoader != null && modLoaderType == null) {
+  if (modLoader != null && (modLoaderType == null || modLoaderType <= 0)) {
     throw ValidationError(
       'Loader ${modLoader.name} has no CurseForge numeric filter mapping; add a provider mapping in loaders.yaml.',
     );

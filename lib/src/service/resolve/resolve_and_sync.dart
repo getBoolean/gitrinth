@@ -31,6 +31,7 @@ import '../curseforge/curseforge_metadata_store.dart';
 import '../curseforge/curseforge_version.dart';
 import '../downloader.dart';
 import '../manifest_io.dart';
+import '../loader_registry.dart' show validateLoaderCompatibility;
 import '../modrinth/modrinth_api.dart';
 import '../modrinth/modrinth_api_factory.dart';
 import '../modrinth/modrinth_url.dart';
@@ -121,6 +122,11 @@ Future<ResolveSyncResult> resolveAndSync({
   final reporter = SolveReporter(console);
 
   final rawManifest = manifestOverride ?? io.readModsYaml();
+  validateLoaderCompatibility(
+    loaderRegistry,
+    rawManifest.loader.mods,
+    rawManifest.loader.plugins,
+  );
   final manifest = rawManifest.copyWith(
     mods: coerceModsForPluginLoader(
       rawManifest.mods,

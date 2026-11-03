@@ -2,13 +2,14 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+import 'catalog_loader_version.dart';
+
 import '../../cli/exceptions.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../../util/url_template.dart';
 import '../dio_error_helpers.dart';
 import '../paper_api_client.dart';
 import '../sponge_api_client.dart';
-
 class PluginLoaderVersionResolver {
   final Dio _dio;
   final PaperApiClient _paperApi;
@@ -67,19 +68,7 @@ class PluginLoaderVersionResolver {
       case VersionSourceFamily.buildtools:
         return _resolveBuildTools(tag);
       case VersionSourceFamily.catalog:
-        if (tag != 'stable' &&
-            tag != 'latest' &&
-            (descriptor.versions.isEmpty ||
-                descriptor.versions.contains(tag))) {
-          return tag;
-        }
-        if ((tag == 'stable' || tag == 'latest') &&
-            descriptor.versions.isNotEmpty) {
-          return descriptor.versions.first;
-        }
-        throw ValidationError(
-          'Loader ${loader.name} has no discovered plugin version matching $tag.',
-        );
+        return resolveCatalogLoaderVersion(descriptor, tag, mcVersion);
       default:
         throw ValidationError(
           'Loader ${loader.name} has no plugin version-discovery capability.',
