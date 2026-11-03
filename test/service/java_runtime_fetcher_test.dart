@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -380,6 +381,47 @@ void main() {
               ),
             ),
           );
+        },
+      );
+
+      test(
+        'a lock contender cannot delete an in-progress installation',
+        () async {
+          final runtime = Directory(
+            cache.javaRuntimeDir(
+              vendor: 'temurin',
+              feature: 21,
+              osKey: 'windows',
+              archKey: 'x64',
+            ),
+          )..createSync(recursive: true);
+          final marker = File(p.join(runtime.path, 'owner-in-progress'))
+            ..writeAsStringSync('owned');
+          final handle = File(
+            cache.javaRuntimeLockPath('21'),
+          ).openSync(mode: FileMode.write);
+          handle.lockSync(FileLock.exclusive);
+          Process? contender;
+          try {
+            contender = await Process.start(Platform.resolvedExecutable, [
+              '--packages=${p.absolute('.dart_tool/package_config.json')}',
+              p.absolute('test/helpers/java_runtime_contender.dart'),
+              tempCacheRoot.path,
+            ]);
+            final output = contender.stdout.transform(utf8.decoder).join();
+            final errors = contender.stderr.transform(utf8.decoder).join();
+            final exitCode = await contender.exitCode.timeout(
+              const Duration(seconds: 15),
+            );
+            expect(exitCode, 0, reason: await errors);
+            expect(jsonDecode(await output)['status'], 'lock-refused');
+            expect(runtime.existsSync(), isTrue);
+            expect(marker.readAsStringSync(), 'owned');
+          } finally {
+            contender?.kill();
+            handle.unlockSync();
+            handle.closeSync();
+          }
         },
       );
 

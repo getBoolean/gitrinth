@@ -37,6 +37,9 @@ class Resolver {
   final Future<String?> Function(String projectId, String parentSlug)?
   resolveDependencySlug;
   final Section Function(String slug)? sectionForSlug;
+  final String Function(Section section, String slug)? nodeKeyFor;
+  final String Function(String key)? localNameFor;
+  final String Function(String message)? formatError;
 
   /// Selection direction passed through to [PubGrubSolver]. Defaults to
   /// [SolveType.get] so existing callers keep newest-first behavior.
@@ -47,6 +50,9 @@ class Resolver {
     required this.resolveSlugForProjectId,
     this.resolveDependencySlug,
     this.sectionForSlug,
+    this.nodeKeyFor,
+    this.localNameFor,
+    this.formatError,
     this.solveType = SolveType.get,
   });
 
@@ -74,7 +80,8 @@ class Resolver {
           // until the user re-runs `migrate` / `upgrade --major-versions`.
           return;
         }
-        if (modrinthSlugs != null && !modrinthSlugs.contains(slug)) {
+        final key = nodeKeyFor?.call(section, slug) ?? slug;
+        if (modrinthSlugs != null && !modrinthSlugs.contains(key)) {
           // Dispatch gate: the entry's effective sources exclude
           // Modrinth (e.g. `sources: [curseforge]` or pack-default
           // disable). Skip it here — the CurseForge resolver pass
@@ -84,16 +91,16 @@ class Resolver {
         // The lock builder still needs to file an overridden slug
         // under the right section even though no RootConstraint is
         // built for it (the override pin pre-decides the version).
-        entryBySection[slug] = section;
-        entryBySlug[slug] = entry;
-        if (overridePins.containsKey(slug)) return;
+        entryBySection[key] = section;
+        entryBySlug[key] = entry;
+        if (overridePins.containsKey(key)) return;
         // Permissive default: an entry with no explicit channel accepts
         // every Modrinth `version_type`. Users narrow to `release`/`beta`
         // only when they want a stricter stability floor.
         final effectiveChannel = entry.channel ?? Channel.alpha;
         roots.add(
           RootConstraint(
-            slug: slug,
+            slug: key,
             constraint: parseConstraint(entry.constraintRaw),
             channel: effectiveChannel,
             isUserDeclared: true,
@@ -111,7 +118,11 @@ class Resolver {
       for (final section in Section.values) {
         existingLock.sectionFor(section).forEach((slug, locked) {
           final v = locked.version;
-          if (v != null) pins.add(LockSuggestion(slug, v));
+          if (v != null) {
+            pins.add(
+              LockSuggestion(nodeKeyFor?.call(section, slug) ?? slug, v),
+            );
+          }
         });
       }
     }
@@ -126,7 +137,20 @@ class Resolver {
       requiredVersionIds: requiredVersionIds,
       solveType: solveType,
     );
-    final result = await solver.solve(roots);
+    final PubGrubResult result;
+    try {
+      result = await solver.solve(roots);
+    } on UnsatisfiableGraphError catch (error) {
+      throw UnsatisfiableGraphError(
+        formatError?.call(error.message) ?? error.message,
+        conflictingUserSlugs: {
+          for (final key in error.conflictingUserSlugs)
+            localNameFor?.call(key) ?? key,
+        },
+      );
+    } on ValidationError catch (error) {
+      throw ValidationError(formatError?.call(error.message) ?? error.message);
+    }
 
     final entries = <ResolvedEntry>[];
     final sortedDecisions = result.decisions.entries.toList()
@@ -146,7 +170,7 @@ class Resolver {
       final file = v.primaryFile;
       if (file == null) {
         throw ValidationError(
-          'Resolved $slug version ${v.versionNumber} has no downloadable file.',
+          'Resolved ${localNameFor?.call(slug) ?? slug} version ${v.versionNumber} has no downloadable file.',
         );
       }
       final section =
@@ -160,7 +184,7 @@ class Resolver {
           : LockedDependencyKind.direct;
       entries.add(
         ResolvedEntry(
-          slug: slug,
+          slug: localNameFor?.call(slug) ?? slug,
           section: section,
           client: client,
           server: server,

@@ -1,11 +1,10 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
 import '../../cli/exceptions.dart';
 import '../../model/manifest/mods_lock.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../cache.dart';
+import '../artifact_locator.dart';
 import '../console.dart';
 import '../downloader.dart';
 import '../manifest_io.dart';
@@ -41,16 +40,20 @@ class DownloadArtifactsResult {
 ///     directory (no fetch).
 ///
 /// Pure plumbing: no policy, no manifest reads. The host for Modrinth
-/// entries comes from [hostFor] (typically threaded through from the
-/// effective-host chain in `resolveAndSync`).
+/// entries uses the locked source host or [defaultModrinthHost].
 Future<DownloadArtifactsResult> downloadArtifacts({
   required ModsLock lock,
   required GitrinthCache cache,
   required Downloader downloader,
   required Console console,
   required ManifestIo io,
-  required String Function(Section section, String slug) hostFor,
+  required String defaultModrinthHost,
 }) async {
+  final locator = ArtifactLocator(
+    cache: cache,
+    projectDir: io.directory.path,
+    defaultModrinthHost: defaultModrinthHost,
+  );
   var downloaded = 0;
   var hits = 0;
   final errors = <String>[];
@@ -64,13 +67,11 @@ Future<DownloadArtifactsResult> downloadArtifacts({
             final mr = locked.modrinth;
             if (mr != null) {
               final delta = await _fetchModrinth(
-                cache: cache,
                 downloader: downloader,
                 console: console,
                 slug: locked.slug,
-                section: section,
                 source: mr,
-                hostFor: hostFor,
+                locator: locator,
               );
               downloaded += delta.downloaded;
               hits += delta.hits;
@@ -82,7 +83,7 @@ Future<DownloadArtifactsResult> downloadArtifacts({
                 errors.add(delta.error!);
               } else if (delta.url != null) {
                 final result = await _fetchCurseforge(
-                  cache: cache,
+                  locator: locator,
                   downloader: downloader,
                   console: console,
                   slug: locked.slug,
@@ -95,7 +96,7 @@ Future<DownloadArtifactsResult> downloadArtifacts({
             }
           case LockedEntryKind.url:
             final delta = await _fetchUrl(
-              cache: cache,
+              locator: locator,
               downloader: downloader,
               slug: locked.slug,
               file: locked.urlFile,
@@ -103,7 +104,7 @@ Future<DownloadArtifactsResult> downloadArtifacts({
             downloaded += delta.downloaded;
             hits += delta.hits;
           case LockedEntryKind.path:
-            _verifyPath(io: io, slug: locked.slug, raw: locked.path);
+            _verifyPath(locator: locator, slug: locked.slug, raw: locked.path);
         }
       } on GitrinthException catch (e) {
         errors.add(e.message);
@@ -131,23 +132,16 @@ class _CfPrep {
 }
 
 Future<_Counts> _fetchModrinth({
-  required GitrinthCache cache,
   required Downloader downloader,
   required Console console,
   required String slug,
-  required Section section,
   required LockedModrinthSource source,
-  required String Function(Section, String) hostFor,
+  required ArtifactLocator locator,
 }) async {
   final file = source.file;
   final url = file.url;
   if (url == null) return const _Counts();
-  final dest = cache.modrinthPath(
-    host: source.host ?? hostFor(section, slug),
-    projectId: source.projectId,
-    versionId: source.versionId,
-    filename: file.name,
-  );
+  final dest = locator.modrinth(source);
   final existed = File(dest).existsSync();
   await downloader.downloadTo(
     url: url,
@@ -182,7 +176,7 @@ _CfPrep _fetchCurseforgePrep({
 }
 
 Future<_Counts> _fetchCurseforge({
-  required GitrinthCache cache,
+  required ArtifactLocator locator,
   required Downloader downloader,
   required Console console,
   required String slug,
@@ -190,11 +184,7 @@ Future<_Counts> _fetchCurseforge({
   required String url,
 }) async {
   final file = source.file;
-  final dest = cache.curseforgePath(
-    projectId: source.projectId,
-    fileId: source.fileId,
-    filename: file.name,
-  );
+  final dest = locator.curseforge(source);
   final existed = File(dest).existsSync();
   await downloader.downloadTo(
     url: url,
@@ -210,7 +200,7 @@ Future<_Counts> _fetchCurseforge({
 }
 
 Future<_Counts> _fetchUrl({
-  required GitrinthCache cache,
+  required ArtifactLocator locator,
   required Downloader downloader,
   required String slug,
   required LockedFile? file,
@@ -219,9 +209,7 @@ Future<_Counts> _fetchUrl({
   final url = file.url;
   if (url == null) return const _Counts();
   final sha512 = file.sha512;
-  final dest = sha512 != null
-      ? cache.urlPath(sha512: sha512, filename: file.name)
-      : cache.unverifiedUrlPath(slug, file.name);
+  final dest = locator.url(slug, file);
   final existed = File(dest).existsSync();
   await downloader.downloadTo(
     url: url,
@@ -233,7 +221,7 @@ Future<_Counts> _fetchUrl({
 }
 
 void _verifyPath({
-  required ManifestIo io,
+  required ArtifactLocator locator,
   required String slug,
   required String? raw,
 }) {
@@ -243,9 +231,7 @@ void _verifyPath({
       'malformed.',
     );
   }
-  final resolved = p.isAbsolute(raw)
-      ? raw
-      : p.normalize(p.join(io.directory.path, raw));
+  final resolved = locator.path(raw);
   if (FileSystemEntity.typeSync(resolved) == FileSystemEntityType.notFound) {
     throw ValidationError(
       'path source for "$slug" points to a missing file: '

@@ -84,29 +84,22 @@ class JavaRuntimeFetcher {
       ),
     );
 
-    // No sentinel means an incomplete install; start fresh.
-    if (dir.existsSync() && !_hasSentinel(dir)) {
-      dir.deleteSync(recursive: true);
-    }
-
     if (dir.existsSync() && _hasSentinel(dir)) {
       final java = _findJavaBinary(dir, osKey);
       if (java != null) return java;
-      // Sentinel without binary (truncated install) — start over.
-      dir.deleteSync(recursive: true);
     }
 
     Directory(_cache.runtimesRoot).createSync(recursive: true);
     final lockFile = File(_cache.javaRuntimeLockPath(feature.toString()));
     final lockHandle = lockFile.openSync(mode: FileMode.write);
-    lockHandle.lockSync(FileLock.exclusive);
     try {
+      lockHandle.lockSync(FileLock.exclusive);
       // Re-check after locking in case another process just finished.
       if (dir.existsSync() && _hasSentinel(dir)) {
         final cached = _findJavaBinary(dir, osKey);
         if (cached != null) return cached;
-        dir.deleteSync(recursive: true);
       }
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
 
       _console.io(
         'Downloading Temurin $feature (~190 MB) to ${dir.path}; '

@@ -31,8 +31,8 @@ class CurseForgeUploadClient {
         '${baseUrl.replaceFirst(RegExp(r"/$"), "")}/api/projects/$projectId/upload-file',
         data: FormData.fromMap({
           'metadata': jsonEncode(metadata),
-          'file': MultipartFile.fromBytes(
-            archive.readAsBytesSync(),
+          'file': await MultipartFile.fromFile(
+            archive.path,
             filename: p.basename(archive.path),
             contentType: DioMediaType('application', 'zip'),
           ),

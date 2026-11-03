@@ -2,6 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../model/manifest/mods_lock.dart';
+import '../../model/manifest/mods_yaml.dart';
+import '../../cli/exceptions.dart';
+import '../dependency_graph.dart';
+import '../source_identity.dart';
 import '../cache.dart';
 import '../console.dart';
 
@@ -42,81 +46,127 @@ List<String>? readCachedRequiredChildren(
   return out;
 }
 
-/// BFS over the dep graph to compute the transitive closure of
-/// [seeds]. Edges are read from the artifact cache's per-version
-/// `version.json` (mirrors dart pub's "graph in cache" architecture
-/// — see [GitrinthCache.modrinthVersionMetadataPath]).
-///
-/// Cold-cache entries (a slug whose `version.json` hasn't been written
-/// yet) are reported via `console.detail` (gated on the optional
-/// [verboseLabel] for caller-specific phrasing) and their children are
-/// skipped; subsequent runs populate the cache.
-///
-/// When [lock] is null, the closure is just [seeds]: there is no
-/// graph to walk yet.
+/// Lock edges preserve section identity; the legacy bare required_by list is
+/// used only when its parent can be identified without guessing.
+final class LockedDependencyGraph {
+  final graph = DependencyGraph<LocalEntryKey>();
+  final identity = SourceIdentity();
+  final entries = <LocalEntryKey, LockedEntry>{};
+  final diagnostics = <String>[];
+  var coldCacheCount = 0;
+
+  LockedDependencyGraph(
+    ModsLock lock,
+    GitrinthCache cache, {
+    required String defaultHost,
+  }) {
+    for (final section in Section.values) {
+      for (final entry in lock.sectionFor(section).entries) {
+        final node = LocalEntryKey(section, entry.key);
+        final host = entry.value.modrinth?.host ?? defaultHost;
+        entries[node] = entry.value;
+        identity.register(node, host: host);
+        graph.addNode(node);
+        final mr = entry.value.modrinth;
+        if (mr != null) {
+          identity.bind(node, ModrinthProjectKey(host, mr.projectId));
+        }
+      }
+    }
+    for (final item in entries.entries) {
+      final mr = item.value.modrinth;
+      if (mr == null || mr.projectId.isEmpty || mr.versionId.isEmpty) continue;
+      final children = readCachedRequiredChildren(
+        cache,
+        identity.host(item.key),
+        mr.projectId,
+        mr.versionId,
+      );
+      if (children == null) {
+        coldCacheCount++;
+        continue;
+      }
+      for (final project in children) {
+        for (final child in identity.aliases(
+          ModrinthProjectKey(identity.host(item.key), project),
+        )) {
+          graph.addEdge(item.key, child);
+        }
+      }
+    }
+    for (final item in entries.entries) {
+      for (final parentName in item.value.requiredBy) {
+        final candidates = identity
+            .nodesNamed(parentName)
+            .where(
+              (node) => canRequireLockedSource(
+                entries[node]!,
+                item.value,
+                defaultModrinthHost: defaultHost,
+              ),
+            )
+            .toList();
+        if (candidates.length > 1) {
+          final knownParents = graph.parents(item.key);
+          final metadataParents = candidates
+              .where(knownParents.contains)
+              .toList();
+          if (metadataParents.isNotEmpty) {
+            continue;
+          }
+        }
+        if (candidates.length == 1) {
+          graph.addEdge(candidates.single, item.key);
+        } else if (candidates.length > 1) {
+          diagnostics.add(
+            "Ambiguous required_by parent '$parentName' for ${item.key}; omitting that edge.",
+          );
+        }
+      }
+    }
+  }
+}
+
 Set<String> walkTransitiveClosure(
   Set<String> seeds,
   ModsLock? lock,
   GitrinthCache cache, {
-  required String Function(String slug) hostForSlug,
+  required String defaultHost,
   Console? console,
   String verboseLabel = 'walkTransitiveClosure',
 }) {
   if (lock == null) {
     console?.io(
-      '$verboseLabel: no mods.lock found yet — '
-      'falling back to the named entries.',
+      '$verboseLabel: no mods.lock found yet — falling back to the named entries.',
     );
     return seeds;
   }
-
-  final lookup = <String, LockedEntry>{};
-  final projectIdToSlug = <String, String>{};
-  for (final entry in lock.allEntries) {
-    lookup[entry.key] = entry.value;
-    final pid = entry.value.modrinth?.projectId;
-    if (pid != null) projectIdToSlug[pid] = entry.key;
+  final indexed = LockedDependencyGraph(lock, cache, defaultHost: defaultHost);
+  if (indexed.diagnostics.isNotEmpty) {
+    throw UserError(indexed.diagnostics.join('\n'));
   }
-
-  final closure = <String>{...seeds};
-  final queue = <String>[...seeds];
-  while (queue.isNotEmpty) {
-    final slug = queue.removeLast();
-    final entry = lookup[slug];
-    if (entry == null) {
-      console?.io("$verboseLabel: '$slug' not in mods.lock; skipping.");
-      continue;
-    }
-    for (final child in lookup.entries) {
-      if (child.value.requiredBy.contains(slug) && closure.add(child.key)) {
-        queue.add(child.key);
-      }
-    }
-    final mr = entry.modrinth;
-    if (mr == null) continue;
-    final pid = mr.projectId;
-    final vid = mr.versionId;
-    if (pid.isEmpty || vid.isEmpty) continue;
-
-    final children = readCachedRequiredChildren(
-      cache,
-      hostForSlug(slug),
-      pid,
-      vid,
-    );
-    if (children == null) {
-      console?.io(
-        "$verboseLabel: no cached version.json for "
-        "'$slug' ($pid/$vid); skipping its transitive children. "
-        'Run `gitrinth get` to populate the cache.',
+  final nodes = <LocalEntryKey>[];
+  for (final seed in seeds) {
+    final matches = indexed.identity.nodesNamed(seed);
+    if (matches.length > 1) {
+      throw UserError(
+        "Ambiguous entry '$seed' in mods.lock; cannot unlock its transitive closure.",
       );
-      continue;
     }
-    for (final childPid in children) {
-      final childSlug = projectIdToSlug[childPid];
-      if (childSlug == null) continue;
-      if (closure.add(childSlug)) queue.add(childSlug);
+    nodes.addAll(matches);
+  }
+  if (indexed.coldCacheCount > 0) {
+    console?.io(
+      '$verboseLabel: no cached version.json for ${indexed.coldCacheCount} entries. Run `gitrinth get` to populate the cache.',
+    );
+  }
+  final reachable = indexed.graph.reachable(nodes);
+  for (final node in reachable) {
+    if (indexed.identity.nodesNamed(node.localKey).length > 1) {
+      throw UserError(
+        "Ambiguous entry '${node.localKey}' in mods.lock; cannot unlock its transitive closure.",
+      );
     }
   }
-  return closure;
+  return {...seeds, for (final node in reachable) node.localKey};
 }

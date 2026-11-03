@@ -17,7 +17,6 @@ import '../service/curseforge/curseforge_version.dart';
 import '../model/modrinth/dependency.dart';
 import '../model/modrinth/project.dart';
 import '../model/modrinth/version.dart' as modrinth;
-import '../model/resolver/constraint.dart';
 import '../service/cache.dart';
 import '../service/manifest_io.dart';
 import '../service/resolve/section_inference.dart';
@@ -293,14 +292,16 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
           acceptsMc: acceptsMc,
         );
         if (latest == null) {
-          final widened = acceptsMc.isEmpty
-              ? ''
-              : ' (widened with accepts-mc=${acceptsMc.join(",")})';
           throw UserError(
-            "No release version of '$slug' is compatible with "
-            "loader=${loaderNameForSection(existingManifest.loader, section) ?? '<none>'} "
-            "mc=${existingManifest.mcVersion}$widened. "
-            'Pass `@<version>` explicitly to pin an alpha/beta.',
+            noCompatibleReleaseMessage(
+              slug,
+              loaderName: loaderNameForSection(
+                existingManifest.loader,
+                section,
+              ),
+              mcVersion: existingManifest.mcVersion,
+              acceptsMc: acceptsMc,
+            ),
           );
         }
         await _validateNoIncompatibility(
@@ -311,43 +312,22 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
           newProjectId: project.id,
           pickedVersion: latest,
         );
-        if (exactFlag) {
-          effectiveConstraint = '^${latest.versionNumber}';
-        } else if (pinFlag) {
-          effectiveConstraint = bareVersionForPin(latest.versionNumber);
-        } else {
-          // Default: caret on major.minor.patch. If Modrinth's version
-          // isn't semver-shaped (some mods use arbitrary strings),
-          // carets are meaningless — fall back to pinning the raw
-          // version verbatim.
-          effectiveConstraint = caretOrPinFallback(latest.versionNumber);
-        }
+        effectiveConstraint = constraintForSelectedVersion(
+          latest.versionNumber,
+          exact: exactFlag,
+          pin: pinFlag,
+        );
       } else {
-        // Validate the user-supplied constraint so a bad `@xyz` fails fast
-        // with a single-line error before we touch mods.yaml.
-        final channel = parseChannelToken(constraintRaw);
-        if (channel == null) {
-          parseConstraint(constraintRaw); // throws ValidationError on bad input
-        }
-        effectiveConstraint = constraintRaw;
+        effectiveConstraint = validatedEntryConstraint(constraintRaw);
       }
 
-      final needsLongForm =
-          (envOpt != null && envOpt != 'both') || acceptsMc.isNotEmpty;
-      if (needsLongForm) {
-        final long = <String, Object?>{'version': effectiveConstraint};
-        writeSideFields(long, envOpt);
-        if (acceptsMc.isNotEmpty) {
-          long['accepts_mc'] = acceptsMc.length == 1
-              ? acceptsMc.first
-              : acceptsMc;
-        }
-        longForm = long;
-        writtenValue = null;
-      } else {
-        longForm = null;
-        writtenValue = effectiveConstraint;
-      }
+      final fields = versionEntryFields(
+        effectiveConstraint,
+        env: envOpt,
+        acceptsMc: acceptsMc,
+      );
+      longForm = fields.length == 1 ? null : fields;
+      writtenValue = longForm == null ? effectiveConstraint : null;
     }
 
     if (section == Section.mods && !existingManifest.loader.hasModRuntime) {
@@ -587,11 +567,11 @@ class AddCommand extends GitrinthCommand with OfflineFlag {
       }
       // CF display names need not contain a semantic version.
       version ??= 'release';
-      fields['version'] = exact
-          ? '^$version'
-          : pin
-          ? bareVersionForPin(version)
-          : caretOrPinFallback(version);
+      fields['version'] = constraintForSelectedVersion(
+        version,
+        exact: exact,
+        pin: pin,
+      );
     }
     final explicit =
         cfSugar ||

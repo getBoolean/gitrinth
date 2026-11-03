@@ -13,21 +13,21 @@ import '../console.dart';
 import '../curseforge/curseforge_api.dart';
 import '../curseforge/curseforge_filters.dart';
 import '../modrinth/modrinth_api.dart';
-import '../modrinth/modrinth_api_factory.dart';
+import '../modrinth/modrinth_api_source.dart';
+import '../source_identity.dart';
 import 'curseforge_resolver.dart';
 
 /// Session-scoped search caches retain host and all compatibility filters.
 /// Only a unique project with an identical SHA1 can be selected automatically.
 class CrossPlatformSearch {
   final ModsYaml manifest;
-  final ModrinthApiFactory mrFactory;
+  final ModrinthApiSource mrFactory;
   final CurseForgeApi cfApi;
   final Console console;
   final bool disabled;
-  final Set<String> modrinthSearchSlugs = {};
+  final Set<LocalEntryKey> modrinthSearchSlugs = {};
   final Map<String, Future<List<Mod>>> _cfQueries = {};
-  final Map<String, Future<List<dynamic>>> _mrQueries = {};
-  final Map<String, String> diagnostics = {};
+  final Map<LocalEntryKey, String> diagnostics = {};
 
   CrossPlatformSearch({
     required this.manifest,
@@ -143,7 +143,7 @@ class CrossPlatformSearch {
       );
     }
     final selected = _select(
-      slug,
+      LocalEntryKey(section, slug),
       'CurseForge',
       candidates,
       anchorProject?.title ?? slug,
@@ -188,12 +188,11 @@ class CrossPlatformSearch {
       [for (final v in versions) 'versions:$v'],
       if (loaders != null) [for (final l in loaders) 'categories:$l'],
     ]);
-    final key = jsonEncode([apiHost, query, facets]);
-    final hits = await _mrQueries.putIfAbsent(key, () async {
-      final response = await api.searchProjects(query: query, facets: facets);
-      final data = response.data;
-      return data is Map && data['hits'] is List ? data['hits'] as List : [];
-    });
+    final response = await api.searchProjects(query: query, facets: facets);
+    final data = response.data;
+    final hits = data is Map && data['hits'] is List
+        ? data['hits'] as List
+        : [];
     final anchorHashes = anchor.candidates
         .take((entry.hashScanDepth ?? 10) + 1)
         .map((f) => f.sha1Hash)
@@ -245,7 +244,7 @@ class CrossPlatformSearch {
       );
     }
     final selected = _select(
-      slug,
+      LocalEntryKey(section, slug),
       'Modrinth',
       candidates,
       anchor.project.name,
@@ -255,7 +254,7 @@ class CrossPlatformSearch {
           .toList(),
     );
     if (selected != null) {
-      modrinthSearchSlugs.add(slug);
+      modrinthSearchSlugs.add(LocalEntryKey(section, slug));
       final project = candidates.firstWhere(
         (c) => identical(c.value, selected),
       );
@@ -271,7 +270,7 @@ class CrossPlatformSearch {
       .toSet();
 
   T? _select<T>(
-    String slug,
+    LocalEntryKey node,
     String platform,
     List<_Candidate<T>> candidates,
     String title,
@@ -313,7 +312,7 @@ class CrossPlatformSearch {
         '$platform search $reason. '
         '${candidates.isEmpty ? "No candidates." : "Candidates:\n$details"}';
     diagnostics.update(
-      slug,
+      node,
       (previous) => '$previous\n$message',
       ifAbsent: () => message,
     );

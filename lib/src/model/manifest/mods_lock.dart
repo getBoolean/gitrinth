@@ -43,9 +43,8 @@ class LockedModrinthSource with LockedModrinthSourceMappable {
   final String versionId;
   final String? versionNumber;
 
-  /// Per-entry Modrinth-protocol host override. `null` when the entry
-  /// resolved against the default `modrinth.com` host (or the
-  /// pack-level default, depending on the resolution chain).
+  /// Resolved Modrinth source host. `null` means the global API default,
+  /// including its environment override, rather than the pack's host.
   final String? host;
   final bool discoveredViaSearch;
 

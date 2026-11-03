@@ -27,6 +27,69 @@ ModsYaml parse(String tail) =>
 
 void main() {
   test(
+    'both-target publication uses credentials and changelog captured before uploads',
+    () async {
+      final temp = Directory.systemTemp.createTempSync('publish_prepared_');
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        await server.close(force: true);
+        temp.deleteSync(recursive: true);
+      });
+      final host = 'http://127.0.0.1:${server.port}';
+      final config = File('${temp.path}/config.yaml')
+        ..writeAsStringSync(
+          'tokens:\n  $host: captured-mr-token\n  https://curseforge.com: captured-cf-token\n',
+        );
+      final changelog = File('${temp.path}/release.md')
+        ..writeAsStringSync('Original release notes');
+      File(
+        '${temp.path}/mods.yaml',
+      ).writeAsStringSync('${base}publish_to: [modrinth, curseforge]\n');
+      Directory('${temp.path}/build').createSync();
+      File('${temp.path}/build/test-1.0.0.mrpack').writeAsBytesSync([1]);
+      File('${temp.path}/build/test-1.0.0.zip').writeAsBytesSync([2]);
+      final uploads = <String>[];
+      server.listen((request) async {
+        final body = await utf8.decoder.bind(request).join();
+        uploads.add(request.uri.path);
+        expect(body, contains('Original release notes'));
+        if (request.uri.path == '/project/test/version') {
+          expect(request.headers.value('Authorization'), 'captured-mr-token');
+          config.writeAsStringSync('tokens: {}\n');
+          changelog.writeAsStringSync('Changed after first upload');
+        } else {
+          expect(request.uri.path, '/api/projects/42/upload-file');
+          expect(request.headers.value('X-Api-Token'), 'captured-cf-token');
+        }
+        request.response.headers.contentType = ContentType.json;
+        request.response.write('{"id":123}');
+        await request.response.close();
+      });
+      final result = await runCli(
+        [
+          '-C',
+          temp.path,
+          'publish',
+          '--force',
+          '--curseforge-project',
+          '42',
+          '--changelog',
+          changelog.path,
+        ],
+        environment: {
+          'GITRINTH_CONFIG': config.path,
+          'GITRINTH_MODRINTH_URL': host,
+          'GITRINTH_CURSEFORGE_UPLOAD_URL': host,
+        },
+      );
+      expect(result.exitCode, 0, reason: '${result.stdout}\n${result.stderr}');
+      expect(uploads, [
+        '/project/test/version',
+        '/api/projects/42/upload-file',
+      ]);
+    },
+  );
+  test(
     'upload honors a caller receive timeout without retrying a stalled response',
     () async {
       final temp = Directory.systemTemp.createTempSync('cf_upload_timeout_');
@@ -59,6 +122,55 @@ void main() {
         throwsA(isA<UserError>()),
       );
       expect(requests, 1);
+    },
+  );
+  test(
+    'second-target failure preserves first-target success without retrying',
+    () async {
+      final temp = Directory.systemTemp.createTempSync('publish_partial_');
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() async {
+        await server.close(force: true);
+        temp.deleteSync(recursive: true);
+      });
+      final host = 'http://127.0.0.1:${server.port}';
+      final config = File('${temp.path}/config.yaml')
+        ..writeAsStringSync(
+          'tokens:\n  $host: mr-token\n  https://curseforge.com: cf-token\n',
+        );
+      File(
+        '${temp.path}/mods.yaml',
+      ).writeAsStringSync('${base}publish_to: [modrinth, curseforge]\n');
+      Directory('${temp.path}/build').createSync();
+      File('${temp.path}/build/test-1.0.0.mrpack').writeAsBytesSync([1]);
+      File('${temp.path}/build/test-1.0.0.zip').writeAsBytesSync([2]);
+      final uploads = <String>[];
+      server.listen((request) async {
+        await request.drain<void>();
+        uploads.add(request.uri.path);
+        request.response.headers.contentType = ContentType.json;
+        request.response.statusCode = uploads.length == 1 ? 201 : 500;
+        request.response.write(
+          uploads.length == 1 ? '{"id":123}' : '{"error":"rejected"}',
+        );
+        await request.response.close();
+      });
+      final result = await runCli(
+        ['-C', temp.path, 'publish', '--force', '--curseforge-project', '42'],
+        environment: {
+          'GITRINTH_CONFIG': config.path,
+          'GITRINTH_MODRINTH_URL': host,
+          'GITRINTH_CURSEFORGE_UPLOAD_URL': host,
+        },
+      );
+      expect(result.exitCode, isNot(0));
+      expect(result.stdout, contains('Published test v1.0.0 to $host'));
+      expect(result.stdout, isNot(contains('to CurseForge')));
+      expect(result.stderr, contains('upload'));
+      expect(uploads, [
+        '/project/test/version',
+        '/api/projects/42/upload-file',
+      ]);
     },
   );
   test(

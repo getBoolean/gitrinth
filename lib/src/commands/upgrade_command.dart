@@ -176,25 +176,11 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
 
     if (unlockTransitive && targets.isNotEmpty) {
-      final defaultBaseUrl = apiFactory.defaultBaseUrl;
-      String hostForSlug(String slug) {
-        for (final section in Section.values) {
-          final manifestEntry = manifest.sectionEntries(section)[slug];
-          if (manifestEntry != null) {
-            return manifest.effectiveModrinthHost(
-              manifestEntry,
-              defaultBaseUrl,
-            );
-          }
-        }
-        return manifest.modrinthHost ?? defaultBaseUrl;
-      }
-
       targets = walkTransitiveClosure(
         targets,
         io.readModsLock(),
         read(cacheProvider),
-        hostForSlug: hostForSlug,
+        defaultHost: apiFactory.defaultBaseUrl,
         console: console,
         verboseLabel: 'upgrade --unlock-transitive',
       );
@@ -217,7 +203,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     };
     final manifestForResolve = unrecoverableMarkers.isEmpty
         ? null
-        : _stripSlugs(manifest, unrecoverableMarkers);
+        : manifest.withoutEntrySlugs(unrecoverableMarkers);
 
     final reporter = SolveReporter(console);
 
@@ -354,17 +340,4 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
     return exitOk;
   }
-}
-
-ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {
-  Map<String, ModEntry> strip(Map<String, ModEntry> m) => {
-    for (final e in m.entries)
-      if (!slugs.contains(e.key)) e.key: e.value,
-  };
-  return manifest.copyWith(
-    mods: strip(manifest.mods),
-    resourcePacks: strip(manifest.resourcePacks),
-    dataPacks: strip(manifest.dataPacks),
-    shaders: strip(manifest.shaders),
-  );
 }

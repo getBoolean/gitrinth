@@ -1,3 +1,6 @@
+import 'package:gitrinth/src/model/manifest/emitter.dart';
+import 'package:gitrinth/src/model/manifest/mods_lock.dart';
+import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -40,6 +43,56 @@ void main() {
 
   Future<CapturedOutput> runDeps(List<String> extra) =>
       runCli(['-C', packDir.path, 'deps', ...extra], environment: env);
+
+  test('reports retain same local name in separate sections', () async {
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 0.1.0
+description: x
+loader:
+  mods: fabric
+mc_version: 1.21.1
+mods:
+  same: 'path:mod.jar'
+resource_packs:
+  same: 'path:resource.zip'
+''');
+    File(p.join(packDir.path, 'mods.lock')).writeAsStringSync(
+      emitModsLock(
+        ModsLock(
+          gitrinthVersion: '0.1.0',
+          loader: const LoaderConfig(mods: ModLoader.fabric),
+          mcVersion: '1.21.1',
+          mods: {
+            'same': const LockedEntry(
+              slug: 'same',
+              kind: LockedEntryKind.path,
+              path: 'mod.jar',
+            ),
+          },
+          resourcePacks: {
+            'same': const LockedEntry(
+              slug: 'same',
+              kind: LockedEntryKind.path,
+              path: 'resource.zip',
+            ),
+          },
+        ),
+      ),
+    );
+    final json = await runDeps(['--json']);
+    expect(json.exitCode, 0, reason: json.stderr);
+    final packages = (jsonDecode(json.stdout) as Map)['packages'] as List;
+    expect(
+      packages.map((entry) => (entry as Map)['section']),
+      unorderedEquals(['mods', 'resourcePacks']),
+    );
+    final list = await runDeps(['--style', 'list']);
+    expect(list.stdout, contains('- mods/same'));
+    expect(list.stdout, contains('- resourcePacks/same'));
+    expect(list.stdout, isNot(contains('mods/mods/same')));
+  });
 
   test('tree style shows direct + transitive structure', () async {
     modrinth

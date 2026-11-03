@@ -8,7 +8,9 @@ import '../../model/manifest/mods_lock.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../../model/manifest/source_eligibility.dart';
 import '../../model/modrinth/version.dart' as modrinth;
-import '../../model/modrinth/dependency.dart';
+import '../dependency_graph.dart';
+import '../source_identity.dart';
+import '../modrinth/modrinth_url.dart';
 import '../../model/resolver/result.dart';
 import '../../model/resolver/constraint.dart';
 import '../../version.dart';
@@ -23,7 +25,7 @@ import 'hash_scan.dart';
 /// entries (which are manifest-only).
 ///
 /// For dual-source slugs (both [resolution] and [cfResolution] resolved
-/// the entry), the [hashOutcomes] map carries the per-slug
+/// the entry), the [hashOutcomes] map carries the per-entry
 /// [HashOutcome] result. When the outcome is [HashMatched] /
 /// [HashAcceptedMismatch], both source blocks are populated; the
 /// Modrinth block uses the matched/accepted Modrinth version and the
@@ -32,11 +34,12 @@ ModsLock buildLock({
   required ModsYaml manifest,
   required ResolutionResult resolution,
   required CfResolution cfResolution,
-  required Map<String, HashOutcome> hashOutcomes,
+  required Map<LocalEntryKey, HashOutcome> hashOutcomes,
   required String? resolvedModLoaderVersion,
   required String? resolvedPluginLoaderVersion,
-  Set<String> modrinthSearchSlugs = const {},
+  Set<LocalEntryKey> modrinthSearchSlugs = const {},
   String? Function(Section section, String slug)? hostFor,
+  String defaultHost = defaultModrinthBaseUrl,
 }) {
   final mods = <String, LockedEntry>{};
   final resourcePacks = <String, LockedEntry>{};
@@ -51,27 +54,25 @@ ModsLock buildLock({
     Section.plugins: plugins,
   };
 
-  // Index Modrinth resolutions by slug to merge with CF resolution.
-  final mrBySlug = <String, ResolvedEntry>{
-    for (final r in resolution.entries) r.slug: r,
+  final mrNodes = {
+    for (final r in resolution.entries) LocalEntryKey(r.section, r.slug),
   };
-  final requiredBy = <String, Set<String>>{};
-  for (final parent in resolution.entries) {
-    for (final dep in parent.version.dependencies) {
-      if (dep.dependencyType != DependencyType.required) continue;
-      for (final child in resolution.entries) {
-        if (child.version.projectId != dep.projectId) continue;
-        if (hostFor != null &&
-            hostFor(parent.section, parent.slug) !=
-                hostFor(child.section, child.slug)) {
-          continue;
-        }
-        (requiredBy[child.slug] ??= {}).add(parent.slug);
-      }
-    }
+  final requiredBy = <LocalEntryKey, Set<String>>{};
+  final graph = resolvedDependencyGraph(
+    resolution,
+    hostFor: (node) =>
+        hostFor?.call(node.section, node.localKey) ?? defaultHost,
+  );
+  for (final child in resolution.entries) {
+    final node = LocalEntryKey(child.section, child.slug);
+    requiredBy[node] = {
+      for (final parent in graph.parents(node)) parent.localKey,
+    };
   }
   for (final child in cfResolution.resolved.values) {
-    (requiredBy[child.slug] ??= {}).addAll(child.requiredBy);
+    (requiredBy[LocalEntryKey(child.section, child.slug)] ??= {}).addAll(
+      child.requiredBy,
+    );
   }
 
   // Walk every Modrinth-resolved slug, applying any matching CF block
@@ -82,16 +83,23 @@ ModsLock buildLock({
       throw StateError('lock_builder: unknown section ${r.section}');
     }
     final entry = manifest.sectionEntries(r.section)[r.slug];
-    final cf = cfResolution.resolved[r.slug];
-    final outcome = hashOutcomes[r.slug];
-    sectionMap[r.slug] = _buildResolvedEntry(
-      slug: r.slug,
-      manifestEntry: entry,
-      mrEntry: r,
-      cfEntry: cf,
-      hashOutcome: outcome,
-      modrinthDiscoveredViaSearch: modrinthSearchSlugs.contains(r.slug),
-    ).copyWith(requiredBy: (requiredBy[r.slug] ?? {}).toList()..sort());
+    final cf = cfResolution.resolved[LocalEntryKey(r.section, r.slug)];
+    final outcome = hashOutcomes[LocalEntryKey(r.section, r.slug)];
+    sectionMap[r.slug] =
+        _buildResolvedEntry(
+          slug: r.slug,
+          manifestEntry: entry,
+          mrEntry: r,
+          cfEntry: cf,
+          hashOutcome: outcome,
+          modrinthDiscoveredViaSearch: modrinthSearchSlugs.contains(
+            LocalEntryKey(r.section, r.slug),
+          ),
+        ).copyWith(
+          requiredBy:
+              (requiredBy[LocalEntryKey(r.section, r.slug)] ?? {}).toList()
+                ..sort(),
+        );
     // Persist the source host for dependency lookups and cache addressing.
     final built = sectionMap[r.slug]!;
     sectionMap[r.slug] = built.copyWith(
@@ -105,7 +113,7 @@ ModsLock buildLock({
   // (for example `sources: [curseforge]`). These have no Modrinth
   // ResolvedEntry, so they wouldn't appear in the loop above.
   for (final cf in cfResolution.resolved.values) {
-    if (mrBySlug.containsKey(cf.slug)) continue;
+    if (mrNodes.contains(LocalEntryKey(cf.section, cf.slug))) continue;
     final sectionMap = byKind[cf.section];
     if (sectionMap == null) continue;
     final entry = manifest.sectionEntries(cf.section)[cf.slug];
@@ -285,30 +293,32 @@ LockedEntry _buildResolvedEntry({
 /// is missing.
 String? formatCrossPlatformMissingError({
   required ModsYaml manifest,
-  required Set<String> mrNotFoundSlugs,
+  required Set<LocalEntryKey> mrNotFoundSlugs,
   required CfResolution cfResolution,
-  Set<String> allowedMissingSlugs = const {},
+  Set<LocalEntryKey> allowedMissingSlugs = const {},
 }) {
-  final cfNotFoundBySlug = {for (final f in cfResolution.notFound) f.slug: f};
+  final cfNotFound = {
+    for (final f in cfResolution.notFound) LocalEntryKey(f.section, f.slug): f,
+  };
   final lines = <String>[];
 
   for (final section in Section.values) {
     final entries = manifest.sectionEntries(section);
     for (final mapEntry in entries.entries) {
       final slug = mapEntry.key;
-      if (allowedMissingSlugs.contains(slug)) continue;
+      if (allowedMissingSlugs.contains(LocalEntryKey(section, slug))) continue;
       final entry = mapEntry.value;
       if (entry.source is! ModrinthEntrySource) continue;
       if (isAnyGitrinthMarker(entry.constraintRaw)) continue;
       final effective = effectiveSources(manifest, entry, section);
       final missing = <String>[];
       if (effective.contains(SourceKind.modrinth) &&
-          mrNotFoundSlugs.contains(slug)) {
+          mrNotFoundSlugs.contains(LocalEntryKey(section, slug))) {
         missing.add('Modrinth');
       }
       if (effective.contains(SourceKind.curseforge) &&
-          cfNotFoundBySlug.containsKey(slug)) {
-        final cf = cfNotFoundBySlug[slug]!;
+          cfNotFound.containsKey(LocalEntryKey(section, slug))) {
+        final cf = cfNotFound[LocalEntryKey(section, slug)]!;
         missing.add('CurseForge (${cf.reason}, queried "${cf.slugUsed}")');
       }
       if (missing.isNotEmpty) {

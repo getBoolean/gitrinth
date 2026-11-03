@@ -11,6 +11,7 @@ import 'package:gitrinth/src/service/curseforge/curseforge_api.dart';
 import 'package:gitrinth/src/service/resolve/curseforge_resolver.dart';
 import 'package:gitrinth/src/service/resolve/resolve_and_sync.dart';
 import 'package:test/test.dart';
+import 'package:gitrinth/src/service/source_identity.dart';
 
 class GraphApi implements CurseForgeApi {
   final Map<int, Mod> projects;
@@ -132,15 +133,55 @@ void main() {
         console: Console(level: LogLevel.error),
       );
       expect(
-        result.resolved.keys,
+        result.resolved.keys.map((node) => node.localKey),
         unorderedEquals(['root', 'my-library', 'other']),
       );
-      expect(result.resolved['my-library']!.requiredBy, ['other', 'root']);
-      expect(result.resolved['my-library']!.transitive, isFalse);
-      expect(result.resolved['other']!.transitive, isTrue);
-      expect(result.resolved['root']!.requiredBy, ['my-library']);
+      expect(
+        result
+            .resolved[const LocalEntryKey(Section.mods, 'my-library')]!
+            .requiredBy,
+        ['other', 'root'],
+      );
+      expect(
+        result
+            .resolved[const LocalEntryKey(Section.mods, 'my-library')]!
+            .transitive,
+        isFalse,
+      );
+      expect(
+        result.resolved[const LocalEntryKey(Section.mods, 'other')]!.transitive,
+        isTrue,
+      );
+      expect(
+        result.resolved[const LocalEntryKey(Section.mods, 'root')]!.requiredBy,
+        ['my-library'],
+      );
     },
   );
+  test('aliases keep every selected parent edge', () async {
+    final result = await resolveCurseforgeEntries(
+      manifest: pack({
+        'first': ModEntry(slug: 'first', curseforgeSlug: '1'),
+        'second': ModEntry(slug: 'second', curseforgeSlug: '1'),
+        'child-a': ModEntry(slug: 'child-a', curseforgeSlug: '2'),
+        'child-b': ModEntry(slug: 'child-b', curseforgeSlug: '2'),
+      }),
+      api: GraphApi(
+        {1: project(1, 'root'), 2: project(2, 'library')},
+        {
+          1: [2],
+        },
+      ),
+      console: Console(level: LogLevel.error),
+    );
+    expect(result.resolved, hasLength(4));
+    for (final name in ['child-a', 'child-b']) {
+      expect(result.resolved[LocalEntryKey(Section.mods, name)]!.requiredBy, [
+        'first',
+        'second',
+      ]);
+    }
+  });
   test('CF dependencies infer their own section', () async {
     final result = await resolveCurseforgeEntries(
       manifest: pack({'root': ModEntry(slug: 'root')}),
@@ -152,7 +193,12 @@ void main() {
       ),
       console: Console(level: LogLevel.error),
     );
-    expect(result.resolved['textures']!.section, Section.resourcePacks);
+    expect(
+      result
+          .resolved[const LocalEntryKey(Section.resourcePacks, 'textures')]!
+          .section,
+      Section.resourcePacks,
+    );
   });
   test('required_by round trips and prunes offline orphan cycles', () {
     final lock = ModsLock(
@@ -187,8 +233,14 @@ void main() {
       roundTrip,
       manifest: pack({'root': ModEntry(slug: 'root')}),
     );
-    expect(retained.resolved.keys, unorderedEquals(['root', 'child']));
-    expect(retained.resolved['child']!.requiredBy, ['root']);
+    expect(
+      retained.resolved.keys.map((node) => node.localKey),
+      unorderedEquals(['root', 'child']),
+    );
+    expect(
+      retained.resolved[const LocalEntryKey(Section.mods, 'child')]!.requiredBy,
+      ['root'],
+    );
     final narrowed = synthesizeCfResolutionFromLock(
       roundTrip,
       manifest: pack({

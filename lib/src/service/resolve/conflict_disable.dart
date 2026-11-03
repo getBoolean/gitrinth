@@ -126,23 +126,17 @@ Future<ConflictDisableOutcome> resolveWithConflictAutoDisable({
 
 /// Returns [manifest] with each `(section, slug)` in [disabled]
 /// rewritten to carry `constraintRaw: disabledByConflictMarker`.
-/// Mirrors the in-memory marker-application migrate has done since
-/// the auto-disable feature shipped.
 ModsYaml applyDisableMarkers(
   ModsYaml manifest,
   Set<(Section, String)> disabled,
 ) {
   if (disabled.isEmpty) return manifest;
-  Map<String, ModEntry> mark(Section section, Map<String, ModEntry> m) => {
-    for (final e in m.entries)
-      e.key: disabled.contains((section, e.key))
-          ? e.value.copyWith(constraintRaw: disabledByConflictMarker)
-          : e.value,
-  };
-  return manifest.copyWith(
-    mods: mark(Section.mods, manifest.mods),
-    resourcePacks: mark(Section.resourcePacks, manifest.resourcePacks),
-    dataPacks: mark(Section.dataPacks, manifest.dataPacks),
-    shaders: mark(Section.shaders, manifest.shaders),
+  return manifest.mapSectionEntries(
+    (section, entries) => {
+      for (final e in entries.entries)
+        e.key: disabled.contains((section, e.key))
+            ? e.value.copyWith(constraintRaw: disabledByConflictMarker)
+            : e.value,
+    },
   );
 }

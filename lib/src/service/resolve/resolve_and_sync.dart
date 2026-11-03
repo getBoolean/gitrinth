@@ -23,6 +23,8 @@ import '../../model/resolver/resolver.dart';
 import '../../model/resolver/version_selection.dart';
 import '../../model/manifest/source_eligibility.dart';
 import '../cache.dart';
+import '../source_identity.dart';
+import '../dependency_graph.dart';
 import '../console.dart';
 import '../curseforge/curseforge_api_factory.dart';
 import '../curseforge/curseforge_version.dart';
@@ -30,6 +32,8 @@ import '../downloader.dart';
 import '../manifest_io.dart';
 import '../modrinth/modrinth_api.dart';
 import '../modrinth/modrinth_api_factory.dart';
+import '../modrinth/modrinth_url.dart';
+import '../modrinth/modrinth_resolution_snapshot.dart';
 import 'curseforge_resolver.dart';
 import 'curseforge_resolution_api.dart';
 import 'cross_platform_search.dart';
@@ -114,29 +118,14 @@ Future<ResolveSyncResult> resolveAndSync({
   final reporter = SolveReporter(console);
 
   final manifest = manifestOverride ?? io.readModsYaml();
-  final defaultBaseUrl = apiFactory.defaultBaseUrl;
+  final defaultBaseUrl = normalizeServerKey(apiFactory.defaultBaseUrl);
   // Effective host for entries that don't override their own. Used for
   // the pack-level slug → projectType lookups (project_overrides
   // section inference) and for the one-shot `mc_version` validation.
-  final packHost = manifest.modrinthHost ?? defaultBaseUrl;
-  final api = apiFactory.forHost(packHost);
+  final packHost = normalizeServerKey(manifest.modrinthHost ?? defaultBaseUrl);
+  final apiReads = ModrinthResolutionSnapshot(apiFactory);
+  final api = apiReads.forHost(packHost);
   final projectOverrides = io.readProjectOverrides();
-  final slugCache = <String, String?>{};
-  // The slug → project_type lookup feeds two things: section
-  // inference for purely-transitive overrides (here, in
-  // applyOverrides) and reverse lookup of transitive dep project_ids
-  // (later, in the Resolver). Cache project lookups so we don't
-  // double-fetch the same slug for both purposes when the network
-  // is reachable.
-  final projectCache = <String, Project>{};
-  Future<Project> getProjectCached(String slug) async {
-    final cached = projectCache[slug];
-    if (cached != null) return cached;
-    final p = await api.getProject(slug);
-    projectCache[slug] = p;
-    return p;
-  }
-
   final mergedResult = await applyOverrides(
     manifest,
     projectOverrides,
@@ -149,7 +138,7 @@ Future<ResolveSyncResult> resolveAndSync({
         return Section.mods;
       }
       try {
-        final proj = await getProjectCached(slug);
+        final proj = await api.getProject(slug);
         return inferSectionFromProject(
           projectType: proj.projectType,
           loaders: proj.loaders,
@@ -228,24 +217,38 @@ Future<ResolveSyncResult> resolveAndSync({
     resolvedPluginLoaderVersion = null;
   }
 
-  final slugToSection = <String, Section>{};
+  final identities = SourceIdentity();
   for (final section in Section.values) {
-    for (final slug in merged.sectionEntries(section).keys) {
-      slugToSection[slug] = section;
+    for (final e in merged.sectionEntries(section).entries) {
+      identities.register(
+        LocalEntryKey(section, e.key),
+        host: manifest.effectiveModrinthHost(e.value, defaultBaseUrl),
+        projectSlug: e.value.modrinthSlug,
+      );
     }
   }
+  final versionsPerSlug = <LocalEntryKey, List<modrinth.Version>>{};
+  Section sectionFor(String key) => identities.nodeForSolverKey(key).section;
+  String keyFor(Section section, String slug) {
+    final node = LocalEntryKey(section, slug);
+    if (!identities.nodes.contains(node)) {
+      final locked = existingLock?.sectionFor(section)[slug]?.modrinth;
+      final host = locked == null ? packHost : locked.host ?? defaultBaseUrl;
+      identities.register(node, host: host, projectSlug: locked?.projectId);
+      if (locked != null) {
+        identities.bind(node, ModrinthProjectKey(host, locked.projectId));
+      }
+    }
+    return identities.solverKey(node);
+  }
 
-  final versionsPerSlug = <String, List<modrinth.Version>>{};
-  final transitiveHosts = <String, String>{};
-  final transitiveProjectSlugs = <String, String>{};
-
-  // Per-entry effective host for the Modrinth source. Walks
-  // `entry.source.host → manifest.modrinthHost → defaultBaseUrl` via
-  // [ModsYaml.effectiveModrinthHost] so the chain lives in one place.
   String entryHost(Section section, String slug, ModEntry? declaredEntry) {
+    final node = LocalEntryKey(section, slug);
+    if (identities.nodes.contains(node)) return identities.host(node);
     final entry = declaredEntry ?? merged.sectionEntries(section)[slug];
-    if (entry == null) return transitiveHosts[slug] ?? packHost;
-    return manifest.effectiveModrinthHost(entry, defaultBaseUrl);
+    return entry == null
+        ? packHost
+        : manifest.effectiveModrinthHost(entry, defaultBaseUrl);
   }
 
   // CurseForge resolution pass. Under --offline we skip the network
@@ -261,7 +264,11 @@ Future<ResolveSyncResult> resolveAndSync({
     );
     cfResolution = existingLock == null
         ? CfResolution.empty
-        : synthesizeCfResolutionFromLock(existingLock, manifest: merged);
+        : synthesizeCfResolutionFromLock(
+            existingLock,
+            manifest: merged,
+            defaultModrinthHost: defaultBaseUrl,
+          );
     final missingCf = <String>[];
     for (final section in Section.values) {
       for (final entry in merged.sectionEntries(section).values) {
@@ -276,7 +283,7 @@ Future<ResolveSyncResult> resolveAndSync({
         ).contains(SourceKind.curseforge)) {
           continue;
         }
-        final prior = cfResolution.resolved[entry.slug];
+        final prior = cfResolution.resolved[LocalEntryKey(section, entry.slug)];
         if (prior == null ||
             prior.project.id <= 0 ||
             prior.file.id <= 0 ||
@@ -331,23 +338,51 @@ Future<ResolveSyncResult> resolveAndSync({
     );
   }
 
+  for (final cf in cfResolution.resolved.values) {
+    final node = LocalEntryKey(cf.section, cf.slug);
+    if (!identities.nodes.contains(node)) {
+      identities.register(node, host: packHost);
+    }
+    identities.bind(node, CurseforgeProjectKey(cf.project.id));
+  }
+
   final search = CrossPlatformSearch(
     manifest: manifestForResolution,
-    mrFactory: apiFactory,
+    mrFactory: apiReads,
     cfApi: cfApi,
     console: console,
     disabled: offline || noSearch,
   );
-  final searchedMrVersions = <String, List<modrinth.Version>>{};
+  final searchedMrVersions = <LocalEntryKey, List<modrinth.Version>>{};
   final hashVersionIds = <String, String>{};
 
   final resolver = Resolver(
-    sectionForSlug: (slug) => slugToSection[slug] ?? Section.mods,
+    sectionForSlug: sectionFor,
+    nodeKeyFor: keyFor,
+    localNameFor: (key) => identities.nodeForSolverKey(key).localKey,
+    formatError: identities.displayMessage,
     resolveDependencySlug: (projectId, parentSlug) async {
-      final parentSection = slugToSection[parentSlug] ?? Section.mods;
-      final host = entryHost(parentSection, parentSlug, null);
-      final cacheKey = '$host/$projectId';
-      if (slugCache.containsKey(cacheKey)) return slugCache[cacheKey];
+      final parent = identities.nodeForSolverKey(parentSlug);
+      final host = identities.host(parent);
+      final aliases = identities.aliases(ModrinthProjectKey(host, projectId));
+      final currentAliases = offline
+          ? aliases
+          : aliases
+                .where(
+                  (node) => manifestForResolution
+                      .sectionEntries(node.section)
+                      .containsKey(node.localKey),
+                )
+                .toSet();
+      final sameSection = currentAliases.where(
+        (node) => node.section == parent.section,
+      );
+      if (sameSection.length == 1) {
+        return identities.solverKey(sameSection.single);
+      }
+      if (currentAliases.length == 1) {
+        return identities.solverKey(currentAliases.single);
+      }
       if (offline) {
         for (final section in Section.values) {
           for (final e
@@ -355,16 +390,17 @@ Future<ResolveSyncResult> resolveAndSync({
                   <MapEntry<String, LockedEntry>>[]) {
             if (e.value.modrinth?.projectId != projectId) continue;
             if ((e.value.modrinth?.host ?? defaultBaseUrl) != host) continue;
-            slugToSection[e.key] = section;
-            transitiveHosts[e.key] = host;
-            return slugCache[cacheKey] = e.key;
+            final node = LocalEntryKey(section, e.key);
+            identities.register(node, host: host, projectSlug: projectId);
+            identities.bind(node, ModrinthProjectKey(host, projectId));
+            return identities.solverKey(node);
           }
         }
         throw ValidationError(
-          'Cannot resolve dependency $projectId required by $parentSlug while offline: missing from mods.lock.',
+          'Cannot resolve dependency $projectId required by ${parent.localKey} while offline: missing from mods.lock.',
         );
       }
-      final project = await apiFactory.forHost(host).getProject(projectId);
+      final project = await apiReads.forHost(host).getProject(projectId);
       final declaredSections = <Section>{
         for (final section in Section.values)
           for (final e in manifestForResolution.sectionEntries(section).entries)
@@ -374,13 +410,13 @@ Future<ResolveSyncResult> resolveAndSync({
                     e.value.modrinthSlug == project.id))
               section,
       };
-      if (declaredSections.length > 1) {
-        throw ValidationError(
-          'Dependency ${project.slug} is declared in multiple sections.',
-        );
+      if (declaredSections.isEmpty && aliases.length == 1) {
+        return identities.solverKey(aliases.single);
       }
       final section =
-          declaredSections.firstOrNull ??
+          (declaredSections.contains(parent.section)
+              ? parent.section
+              : declaredSections.firstOrNull) ??
           inferSectionFromProject(
             projectType: project.projectType,
             loaders: project.loaders,
@@ -400,40 +436,41 @@ Future<ResolveSyncResult> resolveAndSync({
             ).contains(SourceKind.modrinth) ||
             isAnyGitrinthMarker(e.value.constraintRaw)) {
           throw ValidationError(
-            '$parentSlug requires Modrinth ${project.slug}, but top-level ${e.key} excludes that source.',
+            '${parent.localKey} requires Modrinth ${project.slug}, but top-level ${e.key} excludes that source.',
           );
         }
         key = e.key;
         break;
-      }
-      if (slugToSection.containsKey(key) && slugToSection[key] != section) {
-        throw ValidationError(
-          'Dependency $key resolves to conflicting content types; declare a top-level entry in its intended section.',
-        );
       }
       final declaredSameKey = manifestForResolution.sectionEntries(
         section,
       )[key];
       if ((declaredSameKey != null &&
               entryHost(section, key, declaredSameKey) != host) ||
-          (transitiveHosts.containsKey(key) && transitiveHosts[key] != host)) {
+          (identities.find(key, section) != null &&
+              identities.host(LocalEntryKey(section, key)) != host)) {
         key = '${project.slug}@${Uri.encodeComponent(host)}';
       }
-      slugToSection[key] = section;
-      transitiveHosts[key] = host;
-      transitiveProjectSlugs[key] = project.slug;
-      return slugCache[cacheKey] = key;
+      final node = LocalEntryKey(section, key);
+      identities.register(node, host: host, projectSlug: project.slug);
+      identities.bind(node, ModrinthProjectKey(host, projectId));
+      return identities.solverKey(node);
     },
-    listVersions: (slug) async {
-      final section = slugToSection[slug] ?? Section.mods;
+    listVersions: (key) async {
+      final node = identities.nodeForSolverKey(key);
+      final slug = node.localKey;
+      final section = node.section;
       final loaderFilter = filterLoadersForSection(loaderConfig, section);
       final entry = manifestForResolution.sectionEntries(section)[slug];
       final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
       final host = entryHost(section, slug, entry);
 
-      final searched = searchedMrVersions[slug];
+      final searched = searchedMrVersions[LocalEntryKey(section, slug)];
       if (searched != null) {
-        versionsPerSlug[slug] = searched;
+        for (final version in searched) {
+          identities.bind(node, ModrinthProjectKey(host, version.projectId));
+        }
+        versionsPerSlug[LocalEntryKey(section, slug)] = searched;
         return searched.map(ModrinthSolverVersion.new).toList();
       }
       if (offline) {
@@ -452,24 +489,30 @@ Future<ResolveSyncResult> resolveAndSync({
             .listCachedVersions(host, lockedProjectId)
             .where((v) => _matchesLoaderAndMc(v, loaderFilter, gameVersions))
             .toList();
-        versionsPerSlug[slug] = cached;
+        for (final version in cached) {
+          identities.bind(node, ModrinthProjectKey(host, version.projectId));
+        }
+        versionsPerSlug[LocalEntryKey(section, slug)] = cached;
         return cached.map(ModrinthSolverVersion.new).toList();
       }
 
       try {
-        final list = await apiFactory
+        final list = await apiReads
             .forHost(host)
             .listVersions(
-              entry?.modrinthSlug ?? transitiveProjectSlugs[slug] ?? slug,
+              entry?.modrinthSlug ?? identities.projectSlug(node),
               loadersJson: loaderFilter == null
                   ? null
                   : encodeFilterArray(loaderFilter),
               gameVersionsJson: encodeFilterArray(gameVersions),
             );
-        versionsPerSlug[slug] = list;
+        for (final version in list) {
+          identities.bind(node, ModrinthProjectKey(host, version.projectId));
+        }
+        versionsPerSlug[LocalEntryKey(section, slug)] = list;
         return list.map(ModrinthSolverVersion.new).toList();
       } on Object catch (e) {
-        final anchor = cfResolution.resolved[slug];
+        final anchor = cfResolution.resolved[LocalEntryKey(section, slug)];
         if (e is DioException &&
             e.response?.statusCode == 404 &&
             entry != null &&
@@ -481,11 +524,17 @@ Future<ResolveSyncResult> resolveAndSync({
             anchor: anchor,
           );
           if (found != null) {
-            searchedMrVersions[slug] = found;
-            versionsPerSlug[slug] = found;
+            searchedMrVersions[LocalEntryKey(section, slug)] = found;
+            for (final version in found) {
+              identities.bind(
+                node,
+                ModrinthProjectKey(host, version.projectId),
+              );
+            }
+            versionsPerSlug[LocalEntryKey(section, slug)] = found;
             return found.map(ModrinthSolverVersion.new).toList();
           }
-          final detail = search.diagnostics[slug];
+          final detail = search.diagnostics[LocalEntryKey(section, slug)];
           if (detail != null) {
             throw ValidationError(
               '$slug: $detail\nSet a peer slug override or restrict `sources:`.',
@@ -495,8 +544,8 @@ Future<ResolveSyncResult> resolveAndSync({
         if (allowMissingSourcesForSlugs.contains(slug) &&
             e is DioException &&
             e.response?.statusCode == 404 &&
-            cfResolution.resolved.containsKey(slug)) {
-          versionsPerSlug[slug] = [];
+            cfResolution.resolved.containsKey(LocalEntryKey(section, slug))) {
+          versionsPerSlug[LocalEntryKey(section, slug)] = [];
           return [];
         }
         final err = (e is DioException) ? e.error : e;
@@ -505,17 +554,12 @@ Future<ResolveSyncResult> resolveAndSync({
       }
     },
     resolveSlugForProjectId: (projectId) async {
-      if (slugCache.containsKey(projectId)) return slugCache[projectId];
       try {
-        // Reverse-lookup project IDs against the pack default host —
-        // transitive deps don't carry their own per-entry host yet.
-        final Project proj = await apiFactory
+        final Project proj = await apiReads
             .forHost(packHost)
             .getProject(projectId);
-        slugCache[projectId] = proj.slug;
         return proj.slug;
       } on Object {
-        slugCache[projectId] = null;
         return null;
       }
     },
@@ -528,11 +572,13 @@ Future<ResolveSyncResult> resolveAndSync({
   // overrides take the lock builder's url/path branches and bypass
   // the resolver entirely.
   final overridePins = <String, OverridePin>{};
-  for (final e in mergedResult.overrideEntries.entries) {
-    final slug = e.key;
-    final entry = e.value;
+  for (final (section, slug, entry) in [
+    for (final section in Section.values)
+      for (final entry in merged.sectionEntries(section).entries)
+        if (mergedResult.overrideEntries.containsKey(entry.key))
+          (section, entry.key, entry.value),
+  ]) {
     if (entry.source is! ModrinthEntrySource) continue;
-    final section = slugToSection[slug] ?? Section.mods;
     if (!effectiveSources(
       merged,
       entry,
@@ -561,7 +607,7 @@ Future<ResolveSyncResult> resolveAndSync({
           .toList();
     } else {
       try {
-        candidates = await apiFactory
+        candidates = await apiReads
             .forHost(overrideHost)
             .listVersions(
               entry.modrinthSlug ?? slug,
@@ -591,8 +637,11 @@ Future<ResolveSyncResult> resolveAndSync({
         "$mc",
       );
     }
-    overridePins[slug] = OverridePin(slug, ModrinthSolverVersion(picked));
-    versionsPerSlug[slug] = candidates;
+    overridePins[keyFor(section, slug)] = OverridePin(
+      keyFor(section, slug),
+      ModrinthSolverVersion(picked),
+    );
+    versionsPerSlug[LocalEntryKey(section, slug)] = candidates;
   }
 
   console.message('Resolving dependencies...');
@@ -612,34 +661,34 @@ Future<ResolveSyncResult> resolveAndSync({
         entry,
         section,
       ).contains(SourceKind.modrinth)) {
-        modrinthSlugs.add(slug);
+        modrinthSlugs.add(keyFor(section, slug));
       }
     });
   }
 
   // CF-discovered synthetics may also be present on Modrinth. A missing
   // peer is permitted for synthetics; declared roots remain strict.
-  final promotedCfRoots = <String, Section>{};
+  final promotedCfRoots = <LocalEntryKey>{};
   Future<bool> promoteCfSynthetics() async {
     var changed = false;
     if (offline || !merged.gitrinth.isPlatformEnabled(SourceKind.modrinth)) {
       return false;
     }
-    for (final e in promotedCfRoots.entries.toList()) {
-      if (cfResolution.resolved.containsKey(e.key)) continue;
-      modrinthSlugs.remove(e.key);
-      searchedMrVersions.remove(e.key);
+    for (final node in promotedCfRoots.toList()) {
+      if (cfResolution.resolved.containsKey(node)) continue;
+      modrinthSlugs.remove(keyFor(node.section, node.localKey));
+      searchedMrVersions.remove(node);
       manifestForResolution = _withoutResolutionEntry(
         manifestForResolution,
-        e.value,
-        e.key,
+        node.section,
+        node.localKey,
       );
-      promotedCfRoots.remove(e.key);
+      promotedCfRoots.remove(node);
       changed = true;
     }
     for (final cf in cfResolution.resolved.values.where((e) => e.transitive)) {
       if (merged.sectionEntries(cf.section).containsKey(cf.slug) ||
-          modrinthSlugs.contains(cf.slug)) {
+          modrinthSlugs.contains(keyFor(cf.section, cf.slug))) {
         continue;
       }
       final synthetic = ModEntry(
@@ -649,7 +698,7 @@ Future<ResolveSyncResult> resolveAndSync({
       List<modrinth.Version> candidates = [];
       var promotedSlug = cf.slug;
       try {
-        final peer = await apiFactory
+        final peer = await apiReads
             .forHost(packHost)
             .getProject(cf.project.slug);
         final peerSection = inferSectionFromProject(
@@ -661,7 +710,7 @@ Future<ResolveSyncResult> resolveAndSync({
             'Transitive ${cf.slug} resolves to different platform content types; declare its intended section explicitly.',
           );
         }
-        candidates = await apiFactory
+        candidates = await apiReads
             .forHost(packHost)
             .listVersions(
               cf.project.slug,
@@ -687,18 +736,21 @@ Future<ResolveSyncResult> resolveAndSync({
             [];
         if (candidates.isNotEmpty) {
           promotedSlug =
-              (await apiFactory
+              (await apiReads
                       .forHost(packHost)
                       .getProject(candidates.first.projectId))
                   .slug;
         }
       }
       if (candidates.isEmpty) continue;
-      if (modrinthSlugs.contains(promotedSlug)) continue;
-      searchedMrVersions[promotedSlug] = candidates;
-      slugToSection[promotedSlug] = cf.section;
-      modrinthSlugs.add(promotedSlug);
-      promotedCfRoots[promotedSlug] = cf.section;
+      if (modrinthSlugs.contains(keyFor(cf.section, promotedSlug))) continue;
+      searchedMrVersions[LocalEntryKey(cf.section, promotedSlug)] = candidates;
+      identities.register(
+        LocalEntryKey(cf.section, promotedSlug),
+        host: packHost,
+      );
+      modrinthSlugs.add(keyFor(cf.section, promotedSlug));
+      promotedCfRoots.add(LocalEntryKey(cf.section, promotedSlug));
       changed = true;
       manifestForResolution = _withResolutionEntry(
         manifestForResolution,
@@ -715,9 +767,11 @@ Future<ResolveSyncResult> resolveAndSync({
     for (final cf in cfResolution.resolved.values.where((e) => e.transitive)) {
       final prior = existingLock?.sectionFor(cf.section)[cf.slug]?.modrinth;
       if (prior == null) continue;
-      modrinthSlugs.add(cf.slug);
-      slugToSection[cf.slug] = cf.section;
-      transitiveHosts[cf.slug] = prior.host ?? defaultBaseUrl;
+      modrinthSlugs.add(keyFor(cf.section, cf.slug));
+      identities.register(
+        LocalEntryKey(cf.section, cf.slug),
+        host: prior.host ?? defaultBaseUrl,
+      );
       manifestForResolution = _withResolutionEntry(
         manifestForResolution,
         cf.section,
@@ -730,10 +784,13 @@ Future<ResolveSyncResult> resolveAndSync({
     }
   }
 
-  for (final slug in allowMissingSourcesForSlugs.intersection(modrinthSlugs)) {
-    if (!cfResolution.resolved.containsKey(slug)) continue;
-    final candidates = await resolver.listVersions(slug);
-    if (candidates.isEmpty) modrinthSlugs.remove(slug);
+  for (final key in modrinthSlugs.toList()) {
+    final node = identities.nodeForSolverKey(key);
+    final slug = node.localKey;
+    if (!allowMissingSourcesForSlugs.contains(slug)) continue;
+    if (!cfResolution.resolved.containsKey(node)) continue;
+    final candidates = await resolver.listVersions(key);
+    if (candidates.isEmpty) modrinthSlugs.remove(key);
   }
   var resolution = await resolver.resolve(
     manifestForResolution,
@@ -743,35 +800,22 @@ Future<ResolveSyncResult> resolveAndSync({
     requiredVersionIds: hashVersionIds,
   );
 
-  final selectedCfFiles = <int, int>{};
+  final selectedCfFiles = <LocalEntryKey, int>{};
   Future<void> refreshCfPeers() async {
     if (offline) return;
     var syntheticManifest = merged;
-    final nativeMr = <String>{
-      for (final r in resolution.entries)
-        if (merged.sectionEntries(r.section).containsKey(r.slug)) r.slug,
-    };
-    var grew = true;
-    while (grew) {
-      grew = false;
-      for (final parent in resolution.entries.where(
-        (r) => nativeMr.contains(r.slug),
-      )) {
-        for (final child in resolution.entries) {
-          if (parent.version.dependencies.any(
-                (d) =>
-                    d.dependencyType.name == 'required' &&
-                    d.projectId == child.version.projectId,
-              ) &&
-              nativeMr.add(child.slug)) {
-            grew = true;
-          }
-        }
-      }
-    }
+    final nativeMr =
+        resolvedDependencyGraph(
+          resolution,
+          hostFor: (node) => entryHost(node.section, node.localKey, null),
+        ).reachable({
+          for (final r in resolution.entries)
+            if (merged.sectionEntries(r.section).containsKey(r.slug))
+              LocalEntryKey(r.section, r.slug),
+        });
     for (final section in Section.values) {
       for (final e in merged.sectionEntries(section).entries) {
-        final prior = cfResolution.resolved[e.key];
+        final prior = cfResolution.resolved[LocalEntryKey(section, e.key)];
         if (prior?.discoveredViaSearch == true) {
           syntheticManifest = _withResolutionEntry(
             syntheticManifest,
@@ -784,7 +828,7 @@ Future<ResolveSyncResult> resolveAndSync({
     for (final r in resolution.entries) {
       if (merged.sectionEntries(r.section).containsKey(r.slug) ||
           !merged.gitrinth.isPlatformEnabled(SourceKind.curseforge) ||
-          !nativeMr.contains(r.slug)) {
+          !nativeMr.contains(LocalEntryKey(r.section, r.slug))) {
         continue;
       }
       syntheticManifest = _withResolutionEntry(
@@ -792,7 +836,11 @@ Future<ResolveSyncResult> resolveAndSync({
         r.section,
         ModEntry(
           slug: r.slug,
-          curseforgeSlug: cfResolution.resolved[r.slug]?.project.id.toString(),
+          curseforgeSlug: cfResolution
+              .resolved[LocalEntryKey(r.section, r.slug)]
+              ?.project
+              .id
+              .toString(),
           sources: const {SourceKind.curseforge},
         ),
       );
@@ -803,13 +851,13 @@ Future<ResolveSyncResult> resolveAndSync({
       console: console,
       selectedFiles: selectedCfFiles,
     );
-    final discovered = <String>{};
+    final discovered = <LocalEntryKey>{};
     for (final missing in peers.notFound) {
       if (merged.sectionEntries(missing.section).containsKey(missing.slug)) {
         continue;
       }
       final mrPeer = resolution.entries
-          .where((r) => r.slug == missing.slug)
+          .where((r) => r.section == missing.section && r.slug == missing.slug)
           .firstOrNull;
       if (mrPeer == null || missing.reason != 'slug-not-found') continue;
       final entry = ModEntry(
@@ -826,7 +874,7 @@ Future<ResolveSyncResult> resolveAndSync({
         anchors: [mrPeer.version],
       );
       if (found == null) continue;
-      discovered.add(missing.slug);
+      discovered.add(LocalEntryKey(missing.section, missing.slug));
       syntheticManifest = _withResolutionEntry(
         syntheticManifest,
         missing.section,
@@ -870,20 +918,25 @@ Future<ResolveSyncResult> resolveAndSync({
   // it. Re-key CF to Modrinth before the shared hash/solver convergence loop.
   final reportedSyntheticPairs = <String>{};
   void mergeSyntheticIdentities() {
-    final cfEntries = Map<String, CfResolvedEntry>.from(cfResolution.resolved);
-    final renamed = <String, String>{};
+    final cfEntries = Map<LocalEntryKey, CfResolvedEntry>.from(
+      cfResolution.resolved,
+    );
+    final renamed = <LocalEntryKey, String>{};
     for (final r in resolution.entries) {
       if (merged.sectionEntries(r.section).containsKey(r.slug) ||
-          cfEntries.containsKey(r.slug)) {
+          cfEntries.containsKey(LocalEntryKey(r.section, r.slug))) {
         continue;
       }
       for (final cf in cfEntries.values.toList()) {
         if (merged.sectionEntries(cf.section).containsKey(cf.slug) ||
-            resolution.entries.any((e) => e.slug == cf.slug)) {
+            resolution.entries.any(
+              (e) => e.section == cf.section && e.slug == cf.slug,
+            )) {
           continue;
         }
         final outcome = scanForMatchingPair(
-          mrCandidates: versionsPerSlug[r.slug] ?? [r.version],
+          mrCandidates:
+              versionsPerSlug[LocalEntryKey(r.section, r.slug)] ?? [r.version],
           cfCandidates: cf.candidates,
           hashScanDepth: 10,
           allowHashMismatch: false,
@@ -902,9 +955,9 @@ Future<ResolveSyncResult> resolveAndSync({
             'Hash-identical transitive dependencies ${r.slug} and ${cf.slug} resolve to different content types; declare a top-level entry in its intended section.',
           );
         }
-        cfEntries.remove(cf.slug);
-        renamed[cf.slug] = r.slug;
-        cfEntries[r.slug] = CfResolvedEntry(
+        cfEntries.remove(LocalEntryKey(cf.section, cf.slug));
+        renamed[LocalEntryKey(cf.section, cf.slug)] = r.slug;
+        cfEntries[LocalEntryKey(r.section, r.slug)] = CfResolvedEntry(
           slug: r.slug,
           section: cf.section,
           project: cf.project,
@@ -929,7 +982,7 @@ Future<ResolveSyncResult> resolveAndSync({
             transitive: e.value.transitive,
             requiredBy: {
               for (final parent in e.value.requiredBy)
-                renamed[parent] ?? parent,
+                renamed[LocalEntryKey(e.value.section, parent)] ?? parent,
             }.toList()..sort(),
           ),
       },
@@ -941,14 +994,16 @@ Future<ResolveSyncResult> resolveAndSync({
 
   // Slug fallback requires a resolved peer as the hash anchor.
   if (!offline) {
-    final resolvedCf = Map<String, CfResolvedEntry>.from(cfResolution.resolved);
+    final resolvedCf = Map<LocalEntryKey, CfResolvedEntry>.from(
+      cfResolution.resolved,
+    );
     final remaining = <CfNotFound>[];
     for (final missing in cfResolution.notFound) {
       final entry = manifestForResolution.sectionEntries(
         missing.section,
       )[missing.slug];
       final mrEntries = resolution.entries
-          .where((r) => r.slug == missing.slug)
+          .where((r) => r.section == missing.section && r.slug == missing.slug)
           .toList();
       CfResolvedEntry? found;
       if (missing.reason == 'slug-not-found' &&
@@ -960,9 +1015,12 @@ Future<ResolveSyncResult> resolveAndSync({
           entry: entry,
           anchors: [
             mrEntries.single.version,
-            if (!overridePins.containsKey(missing.slug))
+            if (!overridePins.containsKey(
+              keyFor(missing.section, missing.slug),
+            ))
               ...eligibleModrinthVersions(
-                versionsPerSlug[missing.slug] ?? [],
+                versionsPerSlug[LocalEntryKey(missing.section, missing.slug)] ??
+                    [],
                 entry,
               ).where((v) => v.id != mrEntries.single.version.id),
           ],
@@ -971,29 +1029,27 @@ Future<ResolveSyncResult> resolveAndSync({
       if (found == null) {
         remaining.add(missing);
       } else {
-        resolvedCf[missing.slug] = found;
+        resolvedCf[LocalEntryKey(missing.section, missing.slug)] = found;
       }
     }
     cfResolution = CfResolution(resolved: resolvedCf, notFound: remaining);
   }
 
-  // Aggregate "missing on a requested platform" failures into a single
-  // ValidationError. Modrinth-side: a slug whose effective sources
-  // include Modrinth but which the resolver never decided
-  // (slugs requested but `versionsPerSlug[slug]` is empty / absent).
-  final mrNotFoundSlugs = <String>{};
-  final decidedSlugs = {for (final r in resolution.entries) r.slug};
-  for (final slug in modrinthSlugs) {
-    if (decidedSlugs.contains(slug)) continue;
-    if (overridePins.containsKey(slug)) continue;
-    final entry = merged.sectionEntries(
-      slugToSection[slug] ?? Section.mods,
-    )[slug];
+  final mrNotFoundSlugs = <LocalEntryKey>{};
+  for (final key in modrinthSlugs) {
+    final node = identities.nodeForSolverKey(key);
+    final slug = node.localKey;
+    final section = node.section;
+    if (resolution.entries.any((r) => r.section == section && r.slug == slug)) {
+      continue;
+    }
+    if (overridePins.containsKey(key)) continue;
+    final entry = merged.sectionEntries(section)[slug];
     if (entry == null) continue;
     if (isAnyGitrinthMarker(entry.constraintRaw)) continue;
-    final mrCandidates = versionsPerSlug[slug];
+    final mrCandidates = versionsPerSlug[LocalEntryKey(section, slug)];
     if (mrCandidates == null || mrCandidates.isEmpty) {
-      mrNotFoundSlugs.add(slug);
+      mrNotFoundSlugs.add(node);
     }
   }
   final missingMessage = formatCrossPlatformMissingError(
@@ -1001,10 +1057,13 @@ Future<ResolveSyncResult> resolveAndSync({
     mrNotFoundSlugs: mrNotFoundSlugs,
     cfResolution: cfResolution,
     allowedMissingSlugs: {
-      for (final slug in allowMissingSourcesForSlugs)
-        if (decidedSlugs.contains(slug) ||
-            cfResolution.resolved.containsKey(slug))
-          slug,
+      for (final section in Section.values)
+        for (final slug in allowMissingSourcesForSlugs)
+          if (resolution.entries.any(
+                (r) => r.section == section && r.slug == slug,
+              ) ||
+              cfResolution.resolved.containsKey(LocalEntryKey(section, slug)))
+            LocalEntryKey(section, slug),
     },
   );
   if (missingMessage != null) {
@@ -1019,7 +1078,7 @@ Future<ResolveSyncResult> resolveAndSync({
   // synthesized CF resolution carries a single locked candidate per
   // slug, so a scan would either be a no-op or falsely report
   // HashSingleSided.
-  final hashOutcomes = <String, HashOutcome>{};
+  final hashOutcomes = <LocalEntryKey, HashOutcome>{};
 
   if (!offline) {
     var passes = 0;
@@ -1045,7 +1104,7 @@ Future<ResolveSyncResult> resolveAndSync({
       hashOutcomes.clear();
       var needsResolve = false;
       for (final r in resolution.entries) {
-        var cf = cfResolution.resolved[r.slug];
+        var cf = cfResolution.resolved[LocalEntryKey(r.section, r.slug)];
         if (cf == null) continue;
         if (r.section != cf.section) {
           throw ValidationError(
@@ -1056,12 +1115,12 @@ Future<ResolveSyncResult> resolveAndSync({
         final depth = entry?.hashScanDepth ?? 10;
         final allow = entry?.allowHashMismatch ?? false;
         final allowed = eligibleModrinthVersions(
-          versionsPerSlug[r.slug] ?? [r.version],
+          versionsPerSlug[LocalEntryKey(r.section, r.slug)] ?? [r.version],
           entry,
         );
         final mrCandidates = [
           r.version,
-          if (!overridePins.containsKey(r.slug))
+          if (!overridePins.containsKey(keyFor(r.section, r.slug)))
             ...allowed.where((v) => v.id != r.version.id),
         ];
         var outcome = scanForMatchingPair(
@@ -1081,10 +1140,13 @@ Future<ResolveSyncResult> resolveAndSync({
           if (foundCf != null) {
             cf = foundCf;
             cfResolution = CfResolution(
-              resolved: {...cfResolution.resolved, r.slug: cf},
+              resolved: {
+                ...cfResolution.resolved,
+                LocalEntryKey(r.section, r.slug): cf,
+              },
               notFound: cfResolution.notFound,
             );
-          } else if (!overridePins.containsKey(r.slug)) {
+          } else if (!overridePins.containsKey(keyFor(r.section, r.slug))) {
             final foundMr = await search.findModrinth(
               slug: r.slug,
               section: r.section,
@@ -1092,10 +1154,14 @@ Future<ResolveSyncResult> resolveAndSync({
               anchor: cf,
               excludeProject: r.version.projectId,
             );
-            if (foundMr != null) searchedMrVersions[r.slug] = foundMr;
+            if (foundMr != null) {
+              searchedMrVersions[LocalEntryKey(r.section, r.slug)] = foundMr;
+            }
           }
           outcome = scanForMatchingPair(
-            mrCandidates: searchedMrVersions[r.slug] ?? mrCandidates,
+            mrCandidates:
+                searchedMrVersions[LocalEntryKey(r.section, r.slug)] ??
+                mrCandidates,
             cfCandidates: cf.candidates,
             hashScanDepth: depth,
             allowHashMismatch: allow,
@@ -1111,12 +1177,14 @@ Future<ResolveSyncResult> resolveAndSync({
           HashAcceptedMismatch(:final curseforgeFile) => curseforgeFile,
           _ => null,
         };
-        if (matchedCf != null) selectedCfFiles[cf.project.id] = matchedCf.id;
+        if (matchedCf != null) {
+          selectedCfFiles[LocalEntryKey(cf.section, cf.slug)] = matchedCf.id;
+        }
         if (matchedMr != null && matchedMr.id != r.version.id) {
-          hashVersionIds[r.slug] = matchedMr.id;
+          hashVersionIds[keyFor(r.section, r.slug)] = matchedMr.id;
           needsResolve = true;
         }
-        hashOutcomes[r.slug] = outcome;
+        hashOutcomes[LocalEntryKey(r.section, r.slug)] = outcome;
         if (outcome is HashAcceptedMismatch) {
           console.warn(
             '${r.slug}: SHA1 mismatch between Modrinth (${outcome.modrinthVersion.versionNumber}) '
@@ -1140,15 +1208,15 @@ Future<ResolveSyncResult> resolveAndSync({
             '  - Restrict to a single platform: `sources: [modrinth]` or '
             '`sources: [curseforge]`\n'
             '  - Pin per-platform versions explicitly in mods.yaml\n'
-            '${search.diagnostics[r.slug] ?? ''}',
+            '${search.diagnostics[LocalEntryKey(r.section, r.slug)] ?? ''}',
           );
         }
       }
       // Rewalk selected CF files on the next pass before accepting a graph.
       if (cfResolution.resolved.values.any(
         (cf) =>
-            selectedCfFiles.containsKey(cf.project.id) &&
-            selectedCfFiles[cf.project.id] != cf.file.id,
+            selectedCfFiles.containsKey(LocalEntryKey(cf.section, cf.slug)) &&
+            selectedCfFiles[LocalEntryKey(cf.section, cf.slug)] != cf.file.id,
       )) {
         needsResolve = true;
       }
@@ -1178,10 +1246,12 @@ Future<ResolveSyncResult> resolveAndSync({
     cfResolution = synthesizeCfResolutionFromLock(
       existingLock,
       manifest: graphManifest,
+      defaultModrinthHost: defaultBaseUrl,
     );
   }
 
   final newLock = buildLock(
+    defaultHost: defaultBaseUrl,
     hostFor: (section, slug) => offline
         ? existingLock?.sectionFor(section)[slug]?.modrinth?.host
         : (entryHost(section, slug, null) == defaultBaseUrl
@@ -1197,7 +1267,8 @@ Future<ResolveSyncResult> resolveAndSync({
               for (final e
                   in existingLock?.sectionFor(section).entries ??
                       <MapEntry<String, LockedEntry>>[])
-                if (e.value.modrinth?.discoveredViaSearch ?? false) e.key,
+                if (e.value.modrinth?.discoveredViaSearch ?? false)
+                  LocalEntryKey(section, e.key),
           }
         : search.modrinthSearchSlugs,
     resolvedModLoaderVersion: resolvedModLoaderVersion,
@@ -1254,7 +1325,7 @@ Future<ResolveSyncResult> resolveAndSync({
     downloader: downloader,
     console: console,
     io: io,
-    hostFor: (section, slug) => entryHost(section, slug, null),
+    defaultModrinthHost: defaultBaseUrl,
   );
   final downloaded = fetchResult.downloaded;
   final hits = fetchResult.hits;
@@ -1327,9 +1398,34 @@ Future<ResolveSyncResult> resolveAndSync({
 CfResolution synthesizeCfResolutionFromLock(
   ModsLock lock, {
   ModsYaml? manifest,
+  String defaultModrinthHost = defaultModrinthBaseUrl,
 }) {
-  final resolved = <String, CfResolvedEntry>{};
-  final retained = <String>{};
+  final resolved = <LocalEntryKey, CfResolvedEntry>{};
+  final retained = <LocalEntryKey>{};
+  final lockedNodes = {
+    for (final section in Section.values)
+      for (final slug in lock.sectionFor(section).keys)
+        LocalEntryKey(section, slug),
+  };
+  LocalEntryKey? parentNode(LocalEntryKey child, String name) {
+    final childEntry = lock.sectionFor(child.section)[child.localKey]!;
+    final candidates = lockedNodes
+        .where(
+          (node) =>
+              node.localKey == name &&
+              canRequireLockedSource(
+                lock.sectionFor(node.section)[node.localKey]!,
+                childEntry,
+                defaultModrinthHost: defaultModrinthHost,
+              ),
+        )
+        .toList();
+    if (candidates.length <= 1) return candidates.firstOrNull;
+    throw ValidationError(
+      "Ambiguous required_by parent '$name' for $child while offline. Run `gitrinth get` online first.",
+    );
+  }
+
   if (manifest != null) {
     for (final section in Section.values) {
       for (final e in manifest.sectionEntries(section).entries) {
@@ -1340,20 +1436,26 @@ CfResolution synthesizeCfResolutionFromLock(
               e.value,
               section,
             ).contains(SourceKind.curseforge)) {
-          retained.add(e.key);
+          retained.add(LocalEntryKey(section, e.key));
         }
       }
     }
     var changed = true;
     while (changed) {
       changed = false;
-      for (final e in lock.allEntries) {
-        if (e.value.dependency != LockedDependencyKind.transitive ||
-            e.value.curseforge == null) {
-          continue;
-        }
-        if (e.value.requiredBy.any(retained.contains) && retained.add(e.key)) {
-          changed = true;
+      for (final section in Section.values) {
+        for (final e in lock.sectionFor(section).entries) {
+          if (e.value.dependency != LockedDependencyKind.transitive ||
+              e.value.curseforge == null) {
+            continue;
+          }
+          final node = LocalEntryKey(section, e.key);
+          if (e.value.requiredBy.any(
+                (name) => retained.contains(parentNode(node, name)),
+              ) &&
+              retained.add(node)) {
+            changed = true;
+          }
         }
       }
     }
@@ -1363,7 +1465,7 @@ CfResolution synthesizeCfResolutionFromLock(
       final slug = entry.key;
       if (manifest != null) {
         final declared = manifest.sectionEntries(section)[slug];
-        if (!retained.contains(slug) ||
+        if (!retained.contains(LocalEntryKey(section, slug)) ||
             (declared != null &&
                 (declared.source is! ModrinthEntrySource ||
                     isAnyGitrinthMarker(declared.constraintRaw) ||
@@ -1401,7 +1503,7 @@ CfResolution synthesizeCfResolutionFromLock(
         latestFiles: [synthFile],
         allowModDistribution: cf.allowModDistribution,
       );
-      resolved[slug] = CfResolvedEntry(
+      resolved[LocalEntryKey(section, slug)] = CfResolvedEntry(
         slug: slug,
         section: section,
         project: synthMod,
@@ -1409,7 +1511,13 @@ CfResolution synthesizeCfResolutionFromLock(
         candidates: [synthFile],
         discoveredViaSearch: cf.discoveredViaSearch,
         requiredBy: entry.value.requiredBy
-            .where((p) => manifest == null || retained.contains(p))
+            .where(
+              (p) =>
+                  manifest == null ||
+                  retained.contains(
+                    parentNode(LocalEntryKey(section, slug), p),
+                  ),
+            )
             .toList(),
         transitive: entry.value.dependency == LockedDependencyKind.transitive,
       );
@@ -1608,13 +1716,7 @@ ModsYaml _withResolutionEntry(
   ModEntry entry,
 ) {
   final entries = {...manifest.sectionEntries(section), entry.slug: entry};
-  return switch (section) {
-    Section.mods => manifest.copyWith(mods: entries),
-    Section.resourcePacks => manifest.copyWith(resourcePacks: entries),
-    Section.dataPacks => manifest.copyWith(dataPacks: entries),
-    Section.shaders => manifest.copyWith(shaders: entries),
-    Section.plugins => manifest.copyWith(plugins: entries),
-  };
+  return manifest.withSectionEntries(section, entries);
 }
 
 ModsYaml _withoutResolutionEntry(
@@ -1623,13 +1725,7 @@ ModsYaml _withoutResolutionEntry(
   String slug,
 ) {
   final entries = {...manifest.sectionEntries(section)}..remove(slug);
-  return switch (section) {
-    Section.mods => manifest.copyWith(mods: entries),
-    Section.resourcePacks => manifest.copyWith(resourcePacks: entries),
-    Section.dataPacks => manifest.copyWith(dataPacks: entries),
-    Section.shaders => manifest.copyWith(shaders: entries),
-    Section.plugins => manifest.copyWith(plugins: entries),
-  };
+  return manifest.withSectionEntries(section, entries);
 }
 
 /// Returns [merged] with each section entry whose slug is in [relaxConstraints]
@@ -1644,11 +1740,5 @@ ModsYaml _relaxManifestConstraints(ModsYaml merged, Set<String> relax) {
           ? e.value.copyWith(constraintRaw: null)
           : e.value,
   };
-  return merged.copyWith(
-    mods: relaxSection(merged.mods),
-    resourcePacks: relaxSection(merged.resourcePacks),
-    dataPacks: relaxSection(merged.dataPacks),
-    shaders: relaxSection(merged.shaders),
-    plugins: relaxSection(merged.plugins),
-  );
+  return merged.mapSectionEntries((_, entries) => relaxSection(entries));
 }

@@ -78,6 +78,82 @@ mods:
     },
   );
   test(
+    'same local key in different sections keeps independent source hosts online and offline',
+    () async {
+      final root = Directory.systemTemp.createTempSync('two_host_graph_');
+      final defaultApi = FakeModrinth();
+      final hostedApi = FakeModrinth();
+      await defaultApi.start();
+      await hostedApi.start();
+      addTearDown(() async {
+        await defaultApi.stop();
+        await hostedApi.stop();
+        root.deleteSync(recursive: true);
+      });
+      for (final api in [defaultApi, hostedApi]) {
+        api.registerVersion(
+          slug: 'anchor',
+          versionNumber: '1.0.0',
+          requiredDeps: ['library'],
+        );
+        api.registerVersion(slug: 'library', versionNumber: '2.0.0');
+      }
+      for (final versions in hostedApi.versions.values) {
+        versions.single['loaders'] = ['minecraft', 'neoforge'];
+      }
+      File(p.join(root.path, 'mods.yaml')).writeAsStringSync('''
+slug: pack
+name: Pack
+version: 1.0.0
+description: test
+mc_version: 1.21.1
+modrinth_host: ${hostedApi.baseUrl}
+loader:
+  mods: "neoforge:21.1.50"
+mods:
+  anchor:
+    modrinth: anchor
+    modrinth_host: ${defaultApi.baseUrl}
+resource_packs:
+  anchor:
+    modrinth: anchor
+''');
+      final environment = {
+        'GITRINTH_CACHE': p.join(root.path, 'cache'),
+        'GITRINTH_MODRINTH_URL': defaultApi.baseUrl,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': defaultApi.neoforgeVersionsUrl,
+      };
+      final online = await runCli([
+        '-C',
+        root.path,
+        'get',
+      ], environment: environment);
+      expect(online.exitCode, 0, reason: '${online.stdout}\n${online.stderr}');
+      final lockFile = File(p.join(root.path, 'mods.lock'));
+      final before = lockFile.readAsStringSync();
+      final lock = parseModsLock(before, filePath: 'mods.lock');
+      expect(lock.mods['anchor']!.modrinth!.host, isNull);
+      expect(lock.resourcePacks['anchor']!.modrinth!.host, hostedApi.baseUrl);
+      final children = [
+        ...lock.mods.values,
+        ...lock.resourcePacks.values,
+      ].where((e) => e.modrinth?.projectId == 'library_ID').toList();
+      expect(children, hasLength(2));
+      expect(
+        children.map((e) => e.modrinth!.host),
+        unorderedEquals([null, hostedApi.baseUrl]),
+      );
+      final offline = await runCli([
+        '-C',
+        root.path,
+        'get',
+        '--offline',
+      ], environment: environment);
+      expect(offline.exitCode, 0, reason: offline.stderr);
+      expect(lockFile.readAsStringSync(), before);
+    },
+  );
+  test(
     'declared plugin dependency alias takes precedence over sparse project metadata',
     () async {
       final root = Directory.systemTemp.createTempSync('declared_plugin_');

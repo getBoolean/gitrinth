@@ -267,7 +267,7 @@ Future<int> _runMigrate({
   };
   final resolutionManifest = stripSlugs.isEmpty
       ? mutated
-      : _stripSlugs(mutated, stripSlugs);
+      : mutated.withoutEntrySlugs(stripSlugs);
 
   final targets = <String>{
     for (final s in available) s.$2,
@@ -475,19 +475,6 @@ ModsYaml _applyTarget(
       plugins: resolvedPlugins,
       pluginLoaderVersion: manifest.loader.pluginLoaderVersion,
     ),
-  );
-}
-
-ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {
-  Map<String, ModEntry> strip(Map<String, ModEntry> m) => {
-    for (final e in m.entries)
-      if (!slugs.contains(e.key)) e.key: e.value,
-  };
-  return manifest.copyWith(
-    mods: strip(manifest.mods),
-    resourcePacks: strip(manifest.resourcePacks),
-    dataPacks: strip(manifest.dataPacks),
-    shaders: strip(manifest.shaders),
   );
 }
 
