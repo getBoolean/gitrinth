@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../cli/exceptions.dart';
 import '../../model/curseforge/cf_mod.dart';
 import '../../model/curseforge/cf_mod_file.dart';
@@ -78,9 +80,8 @@ class CfResolution {
 
 /// Walks the merged manifest and resolves every CurseForge-eligible
 /// entry against [api]. Returns a [CfResolution] aggregating the
-/// per-entry outcomes; never throws (resolution failures are aggregated
-/// into [CfNotFound] markers and surfaced by the caller as a single
-/// [ValidationError]).
+/// per-entry content misses. Service failures retain their actionable causes
+/// rather than becoming [CfNotFound] markers.
 ///
 /// Eligibility per entry follows [effectiveSources] — entries excluded
 /// from CurseForge by `sources:` / matrix-ineligibility / pack-default
@@ -88,8 +89,7 @@ class CfResolution {
 /// before any HTTP call (their `cfModLoaderType` would throw).
 ///
 /// Inputs are kept boundary-pure: the manifest is the only spec, [api]
-/// is the only HTTP surface, [console] receives best-effort warnings
-/// when a CF lookup raises an unexpected error mid-walk.
+/// is the only HTTP surface.
 Future<CfResolution> resolveCurseforgeEntries({
   required ModsYaml manifest,
   required CurseForgeApi api,
@@ -138,19 +138,9 @@ Future<CfResolution> resolveCurseforgeEntries({
           project = await findModBySlug(api, slug: slugUsed, section: section);
         }
       } on Object catch (e) {
-        console.warn(
-          'curseforge: lookup for "$slug" failed: $e — '
-          'treating as not found.',
-        );
-        notFound.add(
-          CfNotFound(
-            slug: slug,
-            section: section,
-            slugUsed: slugUsed,
-            reason: 'slug-not-found',
-          ),
-        );
-        continue;
+        final cause = e is DioException ? e.error : e;
+        if (cause is GitrinthException) throw cause;
+        throw UserError('CurseForge lookup for "$slug" ($slugUsed) failed: $e');
       }
       if (project == null) {
         notFound.add(
@@ -186,20 +176,11 @@ Future<CfResolution> resolveCurseforgeEntries({
           channel: channel,
         );
       } on Object catch (e) {
-        if (e is ValidationError) rethrow;
-        console.warn(
-          'curseforge: listFiles for "$slug" (project ${project.id}) '
-          'failed: $e — treating as no compatible files.',
+        final cause = e is DioException ? e.error : e;
+        if (cause is GitrinthException) throw cause;
+        throw UserError(
+          'CurseForge file listing for "$slug" (project ${project.id}) failed: $e',
         );
-        notFound.add(
-          CfNotFound(
-            slug: slug,
-            section: section,
-            slugUsed: slugUsed,
-            reason: 'no-compatible-files',
-          ),
-        );
-        continue;
       }
 
       if (files.isEmpty) {

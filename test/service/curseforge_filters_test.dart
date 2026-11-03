@@ -213,7 +213,10 @@ void main() {
     });
 
     test('accepts_mc unions: 1.21 and 1.21.1 both match', () async {
-      final adapter = _ScriptedAdapter([_resp(200, filesFixture)]);
+      final adapter = _ScriptedAdapter([
+        _resp(200, filesFixture),
+        _resp(200, filesFixture),
+      ]);
       final api = _apiWith(adapter);
 
       final files = await listCompatibleFiles(
@@ -229,7 +232,146 @@ void main() {
         files.map((f) => f.id),
         containsAll(<int>[5810000, 5814200, 5814100]),
       );
+      expect(files.map((f) => f.id).toSet(), hasLength(files.length));
+      expect(
+        adapter.requests.map((r) => r.uri.queryParameters['gameVersion']),
+        ['1.21', '1.21.1'],
+      );
+      expect(
+        adapter.requests.map((r) => r.uri.queryParameters['modLoaderType']),
+        ['4', '4'],
+      );
     });
+
+    test('exactly 10000 results ends inside the request window', () async {
+      final adapter = _ScriptedAdapter([
+        for (var index = 0; index < 10000; index += 50)
+          _resp(200, _page(index: index, total: 10000, count: 50)),
+      ]);
+      final files = await listCompatibleFiles(
+        api: _apiWith(adapter),
+        projectId: 238222,
+        section: Section.mods,
+        modLoader: ModLoader.fabric,
+        gameVersions: const ['1.21.1'],
+        channel: Channel.release,
+      );
+      expect(files, hasLength(10000));
+      expect(adapter.requests, hasLength(200));
+      for (final request in adapter.requests) {
+        final query = request.uri.queryParameters;
+        expect(
+          int.parse(query['index']!) + int.parse(query['pageSize']!),
+          lessThanOrEqualTo(10000),
+        );
+        expect(query['gameVersion'], '1.21.1');
+      }
+    });
+
+    test(
+      'filtered history beyond the window fails before paging further',
+      () async {
+        final adapter = _ScriptedAdapter([
+          _resp(200, _page(index: 0, total: 10001, count: 50)),
+        ]);
+        await expectLater(
+          listCompatibleFiles(
+            api: _apiWith(adapter),
+            projectId: 238222,
+            section: Section.mods,
+            modLoader: ModLoader.fabric,
+            gameVersions: const ['1.21.1'],
+            channel: Channel.release,
+          ),
+          throwsA(
+            isA<ValidationError>().having(
+              (e) => e.message,
+              'message',
+              allOf(contains('238222'), contains('1.21.1'), contains('10,000')),
+            ),
+          ),
+        );
+        expect(adapter.requests, hasLength(1));
+      },
+    );
+
+    test('empty history ends after one version-scoped request', () async {
+      final adapter = _ScriptedAdapter([
+        _resp(200, _page(index: 0, total: 0, count: 0)),
+      ]);
+      final files = await listCompatibleFiles(
+        api: _apiWith(adapter),
+        projectId: 238222,
+        section: Section.mods,
+        modLoader: ModLoader.fabric,
+        gameVersions: const ['1.21.1', '1.21.1'],
+        channel: Channel.release,
+      );
+      expect(files, isEmpty);
+      expect(
+        adapter.requests.single.uri.queryParameters['gameVersion'],
+        '1.21.1',
+      );
+    });
+
+    test('premature empty page rejects incomplete history', () async {
+      final adapter = _ScriptedAdapter([
+        _resp(200, _page(index: 0, total: 3, count: 2)),
+        _resp(200, _page(index: 2, total: 3, count: 0)),
+      ]);
+      await expectLater(
+        listCompatibleFiles(
+          api: _apiWith(adapter),
+          projectId: 238222,
+          section: Section.mods,
+          modLoader: ModLoader.fabric,
+          gameVersions: const ['1.21.1'],
+          channel: Channel.release,
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('incomplete'),
+          ),
+        ),
+      );
+      expect(adapter.requests, hasLength(2));
+    });
+
+    test(
+      'overlapping short pages deduplicate and retain newest ordering',
+      () async {
+        final adapter = _ScriptedAdapter([
+          _resp(200, _page(index: 0, total: 4, count: 2)),
+          _resp(
+            200,
+            jsonEncode({
+              'data': [
+                _miniFile(id: 1, fileDate: '2025-01-01'),
+                _miniFile(id: 3, fileDate: '2025-02-01'),
+              ],
+              'pagination': {
+                'index': 2,
+                'pageSize': 50,
+                'resultCount': 2,
+                'totalCount': 4,
+              },
+            }),
+          ),
+        ]);
+        final files = await listCompatibleFiles(
+          api: _apiWith(adapter),
+          projectId: 238222,
+          section: Section.mods,
+          modLoader: ModLoader.fabric,
+          gameVersions: const ['1.21.1'],
+          channel: Channel.release,
+        );
+        expect(files.map((f) => f.id), [3, 0, 1]);
+        expect(adapter.requests[1].uri.queryParameters['index'], '2');
+      },
+    );
 
     test('plugins+bukkit passes classId=5 and no modLoaderType', () async {
       final adapter = _ScriptedAdapter([_resp(200, filesFixture)]);
@@ -350,6 +492,20 @@ void main() {
     });
   });
 }
+
+String _page({required int index, required int total, required int count}) =>
+    jsonEncode({
+      'data': [
+        for (var i = 0; i < count; i++)
+          _miniFile(id: index + i, fileDate: '2025-01-01'),
+      ],
+      'pagination': {
+        'index': index,
+        'pageSize': 50,
+        'resultCount': count,
+        'totalCount': total,
+      },
+    });
 
 CurseForgeApi _apiWith(_ScriptedAdapter adapter) {
   final dio = Dio()..httpClientAdapter = adapter;

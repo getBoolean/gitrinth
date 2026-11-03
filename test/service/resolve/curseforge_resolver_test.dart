@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:gitrinth/src/model/curseforge/cf_constants.dart';
 import 'package:gitrinth/src/model/curseforge/cf_file_hash.dart';
 import 'package:gitrinth/src/model/curseforge/cf_mod.dart';
@@ -23,13 +24,18 @@ class _FakeCfApi implements CurseForgeApi {
 
   /// id → Mod for getMod()
   final Map<int, Mod> modsById;
+  final Object? lookupError;
+  final Object? listingError;
 
   final List<String> calls = [];
+  final List<String?> requestedGameVersions = [];
 
   _FakeCfApi({
     this.projectsBySlug = const {},
     this.filesByProject = const {},
     this.modsById = const {},
+    this.lookupError,
+    this.listingError,
   });
 
   @override
@@ -42,6 +48,8 @@ class _FakeCfApi implements CurseForgeApi {
     int? pageSize,
   }) async {
     calls.add('searchMods($slug)');
+    final error = lookupError;
+    if (error != null) throw error;
     final found = projectsBySlug[slug];
     return ModSearchResponse(
       data: found == null ? const [] : [found],
@@ -71,6 +79,9 @@ class _FakeCfApi implements CurseForgeApi {
     int? pageSize,
   }) async {
     calls.add('listFiles($modId)');
+    requestedGameVersions.add(gameVersion);
+    final error = listingError;
+    if (error != null) throw error;
     final files = filesByProject[modId] ?? const [];
     return ModFileSearchResponse(
       data: files,
@@ -147,6 +158,114 @@ void main() {
   });
 
   group('resolveCurseforgeEntries', () {
+    test(
+      'accepts_mc queries both versions and selects the newest file',
+      () async {
+        final api = _FakeCfApi(
+          projectsBySlug: {
+            'jei': const Mod(
+              id: 238222,
+              gameId: 432,
+              name: 'JEI',
+              slug: 'jei',
+              classId: 6,
+            ),
+          },
+          filesByProject: {
+            238222: [
+              _file(
+                id: 1,
+                modId: 238222,
+                fileName: 'current.jar',
+                fileDate: '2025-01-01',
+              ),
+              _file(
+                id: 2,
+                modId: 238222,
+                fileName: 'accepted.jar',
+                fileDate: '2025-02-01',
+                gameVersions: ['1.21.4'],
+              ),
+            ],
+          },
+        );
+        final result = await resolveCurseforgeEntries(
+          manifest: _pack(
+            modsMap: {
+              'jei': const ModEntry(slug: 'jei', acceptsMc: ['1.21.4']),
+            },
+          ),
+          api: api,
+          console: const Console(level: LogLevel.error),
+        );
+        expect(api.requestedGameVersions, ['1.21.5', '1.21.4']);
+        expect(result.resolved.values.single.file.id, 2);
+        expect(result.resolved.values.single.candidates.map((f) => f.id), [
+          2,
+          1,
+        ]);
+      },
+    );
+
+    test(
+      'lookup authentication failure preserves its actionable cause',
+      () async {
+        final api = _FakeCfApi(
+          lookupError: DioException(
+            requestOptions: RequestOptions(path: '/v1/mods/search'),
+            error: const AuthenticationError('CurseForge rejected the API key'),
+          ),
+        );
+        await expectLater(
+          resolveCurseforgeEntries(
+            manifest: _pack(modsMap: {'jei': const ModEntry(slug: 'jei')}),
+            api: api,
+            console: const Console(level: LogLevel.error),
+          ),
+          throwsA(
+            isA<AuthenticationError>().having(
+              (e) => e.message,
+              'message',
+              contains('API key'),
+            ),
+          ),
+        );
+      },
+    );
+
+    test('listing network failure is not a missing compatible file', () async {
+      final api = _FakeCfApi(
+        projectsBySlug: {
+          'jei': const Mod(
+            id: 238222,
+            gameId: 432,
+            name: 'JEI',
+            slug: 'jei',
+            classId: 6,
+          ),
+        },
+        listingError: DioException(
+          requestOptions: RequestOptions(path: '/v1/mods/238222/files'),
+          type: DioExceptionType.connectionError,
+          message: 'connection refused',
+        ),
+      );
+      await expectLater(
+        resolveCurseforgeEntries(
+          manifest: _pack(modsMap: {'jei': const ModEntry(slug: 'jei')}),
+          api: api,
+          console: const Console(level: LogLevel.error),
+        ),
+        throwsA(
+          isA<UserError>().having(
+            (e) => e.message,
+            'message',
+            allOf(contains('238222'), contains('connection refused')),
+          ),
+        ),
+      );
+    });
+
     test(
       'nullable content type reports project identity before file selection',
       () async {
