@@ -232,11 +232,12 @@ Future<ResolveSyncResult> resolveAndSync({
   String keyFor(Section section, String slug) {
     final node = LocalEntryKey(section, slug);
     if (!identities.nodes.contains(node)) {
-      identities.register(
-        node,
-        host:
-            existingLock?.sectionFor(section)[slug]?.modrinth?.host ?? packHost,
-      );
+      final locked = existingLock?.sectionFor(section)[slug]?.modrinth;
+      final host = locked == null ? packHost : locked.host ?? defaultBaseUrl;
+      identities.register(node, host: host, projectSlug: locked?.projectId);
+      if (locked != null) {
+        identities.bind(node, ModrinthProjectKey(host, locked.projectId));
+      }
     }
     return identities.solverKey(node);
   }
@@ -353,33 +354,31 @@ Future<ResolveSyncResult> resolveAndSync({
 
   final resolver = Resolver(
     sectionForSlug: sectionFor,
-    nodeKeyFor: (section, slug) {
-      final node = LocalEntryKey(section, slug);
-      if (!identities.nodes.contains(node)) {
-        final locked = existingLock?.sectionFor(section)[slug]?.modrinth;
-        identities.register(node, host: locked?.host ?? defaultBaseUrl);
-        if (locked != null) {
-          identities.bind(
-            node,
-            ModrinthProjectKey(locked.host ?? defaultBaseUrl, locked.projectId),
-          );
-        }
-      }
-      return identities.solverKey(node);
-    },
+    nodeKeyFor: keyFor,
     localNameFor: (key) => identities.nodeForSolverKey(key).localKey,
     formatError: identities.displayMessage,
     resolveDependencySlug: (projectId, parentSlug) async {
       final parent = identities.nodeForSolverKey(parentSlug);
       final host = identities.host(parent);
       final aliases = identities.aliases(ModrinthProjectKey(host, projectId));
-      final sameSection = aliases.where(
+      final currentAliases = offline
+          ? aliases
+          : aliases
+                .where(
+                  (node) => manifestForResolution
+                      .sectionEntries(node.section)
+                      .containsKey(node.localKey),
+                )
+                .toSet();
+      final sameSection = currentAliases.where(
         (node) => node.section == parent.section,
       );
       if (sameSection.length == 1) {
         return identities.solverKey(sameSection.single);
       }
-      if (aliases.length == 1) return identities.solverKey(aliases.single);
+      if (currentAliases.length == 1) {
+        return identities.solverKey(currentAliases.single);
+      }
       if (offline) {
         for (final section in Section.values) {
           for (final e
@@ -388,7 +387,7 @@ Future<ResolveSyncResult> resolveAndSync({
             if (e.value.modrinth?.projectId != projectId) continue;
             if ((e.value.modrinth?.host ?? defaultBaseUrl) != host) continue;
             final node = LocalEntryKey(section, e.key);
-            identities.register(node, host: host);
+            identities.register(node, host: host, projectSlug: projectId);
             identities.bind(node, ModrinthProjectKey(host, projectId));
             return identities.solverKey(node);
           }
@@ -407,6 +406,9 @@ Future<ResolveSyncResult> resolveAndSync({
                     e.value.modrinthSlug == project.id))
               section,
       };
+      if (declaredSections.isEmpty && aliases.length == 1) {
+        return identities.solverKey(aliases.single);
+      }
       final section =
           (declaredSections.contains(parent.section)
               ? parent.section
@@ -1407,10 +1409,6 @@ CfResolution synthesizeCfResolutionFromLock(
         .where((node) => node.localKey == name)
         .toList();
     if (candidates.length <= 1) return candidates.firstOrNull;
-    final sameSection = candidates.where(
-      (node) => node.section == child.section,
-    );
-    if (sameSection.length == 1) return sameSection.single;
     throw ValidationError(
       "Ambiguous required_by parent '$name' for $child while offline. Run `gitrinth get` online first.",
     );

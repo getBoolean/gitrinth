@@ -140,6 +140,26 @@ void main() {
     );
   });
 
+  test(
+    'a matching child section does not resolve ambiguous parent identity',
+    () {
+      final locked = lock({
+        'root': entry('root', 'mod-root'),
+        'child': entry('child', 'child', parents: ['root']),
+      }).copyWith(plugins: {'root': entry('root', 'plugin-root')});
+      final indexed = LockedDependencyGraph(
+        locked,
+        cache,
+        defaultHost: defaultHost,
+      );
+      expect(indexed.diagnostics.single, contains('Ambiguous required_by'));
+      expect(
+        indexed.graph.parents(const LocalEntryKey(Section.mods, 'child')),
+        isEmpty,
+      );
+    },
+  );
+
   test('cold-cache parents match source host before section', () {
     final locked = lock({
       'root': entry('root', 'root-a'),

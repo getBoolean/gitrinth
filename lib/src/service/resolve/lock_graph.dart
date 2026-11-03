@@ -115,12 +115,6 @@ final class LockedDependencyGraph {
                 (parent.curseforge != null && child.curseforge != null);
           }).toList();
         }
-        if (candidates.length > 1) {
-          final sameSection = candidates
-              .where((node) => node.section == item.key.section)
-              .toList();
-          if (sameSection.isNotEmpty) candidates = sameSection;
-        }
         if (candidates.length == 1) {
           graph.addEdge(candidates.single, item.key);
         } else if (candidates.length > 1) {
