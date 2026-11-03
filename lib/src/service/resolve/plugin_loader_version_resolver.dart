@@ -73,7 +73,10 @@ class PluginLoaderVersionResolver {
                 descriptor.versions.contains(tag))) {
           return tag;
         }
-        if (descriptor.versions.isNotEmpty) return descriptor.versions.first;
+        if ((tag == 'stable' || tag == 'latest') &&
+            descriptor.versions.isNotEmpty) {
+          return descriptor.versions.first;
+        }
         throw ValidationError(
           'Loader ${loader.name} has no discovered plugin version matching $tag.',
         );

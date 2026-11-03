@@ -32,10 +32,25 @@ class LoaderRegistryService {
     final mrHost = normalizeServerKey(modrinthHost);
     final cfHost = normalizeServerKey(curseforgeHost);
     var registry = configured;
-    final mrCached = cache.read('modrinth', mrHost);
-    final cfCached = cache.read('curseforge', cfHost);
-    if (mrCached != null) registry = mergeModrinth(registry, mrHost, mrCached);
-    if (cfCached != null) registry = mergeCurseforge(registry, cfCached);
+    void mergeCached(
+      String provider,
+      String host,
+      LoaderRegistry Function(LoaderRegistry, List<Map<String, dynamic>>) merge,
+    ) {
+      try {
+        final entries = cache.read(provider, host);
+        if (entries != null) registry = merge(registry, entries);
+      } on ValidationError {
+        if (offline) rethrow;
+      }
+    }
+
+    mergeCached(
+      'modrinth',
+      mrHost,
+      (current, entries) => mergeModrinth(current, mrHost, entries),
+    );
+    mergeCached('curseforge', cfHost, mergeCurseforge);
     final missing = needed
         .where(
           (id) =>

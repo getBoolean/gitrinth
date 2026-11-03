@@ -136,10 +136,7 @@ class LoaderDescriptor {
   }) => LoaderDescriptor(
     id: id,
     role: role,
-    modrinthTags: Map.unmodifiable({
-      ...modrinthTags,
-      if (host != null && tag != null) host: tag,
-    }),
+    modrinthTags: {...modrinthTags, if (host != null && tag != null) host: tag},
     curseforgeType: curseforgeType,
     curseforgePlugins: curseforgePlugins,
     modrinthArchiveKey: modrinthArchiveKey,
@@ -151,7 +148,7 @@ class LoaderDescriptor {
     compatibleMods: compatibleMods,
     declaredId: declaredId,
     variants: variants,
-    versions: List.unmodifiable(versions ?? this.versions),
+    versions: versions ?? this.versions,
     runtimeArtifact: runtimeArtifact,
   );
 }

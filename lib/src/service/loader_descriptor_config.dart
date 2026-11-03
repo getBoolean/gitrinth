@@ -131,7 +131,7 @@ class LoaderDescriptorConfig {
         LoaderDescriptor(
           id: id,
           role: role,
-          modrinthTags: Map.unmodifiable(mr),
+          modrinthTags: mr,
           curseforgeType: cf as int?,
           curseforgePlugins: data['curseforge_plugins'] == true,
           modrinthArchiveKey: token(archiveMap['modrinth']),
@@ -150,10 +150,10 @@ class LoaderDescriptorConfig {
                   data['installer_family'],
                   'installer_family',
                 ),
-          compatibleMods: List.unmodifiable([
+          compatibleMods: [
             for (final value in compatible as List? ?? [])
               LoaderId(value as String),
-          ]),
+          ],
           serverLaunchJar: jar as String?,
           serverRunScript: data['server_run_script'] == true,
         ),

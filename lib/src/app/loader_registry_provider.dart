@@ -116,11 +116,7 @@ Future<LoaderRegistry> prepareLoaderRegistry(
       registry = await service.snapshot(
         modrinthHost: host,
         curseforgeHost: cfFactory.baseUrl,
-        needed: [
-          manifest.loader.mods,
-          ?manifest.loader.plugins,
-          ?manifest.loader.shaders,
-        ],
+        needed: ids,
         offline: offline,
         refresh: catalogTag,
         discoverModrinth: discoverMr,

@@ -47,6 +47,48 @@ void main() {
     );
   }
 
+  test('catalog plugin versions preserve explicit concrete requests', () async {
+    final loader = LoaderId('future-plugin');
+    final registry = LoaderRegistry.builtins.merge([
+      LoaderDescriptor(
+        id: loader,
+        role: LoaderRole.plugin,
+        versionSource: VersionSourceFamily.catalog,
+        versions: ['3.0.0', '2.0.0'],
+      ),
+    ]);
+    final r = resolver();
+    for (final tag in ['stable', 'latest']) {
+      expect(
+        await r.resolve(
+          loader: loader,
+          registry: registry,
+          tag: tag,
+          mcVersion: '1.21.1',
+        ),
+        '3.0.0',
+      );
+    }
+    expect(
+      await r.resolve(
+        loader: loader,
+        registry: registry,
+        tag: '2.0.0',
+        mcVersion: '1.21.1',
+      ),
+      '2.0.0',
+    );
+    await expectLater(
+      r.resolve(
+        loader: loader,
+        registry: registry,
+        tag: '1.0.0',
+        mcVersion: '1.21.1',
+      ),
+      throwsA(isA<ValidationError>()),
+    );
+  });
+
   test(
     'Paper stable filters STABLE while latest accepts any channel',
     () async {

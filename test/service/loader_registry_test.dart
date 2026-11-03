@@ -10,6 +10,63 @@ import 'package:gitrinth/src/service/loader_registry.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test(
+    'online discovery repairs corrupt catalogs while offline stays network-free',
+    () async {
+      final root = Directory.systemTemp.createTempSync('loader_recovery_');
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final dio = Dio();
+      addTearDown(() async {
+        dio.close(force: true);
+        await server.close(force: true);
+        root.deleteSync(recursive: true);
+      });
+      final host = 'http://127.0.0.1:${server.port}/v2';
+      final cache = LoaderCatalogCache(GitrinthCache(root: root.path));
+      final sidecar = File(cache.path('modrinth', host));
+      sidecar.parent.createSync(recursive: true);
+      sidecar.writeAsStringSync('{');
+      var requests = 0;
+      server.listen((request) async {
+        requests++;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(
+          jsonEncode([
+            {
+              'name': 'future',
+              'supported_project_types': ['mod'],
+            },
+          ]),
+        );
+        await request.response.close();
+      });
+      final service = LoaderRegistryService(
+        configured: LoaderRegistry.builtins,
+        cache: cache,
+        dio: dio,
+      );
+      await expectLater(
+        service.snapshot(
+          modrinthHost: host,
+          curseforgeHost: 'https://api.curseforge.com',
+          needed: [LoaderId('future')],
+          offline: true,
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+      expect(requests, 0);
+      final repaired = await service.snapshot(
+        modrinthHost: host,
+        curseforgeHost: 'https://api.curseforge.com',
+        needed: [LoaderId('future')],
+        refresh: true,
+      );
+      expect(repaired[LoaderId('future')]?.modrinthTag(host), 'future');
+      expect(requests, 1);
+      expect(cache.read('modrinth', host)?.single['name'], 'future');
+    },
+  );
+
   test('descriptors and snapshots defensively copy caller collections', () {
     final tags = {'https://example.test/v2': 'future'};
     final versions = ['1.0.0'];
