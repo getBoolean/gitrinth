@@ -5,6 +5,8 @@ import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/manifest/parser.dart';
 import 'package:gitrinth/src/service/cache.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_metadata_store.dart';
+import 'package:crypto/crypto.dart';
 import 'package:gitrinth/src/service/resolve/lock_graph.dart';
 import 'package:gitrinth/src/service/resolve/resolve_and_sync.dart';
 import 'package:gitrinth/src/service/source_identity.dart';
@@ -30,7 +32,7 @@ void main() {
         curseforge: LockedCurseforgeSource(
           projectId: id,
           fileId: id,
-          file: LockedFile(name: '$id.jar'),
+          file: LockedFile(name: '$id.jar', sha1: sha1.convert([1]).toString()),
           gameVersions: ['1.21.1'],
         ),
       );
@@ -61,6 +63,11 @@ void main() {
         );
         file.parent.createSync(recursive: true);
         file.writeAsBytesSync([1]);
+      }
+      for (final entry in synthesizeCfResolutionFromLock(
+        before,
+      ).resolved.values) {
+        CurseForgeMetadataStore(cache).write(entry.file);
       }
       final graph = LockedDependencyGraph(
         before,

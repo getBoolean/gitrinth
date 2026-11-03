@@ -12,6 +12,7 @@ import 'package:gitrinth/src/model/modrinth/version_file.dart';
 import 'package:gitrinth/src/service/cache.dart';
 import 'package:gitrinth/src/service/console.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_api_factory.dart';
+import 'package:gitrinth/src/service/curseforge/curseforge_metadata_store.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_auth_interceptor.dart';
 import 'package:gitrinth/src/service/downloader.dart';
 import 'package:gitrinth/src/service/manifest_io.dart';
@@ -304,6 +305,11 @@ mods:
           ..writeAsStringSync(jsonEncode(cachedVersion.toMap()));
 
         final cfEntry = priorLock.mods['jei']!.curseforge!;
+        for (final entry in synthesizeCfResolutionFromLock(
+          priorLock,
+        ).resolved.values) {
+          CurseForgeMetadataStore(cache).write(entry.file);
+        }
         File(
             cache.curseforgePath(
               projectId: cfEntry.projectId,

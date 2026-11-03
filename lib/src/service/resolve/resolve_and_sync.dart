@@ -27,6 +27,7 @@ import '../source_identity.dart';
 import '../dependency_graph.dart';
 import '../console.dart';
 import '../curseforge/curseforge_api_factory.dart';
+import '../curseforge/curseforge_metadata_store.dart';
 import '../curseforge/curseforge_version.dart';
 import '../downloader.dart';
 import '../manifest_io.dart';
@@ -35,6 +36,7 @@ import '../modrinth/modrinth_api_factory.dart';
 import '../modrinth/modrinth_url.dart';
 import '../modrinth/modrinth_resolution_snapshot.dart';
 import 'curseforge_resolver.dart';
+import 'curseforge_relationships.dart';
 import 'curseforge_resolution_api.dart';
 import 'cross_platform_search.dart';
 import 'download_artifacts.dart';
@@ -259,13 +261,13 @@ Future<ResolveSyncResult> resolveAndSync({
   CfResolution cfResolution;
   if (offline) {
     console.warn(
-      'Offline: CurseForge resolution skipped; preserving CF source '
-      'blocks from the existing lock.',
+      'Offline: using locked CurseForge files and cached relationship metadata.',
     );
     cfResolution = existingLock == null
         ? CfResolution.empty
         : synthesizeCfResolutionFromLock(
             existingLock,
+            cache: cache,
             manifest: merged,
             defaultModrinthHost: defaultBaseUrl,
           );
@@ -1245,10 +1247,17 @@ Future<ResolveSyncResult> resolveAndSync({
     }
     cfResolution = synthesizeCfResolutionFromLock(
       existingLock,
+      cache: cache,
       manifest: graphManifest,
       defaultModrinthHost: defaultBaseUrl,
     );
   }
+
+  final finalCfFiles = selectedCurseforgeFiles(cfResolution, hashOutcomes);
+  validateCurseforgeRelationships(
+    finalCfFiles,
+    overriddenSlugs: overriddenSlugs,
+  );
 
   final newLock = buildLock(
     defaultHost: defaultBaseUrl,
@@ -1297,6 +1306,12 @@ Future<ResolveSyncResult> resolveAndSync({
   }
 
   final newLockText = emitModsLock(newLock);
+  if (!offline) {
+    final metadata = CurseForgeMetadataStore(cache);
+    for (final file in finalCfFiles.values) {
+      metadata.write(file);
+    }
+  }
   io.writeModsLock(newLockText);
 
   reporter.printReport(
@@ -1393,10 +1408,14 @@ Future<ResolveSyncResult> resolveAndSync({
 /// (`project.id`, `project.slug`, `project.allowModDistribution`,
 /// `file.id`, `file.fileName`, `file.downloadUrl`, `file.sha1Hash`,
 /// `file.gameVersions`); other fields carry placeholder values.
+/// When [cache] is supplied, selected-file sidecars are mandatory and provide
+/// validated availability and relations. Omitting it supports read-only lock
+/// inspection; actual offline resolution always supplies the cache.
 /// `candidates` holds the single locked file — the offline path skips
 /// the hash-scan loop, so the list is never walked beyond `.first`.
 CfResolution synthesizeCfResolutionFromLock(
   ModsLock lock, {
+  GitrinthCache? cache,
   ModsYaml? manifest,
   String defaultModrinthHost = defaultModrinthBaseUrl,
 }) {
@@ -1480,6 +1499,13 @@ CfResolution synthesizeCfResolutionFromLock(
       final cf = entry.value.curseforge;
       if (cf == null) continue;
       final sha1 = cf.file.sha1;
+      final metadata = cache == null
+          ? null
+          : CurseForgeMetadataStore(cache).read(
+              projectId: cf.projectId,
+              fileId: cf.fileId,
+              expectedSha1: sha1,
+            );
       final synthFile = ModFile(
         id: cf.fileId,
         modId: cf.projectId,
@@ -1491,7 +1517,8 @@ CfResolution synthesizeCfResolutionFromLock(
         fileDate: '',
         gameVersions: List<String>.from(cf.gameVersions),
         hashes: sha1 == null ? const [] : [FileHash(value: sha1, algoCode: 1)],
-        dependencies: const [],
+        dependencies: metadata?.dependencies ?? const [],
+        isAvailable: metadata?.isAvailable ?? true,
         downloadUrl: cf.file.url,
       );
       final synthMod = Mod(

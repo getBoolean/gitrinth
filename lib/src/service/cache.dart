@@ -159,6 +159,16 @@ class GitrinthCache {
     );
   }
 
+  /// Selected-file relations and verification metadata, separate from bytes.
+  String curseforgeMetadataPath({
+    required int projectId,
+    required int fileId,
+  }) => curseforgePath(
+    projectId: projectId,
+    fileId: fileId,
+    filename: 'metadata.json',
+  );
+
   /// Path where the resolved Modrinth `Version`'s metadata (mainly its
   /// `dependencies` array) is persisted alongside the artifact. Mirrors
   /// dart pub's "graph in cache, not lock" architecture — this file is
