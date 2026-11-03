@@ -453,13 +453,13 @@ class CurseForgePublicationService {
         PublicationStepState.inFlight,
         PublicationStepState.unknown,
       }.contains(step.state);
-  static bool _unknownFailure(Object error) => error is CurseForgeUploadFailure
-      ? error.unknownOutcome
-      : error is AuthenticationError
-      ? false
-      : error is DioException
-      ? error.response == null || (error.response?.statusCode ?? 500) >= 500
-      : true;
+  static bool _unknownFailure(Object error) => switch (error) {
+    CurseForgeUploadFailure(:final unknownOutcome) => unknownOutcome,
+    AuthenticationError() => false,
+    DioException(:final response) =>
+      response == null || (response.statusCode ?? 500) >= 500,
+    _ => true,
+  };
   Future<void> _verifyParent(
     int project,
     int parent,
@@ -548,10 +548,12 @@ class CurseForgePublicationService {
           'Server distribution inventory does not match archive contents.',
         );
       }
+      final entriesByPath = <String, List<ArchiveFile>>{};
+      for (final entry in actual) {
+        (entriesByPath[entry.name] ??= []).add(entry);
+      }
       for (final expected in manifest.files) {
-        final entries = actual
-            .where((entry) => entry.name == expected.path)
-            .toList();
+        final entries = entriesByPath[expected.path] ?? const <ArchiveFile>[];
         if (entries.length != 1 ||
             entries.single.isSymbolicLink ||
             sha256.convert(entries.single.content).toString() !=

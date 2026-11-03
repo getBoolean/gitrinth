@@ -43,14 +43,13 @@ Future<void> writeServerDistribution(
     defaultModrinthHost: modrinthHost,
   );
   final sources = <String, File>{};
+  final destinations = <String>{};
   void include(String path, File source) {
     if (!isSafeServerDistributionPath(path)) {
       throw ValidationError('Unsafe server distribution path: $path');
     }
     if (isPrivateServerDistributionPath(path)) return;
-    if (sources.keys.any(
-      (existing) => existing.toLowerCase() == path.toLowerCase(),
-    )) {
+    if (!destinations.add(path.toLowerCase())) {
       throw ValidationError('Duplicate server distribution path: $path');
     }
     if (!source.existsSync()) {
