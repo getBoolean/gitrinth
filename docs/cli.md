@@ -136,6 +136,12 @@ available versions. [`create`](#create) also accepts `--offline`,
 where it skips the slug-availability round-trip; that's the only
 network call `create` makes.
 
+CurseForge offline resolution also requires the selected file's
+`<cache>/curseforge/<projectId>/<fileId>/metadata.json` sidecar.
+Missing or corrupt metadata fails before replacing `mods.lock`; run one
+online `gitrinth get` to refresh it. Older locks still support read-only
+inspection.
+
 ## Command details
 
 ### `get`
@@ -144,6 +150,14 @@ Resolve every entry in `mods.yaml`, apply
 [`project_overrides`](mods-yaml.md#project_overrides), write `mods.lock`, and download
 artifacts into the cache. Does not upgrade entries already locked to a
 satisfying version — use [`upgrade`](#upgrade) for that.
+
+CurseForge files must be available and their final selected relationships
+compatible. Listings query each accepted Minecraft version within the
+10,000-result API window; oversized or incomplete histories fail explicitly.
+For a file without a download URL, the error names its project/file IDs,
+filename, and exact cache destination. Download that file manually there
+and rerun `get`; the locked hash must match. Without a verifiable hash,
+use a `path:` source. Cached peer-platform bytes do not satisfy this check.
 
 ```text
 gitrinth get [--dry-run] [--enforce-lockfile] [--offline]

@@ -41,6 +41,43 @@ The [Mixing CF and Modrinth in one pack](#mixing-cf-and-modrinth-in-one-pack)
 section describes the resulting lockfile shape — it's not a task on
 its own, but a consolidated view of what the parts above produce.
 
+### Resolution and manual recovery
+
+The bridge resolves, locks, downloads, assembles, and publishes packs.
+CurseForge ZIP import, desktop integration, and general author metadata
+editing remain separate features.
+
+File listings query each distinct `mc_version` / `accepts_mc` version,
+retain the loader filter, and deduplicate file IDs before sorting.
+A filtered history above 10,000 results fails explicitly; an incomplete
+listing never counts as a complete candidate set. Authentication and
+service failures retain their cause. Unavailable files cannot be selected,
+and a project with unknown content type fails with its project identity.
+
+After cross-platform hash selection, incompatible CurseForge relations
+are checked against the final numeric project identities, including local
+aliases and transitive dependencies. Pin a compatible file explicitly;
+the bridge does not search older files to solve incompatibilities.
+`project_overrides` retain their explicit incompatibility bypass.
+Optional, embedded, tool, and unknown relations do not install projects.
+
+An online resolve saves selected-file metadata at
+`<cache>/curseforge/<projectId>/<fileId>/metadata.json` before replacing
+`mods.lock`. Offline resolution requires this sidecar to validate the
+selected file's availability and relationships. Older locks still parse;
+run one online `gitrinth get` if their sidecars are missing or corrupt.
+Read-only lock inspection and existing build artifacts remain usable.
+
+When a file has no download URL, download that exact file from CurseForge
+and save it at the destination printed by the error:
+`<cache>/curseforge/<projectId>/<fileId>/<filename>`. Rerun the command.
+Only bytes matching the locked hash count as a cache hit, regardless of
+the project's distribution setting. Missing or corrupt bytes fail;
+without a verifiable hash, use an explicit `path:` source instead.
+A cached Modrinth peer does not replace the required CurseForge artifact.
+No CDN URL is reconstructed. Cache verification does not grant permission
+to redistribute manually downloaded bytes.
+
 ## Implementation plan
 
 ### Part 1: Foundation and hosted Modrinth
@@ -172,9 +209,9 @@ What landed:
   single entry point Part 4 will call. It accepts pack context
   (section, optional mod loader, plugin loader for plugin
   sections, the union of `mc_version` + `accepts_mc`, channel),
-  pages CF's `/files` endpoint to completion, filters
-  client-side by the requested game-version set and channel
-  floor, and returns files sorted newest-first. Plugin-loader
+  queries CF's `/files` endpoint per accepted game version within
+  the API window, filters by channel and availability, and returns
+  deduplicated files sorted newest-first. Plugin-loader
   eligibility is checked before any HTTP request — Folia/Sponge
   throw `ArgumentError` immediately. `findModBySlug(...)` is the
   exact-slug lookup path.
@@ -236,9 +273,9 @@ What landed:
   function `buildLock(...)` rather than `part of resolve_and_sync`.
 - The artifact-fetch loop is extracted into
   `service/resolve/download_artifacts.dart`. Each per-platform
-  source block downloads independently; CurseForge entries with
-  `allow_mod_distribution: false` aggregate a "manual download
-  required" error rather than attempting the fetch.
+  source block downloads independently. A CurseForge entry with no
+  download URL requires verified bytes in its canonical cache path;
+  otherwise the error identifies the exact file and manual recovery.
 - Folder reorganization: `lib/src/service/` now has
   `modrinth/`, `curseforge/`, and `resolve/` feature subfolders
   for the touched-by-Part-4 files. Cross-cutting utilities
