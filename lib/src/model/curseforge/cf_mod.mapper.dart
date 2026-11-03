@@ -51,7 +51,7 @@ class ModMapper extends ClassMapperBase<Mod> {
     opt: true,
     def: const [],
   );
-  static int _$classId(Mod v) => v.classId;
+  static int? _$classId(Mod v) => v.classId;
   static const Field<Mod, int> _f$classId = Field('classId', _$classId);
   static List<ModFile> _$latestFiles(Mod v) => v.latestFiles;
   static const Field<Mod, List<ModFile>> _f$latestFiles = Field(
@@ -216,7 +216,7 @@ class _ModCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, Mod, $Out>
     Object? summary = $none,
     List<Map<String, dynamic>>? authors,
     List<Map<String, dynamic>>? categories,
-    int? classId,
+    Object? classId = $none,
     List<ModFile>? latestFiles,
     bool? allowModDistribution,
   }) => $apply(
@@ -228,7 +228,7 @@ class _ModCopyWithImpl<$R, $Out> extends ClassCopyWithBase<$R, Mod, $Out>
       if (summary != $none) #summary: summary,
       if (authors != null) #authors: authors,
       if (categories != null) #categories: categories,
-      if (classId != null) #classId: classId,
+      if (classId != $none) #classId: classId,
       if (latestFiles != null) #latestFiles: latestFiles,
       if (allowModDistribution != null)
         #allowModDistribution: allowModDistribution,

@@ -17,6 +17,10 @@ class ModFile with ModFileMappable {
   /// against `cfReleaseTypesFor(channel)` in the resolver.
   final int releaseType;
 
+  /// Explicitly unavailable files cannot be selected. Older responses that
+  /// omit this field retain their prior available behavior.
+  final bool isAvailable;
+
   /// ISO-8601 publish date string. Stored as-is so callers can sort
   /// lexicographically (ISO-8601 sorts equivalently to chronological
   /// order).
@@ -46,6 +50,7 @@ class ModFile with ModFileMappable {
     required this.displayName,
     required this.fileName,
     required this.releaseType,
+    this.isAvailable = true,
     required this.fileDate,
     required this.gameVersions,
     required this.hashes,

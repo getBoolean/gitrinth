@@ -163,6 +163,11 @@ Future<CfResolution> resolveCurseforgeEntries({
         );
         continue;
       }
+      if (project.classId == null) {
+        throw ValidationError(
+          'Cannot infer content type for CurseForge ${project.slug} (project ${project.id}); the API returned no classId.',
+        );
+      }
       if (project.classId != section.cfClassId) {
         throw ValidationError(
           'CurseForge ${project.slug} has a different content type from ${section.name}; declare it in its intended section.',
@@ -181,6 +186,7 @@ Future<CfResolution> resolveCurseforgeEntries({
           channel: channel,
         );
       } on Object catch (e) {
+        if (e is ValidationError) rethrow;
         console.warn(
           'curseforge: listFiles for "$slug" (project ${project.id}) '
           'failed: $e — treating as no compatible files.',

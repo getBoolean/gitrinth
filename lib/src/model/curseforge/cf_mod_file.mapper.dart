@@ -43,6 +43,13 @@ class ModFileMapper extends ClassMapperBase<ModFile> {
     'releaseType',
     _$releaseType,
   );
+  static bool _$isAvailable(ModFile v) => v.isAvailable;
+  static const Field<ModFile, bool> _f$isAvailable = Field(
+    'isAvailable',
+    _$isAvailable,
+    opt: true,
+    def: true,
+  );
   static String _$fileDate(ModFile v) => v.fileDate;
   static const Field<ModFile, String> _f$fileDate = Field(
     'fileDate',
@@ -77,6 +84,7 @@ class ModFileMapper extends ClassMapperBase<ModFile> {
     #displayName: _f$displayName,
     #fileName: _f$fileName,
     #releaseType: _f$releaseType,
+    #isAvailable: _f$isAvailable,
     #fileDate: _f$fileDate,
     #gameVersions: _f$gameVersions,
     #hashes: _f$hashes,
@@ -91,6 +99,7 @@ class ModFileMapper extends ClassMapperBase<ModFile> {
       displayName: data.dec(_f$displayName),
       fileName: data.dec(_f$fileName),
       releaseType: data.dec(_f$releaseType),
+      isAvailable: data.dec(_f$isAvailable),
       fileDate: data.dec(_f$fileDate),
       gameVersions: data.dec(_f$gameVersions),
       hashes: data.dec(_f$hashes),
@@ -171,6 +180,7 @@ abstract class ModFileCopyWith<$R, $In extends ModFile, $Out>
     String? displayName,
     String? fileName,
     int? releaseType,
+    bool? isAvailable,
     String? fileDate,
     List<String>? gameVersions,
     List<FileHash>? hashes,
@@ -220,6 +230,7 @@ class _ModFileCopyWithImpl<$R, $Out>
     String? displayName,
     String? fileName,
     int? releaseType,
+    bool? isAvailable,
     String? fileDate,
     List<String>? gameVersions,
     List<FileHash>? hashes,
@@ -232,6 +243,7 @@ class _ModFileCopyWithImpl<$R, $Out>
       if (displayName != null) #displayName: displayName,
       if (fileName != null) #fileName: fileName,
       if (releaseType != null) #releaseType: releaseType,
+      if (isAvailable != null) #isAvailable: isAvailable,
       if (fileDate != null) #fileDate: fileDate,
       if (gameVersions != null) #gameVersions: gameVersions,
       if (hashes != null) #hashes: hashes,
@@ -246,6 +258,7 @@ class _ModFileCopyWithImpl<$R, $Out>
     displayName: data.get(#displayName, or: $value.displayName),
     fileName: data.get(#fileName, or: $value.fileName),
     releaseType: data.get(#releaseType, or: $value.releaseType),
+    isAvailable: data.get(#isAvailable, or: $value.isAvailable),
     fileDate: data.get(#fileDate, or: $value.fileDate),
     gameVersions: data.get(#gameVersions, or: $value.gameVersions),
     hashes: data.get(#hashes, or: $value.hashes),

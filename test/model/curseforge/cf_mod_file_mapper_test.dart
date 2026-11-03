@@ -111,6 +111,31 @@ void main() {
       expect(mod.allowModDistribution, isTrue);
     });
 
+    test('nullable content type decodes without inventing a section', () {
+      final mod = ModMapper.fromMap({
+        'id': 1,
+        'gameId': 432,
+        'name': 'Unknown',
+        'slug': 'unknown',
+        'classId': null,
+      });
+      expect(mod.classId, isNull);
+    });
+
+    test('nullable distribution flag preserves the legacy default', () {
+      for (final flag in [null, true, false]) {
+        final mod = ModMapper.fromMap({
+          'id': 1,
+          'gameId': 432,
+          'name': 'Example',
+          'slug': 'example',
+          'classId': 6,
+          'allowModDistribution': flag,
+        });
+        expect(mod.allowModDistribution, flag ?? true);
+      }
+    });
+
     test('parses allowModDistribution: false', () {
       final raw = _readJson(_disabledFixturePath);
       final response = ModSearchResponseMapper.fromMap(raw);

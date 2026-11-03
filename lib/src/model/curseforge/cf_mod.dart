@@ -19,7 +19,7 @@ class Mod with ModMappable {
   /// CurseForge `classId` — content type (mods=6, plugins=5,
   /// resourcePacks=12, etc.). Mapped from the manifest [Section]
   /// taxonomy in `cf_constants.dart`.
-  final int classId;
+  final int? classId;
 
   final List<ModFile> latestFiles;
 

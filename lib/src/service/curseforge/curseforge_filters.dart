@@ -1,3 +1,4 @@
+import '../../cli/exceptions.dart';
 import '../../model/curseforge/cf_constants.dart';
 import '../../model/curseforge/cf_mod.dart';
 import '../../model/curseforge/cf_mod_file.dart';
@@ -63,11 +64,17 @@ Future<List<ModFile>> listCompatibleFiles({
   }
 
   final wanted = gameVersions.toSet();
-  return all
+  final compatible = all
       .where((f) => f.gameVersions.any(wanted.contains))
       .where((f) => allowedReleaseTypes.contains(f.releaseType))
-      .toList()
-    ..sort((a, b) => b.fileDate.compareTo(a.fileDate));
+      .toList();
+  final available = compatible.where((f) => f.isAvailable).toList();
+  if (compatible.isNotEmpty && available.isEmpty) {
+    throw ValidationError(
+      'All compatible CurseForge files for project $projectId are unavailable.',
+    );
+  }
+  return available..sort((a, b) => b.fileDate.compareTo(a.fileDate));
 }
 
 /// Looks up a mod by exact-slug match within [section]. Returns null

@@ -8,6 +8,7 @@ import 'package:gitrinth/src/service/console.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_api.dart';
 import 'package:gitrinth/src/service/resolve/curseforge_resolver.dart';
 import 'package:test/test.dart';
+import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/service/source_identity.dart';
 import 'package:gitrinth/src/service/resolve/lock_builder.dart';
 import 'package:gitrinth/src/service/resolve/resolve_and_sync.dart';
@@ -146,6 +147,48 @@ void main() {
   });
 
   group('resolveCurseforgeEntries', () {
+    test(
+      'nullable content type reports project identity before file selection',
+      () async {
+        final project = ModMapper.fromMap({
+          'id': 42,
+          'gameId': 432,
+          'name': 'Unknown',
+          'slug': 'unknown',
+          'classId': null,
+        });
+        final api = _FakeCfApi(modsById: {42: project});
+        final manifest = _pack(
+          modsMap: {
+            'alias': const ModEntry(
+              slug: 'alias',
+              curseforgeSlug: '42',
+              sources: {SourceKind.curseforge},
+            ),
+          },
+        );
+        await expectLater(
+          resolveCurseforgeEntries(
+            manifest: manifest,
+            api: api,
+            console: const Console(level: LogLevel.error),
+          ),
+          throwsA(
+            isA<ValidationError>().having(
+              (e) => e.toString(),
+              'message',
+              allOf(
+                contains('unknown'),
+                contains('42'),
+                contains('content type'),
+              ),
+            ),
+          ),
+        );
+        expect(api.calls, ['getMod(42)']);
+      },
+    );
+
     test('same local key retains both CurseForge sections', () async {
       final api = _FakeCfApi(
         modsById: {

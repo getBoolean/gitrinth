@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/model/curseforge/cf_constants.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_api.dart';
@@ -142,6 +143,53 @@ void main() {
       // Newest-first by fileDate.
       expect(files.first.id, 5814200);
       expect(files.last.id, 5814100);
+    });
+
+    test(
+      'explicitly unavailable newest file is excluded from candidates',
+      () async {
+        final fixture = jsonDecode(filesFixture) as Map<String, dynamic>;
+        for (final file in fixture['data'] as List) {
+          if (file['id'] == 5814200) file['isAvailable'] = false;
+        }
+        final api = _apiWith(
+          _ScriptedAdapter([_resp(200, jsonEncode(fixture))]),
+        );
+        final files = await listCompatibleFiles(
+          api: api,
+          projectId: 238222,
+          section: Section.mods,
+          modLoader: ModLoader.forge,
+          gameVersions: const ['1.21.1'],
+          channel: Channel.release,
+        );
+        expect(files.map((f) => f.id), [5814100]);
+      },
+    );
+
+    test('all compatible files unavailable explains availability', () async {
+      final fixture = jsonDecode(filesFixture) as Map<String, dynamic>;
+      for (final file in fixture['data'] as List) {
+        file['isAvailable'] = false;
+      }
+      final api = _apiWith(_ScriptedAdapter([_resp(200, jsonEncode(fixture))]));
+      await expectLater(
+        listCompatibleFiles(
+          api: api,
+          projectId: 238222,
+          section: Section.mods,
+          modLoader: ModLoader.forge,
+          gameVersions: const ['1.21.1'],
+          channel: Channel.release,
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.toString(),
+            'message',
+            contains('unavailable'),
+          ),
+        ),
+      );
     });
 
     test('beta channel admits releaseType ∈ {1, 2}', () async {
