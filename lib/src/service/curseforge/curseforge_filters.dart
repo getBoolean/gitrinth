@@ -31,6 +31,7 @@ Future<List<ModFile>> listCompatibleFiles({
   PluginLoader? pluginLoader,
   required List<String> gameVersions,
   required Channel channel,
+  bool diagnoseUnavailable = true,
 }) async {
   if (section == Section.plugins) {
     if (pluginLoader == null ||
@@ -89,7 +90,7 @@ Future<List<ModFile>> listCompatibleFiles({
       .where((f) => allowedReleaseTypes.contains(f.releaseType))
       .toList();
   final available = compatible.where((f) => f.isAvailable).toList();
-  if (compatible.isNotEmpty && available.isEmpty) {
+  if (diagnoseUnavailable && compatible.isNotEmpty && available.isEmpty) {
     throw ValidationError(
       'All compatible CurseForge files for project $projectId are unavailable.',
     );

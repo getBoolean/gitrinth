@@ -75,7 +75,10 @@ void main() {
       }
       final data = req.uri.path.endsWith('/search')
           ? (req.uri.queryParameters.containsKey('searchFilter')
-                ? (req.uri.queryParameters['searchFilter'] == 'anchor'
+                ? ([
+                        'anchor',
+                        '999',
+                      ].contains(req.uri.queryParameters['searchFilter'])
                       ? candidates
                       : [])
                 : (req.uri.queryParameters['slug'] == 'anchor'
@@ -163,6 +166,36 @@ $extra
     expect(offline.exitCode, 0, reason: offline.stderr);
     expect(File(p.join(root.path, 'mods.lock')).readAsStringSync(), lock);
   });
+
+  test(
+    'unavailable search hit does not hide a later hash-identical peer',
+    () async {
+      final available = candidates.single;
+      candidates = [
+        {...available, 'id': 41, 'slug': 'unavailable-peer'},
+        available,
+      ];
+      files[41] = [
+        {...files[42]!.single, 'modId': 41, 'id': 6, 'isAvailable': false},
+      ];
+      final out = await run(dryRun: false);
+      expect(out.exitCode, 0, reason: out.stderr);
+      final lock = File(p.join(root.path, 'mods.lock')).readAsStringSync();
+      expect(lock, contains('project_id: 42'));
+      expect(lock, isNot(contains('project_id: 41')));
+    },
+  );
+
+  test(
+    'missing numeric CF project retains hash-verified search fallback',
+    () async {
+      final out = await run(extra: '    curseforge: "999"', dryRun: false);
+      expect(out.exitCode, 0, reason: out.stderr);
+      final lock = File(p.join(root.path, 'mods.lock')).readAsStringSync();
+      expect(lock, contains('project_id: 42'));
+      expect(lock, contains('discovered_via_search: true'));
+    },
+  );
 
   test('CF-only get writes a complete lock and reuses it offline', () async {
     exactProjects = candidates;

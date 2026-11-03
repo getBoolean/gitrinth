@@ -138,9 +138,15 @@ Future<CfResolution> resolveCurseforgeEntries({
           project = await findModBySlug(api, slug: slugUsed, section: section);
         }
       } on Object catch (e) {
-        final cause = e is DioException ? e.error : e;
-        if (cause is GitrinthException) throw cause;
-        throw UserError('CurseForge lookup for "$slug" ($slugUsed) failed: $e');
+        if (asInt == null ||
+            e is! DioException ||
+            e.response?.statusCode != 404) {
+          final cause = e is DioException ? e.error : e;
+          if (cause is GitrinthException) throw cause;
+          throw UserError(
+            'CurseForge lookup for "$slug" ($slugUsed) failed: $e',
+          );
+        }
       }
       if (project == null) {
         notFound.add(

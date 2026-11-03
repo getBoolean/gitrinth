@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:gitrinth/src/model/manifest/parser.dart';
 import 'package:path/path.dart' as p;
@@ -228,7 +230,14 @@ $overrides
       expect(lock().readAsStringSync(), before);
     },
   );
-  for (final problem in ['missing', 'corrupt', 'identity', 'unavailable']) {
+  for (final problem in [
+    'missing',
+    'corrupt',
+    'identity',
+    'unavailable',
+    'changed-hash',
+    'missing-hash',
+  ]) {
     test('offline $problem metadata fails before lock writes', () async {
       manifest('  alpha: {curseforge: "1"}');
       final first = await get();
@@ -244,6 +253,12 @@ $overrides
             jsonDecode(sidecar.readAsStringSync()) as Map<String, dynamic>;
         if (problem == 'identity') saved['projectId'] = 999;
         if (problem == 'unavailable') saved['file']['isAvailable'] = false;
+          if (problem == 'changed-hash') {
+          saved['file']['hashes'] = [
+            {'algo': 1, 'value': 'different-sha1'},
+          ];
+          }
+        if (problem == 'missing-hash') saved['file']['hashes'] = [];
         sidecar.writeAsStringSync(jsonEncode(saved));
       }
       final result = await get(offline: true);
@@ -268,17 +283,34 @@ $overrides
     expect(result.stderr, contains('metadata'));
     expect(lock().readAsStringSync(), before);
   });
+
+  test('artifact cannot replace its selected metadata sidecar', () async {
+    manifest('  alpha: {curseforge: "1"}');
+    final first = await get();
+    expect(first.exitCode, 0, reason: first.stderr);
+    final before = lock().readAsStringSync();
+    files[1]!.first['fileName'] = 'metadata.json';
+    final result = await get();
+    expect(result.exitCode, 2, reason: result.stderr);
+    expect(result.stderr, contains('metadata.json'));
+    expect(lock().readAsStringSync(), before);
+  });
   for (final selectedConflicts in [false, true]) {
     test(
       'hash-selected older file owns final relations, conflicts=$selectedConflicts',
       () async {
-        mr.registerVersion(slug: 'alpha', versionNumber: '1.0.0');
+        final hosted = FakeModrinth();
+        await hosted.start();
+        addTearDown(hosted.stop);
+        hosted.registerVersion(slug: 'alpha', versionNumber: '1.0.0');
+        hosted.artifacts['alpha/alpha-1.0.0.jar'] = Uint8List.fromList(bytes);
         final mrFile =
-            (mr.versions['alpha']!.single['files'] as List).single
+            (hosted.versions['alpha']!.single['files'] as List).single
                 as Map<String, dynamic>;
         (mrFile['hashes'] as Map)['sha1'] = digest;
+        (mrFile['hashes'] as Map)['sha512'] = sha512.convert(bytes).toString();
         manifest(
-          '  alpha: {curseforge: "1", sources: [modrinth, curseforge]}\n  beta: {curseforge: "2"}',
+          '  alpha: {curseforge: "1", modrinth_host: "${hosted.baseUrl}", sources: [modrinth, curseforge]}\n  beta: {curseforge: "2"}',
         );
         final older = {...files[1]!.first, 'id': 9, 'fileDate': '2025-01-01'};
         files[1]!.first['hashes'] = [
@@ -311,6 +343,40 @@ $overrides
                   as Map<String, dynamic>;
           expect(saved['file']['dependencies'], isEmpty);
           expect(metadata(1, 10).existsSync(), isFalse);
+          final beforePack = lock().readAsStringSync();
+          final selected = parseModsLock(
+            beforePack,
+            filePath: lock().path,
+          ).mods['alpha']!;
+          expect(selected.modrinth!.host, hosted.baseUrl);
+          expect(selected.curseforge!.fileId, 9);
+          final requestsBeforePack = Map.of(hosted.requestCounts);
+          final packed = await runCli([
+            '-C',
+            root.path,
+            'pack',
+            '--curseforge',
+            '--offline',
+          ], environment: environment);
+          expect(
+            packed.exitCode,
+            0,
+            reason: '${packed.stdout}\n${packed.stderr}',
+          );
+          final archive = ZipDecoder().decodeBytes(
+            File(
+              p.join(root.path, 'build', 'pack-1.0.0.zip'),
+            ).readAsBytesSync(),
+          );
+          final packedManifest = jsonDecode(
+            utf8.decode(archive.findFile('manifest.json')!.content),
+          );
+          expect(
+            packedManifest['files'],
+            contains(equals({'projectID': 1, 'fileID': 9, 'required': true})),
+          );
+          expect(lock().readAsStringSync(), beforePack);
+          expect(hosted.requestCounts, requestsBeforePack);
         }
       },
     );

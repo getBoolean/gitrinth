@@ -113,6 +113,7 @@ class CrossPlatformSearch {
         pluginLoader: manifest.loader.plugins,
         gameVersions: versions,
         channel: entry.channel ?? Channel.alpha,
+        diagnoseUnavailable: false,
       );
       if (files.isEmpty) continue;
       final matches = files

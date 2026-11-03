@@ -11,6 +11,11 @@ class CurseForgeMetadataStore {
   const CurseForgeMetadataStore(this.cache);
 
   void write(ModFile file) {
+    cache.curseforgePath(
+      projectId: file.modId,
+      fileId: file.id,
+      filename: file.fileName,
+    );
     final path = cache.curseforgeMetadataPath(
       projectId: file.modId,
       fileId: file.id,

@@ -151,22 +151,32 @@ class GitrinthCache {
     required int fileId,
     required String filename,
   }) {
-    return p.join(
+    final destination = p.join(
       curseforgeRoot,
       projectId.toString(),
       fileId.toString(),
       filename,
     );
+    if (p.equals(
+      p.normalize(destination),
+      curseforgeMetadataPath(projectId: projectId, fileId: fileId),
+    )) {
+      throw ValidationError(
+        'CurseForge project $projectId, file $fileId uses reserved artifact filename metadata.json. Use a path: source with a different filename.',
+      );
+    }
+    return destination;
   }
 
   /// Selected-file relations and verification metadata, separate from bytes.
   String curseforgeMetadataPath({
     required int projectId,
     required int fileId,
-  }) => curseforgePath(
-    projectId: projectId,
-    fileId: fileId,
-    filename: 'metadata.json',
+  }) => p.join(
+    curseforgeRoot,
+    projectId.toString(),
+    fileId.toString(),
+    'metadata.json',
   );
 
   /// Path where the resolved Modrinth `Version`'s metadata (mainly its
