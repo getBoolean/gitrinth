@@ -3,6 +3,7 @@ import 'dart:io';
 
 import '../../cli/exceptions.dart';
 import '../../model/curseforge/cf_mod_file.dart';
+import '../../util/atomic_file_writer.dart';
 import '../cache.dart';
 
 /// Persists the selected file's provider metadata without changing mods.lock.
@@ -20,31 +21,20 @@ class CurseForgeMetadataStore {
       projectId: file.modId,
       fileId: file.id,
     );
-    final temporary = File('$path.tmp');
     try {
-      File(path).parent.createSync(recursive: true);
-      temporary.writeAsStringSync(
+      atomicReplaceString(
+        path,
         jsonEncode({
           'schemaVersion': 1,
           'projectId': file.modId,
           'fileId': file.id,
           'file': file.toMap(),
         }),
-        flush: true,
       );
-      temporary.renameSync(path);
     } on Object catch (e) {
       throw ValidationError(
         'Cannot persist CurseForge metadata for project ${file.modId}, file ${file.id} at $path: $e. mods.lock was not replaced.',
       );
-    } finally {
-      if (temporary.existsSync()) {
-        try {
-          temporary.deleteSync();
-        } on FileSystemException {
-          // Preserve the original persistence failure if cleanup also fails.
-        }
-      }
     }
   }
 

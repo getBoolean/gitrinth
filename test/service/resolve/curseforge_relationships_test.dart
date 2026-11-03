@@ -253,11 +253,11 @@ $overrides
             jsonDecode(sidecar.readAsStringSync()) as Map<String, dynamic>;
         if (problem == 'identity') saved['projectId'] = 999;
         if (problem == 'unavailable') saved['file']['isAvailable'] = false;
-          if (problem == 'changed-hash') {
+        if (problem == 'changed-hash') {
           saved['file']['hashes'] = [
             {'algo': 1, 'value': 'different-sha1'},
           ];
-          }
+        }
         if (problem == 'missing-hash') saved['file']['hashes'] = [];
         sidecar.writeAsStringSync(jsonEncode(saved));
       }
@@ -293,6 +293,17 @@ $overrides
     final result = await get();
     expect(result.exitCode, 2, reason: result.stderr);
     expect(result.stderr, contains('metadata.json'));
+    expect(lock().readAsStringSync(), before);
+  });
+
+  test('artifact cannot occupy the metadata writer lock path', () async {
+    manifest('  alpha: {curseforge: "1"}');
+    final first = await get();
+    expect(first.exitCode, 0, reason: first.stderr);
+    final before = lock().readAsStringSync();
+    files[1]!.first['fileName'] = 'metadata.json.lock';
+    final result = await get();
+    expect(result.exitCode, 2, reason: result.stderr);
     expect(lock().readAsStringSync(), before);
   });
   for (final selectedConflicts in [false, true]) {

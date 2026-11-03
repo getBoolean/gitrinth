@@ -157,12 +157,14 @@ class GitrinthCache {
       fileId.toString(),
       filename,
     );
-    if (p.equals(
-      p.normalize(destination),
-      curseforgeMetadataPath(projectId: projectId, fileId: fileId),
-    )) {
+    final metadata = curseforgeMetadataPath(
+      projectId: projectId,
+      fileId: fileId,
+    );
+    if (p.equals(p.normalize(destination), metadata) ||
+        p.equals(p.normalize(destination), '$metadata.lock')) {
       throw ValidationError(
-        'CurseForge project $projectId, file $fileId uses reserved artifact filename metadata.json. Use a path: source with a different filename.',
+        'CurseForge project $projectId, file $fileId uses reserved artifact filename $filename. Use a path: source with a different filename.',
       );
     }
     return destination;
