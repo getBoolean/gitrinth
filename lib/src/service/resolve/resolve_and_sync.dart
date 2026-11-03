@@ -264,7 +264,11 @@ Future<ResolveSyncResult> resolveAndSync({
     );
     cfResolution = existingLock == null
         ? CfResolution.empty
-        : synthesizeCfResolutionFromLock(existingLock, manifest: merged);
+        : synthesizeCfResolutionFromLock(
+            existingLock,
+            manifest: merged,
+            defaultModrinthHost: defaultBaseUrl,
+          );
     final missingCf = <String>[];
     for (final section in Section.values) {
       for (final entry in merged.sectionEntries(section).values) {
@@ -568,15 +572,12 @@ Future<ResolveSyncResult> resolveAndSync({
   // overrides take the lock builder's url/path branches and bypass
   // the resolver entirely.
   final overridePins = <String, OverridePin>{};
-  for (final node
-      in identities.nodes
-          .where(
-            (node) => mergedResult.overrideEntries.containsKey(node.localKey),
-          )
-          .toList()) {
-    final slug = node.localKey;
-    final section = node.section;
-    final entry = merged.sectionEntries(section)[slug]!;
+  for (final (section, slug, entry) in [
+    for (final section in Section.values)
+      for (final entry in merged.sectionEntries(section).entries)
+        if (mergedResult.overrideEntries.containsKey(entry.key))
+          (section, entry.key, entry.value),
+  ]) {
     if (entry.source is! ModrinthEntrySource) continue;
     if (!effectiveSources(
       merged,
@@ -1245,6 +1246,7 @@ Future<ResolveSyncResult> resolveAndSync({
     cfResolution = synthesizeCfResolutionFromLock(
       existingLock,
       manifest: graphManifest,
+      defaultModrinthHost: defaultBaseUrl,
     );
   }
 
@@ -1396,6 +1398,7 @@ Future<ResolveSyncResult> resolveAndSync({
 CfResolution synthesizeCfResolutionFromLock(
   ModsLock lock, {
   ModsYaml? manifest,
+  String defaultModrinthHost = defaultModrinthBaseUrl,
 }) {
   final resolved = <LocalEntryKey, CfResolvedEntry>{};
   final retained = <LocalEntryKey>{};
@@ -1405,8 +1408,17 @@ CfResolution synthesizeCfResolutionFromLock(
         LocalEntryKey(section, slug),
   };
   LocalEntryKey? parentNode(LocalEntryKey child, String name) {
+    final childEntry = lock.sectionFor(child.section)[child.localKey]!;
     final candidates = lockedNodes
-        .where((node) => node.localKey == name)
+        .where(
+          (node) =>
+              node.localKey == name &&
+              canRequireLockedSource(
+                lock.sectionFor(node.section)[node.localKey]!,
+                childEntry,
+                defaultModrinthHost: defaultModrinthHost,
+              ),
+        )
         .toList();
     if (candidates.length <= 1) return candidates.firstOrNull;
     throw ValidationError(

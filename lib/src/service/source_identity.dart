@@ -1,5 +1,21 @@
 import '../model/manifest/mods_yaml.dart';
+import '../model/manifest/mods_lock.dart';
 import 'modrinth/modrinth_url.dart';
+
+/// Whether a parent edge is possible on a shared platform and source host.
+bool canRequireLockedSource(
+  LockedEntry parent,
+  LockedEntry child, {
+  required String defaultModrinthHost,
+}) {
+  if (parent.curseforge != null && child.curseforge != null) return true;
+  final parentMr = parent.modrinth;
+  final childMr = child.modrinth;
+  return parentMr != null &&
+      childMr != null &&
+      normalizeServerKey(parentMr.host ?? defaultModrinthHost) ==
+          normalizeServerKey(childMr.host ?? defaultModrinthHost);
+}
 
 /// The manifest's local name is scoped to its content section.
 final class LocalEntryKey {

@@ -96,7 +96,16 @@ final class LockedDependencyGraph {
     }
     for (final item in entries.entries) {
       for (final parentName in item.value.requiredBy) {
-        var candidates = identity.nodesNamed(parentName).toList();
+        final candidates = identity
+            .nodesNamed(parentName)
+            .where(
+              (node) => canRequireLockedSource(
+                entries[node]!,
+                item.value,
+                defaultModrinthHost: defaultHost,
+              ),
+            )
+            .toList();
         if (candidates.length > 1) {
           final knownParents = graph.parents(item.key);
           final metadataParents = candidates
@@ -105,15 +114,6 @@ final class LockedDependencyGraph {
           if (metadataParents.isNotEmpty) {
             continue;
           }
-        }
-        final child = item.value;
-        if (child.modrinth != null) {
-          candidates = candidates.where((node) {
-            final parent = entries[node]!;
-            return (parent.modrinth != null &&
-                    identity.host(node) == identity.host(item.key)) ||
-                (parent.curseforge != null && child.curseforge != null);
-          }).toList();
         }
         if (candidates.length == 1) {
           graph.addEdge(candidates.single, item.key);
