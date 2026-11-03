@@ -8,6 +8,7 @@ import 'package:gitrinth/src/service/cache.dart';
 import 'package:gitrinth/src/service/console.dart';
 import 'package:gitrinth/src/service/downloader.dart';
 import 'package:gitrinth/src/service/manifest_io.dart';
+import 'package:gitrinth/src/service/offline_guard_interceptor.dart';
 import 'package:gitrinth/src/service/resolve/download_artifacts.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
@@ -45,6 +46,141 @@ void main() {
   });
 
   group('downloadArtifacts', () {
+    for (final allowed in [true, false]) {
+      for (final scenario in ['missing', 'valid', 'corrupt', 'unverifiable']) {
+        test(
+          'CurseForge manual cache $scenario, distribution=$allowed',
+          () async {
+            final good = [1, 2, 3, 4];
+            final dest = File(
+              cache.curseforgePath(
+                projectId: 99,
+                fileId: 1,
+                filename: 'opaque.jar',
+              ),
+            );
+            if (scenario != 'missing') {
+              dest.parent.createSync(recursive: true);
+              dest.writeAsBytesSync(scenario == 'corrupt' ? [0] : good);
+            }
+            var requests = 0;
+            downloader.dio.interceptors.add(
+              InterceptorsWrapper(
+                onRequest: (options, handler) {
+                  requests++;
+                  handler.next(options);
+                },
+              ),
+            );
+            downloader.dio.interceptors.add(
+              OfflineGuardInterceptor(() => true),
+            );
+            final lock = _lockWith({
+              'opaque': LockedEntry(
+                slug: 'opaque',
+                kind: LockedEntryKind.resolved,
+                curseforge: LockedCurseforgeSource(
+                  projectId: 99,
+                  fileId: 1,
+                  allowModDistribution: allowed,
+                  file: LockedFile(
+                    name: 'opaque.jar',
+                    sha1: scenario == 'unverifiable'
+                        ? null
+                        : sha1.convert(good).toString(),
+                  ),
+                ),
+              ),
+            });
+            final result = await downloadArtifacts(
+              lock: lock,
+              cache: cache,
+              downloader: downloader,
+              console: const Console(level: LogLevel.error),
+              io: io,
+              defaultModrinthHost: 'unused',
+            );
+            expect(requests, 0);
+            expect(result.downloaded, 0);
+            if (scenario == 'valid') {
+              expect(result.errors, isEmpty);
+              expect(result.hits, 1);
+              expect(dest.readAsBytesSync(), good);
+            } else {
+              expect(result.hits, 0);
+              expect(result.errors, hasLength(1));
+              expect(result.errors.single, contains('project 99'));
+              expect(result.errors.single, contains('file 1'));
+              expect(result.errors.single, contains(dest.path));
+              expect(result.errors.single, contains('opaque.jar'));
+              switch (scenario) {
+                case 'missing':
+                  expect(result.errors.single, contains('missing'));
+                  expect(result.errors.single, contains('download manually'));
+                case 'corrupt':
+                  expect(result.errors.single, contains('checksum mismatch'));
+                  expect(result.errors.single, contains('download manually'));
+                case 'unverifiable':
+                  expect(result.errors.single, contains('no verifiable hash'));
+                  expect(result.errors.single, contains('path:'));
+              }
+            }
+          },
+        );
+      }
+    }
+
+    test(
+      'a cached Modrinth peer does not satisfy a missing CurseForge artifact',
+      () async {
+        final bytes = [1, 2, 3, 4];
+        final mrDest = File(
+          cache.modrinthPath(
+            host: 'unused',
+            projectId: 'mr-project',
+            versionId: 'mr-version',
+            filename: 'peer.jar',
+          ),
+        );
+        mrDest.parent.createSync(recursive: true);
+        mrDest.writeAsBytesSync(bytes);
+        final result = await downloadArtifacts(
+          lock: _lockWith({
+            'dual': LockedEntry(
+              slug: 'dual',
+              kind: LockedEntryKind.resolved,
+              modrinth: LockedModrinthSource(
+                projectId: 'mr-project',
+                versionId: 'mr-version',
+                file: LockedFile(
+                  name: 'peer.jar',
+                  url: 'https://invalid.example/peer.jar',
+                  sha512: sha512.convert(bytes).toString(),
+                ),
+              ),
+              curseforge: LockedCurseforgeSource(
+                projectId: 99,
+                fileId: 1,
+                file: LockedFile(
+                  name: 'opaque.jar',
+                  sha1: sha1.convert(bytes).toString(),
+                ),
+              ),
+            ),
+          }),
+          cache: cache,
+          downloader: downloader,
+          console: const Console(level: LogLevel.error),
+          io: io,
+          defaultModrinthHost: 'unused',
+        );
+        expect(result.hits, 1);
+        expect(result.downloaded, 0);
+        expect(result.errors, hasLength(1));
+        expect(result.errors.single, contains('project 99'));
+      },
+    );
+
     for (final scenario in [
       'valid cache',
       'corrupt cache',
@@ -101,34 +237,6 @@ void main() {
         }
       });
     }
-
-    test('CurseForge entry with allowModDistribution=false aggregates an error '
-        'and does not attempt a fetch', () async {
-      final lock = _lockWith({
-        'opaque': const LockedEntry(
-          slug: 'opaque',
-          kind: LockedEntryKind.resolved,
-          curseforge: LockedCurseforgeSource(
-            projectId: 99,
-            fileId: 1,
-            file: LockedFile(name: 'opaque.jar'),
-            allowModDistribution: false,
-          ),
-        ),
-      });
-      final result = await downloadArtifacts(
-        lock: lock,
-        cache: cache,
-        downloader: downloader,
-        console: const Console(level: LogLevel.error),
-        io: io,
-        defaultModrinthHost: 'https://api.modrinth.com/v2',
-      );
-      expect(result.errors, hasLength(1));
-      expect(result.errors.first, contains('CurseForge does not allow'));
-      expect(result.downloaded, 0);
-      expect(result.hits, 0);
-    });
 
     test('kind:path entry pointing to existing file passes', () async {
       final localJar = File(p.join(tempDir.path, 'mods', 'local.jar'))

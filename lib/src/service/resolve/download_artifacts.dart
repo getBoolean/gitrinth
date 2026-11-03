@@ -30,9 +30,8 @@ class DownloadArtifactsResult {
 ///     versionId)`.
 ///   - `LockedEntryKind.resolved` with a CurseForge source → cached
 ///     at [GitrinthCache.curseforgePath] keyed by `(projectId, fileId)`.
-///     When `cf.allowModDistribution == false` and `cf.file.url` is
-///     null, the entry is skipped with an aggregated error (the user
-///     has to download manually from the CurseForge project page).
+///     A missing URL requires manually cached bytes with a matching
+///     locked hash, regardless of the project's distribution setting.
 ///   - `LockedEntryKind.url` → cached at [GitrinthCache.urlPath] keyed
 ///     by sha512, or under [GitrinthCache.unverifiedUrlPath] when no
 ///     sha512 is recorded.
@@ -78,21 +77,15 @@ Future<DownloadArtifactsResult> downloadArtifacts({
             }
             final cf = locked.curseforge;
             if (cf != null) {
-              final delta = _fetchCurseforgePrep(slug: locked.slug, source: cf);
-              if (delta.error != null) {
-                errors.add(delta.error!);
-              } else if (delta.url != null) {
-                final result = await _fetchCurseforge(
-                  locator: locator,
-                  downloader: downloader,
-                  console: console,
-                  slug: locked.slug,
-                  source: cf,
-                  url: delta.url!,
-                );
-                downloaded += result.downloaded;
-                hits += result.hits;
-              }
+              final delta = await _fetchCurseforge(
+                locator: locator,
+                downloader: downloader,
+                console: console,
+                slug: locked.slug,
+                source: cf,
+              );
+              downloaded += delta.downloaded;
+              hits += delta.hits;
             }
           case LockedEntryKind.url:
             final delta = await _fetchUrl(
@@ -125,12 +118,6 @@ class _Counts {
   const _Counts({this.downloaded = 0, this.hits = 0});
 }
 
-class _CfPrep {
-  final String? url;
-  final String? error;
-  const _CfPrep({this.url, this.error});
-}
-
 Future<_Counts> _fetchModrinth({
   required Downloader downloader,
   required Console console,
@@ -156,40 +143,55 @@ Future<_Counts> _fetchModrinth({
   return const _Counts(downloaded: 1);
 }
 
-_CfPrep _fetchCurseforgePrep({
-  required String slug,
-  required LockedCurseforgeSource source,
-}) {
-  final url = source.file.url;
-  if (url == null) {
-    if (!source.allowModDistribution) {
-      return _CfPrep(
-        error:
-            '$slug: CurseForge does not allow third-party distribution '
-            'for project ${source.projectId}; download manually from the '
-            'CurseForge project page.',
-      );
-    }
-    return const _CfPrep();
-  }
-  return _CfPrep(url: url);
-}
-
 Future<_Counts> _fetchCurseforge({
   required ArtifactLocator locator,
   required Downloader downloader,
   required Console console,
   required String slug,
   required LockedCurseforgeSource source,
-  required String url,
 }) async {
   final file = source.file;
   final dest = locator.curseforge(source);
   final existed = File(dest).existsSync();
+  final url = file.url;
+  if (url == null) {
+    final identity =
+        '$slug: CurseForge project ${source.projectId}, file ${source.fileId} '
+        '(${file.name})';
+    final sha1 = file.sha1;
+    final sha512 = file.sha512;
+    if (sha1 == null && sha512 == null) {
+      throw ValidationError(
+        '$identity has no download URL and no verifiable hash. '
+        'Cached bytes at $dest cannot be verified; use a path: source '
+        'for a manually managed artifact.',
+      );
+    }
+    final recovery =
+        'download manually from the CurseForge project page for '
+        'project ${source.projectId}, file ${source.fileId}, '
+        'save ${file.name} at $dest, then rerun the command.';
+    if (!existed) {
+      throw ValidationError('$identity is missing from the cache; $recovery');
+    }
+    try {
+      if (sha1 != null) {
+        await GitrinthCache.verifyFileSha1(File(dest), sha1);
+      }
+      if (sha512 != null) {
+        await GitrinthCache.verifyFileSha512(File(dest), sha512);
+      }
+    } on UserError catch (e) {
+      throw ValidationError('$identity: ${e.message}; $recovery');
+    }
+    console.io('cache hit:  $slug (cf) -> $dest');
+    return const _Counts(hits: 1);
+  }
   await downloader.downloadTo(
     url: url,
     destinationPath: dest,
     expectedSha1: file.sha1,
+    expectedSha512: file.sha512,
   );
   if (existed) {
     console.io('cache hit:  $slug (cf) -> $dest');
