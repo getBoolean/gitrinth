@@ -17,8 +17,15 @@ Future<modrinth.Version?> pickLatestReleaseVersion({
   required LoaderConfig loaderConfig,
   required String mcVersion,
   List<String> acceptsMc = const [],
+  LoaderRegistry registry = LoaderRegistry.builtins,
+  String host = '*',
 }) async {
-  final loaderFilter = filterLoadersForSection(loaderConfig, section);
+  final loaderFilter = filterLoadersForSection(
+    loaderConfig,
+    section,
+    registry: registry,
+    host: host,
+  );
   final gameVersions = <String>{mcVersion, ...acceptsMc}.toList();
   final List<modrinth.Version> versions;
   try {
@@ -59,7 +66,23 @@ Future<modrinth.Version?> pickLatestReleaseVersion({
 /// Modrinth's fixed sentinel values. Single source of truth — callers
 /// route through this helper instead of switching on [Section]
 /// themselves.
-List<String>? filterLoadersForSection(LoaderConfig config, Section section) {
+List<String>? filterLoadersForSection(
+  LoaderConfig config,
+  Section section, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+  String host = '*',
+}) {
+  String token(LoaderId id) {
+    final descriptor = registry[id];
+    final tag = descriptor?.modrinthTag(host);
+    if (tag == null) {
+      throw ValidationError(
+        'Loader ${id.name} has no Modrinth filter mapping for $host.',
+      );
+    }
+    return tag;
+  }
+
   switch (section) {
     case Section.mods:
       // No mod runtime — there is nothing to filter against. Modrinth
@@ -67,17 +90,17 @@ List<String>? filterLoadersForSection(LoaderConfig config, Section section) {
       // resolution for the mods section. The parser already rejects
       // populated `mods:` entries under vanilla, so this branch is
       // only ever hit by code that walks every section unconditionally.
-      return config.hasModRuntime ? [config.mods.name] : null;
+      return config.hasModRuntime ? [token(config.mods)] : null;
     case Section.shaders:
       final shaders = config.shaders;
-      return shaders == null ? null : [shaders.name];
+      return shaders == null ? null : [token(shaders)];
     case Section.resourcePacks:
       return const ['minecraft'];
     case Section.dataPacks:
       return const ['datapack'];
     case Section.plugins:
       final plugins = config.plugins;
-      return plugins == null ? null : [plugins.modrinthLoaderToken];
+      return plugins == null ? null : [token(plugins)];
   }
 }
 

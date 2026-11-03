@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -155,6 +156,7 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
 
     final io = ManifestIo();
     final existingManifest = io.readModsYaml();
+    await prepareLoaderRegistry(container, existingManifest, offline: offline);
     final existingStandalone = io.readProjectOverrides();
 
     // Duplicate check — refuse if the slug is already overridden in
@@ -257,6 +259,10 @@ class OverrideCommand extends GitrinthCommand with OfflineFlag {
       final String effectiveConstraint;
       if (constraintRaw == null) {
         final latest = await pickLatestReleaseVersion(
+          registry: read(loaderRegistryProvider),
+          host:
+              existingManifest.modrinthHost ??
+              read(modrinthApiFactoryProvider).defaultBaseUrl,
           api: api,
           slug: slug,
           section: section,

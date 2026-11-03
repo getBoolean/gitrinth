@@ -199,12 +199,15 @@ What landed:
   `allowModDistribution: false` case can surface to the resolver
   without an attempted fetch.
 - CurseForge taxonomy is encoded as extension methods on the
-  existing `Section`, `ModLoader`, `PluginLoader`, and `Channel`
-  enums in `cf_constants.dart` — `Section.cfClassId`,
-  `ModLoader.cfModLoaderType`, `cfReleaseTypesFor(Channel)`,
+  `Section` and `Channel` enums plus registered loader identities.
+  `cf_constants.dart` exposes `Section.cfClassId`,
+  the built-in `ModLoader.cfModLoaderType`, `cfReleaseTypesFor(Channel)`,
   `pluginLoaderEligibleForCurseforge(PluginLoader)`. The plugin
   eligibility predicate delegates to `sectionAllowsCurseforge`
   rather than restating the rule.
+  Resolution uses the operation's immutable loader registry for provider
+  mappings. See [loader capabilities](loader-descriptors.md) for discovery,
+  explicit user mappings, archive metadata, and runtime boundaries.
 - `listCompatibleFiles(...)` in `curseforge_filters.dart` is the
   single entry point Part 4 will call. It accepts pack context
   (section, optional mod loader, plugin loader for plugin

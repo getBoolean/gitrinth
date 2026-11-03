@@ -104,6 +104,7 @@ class OverridesPlan {
 /// mismatch allowances across included content sections.
 MrpackIndex buildIndex({
   required ModsYaml yaml,
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required ModsLock lock,
   required PackTarget target,
   required bool publishable,
@@ -169,7 +170,7 @@ MrpackIndex buildIndex({
       // collection-if also lets the loader entry drop cleanly when
       // the pack is vanilla.
       if (lock.loader.hasModRuntime && modLoaderVersion != null)
-        mrpackLoaderKey(lock.loader.mods): modLoaderVersion,
+        mrpackLoaderKey(lock.loader.mods, registry: registry): modLoaderVersion,
     },
   );
 }

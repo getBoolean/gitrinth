@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
+import 'version_picker.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -175,6 +177,11 @@ Future<int> _runMigrate({
     newLoader: newLoader,
     newLoaderTag: newLoaderTag,
   );
+  final registry = await prepareLoaderRegistry(
+    command.container,
+    mutated,
+    offline: offline,
+  );
   final targetMc = mutated.mcVersion;
   final targetLoader = mutated.loader.mods;
 
@@ -221,9 +228,18 @@ Future<int> _runMigrate({
         );
         List<modrinth.Version> versions;
         try {
+          final filters = filterLoadersForSection(
+            mutated.loader,
+            section,
+            registry: registry,
+            host: manifest.effectiveModrinthHost(
+              entry,
+              apiFactory.defaultBaseUrl,
+            ),
+          );
           versions = await entryApi.listVersions(
             slug,
-            loadersJson: encodeFilterArray([targetLoader.name]),
+            loadersJson: filters == null ? null : encodeFilterArray(filters),
             gameVersionsJson: encodeFilterArray(gameVersions),
           );
         } on DioException catch (e) {
@@ -302,6 +318,7 @@ Future<int> _runMigrate({
           required freshSlugs,
           required relaxConstraints,
         }) => resolveAndSync(
+          loaderRegistry: registry,
           io: io,
           console: console,
           apiFactory: apiFactory,

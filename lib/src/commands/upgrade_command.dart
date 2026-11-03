@@ -1,8 +1,10 @@
+import 'version_picker.dart';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -77,6 +79,11 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
 
     final io = ManifestIo();
     final manifest = io.readModsYaml();
+    final registry = await prepareLoaderRegistry(
+      container,
+      manifest,
+      offline: offline,
+    );
 
     final modrinthByEntry = <(Section, String), ModEntry>{};
     final markerByEntry = <(Section, String), ModEntry>{};
@@ -108,7 +115,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     final recovered = <(Section, String)>{};
     if (majorVersions && !offline && markerByEntry.isNotEmpty) {
       for (final pair in markerByEntry.entries) {
-        final (_, slug) = pair.key;
+        final (section, slug) = pair.key;
         final entry = pair.value;
         final gameVersions = <String>{
           manifest.mcVersion,
@@ -119,9 +126,18 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         );
         List versions;
         try {
+          final filters = filterLoadersForSection(
+            manifest.loader,
+            section,
+            registry: registry,
+            host: manifest.effectiveModrinthHost(
+              entry,
+              apiFactory.defaultBaseUrl,
+            ),
+          );
           versions = await api.listVersions(
             slug,
-            loadersJson: encodeFilterArray([manifest.loader.mods.name]),
+            loadersJson: filters == null ? null : encodeFilterArray(filters),
             gameVersionsJson: encodeFilterArray(gameVersions),
           );
         } on DioException catch (e) {

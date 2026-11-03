@@ -21,6 +21,7 @@ import 'curseforge_resolver.dart';
 /// Only a unique project with an identical SHA1 can be selected automatically.
 class CrossPlatformSearch {
   final ModsYaml manifest;
+  final LoaderRegistry registry;
   final ModrinthApiSource mrFactory;
   final CurseForgeApi cfApi;
   final Console console;
@@ -31,6 +32,7 @@ class CrossPlatformSearch {
 
   CrossPlatformSearch({
     required this.manifest,
+    this.registry = LoaderRegistry.builtins,
     required this.mrFactory,
     required this.cfApi,
     required this.console,
@@ -40,7 +42,8 @@ class CrossPlatformSearch {
   bool enabled(ModEntry entry, Section section) =>
       !disabled &&
       !entry.noCrossPlatformSearch &&
-      effectiveSources(manifest, entry, section).length == 2 &&
+      effectiveSources(manifest, entry, section, registry: registry).length ==
+          2 &&
       !(section == Section.mods && manifest.loader.mods == ModLoader.vanilla);
 
   Future<CfResolvedEntry?> findCurseforge({
@@ -106,6 +109,7 @@ class CrossPlatformSearch {
         continue;
       }
       final files = await listCompatibleFiles(
+        registry: registry,
         api: cfApi,
         projectId: project.id,
         section: section,
@@ -172,7 +176,12 @@ class CrossPlatformSearch {
     final api = mrFactory.forHost(apiHost);
     final query = entry.modrinthSlug ?? slug;
     final versions = {manifest.mcVersion, ...entry.acceptsMc}.toList();
-    final loaders = filterLoadersForSection(manifest.loader, section);
+    final loaders = filterLoadersForSection(
+      manifest.loader,
+      section,
+      registry: registry,
+      host: apiHost,
+    );
     final type = switch (section) {
       Section.mods => 'mod',
       Section.resourcePacks => 'resourcepack',

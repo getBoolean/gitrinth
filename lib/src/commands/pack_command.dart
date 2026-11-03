@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../app/env.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
@@ -190,6 +191,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
   }) {
     if (argResults!['curseforge'] as bool) {
       final manifest = buildCurseForgeManifest(
+        registry: read(loaderRegistryProvider),
         yaml: yaml,
         lock: lock,
         target: target,
@@ -212,6 +214,7 @@ class PackCommand extends GitrinthCommand with OfflineFlag {
       return;
     }
     final index = buildIndex(
+      registry: read(loaderRegistryProvider),
       yaml: yaml,
       lock: lock,
       target: target,

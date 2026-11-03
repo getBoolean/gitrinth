@@ -38,7 +38,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
         'mod-loader',
         valueHelp: 'loader[:tag]',
         help:
-            'Pre-fill loader.mods. One of ${modLoaderRefNames.join(', ')}, '
+            'Pre-fill loader.mods. Built-ins: ${modLoaderRefNames.join(', ')}, '
             'optionally with a docker-style version tag '
             '(e.g. `neoforge:21.1.50`, `fabric:latest`). Defaults to '
             '$defaultModLoader when no plugin loader is specified.',
@@ -47,7 +47,7 @@ class CreateCommand extends GitrinthCommand with OfflineFlag {
         'plugin-loader',
         valueHelp: 'loader[:tag]',
         help:
-            'Pre-fill loader.plugins. One of '
+            'Pre-fill loader.plugins. Built-ins: '
             '${pluginLoaderRefNames.join(', ')}, optionally with a '
             'docker-style version tag (e.g. `paper:187`, `sponge:stable`).',
       )

@@ -92,6 +92,7 @@ class CfResolution {
 /// is the only HTTP surface.
 Future<CfResolution> resolveCurseforgeEntries({
   required ModsYaml manifest,
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required CurseForgeApi api,
   required Console console,
   Map<LocalEntryKey, int> selectedFiles = const {},
@@ -112,7 +113,22 @@ Future<CfResolution> resolveCurseforgeEntries({
       // network call. Section/loader matrix-ineligibility silently
       // drops CF here; the `sources: curseforge` explicit-error path is
       // already enforced by the parser.
-      final effective = effectiveSources(manifest, entry, section);
+      final effective = effectiveSources(
+        manifest,
+        entry,
+        section,
+        registry: registry,
+      );
+      if (section == Section.plugins &&
+          !(registry[manifest.loader.plugins]?.curseforgePlugins ?? false)) {
+        if ((entry.sources?.contains(SourceKind.curseforge) ?? false) ||
+            entry.curseforgeSlug != null) {
+          throw ValidationError(
+            'Loader ${manifest.loader.plugins?.name} has no CurseForge plugin capability; use Modrinth or supply an explicit provider mapping.',
+          );
+        }
+        continue;
+      }
       if (!effective.contains(SourceKind.curseforge)) continue;
       // Vanilla packs have no mod-loader on the wire — CF would throw
       // a `StateError` from `cfModLoaderType`. Section.mods + vanilla
@@ -174,6 +190,7 @@ Future<CfResolution> resolveCurseforgeEntries({
       try {
         files = await listCompatibleFiles(
           api: api,
+          registry: registry,
           projectId: project.id,
           section: section,
           modLoader: section == Section.mods ? manifest.loader.mods : null,
@@ -268,6 +285,7 @@ Future<CfResolution> resolveCurseforgeEntries({
                 manifest,
                 e.value,
                 section,
+                registry: registry,
               ).contains(SourceKind.curseforge) ||
               isAnyGitrinthMarker(e.value.constraintRaw)) {
             throw ValidationError(
@@ -296,6 +314,7 @@ Future<CfResolution> resolveCurseforgeEntries({
       final declared = manifest.sectionEntries(section)[key];
       final files = await listCompatibleFiles(
         api: api,
+        registry: registry,
         projectId: project.id,
         section: section,
         modLoader: section == Section.mods ? manifest.loader.mods : null,

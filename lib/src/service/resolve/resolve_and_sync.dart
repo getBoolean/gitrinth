@@ -107,6 +107,7 @@ Future<ResolveSyncResult> resolveAndSync({
   required Downloader downloader,
   required ModLoaderVersionResolver modLoaderResolver,
   required PluginLoaderVersionResolver pluginLoaderResolver,
+  LoaderRegistry loaderRegistry = LoaderRegistry.builtins,
   bool offline = false,
   bool dryRun = false,
   bool enforce = false,
@@ -119,7 +120,14 @@ Future<ResolveSyncResult> resolveAndSync({
 }) async {
   final reporter = SolveReporter(console);
 
-  final manifest = manifestOverride ?? io.readModsYaml();
+  final rawManifest = manifestOverride ?? io.readModsYaml();
+  final manifest = rawManifest.copyWith(
+    mods: coerceModsForPluginLoader(
+      rawManifest.mods,
+      rawManifest.loader.plugins,
+      registry: loaderRegistry,
+    ),
+  );
   final defaultBaseUrl = normalizeServerKey(apiFactory.defaultBaseUrl);
   // Effective host for entries that don't override their own. Used for
   // the pack-level slug → projectType lookups (project_overrides
@@ -191,6 +199,7 @@ Future<ResolveSyncResult> resolveAndSync({
   if (loaderConfig.hasModRuntime && modLoaderVersion != null) {
     resolvedModLoaderVersion = await _resolveModLoaderVersion(
       modLoaderResolver: modLoaderResolver,
+      registry: loaderRegistry,
       modLoader: loaderConfig.mods,
       tag: modLoaderVersion,
       mcVersion: mc,
@@ -208,6 +217,7 @@ Future<ResolveSyncResult> resolveAndSync({
   if (pluginLoader != null && pluginLoaderVersion != null) {
     resolvedPluginLoaderVersion = await _resolvePluginLoaderVersion(
       pluginLoaderResolver: pluginLoaderResolver,
+      registry: loaderRegistry,
       pluginLoader: pluginLoader,
       tag: pluginLoaderVersion,
       mcVersion: mc,
@@ -268,6 +278,7 @@ Future<ResolveSyncResult> resolveAndSync({
         : synthesizeCfResolutionFromLock(
             existingLock,
             cache: cache,
+            registry: loaderRegistry,
             manifest: merged,
             defaultModrinthHost: defaultBaseUrl,
           );
@@ -282,6 +293,7 @@ Future<ResolveSyncResult> resolveAndSync({
           merged,
           entry,
           section,
+          registry: loaderRegistry,
         ).contains(SourceKind.curseforge)) {
           continue;
         }
@@ -312,6 +324,7 @@ Future<ResolveSyncResult> resolveAndSync({
           merged,
           entry,
           section,
+          registry: loaderRegistry,
         ).contains(SourceKind.modrinth);
         if (!matchesMc ||
             !matchesPeer ||
@@ -334,6 +347,7 @@ Future<ResolveSyncResult> resolveAndSync({
     }
   } else {
     cfResolution = await resolveCurseforgeEntries(
+      registry: loaderRegistry,
       manifest: merged,
       api: cfApi,
       console: console,
@@ -349,6 +363,7 @@ Future<ResolveSyncResult> resolveAndSync({
   }
 
   final search = CrossPlatformSearch(
+    registry: loaderRegistry,
     manifest: manifestForResolution,
     mrFactory: apiReads,
     cfApi: cfApi,
@@ -435,6 +450,7 @@ Future<ResolveSyncResult> resolveAndSync({
               manifestForResolution,
               e.value,
               section,
+              registry: loaderRegistry,
             ).contains(SourceKind.modrinth) ||
             isAnyGitrinthMarker(e.value.constraintRaw)) {
           throw ValidationError(
@@ -462,10 +478,15 @@ Future<ResolveSyncResult> resolveAndSync({
       final node = identities.nodeForSolverKey(key);
       final slug = node.localKey;
       final section = node.section;
-      final loaderFilter = filterLoadersForSection(loaderConfig, section);
       final entry = manifestForResolution.sectionEntries(section)[slug];
       final gameVersions = <String>{mc, ...?entry?.acceptsMc}.toList();
       final host = entryHost(section, slug, entry);
+      final loaderFilter = filterLoadersForSection(
+        loaderConfig,
+        section,
+        registry: loaderRegistry,
+        host: host,
+      );
 
       final searched = searchedMrVersions[LocalEntryKey(section, slug)];
       if (searched != null) {
@@ -585,12 +606,18 @@ Future<ResolveSyncResult> resolveAndSync({
       merged,
       entry,
       section,
+      registry: loaderRegistry,
     ).contains(SourceKind.modrinth)) {
       continue;
     }
-    final loaderFilter = filterLoadersForSection(loaderConfig, section);
     final gameVersions = <String>{mc, ...entry.acceptsMc}.toList();
     final overrideHost = entryHost(section, slug, entry);
+    final loaderFilter = filterLoadersForSection(
+      loaderConfig,
+      section,
+      registry: loaderRegistry,
+      host: overrideHost,
+    );
     final List<modrinth.Version> candidates;
     if (offline) {
       final lockedProjectId = existingLock
@@ -662,6 +689,7 @@ Future<ResolveSyncResult> resolveAndSync({
         merged,
         entry,
         section,
+        registry: loaderRegistry,
       ).contains(SourceKind.modrinth)) {
         modrinthSlugs.add(keyFor(section, slug));
       }
@@ -712,16 +740,19 @@ Future<ResolveSyncResult> resolveAndSync({
             'Transitive ${cf.slug} resolves to different platform content types; declare its intended section explicitly.',
           );
         }
+        final peerLoaders = filterLoadersForSection(
+          loaderConfig,
+          cf.section,
+          registry: loaderRegistry,
+          host: packHost,
+        );
         candidates = await apiReads
             .forHost(packHost)
             .listVersions(
               cf.project.slug,
-              loadersJson:
-                  filterLoadersForSection(loaderConfig, cf.section) == null
+              loadersJson: peerLoaders == null
                   ? null
-                  : encodeFilterArray(
-                      filterLoadersForSection(loaderConfig, cf.section)!,
-                    ),
+                  : encodeFilterArray(peerLoaders),
               gameVersionsJson: encodeFilterArray([mc]),
             );
       } on DioException catch (e) {
@@ -848,6 +879,7 @@ Future<ResolveSyncResult> resolveAndSync({
       );
     }
     var peers = await resolveCurseforgeEntries(
+      registry: loaderRegistry,
       manifest: syntheticManifest,
       api: cfApi,
       console: console,
@@ -888,6 +920,7 @@ Future<ResolveSyncResult> resolveAndSync({
     }
     if (discovered.isNotEmpty) {
       peers = await resolveCurseforgeEntries(
+        registry: loaderRegistry,
         manifest: syntheticManifest,
         api: cfApi,
         console: console,
@@ -1055,6 +1088,7 @@ Future<ResolveSyncResult> resolveAndSync({
     }
   }
   final missingMessage = formatCrossPlatformMissingError(
+    registry: loaderRegistry,
     manifest: merged,
     mrNotFoundSlugs: mrNotFoundSlugs,
     cfResolution: cfResolution,
@@ -1248,6 +1282,7 @@ Future<ResolveSyncResult> resolveAndSync({
     cfResolution = synthesizeCfResolutionFromLock(
       existingLock,
       cache: cache,
+      registry: loaderRegistry,
       manifest: graphManifest,
       defaultModrinthHost: defaultBaseUrl,
     );
@@ -1416,6 +1451,7 @@ Future<ResolveSyncResult> resolveAndSync({
 CfResolution synthesizeCfResolutionFromLock(
   ModsLock lock, {
   GitrinthCache? cache,
+  LoaderRegistry registry = LoaderRegistry.builtins,
   ModsYaml? manifest,
   String defaultModrinthHost = defaultModrinthBaseUrl,
 }) {
@@ -1454,6 +1490,7 @@ CfResolution synthesizeCfResolutionFromLock(
               manifest,
               e.value,
               section,
+              registry: registry,
             ).contains(SourceKind.curseforge)) {
           retained.add(LocalEntryKey(section, e.key));
         }
@@ -1492,6 +1529,7 @@ CfResolution synthesizeCfResolutionFromLock(
                       manifest,
                       declared,
                       section,
+                      registry: registry,
                     ).contains(SourceKind.curseforge)))) {
           continue;
         }
@@ -1636,6 +1674,7 @@ Future<void> _validateGameVersion({
 /// the populated [tag]; vanilla packs skip this resolution entirely.
 Future<String> _resolveModLoaderVersion({
   required ModLoaderVersionResolver modLoaderResolver,
+  required LoaderRegistry registry,
   required ModLoader modLoader,
   required String tag,
   required String mcVersion,
@@ -1671,6 +1710,7 @@ Future<String> _resolveModLoaderVersion({
   }
   return modLoaderResolver.resolve(
     loader: modLoader,
+    registry: registry,
     tag: tag,
     mcVersion: mcVersion,
   );
@@ -1678,6 +1718,7 @@ Future<String> _resolveModLoaderVersion({
 
 Future<String> _resolvePluginLoaderVersion({
   required PluginLoaderVersionResolver pluginLoaderResolver,
+  required LoaderRegistry registry,
   required PluginLoader pluginLoader,
   required String tag,
   required String mcVersion,
@@ -1712,6 +1753,7 @@ Future<String> _resolvePluginLoaderVersion({
   }
   return pluginLoaderResolver.resolve(
     loader: pluginLoader,
+    registry: registry,
     tag: tag,
     mcVersion: mcVersion,
   );

@@ -24,6 +24,7 @@ import '../../util/mc_version.dart';
 class ModLoaderVersionResolver {
   final Dio _dio;
   final String _fabricMetaUrl;
+  final String _quiltMetaUrl;
   final String _forgePromotionsUrl;
   final String _forgeVersionsUrl;
   final String _neoforgeVersionsUrl;
@@ -38,6 +39,9 @@ class ModLoaderVersionResolver {
     String? neoforgeVersionsUrl,
     String? neoforgeLegacyVersionsUrl,
   }) : _dio = dio,
+       _quiltMetaUrl =
+           (environment ?? Platform.environment)['GITRINTH_QUILT_META_URL'] ??
+           'https://meta.quiltmc.org/v3/versions/loader',
        _fabricMetaUrl =
            fabricMetaUrl ??
            (environment ?? Platform.environment)['GITRINTH_FABRIC_META_URL'] ??
@@ -68,24 +72,62 @@ class ModLoaderVersionResolver {
   /// per-Minecraft-version. Fabric ignores it.
   Future<String> resolve({
     required ModLoader loader,
+    LoaderRegistry registry = LoaderRegistry.builtins,
     required String tag,
     required String mcVersion,
   }) async {
-    switch (loader) {
-      case ModLoader.fabric:
+    final descriptor = registry[loader];
+    if (descriptor == null) {
+      throw ValidationError(
+        'Loader ${loader.name} has no capability snapshot for version discovery.',
+      );
+    }
+    switch (descriptor.versionSource) {
+      case VersionSourceFamily.fabric:
         return _resolveFabric(tag);
-      case ModLoader.forge:
+      case VersionSourceFamily.quilt:
+        return _resolveQuilt(tag);
+      case VersionSourceFamily.forge:
         return _resolveForge(tag, mcVersion);
-      case ModLoader.neoforge:
+      case VersionSourceFamily.neoforge:
         return mcVersion == '1.20.1'
             ? _resolveNeoforgeLegacy(tag)
             : _resolveNeoforge(tag, mcVersion);
-      case ModLoader.vanilla:
-        throw StateError(
-          'loader-version resolution is not defined for vanilla; '
-          'callers must guard with LoaderConfig.hasModRuntime.',
+      case VersionSourceFamily.catalog:
+        if (tag != 'stable' &&
+            tag != 'latest' &&
+            (descriptor.versions.isEmpty ||
+                descriptor.versions.contains(tag))) {
+          return tag;
+        }
+        if (descriptor.versions.isNotEmpty &&
+            (tag == 'stable' || tag == 'latest')) {
+          return descriptor.versions.first;
+        }
+        throw ValidationError(
+          'Loader ${loader.name} has no discovered version matching $tag; supply a concrete version or refresh its provider catalog.',
+        );
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no version-discovery capability for mods.',
         );
     }
+  }
+
+  Future<String> _resolveQuilt(String tag) async {
+    final body = await _fetchJson(_quiltMetaUrl, 'meta.quiltmc.org');
+    if (body is List) {
+      for (final entry in body) {
+        final version = entry is Map ? entry['version'] : null;
+        if (version is! String) continue;
+        if (tag == version ||
+            tag == 'latest' ||
+            (tag == 'stable' && !version.contains('-'))) {
+          return version;
+        }
+      }
+    }
+    throw UserError('No Quilt loader version matched $tag.');
   }
 
   Future<String> _resolveFabric(String tag) async {

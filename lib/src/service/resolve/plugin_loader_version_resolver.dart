@@ -41,20 +41,46 @@ class PluginLoaderVersionResolver {
 
   Future<String> resolve({
     required PluginLoader loader,
+    LoaderRegistry registry = LoaderRegistry.builtins,
     required String tag,
     required String mcVersion,
   }) async {
-    switch (loader) {
-      case PluginLoader.paper:
-      case PluginLoader.folia:
-        return _resolvePaperLike(loader.name, tag, mcVersion);
-      case PluginLoader.spongeforge:
-      case PluginLoader.spongeneo:
-      case PluginLoader.spongevanilla:
-        return _resolveSponge(loader, tag, mcVersion);
-      case PluginLoader.spigot:
-      case PluginLoader.bukkit:
+    final descriptor = registry[loader];
+    if (descriptor == null) {
+      throw ValidationError(
+        'Loader ${loader.name} has no capability snapshot for plugin version discovery.',
+      );
+    }
+    switch (descriptor.versionSource) {
+      case VersionSourceFamily.paper:
+        return _resolvePaperLike(
+          descriptor.runtimeArtifact ?? loader.name,
+          tag,
+          mcVersion,
+        );
+      case VersionSourceFamily.sponge:
+        return _resolveSponge(
+          descriptor.runtimeArtifact ?? loader.name,
+          tag,
+          mcVersion,
+        );
+      case VersionSourceFamily.buildtools:
         return _resolveBuildTools(tag);
+      case VersionSourceFamily.catalog:
+        if (tag != 'stable' &&
+            tag != 'latest' &&
+            (descriptor.versions.isEmpty ||
+                descriptor.versions.contains(tag))) {
+          return tag;
+        }
+        if (descriptor.versions.isNotEmpty) return descriptor.versions.first;
+        throw ValidationError(
+          'Loader ${loader.name} has no discovered plugin version matching $tag.',
+        );
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no plugin version-discovery capability.',
+        );
     }
   }
 
@@ -79,16 +105,17 @@ class PluginLoaderVersionResolver {
   }
 
   Future<String> _resolveSponge(
-    PluginLoader loader,
+    String artifact,
     String tag,
     String mcVersion,
   ) async {
-    final artifact = switch (loader) {
-      PluginLoader.spongeforge => 'spongeforge',
-      PluginLoader.spongeneo => 'spongeneo',
-      PluginLoader.spongevanilla => 'spongevanilla',
-      _ => throw StateError('_resolveSponge called for ${loader.name}'),
-    };
+    if (!const {
+      'spongeforge',
+      'spongeneo',
+      'spongevanilla',
+    }.contains(artifact)) {
+      throw ValidationError('No trusted Sponge version recipe for $artifact.');
+    }
     final build = switch (tag) {
       'stable' => await _spongeApi.latestRecommendedBuild(
         artifact: artifact,

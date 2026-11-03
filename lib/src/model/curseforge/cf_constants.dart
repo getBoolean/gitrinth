@@ -18,24 +18,16 @@ extension SectionCfMapping on Section {
   };
 }
 
-/// Maps a [ModLoader] to its CurseForge `modLoaderType` enum value.
-///
-/// Reference: CurseForge ModLoaderType — 1=Forge, 4=Fabric, 5=Quilt,
-/// 6=NeoForge. The Quilt mapping is documented for completeness even
-/// though [ModLoader] does not currently have a `quilt` variant; if one
-/// is added later, return `5` here to keep the wire-format mapping
-/// centralised.
+/// Legacy convenience mapping for built-in loader identities.
+/// Service consumers use the operation's registry for user/provider mappings.
 extension ModLoaderCfMapping on ModLoader {
-  int get cfModLoaderType => switch (this) {
-    ModLoader.forge => 1,
-    ModLoader.fabric => 4,
-    ModLoader.neoforge => 6,
-    ModLoader.vanilla => throw StateError(
-      'ModLoader.vanilla has no CurseForge modLoaderType — callers '
-      'should not pass a mod-loader filter when the pack does not '
-      'declare a mod runtime.',
-    ),
-  };
+  int get cfModLoaderType {
+    final type = LoaderRegistry.builtins[this]?.curseforgeType;
+    if (type == null) {
+      throw StateError('Loader $name has no CurseForge modLoaderType mapping.');
+    }
+    return type;
+  }
 }
 
 /// Returns the set of CurseForge `releaseType` values admitted by a

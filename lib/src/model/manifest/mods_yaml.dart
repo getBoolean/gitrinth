@@ -1,97 +1,46 @@
 import 'package:dart_mappable/dart_mappable.dart';
 
 import 'file_entry.dart';
+import '../loader/loader_id.dart';
+import '../loader/loader_descriptor.dart';
+export '../loader/loader_id.dart';
+export '../loader/loader_descriptor.dart';
 
 part 'mods_yaml.mapper.dart';
 
 @MappableEnum()
 enum SpongeLoader { vanilla, forge, neoforge }
 
-/// Mod loader the pack targets.
-/// `vanilla` means no mod runtime.
-@MappableEnum()
-enum ModLoader { forge, fabric, neoforge, vanilla }
+/// Compatibility spellings share one open, serialized loader identity.
+typedef ModLoader = LoaderId;
+typedef ShaderLoader = LoaderId;
+typedef PluginLoader = LoaderId;
+typedef DeclaredPluginLoader = LoaderId;
 
-@MappableEnum()
-enum ShaderLoader { iris, optifine, canvas, vanilla }
+extension LoaderRuntimeTraits on LoaderId {
+  String? get serverLaunchJar => LoaderRegistry.builtins[this]?.serverLaunchJar;
+  bool get usesServerRunScript =>
+      LoaderRegistry.builtins[this]?.serverRunScript ?? false;
+  LoaderId toDeclared() => LoaderRegistry.builtins[this]?.declaredId ?? this;
+  LoaderId resolveWith(LoaderId mods) {
+    final descriptor = LoaderRegistry.builtins[this];
+    if (descriptor == null || descriptor.variants.isEmpty) return this;
+    final variant = descriptor.variants[mods.name];
+    if (variant == null) {
+      throw FormatException(
+        'Loader $name has no declared compatibility with ${mods.name}.',
+      );
+    }
+    return variant;
+  }
 
-/// Resolved plugin loader stored in `mods.lock`.
-/// `mods.yaml` uses [DeclaredPluginLoader]; the parser resolves it.
-@MappableEnum()
-enum PluginLoader {
-  bukkit,
-  folia,
-  paper,
-  spigot,
-  spongeneo,
-  spongeforge,
-  spongevanilla,
-}
-
-/// Plugin loader as declared in `mods.yaml`.
-/// Sponge variants are resolved later from `loader.mods`.
-enum DeclaredPluginLoader { bukkit, folia, paper, spigot, sponge }
-
-/// Runtime entry point for a built server distribution.
-/// `null` means the loader uses `run.bat` / `run.sh`.
-extension ModLoaderServerInvocation on ModLoader {
-  String? get serverLaunchJar => switch (this) {
-    ModLoader.vanilla => 'server.jar',
-    ModLoader.fabric => 'fabric-server-launch.jar',
-    ModLoader.forge || ModLoader.neoforge => null,
-  };
-
-  bool get usesServerRunScript => serverLaunchJar == null;
-}
-
-extension PluginLoaderToDeclared on PluginLoader {
-  /// Maps a resolved [PluginLoader] back to the declared `mods.yaml` value.
-  DeclaredPluginLoader toDeclared() => switch (this) {
-    PluginLoader.bukkit => DeclaredPluginLoader.bukkit,
-    PluginLoader.folia => DeclaredPluginLoader.folia,
-    PluginLoader.paper => DeclaredPluginLoader.paper,
-    PluginLoader.spigot => DeclaredPluginLoader.spigot,
-    PluginLoader.spongeforge ||
-    PluginLoader.spongeneo ||
-    PluginLoader.spongevanilla => DeclaredPluginLoader.sponge,
-  };
-}
-
-/// Resolves `(declared plugin loader, mod loader)` to [PluginLoader].
-extension DeclaredPluginLoaderResolution on DeclaredPluginLoader {
-  PluginLoader resolveWith(ModLoader mods) => switch (this) {
-    DeclaredPluginLoader.bukkit => PluginLoader.bukkit,
-    DeclaredPluginLoader.folia => PluginLoader.folia,
-    DeclaredPluginLoader.paper => PluginLoader.paper,
-    DeclaredPluginLoader.spigot => PluginLoader.spigot,
-    DeclaredPluginLoader.sponge => switch (mods) {
-      ModLoader.forge => PluginLoader.spongeforge,
-      ModLoader.neoforge => PluginLoader.spongeneo,
-      ModLoader.fabric || ModLoader.vanilla => PluginLoader.spongevanilla,
-    },
-  };
-}
-
-/// Per-loader behavior helpers.
-extension PluginLoaderTraits on PluginLoader {
-  /// True when this server platform also runs server-side mods.
   bool get runsServerMods =>
-      this == PluginLoader.spongeforge || this == PluginLoader.spongeneo;
-
-  /// Modrinth `loaders` filter token for this loader.
-  String get modrinthLoaderToken => switch (this) {
-    PluginLoader.spongeforge ||
-    PluginLoader.spongeneo ||
-    PluginLoader.spongevanilla => 'sponge',
-    _ => name,
-  };
-
-  /// Mod loaders this plugin loader's server runtime accepts.
-  Set<ModLoader> get compatibleModLoaders => switch (this) {
-    PluginLoader.spongeforge ||
-    PluginLoader.spongeneo => const {ModLoader.forge, ModLoader.neoforge},
-    _ => const <ModLoader>{},
-  };
+      LoaderRegistry.builtins[this]?.runsServerMods ?? false;
+  String get modrinthLoaderToken =>
+      LoaderRegistry.builtins[this]?.modrinthTag('*') ?? name;
+  Set<LoaderId> get compatibleModLoaders =>
+      (LoaderRegistry.builtins[this]?.compatibleMods ?? const <LoaderId>[])
+          .toSet();
 }
 
 /// Per-side install state.
@@ -125,9 +74,12 @@ enum Section { mods, resourcePacks, dataPacks, shaders, plugins }
 /// Forces `server: unsupported` for mods on pure plugin-server platforms.
 Map<String, ModEntry> coerceModsForPluginLoader(
   Map<String, ModEntry> mods,
-  PluginLoader? pluginLoader,
-) {
-  if (pluginLoader == null || pluginLoader.runsServerMods) {
+  PluginLoader? pluginLoader, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+}) {
+  if (pluginLoader == null ||
+      registry[pluginLoader] == null ||
+      (registry[pluginLoader]?.runsServerMods ?? false)) {
     return mods;
   }
   return {
@@ -155,17 +107,18 @@ enum GitrinthPlatformState { enabled, disabled }
 /// `docs/curseforge-bridge.md`. The CurseForge bridge defers to this
 /// helper before parser validation, `add`, resolver dispatch, search,
 /// and publish all touch the same predicate.
-bool sectionAllowsCurseforge(Section section, PluginLoader? pluginLoader) {
+bool sectionAllowsCurseforge(
+  Section section,
+  PluginLoader? pluginLoader, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+}) {
   if (section != Section.plugins) return true;
-  return switch (pluginLoader) {
-    PluginLoader.bukkit || PluginLoader.spigot || PluginLoader.paper => true,
-    _ => false,
-  };
+  return registry[pluginLoader]?.curseforgePlugins ?? (pluginLoader != null);
 }
 
 /// Per-section loader configuration.
 /// `mods.yaml` is declared; `mods.lock` is resolved.
-@MappableClass()
+@MappableClass(includeCustomMappers: [LoaderIdMapper()])
 class LoaderConfig with LoaderConfigMappable {
   final ModLoader mods;
 

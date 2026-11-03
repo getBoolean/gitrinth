@@ -47,7 +47,11 @@ LoaderConfig _parseLoaderConfigYaml(dynamic raw, String filePath) {
   String? pluginLoaderVersion;
   if (map.containsKey('plugins')) {
     final pluginTag = _parseYamlPluginLoader(map['plugins'], filePath);
-    plugins = pluginTag.loader.resolveWith(modLoader);
+    try {
+      plugins = pluginTag.loader.resolveWith(modLoader);
+    } on FormatException catch (e) {
+      throw _err('$filePath: loader.plugins ${e.message}');
+    }
     pluginLoaderVersion = pluginTag.version;
   }
 
@@ -189,19 +193,9 @@ _ResolvedPluginLoaderTag _parseLockPluginLoader(dynamic raw, String filePath) {
 
 ShaderLoader _parseShaderLoader(dynamic raw, String filePath) {
   final lower = raw.toString().toLowerCase();
-  switch (lower) {
-    case 'iris':
-      return ShaderLoader.iris;
-    case 'optifine':
-      return ShaderLoader.optifine;
-    case 'canvas':
-      return ShaderLoader.canvas;
-    case 'vanilla':
-      return ShaderLoader.vanilla;
-    default:
-      throw _err(
-        '$filePath: loader.shaders "$raw" is not recognized '
-        '(allowed: iris, optifine, canvas, vanilla).',
-      );
+  try {
+    return LoaderId(lower);
+  } on FormatException catch (e) {
+    throw _err('$filePath: loader.shaders ${e.message}');
   }
 }

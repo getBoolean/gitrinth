@@ -30,6 +30,7 @@ import '../service/user_config.dart';
 import '../cli/exceptions.dart';
 import '../version.dart';
 import 'env.dart';
+import 'loader_registry_provider.dart';
 import 'offline_notifier.dart';
 import 'runner_settings.dart';
 
@@ -137,6 +138,7 @@ final modLoaderVersionResolverProvider = Provider<ModLoaderVersionResolver>(
 
 final loaderBinaryFetcherProvider = Provider<LoaderBinaryFetcher>(
   (ref) => LoaderBinaryFetcher(
+    registry: ref.watch(loaderRegistryProvider),
     cache: ref.read(cacheProvider),
     downloader: ref.read(downloaderProvider),
     environment: ref.read(environmentProvider),
@@ -170,6 +172,7 @@ final vanillaServerSourceProvider = Provider<VanillaServerSource>(
 
 final serverInstallerProvider = Provider<ServerInstaller>(
   (ref) => ServerInstaller(
+    registry: ref.watch(loaderRegistryProvider),
     environment: ref.read(environmentProvider),
     resolver: ref.read(javaRuntimeResolverProvider),
     console: ref.read(consoleProvider),
@@ -182,6 +185,7 @@ final minecraftLauncherLocatorProvider = Provider<MinecraftLauncherLocator>(
 
 final loaderClientInstallerProvider = Provider<LoaderClientInstaller>(
   (ref) => LoaderClientInstaller(
+    registry: ref.watch(loaderRegistryProvider),
     environment: ref.read(environmentProvider),
     resolver: ref.read(javaRuntimeResolverProvider),
     console: ref.read(consoleProvider),

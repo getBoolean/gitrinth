@@ -58,180 +58,6 @@ extension SpongeLoaderMapperExtension on SpongeLoader {
   }
 }
 
-class ModLoaderMapper extends EnumMapper<ModLoader> {
-  ModLoaderMapper._();
-
-  static ModLoaderMapper? _instance;
-  static ModLoaderMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = ModLoaderMapper._());
-    }
-    return _instance!;
-  }
-
-  static ModLoader fromValue(dynamic value) {
-    ensureInitialized();
-    return MapperContainer.globals.fromValue(value);
-  }
-
-  @override
-  ModLoader decode(dynamic value) {
-    switch (value) {
-      case r'forge':
-        return ModLoader.forge;
-      case r'fabric':
-        return ModLoader.fabric;
-      case r'neoforge':
-        return ModLoader.neoforge;
-      case r'vanilla':
-        return ModLoader.vanilla;
-      default:
-        throw MapperException.unknownEnumValue(value);
-    }
-  }
-
-  @override
-  dynamic encode(ModLoader self) {
-    switch (self) {
-      case ModLoader.forge:
-        return r'forge';
-      case ModLoader.fabric:
-        return r'fabric';
-      case ModLoader.neoforge:
-        return r'neoforge';
-      case ModLoader.vanilla:
-        return r'vanilla';
-    }
-  }
-}
-
-extension ModLoaderMapperExtension on ModLoader {
-  String toValue() {
-    ModLoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<ModLoader>(this) as String;
-  }
-}
-
-class ShaderLoaderMapper extends EnumMapper<ShaderLoader> {
-  ShaderLoaderMapper._();
-
-  static ShaderLoaderMapper? _instance;
-  static ShaderLoaderMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = ShaderLoaderMapper._());
-    }
-    return _instance!;
-  }
-
-  static ShaderLoader fromValue(dynamic value) {
-    ensureInitialized();
-    return MapperContainer.globals.fromValue(value);
-  }
-
-  @override
-  ShaderLoader decode(dynamic value) {
-    switch (value) {
-      case r'iris':
-        return ShaderLoader.iris;
-      case r'optifine':
-        return ShaderLoader.optifine;
-      case r'canvas':
-        return ShaderLoader.canvas;
-      case r'vanilla':
-        return ShaderLoader.vanilla;
-      default:
-        throw MapperException.unknownEnumValue(value);
-    }
-  }
-
-  @override
-  dynamic encode(ShaderLoader self) {
-    switch (self) {
-      case ShaderLoader.iris:
-        return r'iris';
-      case ShaderLoader.optifine:
-        return r'optifine';
-      case ShaderLoader.canvas:
-        return r'canvas';
-      case ShaderLoader.vanilla:
-        return r'vanilla';
-    }
-  }
-}
-
-extension ShaderLoaderMapperExtension on ShaderLoader {
-  String toValue() {
-    ShaderLoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<ShaderLoader>(this) as String;
-  }
-}
-
-class PluginLoaderMapper extends EnumMapper<PluginLoader> {
-  PluginLoaderMapper._();
-
-  static PluginLoaderMapper? _instance;
-  static PluginLoaderMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = PluginLoaderMapper._());
-    }
-    return _instance!;
-  }
-
-  static PluginLoader fromValue(dynamic value) {
-    ensureInitialized();
-    return MapperContainer.globals.fromValue(value);
-  }
-
-  @override
-  PluginLoader decode(dynamic value) {
-    switch (value) {
-      case r'bukkit':
-        return PluginLoader.bukkit;
-      case r'folia':
-        return PluginLoader.folia;
-      case r'paper':
-        return PluginLoader.paper;
-      case r'spigot':
-        return PluginLoader.spigot;
-      case r'spongeneo':
-        return PluginLoader.spongeneo;
-      case r'spongeforge':
-        return PluginLoader.spongeforge;
-      case r'spongevanilla':
-        return PluginLoader.spongevanilla;
-      default:
-        throw MapperException.unknownEnumValue(value);
-    }
-  }
-
-  @override
-  dynamic encode(PluginLoader self) {
-    switch (self) {
-      case PluginLoader.bukkit:
-        return r'bukkit';
-      case PluginLoader.folia:
-        return r'folia';
-      case PluginLoader.paper:
-        return r'paper';
-      case PluginLoader.spigot:
-        return r'spigot';
-      case PluginLoader.spongeneo:
-        return r'spongeneo';
-      case PluginLoader.spongeforge:
-        return r'spongeforge';
-      case PluginLoader.spongevanilla:
-        return r'spongevanilla';
-    }
-  }
-}
-
-extension PluginLoaderMapperExtension on PluginLoader {
-  String toValue() {
-    PluginLoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<PluginLoader>(this) as String;
-  }
-}
-
 class SideEnvMapper extends EnumMapper<SideEnv> {
   SideEnvMapper._();
 
@@ -490,9 +316,7 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   static LoaderConfigMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = LoaderConfigMapper._());
-      ModLoaderMapper.ensureInitialized();
-      ShaderLoaderMapper.ensureInitialized();
-      PluginLoaderMapper.ensureInitialized();
+      MapperContainer.globals.useAll([LoaderIdMapper()]);
     }
     return _instance!;
   }
@@ -500,8 +324,8 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   @override
   final String id = 'LoaderConfig';
 
-  static ModLoader _$mods(LoaderConfig v) => v.mods;
-  static const Field<LoaderConfig, ModLoader> _f$mods = Field('mods', _$mods);
+  static LoaderId _$mods(LoaderConfig v) => v.mods;
+  static const Field<LoaderConfig, LoaderId> _f$mods = Field('mods', _$mods);
   static String? _$modLoaderVersion(LoaderConfig v) => v.modLoaderVersion;
   static const Field<LoaderConfig, String> _f$modLoaderVersion = Field(
     'modLoaderVersion',
@@ -509,14 +333,14 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
     opt: true,
     def: 'stable',
   );
-  static ShaderLoader? _$shaders(LoaderConfig v) => v.shaders;
-  static const Field<LoaderConfig, ShaderLoader> _f$shaders = Field(
+  static LoaderId? _$shaders(LoaderConfig v) => v.shaders;
+  static const Field<LoaderConfig, LoaderId> _f$shaders = Field(
     'shaders',
     _$shaders,
     opt: true,
   );
-  static PluginLoader? _$plugins(LoaderConfig v) => v.plugins;
-  static const Field<LoaderConfig, PluginLoader> _f$plugins = Field(
+  static LoaderId? _$plugins(LoaderConfig v) => v.plugins;
+  static const Field<LoaderConfig, LoaderId> _f$plugins = Field(
     'plugins',
     _$plugins,
     opt: true,
@@ -610,10 +434,10 @@ extension LoaderConfigValueCopy<$R, $Out>
 abstract class LoaderConfigCopyWith<$R, $In extends LoaderConfig, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   $R call({
-    ModLoader? mods,
+    LoaderId? mods,
     String? modLoaderVersion,
-    ShaderLoader? shaders,
-    PluginLoader? plugins,
+    LoaderId? shaders,
+    LoaderId? plugins,
     String? pluginLoaderVersion,
   });
   LoaderConfigCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -629,7 +453,7 @@ class _LoaderConfigCopyWithImpl<$R, $Out>
       LoaderConfigMapper.ensureInitialized();
   @override
   $R call({
-    ModLoader? mods,
+    LoaderId? mods,
     Object? modLoaderVersion = $none,
     Object? shaders = $none,
     Object? plugins = $none,

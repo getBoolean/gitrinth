@@ -2,6 +2,7 @@ import 'package:args/command_runner.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/version_selection.dart';
 import '../service/console.dart';
@@ -11,6 +12,15 @@ import 'exceptions.dart';
 import 'runner.dart';
 
 abstract class GitrinthCommand extends Command<int> {
+  GitrinthCommand() {
+    argParser.addOption(
+      'loader-descriptors',
+      valueHelp: 'path',
+      help:
+          'User-level declarative loader mappings (defaults to loaders.yaml beside user config).',
+    );
+  }
+
   GitrinthRunner get gitrinthRunner => runner as GitrinthRunner;
 
   ProviderContainer get container => gitrinthRunner.container;
@@ -78,9 +88,15 @@ abstract class GitrinthCommand extends Command<int> {
     Set<String> allowMissingSourcesForSlugs = const {},
     ModsYaml? manifestOverride,
     SolveType solveType = SolveType.get,
-  }) {
+  }) async {
+    final registry = await prepareLoaderRegistry(
+      container,
+      manifestOverride ?? io.readModsYaml(),
+      offline: offline,
+    );
     return resolveAndSync(
       io: io,
+      loaderRegistry: registry,
       console: console,
       apiFactory: read(modrinthApiFactoryProvider),
       cfFactory: read(curseForgeApiFactoryProvider),

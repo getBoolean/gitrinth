@@ -10,11 +10,13 @@ class RunnerSettings {
   final bool? color;
 
   final String? configPath;
+  final String? loaderDescriptorsPath;
 
   const RunnerSettings({
     this.level = LogLevel.normal,
     this.color,
     this.configPath,
+    this.loaderDescriptorsPath,
   });
 }
 

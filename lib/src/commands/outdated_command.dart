@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:pub_semver/pub_semver.dart' as semver;
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
@@ -66,6 +67,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       return exitUserError;
     }
     final manifest = io.readModsYaml();
+    await prepareLoaderRegistry(container, manifest, offline: offline);
     final overrides = io.readProjectOverrides();
     final overriddenSlugs = overrides.entries.keys.toSet();
 
@@ -165,7 +167,12 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
 
     final acceptsMc = manifestEntry?.acceptsMc ?? const <String>[];
     final gameVersions = <String>{mcVersion, ...acceptsMc}.toList();
-    final loaderFilter = filterLoadersForSection(loaderConfig, section);
+    final loaderFilter = filterLoadersForSection(
+      loaderConfig,
+      section,
+      registry: read(loaderRegistryProvider),
+      host: host,
+    );
     final channel = manifestEntry?.channel ?? Channel.alpha;
     final constraint = _safeParseConstraint(manifestEntry?.constraintRaw);
 

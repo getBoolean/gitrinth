@@ -36,17 +36,20 @@ mc_version: 1.21.1
       expect(manifest.loader.plugins, PluginLoader.spongeforge);
     });
 
-    test('rejects an unknown value with a message listing every loader', () {
-      try {
-        parseModsYaml(yamlWithLoaderPlugins('bogus'), filePath: 'mods.yaml');
-        fail('expected a parse error');
-      } on ValidationError catch (e) {
-        expect(e.message, contains('bukkit'));
-        expect(e.message, contains('folia'));
-        expect(e.message, contains('paper'));
-        expect(e.message, contains('spigot'));
-        expect(e.message, contains('sponge'));
-      }
+    test('rejects a malformed plugin loader identity', () {
+      expect(
+        () => parseModsYaml(
+          yamlWithLoaderPlugins('bad/loader'),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('Invalid lowercase loader identity'),
+          ),
+        ),
+      );
     });
 
     test('rejects a non-empty plugins: section with no loader.plugins', () {

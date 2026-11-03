@@ -1293,14 +1293,14 @@ mc_version: 1.21.1
       );
     });
 
-    test('unknown loader name is rejected', () {
+    test('malformed loader identity is rejected', () {
       expect(
-        () => parse('quilt:1.2.3'),
+        () => parse('bad/loader:1.2.3'),
         throwsA(
           isA<ValidationError>().having(
             (e) => e.message,
             'message',
-            contains('not a recognized loader'),
+            contains('Invalid lowercase loader identity'),
           ),
         ),
       );

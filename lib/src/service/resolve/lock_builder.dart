@@ -292,6 +292,7 @@ LockedEntry _buildResolvedEntry({
 /// per entry: a slug fails when ANY of its requested eligible sources
 /// is missing.
 String? formatCrossPlatformMissingError({
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required ModsYaml manifest,
   required Set<LocalEntryKey> mrNotFoundSlugs,
   required CfResolution cfResolution,
@@ -310,7 +311,12 @@ String? formatCrossPlatformMissingError({
       final entry = mapEntry.value;
       if (entry.source is! ModrinthEntrySource) continue;
       if (isAnyGitrinthMarker(entry.constraintRaw)) continue;
-      final effective = effectiveSources(manifest, entry, section);
+      final effective = effectiveSources(
+        manifest,
+        entry,
+        section,
+        registry: registry,
+      );
       final missing = <String>[];
       if (effective.contains(SourceKind.modrinth) &&
           mrNotFoundSlugs.contains(LocalEntryKey(section, slug))) {

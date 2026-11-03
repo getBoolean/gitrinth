@@ -167,10 +167,25 @@ class GitrinthRunner extends CommandRunner<int> {
         : null;
     configPath = topLevelResults['config'] as String?;
 
+    var commandResults = topLevelResults;
+    while (commandResults.command != null) {
+      final next = commandResults.command;
+      if (next == null) break;
+      commandResults = next;
+    }
+    final descriptorsPath =
+        commandResults.options.contains('loader-descriptors')
+        ? commandResults['loader-descriptors'] as String?
+        : null;
     container
         .read(runnerSettingsProvider.notifier)
         .set(
-          RunnerSettings(level: level, color: color, configPath: configPath),
+          RunnerSettings(
+            level: level,
+            color: color,
+            configPath: configPath,
+            loaderDescriptorsPath: descriptorsPath,
+          ),
         );
 
     if (topLevelResults['version'] as bool) {

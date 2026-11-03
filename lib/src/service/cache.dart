@@ -75,6 +75,12 @@ class GitrinthCache {
     required String modLoaderVersion,
     required String filename,
   }) {
+    if (!isSafeRuntimeToken(mcVersion) ||
+        !isSafeRuntimeToken(modLoaderVersion)) {
+      throw const ValidationError(
+        'Unsafe runtime version in loader cache path.',
+      );
+    }
     return p.join(
       loadersRoot,
       loader.name,

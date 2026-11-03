@@ -170,7 +170,7 @@ properties:
           Mod loader the modpack targets, optionally with a version tag
           in docker-image style: `<loader>` or `<loader>:<tag>`.
 
-          - Loader: one of `forge`, `fabric`, `neoforge`, or `vanilla`.
+          - Loader: a lowercase registered identity (built-ins include Forge, Fabric, NeoForge, Quilt, and vanilla).
           - Tag (optional): `stable` (default — latest stable loader),
             `latest` (newest of any stability), or a concrete version
             string (e.g. `0.17.3`). Resolved against Modrinth at `get`
@@ -189,17 +189,14 @@ properties:
           server-binary selection.
         oneOf:
           - type: string
-            pattern: ^(forge|fabric|neoforge)(:[^:\s][^:]*)?$
+            pattern: ^(?!vanilla(?::|$))[a-z][a-z0-9_-]*(:[^:\s][^:]*)?$
           - const: vanilla
       shaders:
         description: |
           Shader loader. Required when the `shaders` section has
           entries; otherwise omit.
-        enum:
-          - iris
-          - optifine
-          - canvas
-          - vanilla
+        type: string
+        pattern: ^[a-z][a-z0-9_-]*$
       plugins:
         description: |
           Plugin loader. Required when the `plugins:` section has
@@ -211,7 +208,7 @@ properties:
           SpongeVanilla. The resolved variant and concrete version are
           stored in `mods.lock`.
         type: string
-        pattern: ^(bukkit|folia|paper|spigot|sponge)(:[^:\s][^:]*)?$
+        pattern: ^[a-z][a-z0-9_-]*(:[^:\s][^:]*)?$
 
   mc_version:
     type: string

@@ -15,17 +15,20 @@ import 'server_installer.dart' show ProcessRunner, spawnInstaller;
 /// libraries. Returns the `lastVersionId` string suitable for plumbing into
 /// `launcher_profiles.json`.
 class LoaderClientInstaller {
+  final LoaderRegistry _registry;
   final ProcessRunner? _runProcess;
   final Map<String, String> _environment;
   final JavaRuntimeResolver? _resolver;
   final Console _console;
 
   LoaderClientInstaller({
+    LoaderRegistry registry = LoaderRegistry.builtins,
     ProcessRunner? runProcess,
     Map<String, String>? environment,
     JavaRuntimeResolver? resolver,
     Console? console,
-  }) : _runProcess = runProcess,
+  }) : _registry = registry,
+       _runProcess = runProcess,
        _environment = environment ?? Platform.environment,
        _resolver = resolver,
        _console = console ?? const Console();
@@ -41,8 +44,15 @@ class LoaderClientInstaller {
     bool allowManagedJava = true,
     bool verbose = false,
   }) async {
+    if (!isSafeRuntimeToken(mcVersion) ||
+        !isSafeRuntimeToken(modLoaderVersion)) {
+      throw const ValidationError(
+        'Unsafe runtime version; installer versions cannot contain paths, URLs, or options.',
+      );
+    }
     final versionId = expectedClientVersionId(
       loader: loader,
+      registry: _registry,
       mcVersion: mcVersion,
       modLoaderVersion: modLoaderVersion,
     );
@@ -126,21 +136,28 @@ class LoaderClientInstaller {
   /// Must match what the installer writes to `<dotMc>/versions/`.
   static String expectedClientVersionId({
     required ModLoader loader,
+    LoaderRegistry registry = LoaderRegistry.builtins,
     required String mcVersion,
     required String modLoaderVersion,
   }) {
-    switch (loader) {
-      case ModLoader.vanilla:
+    switch (registry[loader]?.installer) {
+      case InstallerFamily.vanilla:
         throw StateError(
           'expectedClientVersionId called for vanilla; gate on '
           'LoaderConfig.hasModRuntime.',
         );
-      case ModLoader.fabric:
+      case InstallerFamily.fabric:
         return 'fabric-loader-$modLoaderVersion-$mcVersion';
-      case ModLoader.forge:
-        return '$mcVersion-forge-$modLoaderVersion';
-      case ModLoader.neoforge:
-        return 'neoforge-$modLoaderVersion';
+      case InstallerFamily.forge:
+        return registry[loader]?.versionSource == VersionSourceFamily.neoforge
+            ? 'neoforge-$modLoaderVersion'
+            : '$mcVersion-forge-$modLoaderVersion';
+      case InstallerFamily.quilt:
+        return 'quilt-loader-$modLoaderVersion-$mcVersion';
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no installed adapter for this operation.',
+        );
     }
   }
 
@@ -151,13 +168,13 @@ class LoaderClientInstaller {
     required File installerJar,
     required Directory dotMinecraftDir,
   }) {
-    switch (loader) {
-      case ModLoader.vanilla:
+    switch (_registry[loader]?.installer) {
+      case InstallerFamily.vanilla:
         throw StateError(
           '_installArgs called for vanilla; gate on '
           'LoaderConfig.hasModRuntime.',
         );
-      case ModLoader.fabric:
+      case InstallerFamily.fabric:
         return [
           '-jar',
           installerJar.path,
@@ -169,14 +186,27 @@ class LoaderClientInstaller {
           '-loader',
           modLoaderVersion,
         ];
-      case ModLoader.forge:
-      case ModLoader.neoforge:
+      case InstallerFamily.quilt:
+        return [
+          '-jar',
+          installerJar.path,
+          'install',
+          'client',
+          mcVersion,
+          modLoaderVersion,
+          '--install-dir="${dotMinecraftDir.path}"',
+        ];
+      case InstallerFamily.forge:
         return [
           '-jar',
           installerJar.path,
           '--installClient',
           dotMinecraftDir.path,
         ];
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no installed adapter for this operation.',
+        );
     }
   }
 

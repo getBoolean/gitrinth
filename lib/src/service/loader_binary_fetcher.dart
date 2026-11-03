@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -19,6 +20,7 @@ import 'downloader.dart';
 /// takes optional URL templates with `{mc}`/`{v}` placeholders, falling back
 /// to environment variables, and finally to the real upstream URLs.
 class LoaderBinaryFetcher {
+  final LoaderRegistry _registry;
   final GitrinthCache _cache;
   final Downloader _downloader;
   final String _forgeInstallerUrlTemplate;
@@ -27,8 +29,10 @@ class LoaderBinaryFetcher {
   final String _fabricServerJarUrlTemplate;
   final String _fabricInstallerUrlTemplate;
   final String _fabricInstallerVersion;
+  final String _quiltInstallerMetaUrl;
 
   LoaderBinaryFetcher({
+    LoaderRegistry registry = LoaderRegistry.builtins,
     required GitrinthCache cache,
     required Downloader downloader,
     Map<String, String>? environment,
@@ -38,7 +42,12 @@ class LoaderBinaryFetcher {
     String? fabricServerJarUrlTemplate,
     String? fabricInstallerUrlTemplate,
     String? fabricInstallerVersion,
-  }) : _cache = cache,
+  }) : _quiltInstallerMetaUrl =
+           (environment ??
+               Platform.environment)['GITRINTH_QUILT_INSTALLER_META_URL'] ??
+           'https://meta.quiltmc.org/v3/versions/installer',
+       _registry = registry,
+       _cache = cache,
        _downloader = downloader,
        _forgeInstallerUrlTemplate =
            forgeInstallerUrlTemplate ??
@@ -87,6 +96,11 @@ class LoaderBinaryFetcher {
     required String mcVersion,
     required String modLoaderVersion,
   }) async {
+    _validateVersion(mcVersion);
+    _validateVersion(modLoaderVersion);
+    if (_registry[loader]?.installer == InstallerFamily.quilt) {
+      return _fetchQuiltInstaller(loader, mcVersion, modLoaderVersion);
+    }
     final (url, filename) = _serverUrlAndFilename(
       loader: loader,
       mcVersion: mcVersion,
@@ -120,20 +134,21 @@ class LoaderBinaryFetcher {
     required String mcVersion,
     required String modLoaderVersion,
   }) async {
-    switch (loader) {
-      case ModLoader.vanilla:
+    _validateVersion(mcVersion);
+    _validateVersion(modLoaderVersion);
+    switch (_registry[loader]?.installer) {
+      case InstallerFamily.vanilla:
         throw StateError(
           'fetchClientInstaller called for vanilla; gate on '
           'LoaderConfig.hasModRuntime.',
         );
-      case ModLoader.forge:
-      case ModLoader.neoforge:
+      case InstallerFamily.forge:
         return fetchServerArtifact(
           loader: loader,
           mcVersion: mcVersion,
           modLoaderVersion: modLoaderVersion,
         );
-      case ModLoader.fabric:
+      case InstallerFamily.fabric:
         final url = _fabricInstallerUrlTemplate.replaceAll(
           '{installerVersion}',
           _fabricInstallerVersion,
@@ -154,6 +169,12 @@ class LoaderBinaryFetcher {
             context: 'failed to download Fabric installer from $url',
           );
         }
+      case InstallerFamily.quilt:
+        return _fetchQuiltInstaller(loader, mcVersion, modLoaderVersion);
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no installed adapter for this operation.',
+        );
     }
   }
 
@@ -162,19 +183,19 @@ class LoaderBinaryFetcher {
     required String mcVersion,
     required String modLoaderVersion,
   }) {
-    switch (loader) {
-      case ModLoader.vanilla:
+    switch (_registry[loader]?.versionSource) {
+      case null:
         throw StateError(
           '_serverUrlAndFilename called for vanilla; gate on '
           'LoaderConfig.hasModRuntime.',
         );
-      case ModLoader.forge:
+      case VersionSourceFamily.forge:
         final url = fillUrlTemplate(_forgeInstallerUrlTemplate, {
           'mc': mcVersion,
           'v': modLoaderVersion,
         });
         return (url, 'forge-$mcVersion-$modLoaderVersion-installer.jar');
-      case ModLoader.neoforge:
+      case VersionSourceFamily.neoforge:
         if (mcVersion == '1.20.1') {
           final url = fillUrlTemplate(_neoforgeLegacyInstallerUrlTemplate, {
             'mc': mcVersion,
@@ -186,12 +207,98 @@ class LoaderBinaryFetcher {
           'v': modLoaderVersion,
         });
         return (url, 'neoforge-$modLoaderVersion-installer.jar');
-      case ModLoader.fabric:
+      case VersionSourceFamily.fabric:
         final url = fillUrlTemplate(_fabricServerJarUrlTemplate, {
           'mc': mcVersion,
           'v': modLoaderVersion,
         });
         return (url, 'fabric-server-launch.jar');
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no installed adapter for this operation.',
+        );
     }
+  }
+
+  static String serverArtifactFilename(
+    LoaderId loader,
+    String mc,
+    String version, {
+    LoaderRegistry registry = LoaderRegistry.builtins,
+  }) {
+    final descriptor = registry[loader];
+    return switch (descriptor?.installer) {
+      InstallerFamily.fabric => 'fabric-server-launch.jar',
+      InstallerFamily.quilt => 'quilt-installer.jar',
+      InstallerFamily.forge =>
+        descriptor?.versionSource == VersionSourceFamily.neoforge &&
+                mc != '1.20.1'
+            ? 'neoforge-$version-installer.jar'
+            : 'forge-$mc-$version-installer.jar',
+      _ => throw ValidationError(
+        'Loader ${loader.name} has no cached server runtime recipe.',
+      ),
+    };
+  }
+
+  static void _validateVersion(String value) {
+    if (!isSafeRuntimeToken(value)) {
+      throw ValidationError('Unsafe runtime version "$value".');
+    }
+  }
+
+  Future<File> _fetchQuiltInstaller(
+    LoaderId loader,
+    String mc,
+    String version,
+  ) async {
+    final destination = _cache.loaderArtifactPath(
+      loader: loader,
+      mcVersion: mc,
+      modLoaderVersion: version,
+      filename: 'quilt-installer.jar',
+    );
+    final metadataFile = File('$destination.metadata.json');
+    Map<String, dynamic>? selected;
+    if (metadataFile.existsSync()) {
+      final raw = jsonDecode(metadataFile.readAsStringSync());
+      if (raw is Map<String, dynamic>) selected = raw;
+    }
+    if (selected == null) {
+      final response = await _downloader.dio.get<dynamic>(
+        _quiltInstallerMetaUrl,
+      );
+      final raw = response.data;
+      if (raw is! List || raw.isEmpty || raw.first is! Map) {
+        throw const ValidationError('Quilt installer metadata is empty.');
+      }
+      selected = Map<String, dynamic>.from(raw.first as Map);
+    }
+    final installerVersion = selected['version'];
+    final hashes = selected['hashes'];
+    final hash = hashes is Map ? hashes['sha512'] : null;
+    if (installerVersion is! String ||
+        hash is! String ||
+        !RegExp(r'^[a-fA-F0-9]{128}$').hasMatch(hash)) {
+      throw const ValidationError(
+        'Quilt installer metadata lacks a version or SHA512.',
+      );
+    }
+    _validateVersion(installerVersion);
+    final url =
+        'https://maven.quiltmc.org/repository/release/org/quiltmc/quilt-installer/$installerVersion/quilt-installer-$installerVersion.jar';
+    if (selected['url'] != url) {
+      throw const ValidationError(
+        'Quilt installer metadata has an untrusted artifact URL.',
+      );
+    }
+    final artifact = await _downloader.downloadTo(
+      url: url,
+      destinationPath: destination,
+      expectedSha512: hash,
+    );
+    metadataFile.parent.createSync(recursive: true);
+    metadataFile.writeAsStringSync(jsonEncode(selected), flush: true);
+    return artifact;
   }
 }

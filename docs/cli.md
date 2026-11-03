@@ -142,6 +142,16 @@ Missing or corrupt metadata fails before replacing `mods.lock`; run one
 online `gitrinth get` to refresh it. Older locks still support read-only
 inspection.
 
+## Loader descriptors
+
+Commands that use loader metadata accept `--loader-descriptors <path>`.
+The default is `loaders.yaml` beside the resolved user config; a repository
+file is not loaded automatically. Loader IDs remain strings in manifests
+and locks. Discovery can add provider tags and versions; packing requires
+archive metadata, and build/launch require an installed runtime adapter.
+Quilt has a built-in adapter. See [loader capabilities](loader-descriptors.md)
+for configuration, offline snapshots, and supported strategy families.
+
 ## Command details
 
 ### `get`

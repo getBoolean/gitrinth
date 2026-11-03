@@ -22,11 +22,16 @@ import 'mods_yaml.dart';
 Set<SourceKind> effectiveSources(
   ModsYaml manifest,
   ModEntry entry,
-  Section section,
-) {
+  Section section, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+}) {
   final base = entry.sources ?? _packDefault(manifest);
   if (base.isEmpty) return base;
-  if (sectionAllowsCurseforge(section, manifest.loader.plugins)) {
+  if (sectionAllowsCurseforge(
+    section,
+    manifest.loader.plugins,
+    registry: registry,
+  )) {
     return base;
   }
   return base.where((k) => k != SourceKind.curseforge).toSet();

@@ -449,15 +449,20 @@ loader:
 
 Recognised keys:
 
-| Key              | Required                                          | Values                                                                                      |
-|------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------|
-| `loader.mods`    | Optional. Defaults to `vanilla` (no mod runtime). | `forge`, `fabric`, `neoforge`, `vanilla`.                                                   |
-| `loader.shaders` | When [`shaders:`](#shaders) has entries.          | `iris`, `optifine`, `canvas`, `vanilla`.                                                    |
-| `loader.plugins` | When [`plugins:`](#plugins) has entries.          | `bukkit`, `folia`, `paper`, `spigot`, `sponge`, each optionally tagged as `<loader>:<tag>`. |
+| Key              | Required                                          | Values                                                                                                  |
+|------------------|---------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| `loader.mods`    | Optional. Defaults to `vanilla` (no mod runtime). | Registered lowercase identity; built-ins include `forge`, `fabric`, `neoforge`, `quilt`, and `vanilla`. |
+| `loader.shaders` | When [`shaders:`](#shaders) has entries.          | `iris`, `optifine`, `canvas`, `vanilla`.                                                                |
+| `loader.plugins` | When [`plugins:`](#plugins) has entries.          | `bukkit`, `folia`, `paper`, `spigot`, `sponge`, each optionally tagged as `<loader>:<tag>`.             |
 
 `resource_packs` and `data_packs` each have a single valid Modrinth
 loader (`minecraft` and `datapack` respectively), so they are not
 declared under `loader`.
+
+Loader names are open lowercase identities. Discovery and explicit user-level
+[loader descriptors](loader-descriptors.md) supply provider and archive mappings.
+A new identity can be locked without an enum change; each operation checks the
+metadata or runtime capability it needs. Existing spellings retain their meaning.
 
 `loader.mods` is **optional** and defaults to `vanilla` — the "no mod
 runtime" sentinel — when omitted. Use this for purely-vanilla packs

@@ -25,6 +25,7 @@ const int _filesWindow = 10000;
 /// eligibility matrix.
 Future<List<ModFile>> listCompatibleFiles({
   required CurseForgeApi api,
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required int projectId,
   required Section section,
   ModLoader? modLoader,
@@ -35,7 +36,7 @@ Future<List<ModFile>> listCompatibleFiles({
 }) async {
   if (section == Section.plugins) {
     if (pluginLoader == null ||
-        !pluginLoaderEligibleForCurseforge(pluginLoader)) {
+        !(registry[pluginLoader]?.curseforgePlugins ?? false)) {
       throw ArgumentError(
         'CurseForge does not support plugin loader $pluginLoader',
       );
@@ -48,7 +49,12 @@ Future<List<ModFile>> listCompatibleFiles({
   // pack's `loader.mods`.
   final modLoaderType = section == Section.plugins
       ? null
-      : modLoader?.cfModLoaderType;
+      : (modLoader == null ? null : registry[modLoader]?.curseforgeType);
+  if (modLoader != null && modLoaderType == null) {
+    throw ValidationError(
+      'Loader ${modLoader.name} has no CurseForge numeric filter mapping; add a provider mapping in loaders.yaml.',
+    );
+  }
 
   final all = <int, ModFile>{};
   final wanted = gameVersions.toSet();

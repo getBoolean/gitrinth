@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../model/manifest/mods_lock.dart';
@@ -84,7 +85,13 @@ Future<int> runBuild({
     final cfFactory = container.read(curseForgeApiFactoryProvider);
     final downloader = container.read(downloaderProvider);
     final modLoaderResolver = container.read(modLoaderVersionResolverProvider);
+    final registry = await prepareLoaderRegistry(
+      container,
+      manifestIo.readModsYaml(),
+      offline: options.offline,
+    );
     final result = await resolveAndSync(
+      loaderRegistry: registry,
       io: manifestIo,
       console: console,
       apiFactory: apiFactory,
@@ -103,6 +110,16 @@ Future<int> runBuild({
     if (lock == null) {
       throw const UserError(
         'mods.lock was not written; resolver produced no lockfile.',
+      );
+    }
+  }
+
+  final registry = container.read(loaderRegistryProvider);
+  if (envs.contains(BuildEnv.server)) {
+    final id = lock.loader.plugins ?? lock.loader.mods;
+    if (!(registry[id]?.canInstallServer ?? false)) {
+      throw ValidationError(
+        'Loader ${id.name} has no installed server adapter. Resolve and pack remain supported; build requires a runtime adapter.',
       );
     }
   }
@@ -163,6 +180,7 @@ Future<int> runBuild({
         installer: container.read(serverInstallerProvider),
         source: PluginServerSource.forLoader(
           pluginLoader,
+          registry: registry,
           paperApi: container.read(paperApiClientProvider),
           spongeApi: container.read(spongeApiClientProvider),
           buildTools: container.read(buildToolsRunnerProvider),
@@ -181,6 +199,7 @@ Future<int> runBuild({
         cache: cache,
         serverDir: serverDir,
         fetcher: container.read(loaderBinaryFetcherProvider),
+        registry: registry,
         installer: container.read(serverInstallerProvider),
         skipDownload: options.skipDownload,
         offline: options.offline,
@@ -292,6 +311,7 @@ Future<void> _installModdedServerBinary({
   required GitrinthCache cache,
   required Directory serverDir,
   required LoaderBinaryFetcher fetcher,
+  required LoaderRegistry registry,
   required ServerInstaller installer,
   required bool skipDownload,
   required bool offline,
@@ -312,6 +332,7 @@ Future<void> _installModdedServerBinary({
 
   if (skipDownload) {
     final cachedPath = _expectedCachedInstallerPath(
+      registry: registry,
       cache: cache,
       loader: loader,
       mcVersion: mcVersion,
@@ -349,43 +370,22 @@ Future<void> _installModdedServerBinary({
 }
 
 String _expectedCachedInstallerPath({
+  required LoaderRegistry registry,
   required GitrinthCache cache,
   required ModLoader loader,
   required String mcVersion,
   required String modLoaderVersion,
-}) {
-  switch (loader) {
-    case ModLoader.vanilla:
-      throw StateError(
-        '_expectedCachedInstallerPath called for vanilla; gate on '
-        'LoaderConfig.hasModRuntime.',
-      );
-    case ModLoader.forge:
-      return cache.loaderArtifactPath(
-        loader: loader,
-        mcVersion: mcVersion,
-        modLoaderVersion: modLoaderVersion,
-        filename: 'forge-$mcVersion-$modLoaderVersion-installer.jar',
-      );
-    case ModLoader.neoforge:
-      final filename = mcVersion == '1.20.1'
-          ? 'forge-$mcVersion-$modLoaderVersion-installer.jar'
-          : 'neoforge-$modLoaderVersion-installer.jar';
-      return cache.loaderArtifactPath(
-        loader: loader,
-        mcVersion: mcVersion,
-        modLoaderVersion: modLoaderVersion,
-        filename: filename,
-      );
-    case ModLoader.fabric:
-      return cache.loaderArtifactPath(
-        loader: loader,
-        mcVersion: mcVersion,
-        modLoaderVersion: modLoaderVersion,
-        filename: 'fabric-server-launch.jar',
-      );
-  }
-}
+}) => cache.loaderArtifactPath(
+  loader: loader,
+  mcVersion: mcVersion,
+  modLoaderVersion: modLoaderVersion,
+  filename: LoaderBinaryFetcher.serverArtifactFilename(
+    loader,
+    mcVersion,
+    modLoaderVersion,
+    registry: registry,
+  ),
+);
 
 /// Result of [_assembleEnv]: count of newly-written/copied files plus
 /// the count of obsolete files pruned from the prior ledger.

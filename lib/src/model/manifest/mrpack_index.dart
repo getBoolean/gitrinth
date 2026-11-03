@@ -1,3 +1,4 @@
+import '../../cli/exceptions.dart';
 import 'package:dart_mappable/dart_mappable.dart';
 
 import 'mods_yaml.dart';
@@ -44,21 +45,17 @@ class MrpackFile with MrpackFileMappable {
 }
 
 /// Maps [ModLoader] to the Modrinth dependency key.
-String mrpackLoaderKey(ModLoader loader) {
-  switch (loader) {
-    case ModLoader.forge:
-      return 'forge';
-    case ModLoader.neoforge:
-      return 'neoforge';
-    case ModLoader.fabric:
-      return 'fabric-loader';
-    case ModLoader.vanilla:
-      throw StateError(
-        'mrpackLoaderKey called for vanilla; the dependencies block '
-        'must omit the mod-loader entry under vanilla (gate on '
-        'LoaderConfig.hasModRuntime).',
-      );
+String mrpackLoaderKey(
+  ModLoader loader, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+}) {
+  final key = registry[loader]?.modrinthArchiveKey;
+  if (key == null) {
+    throw ValidationError(
+      'Loader ${loader.name} has no Modrinth archive metadata capability.',
+    );
   }
+  return key;
 }
 
 /// Maps per-side install state to a mrpack `env` map.

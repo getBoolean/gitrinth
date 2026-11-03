@@ -25,6 +25,14 @@ class FakeModrinth {
   /// Extra slugs treated as taken by `/v2/project/<slug>/check`.
   final Set<String> _takenSlugs = <String>{};
 
+  final List<Map<String, dynamic>> loaderTags = [
+    {
+      'name': 'neoforge',
+      'supported_project_types': ['mod', 'modpack'],
+      'icon': '',
+    },
+  ];
+
   /// Versions returned by `/v2/tag/game_version`.
   List<Map<String, dynamic>> gameVersions = [
     {
@@ -320,6 +328,9 @@ class FakeModrinth {
         lastSearchQuery = req.uri.queryParameters;
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode({'hits': searchHits}));
+      } else if (path == '/v2/tag/loader') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(loaderTags));
       } else if (path == '/v2/tag/game_version') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode(gameVersions));

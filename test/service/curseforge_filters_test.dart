@@ -42,16 +42,9 @@ void main() {
       expect(ModLoader.fabric.cfModLoaderType, 4);
     });
 
-    test(
-      'quilt mapping is not exposed via ModLoader (no quilt enum value)',
-      () {
-        // The ModLoader enum currently lacks `quilt`; the CF taxonomy ID 5
-        // is documented in cf_constants.dart's classId map for when/if the
-        // enum gains the variant. Smoke-test that adding it later doesn't
-        // collide silently.
-        expect(ModLoader.values.map((l) => l.name), isNot(contains('quilt')));
-      },
-    );
+    test('quilt uses the official numeric type 5', () {
+      expect(ModLoader.quilt.cfModLoaderType, 5);
+    });
 
     test('neoforge → 6', () {
       expect(ModLoader.neoforge.cfModLoaderType, 6);

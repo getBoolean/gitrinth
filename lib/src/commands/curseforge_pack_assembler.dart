@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../cli/exceptions.dart';
-import '../model/curseforge/cf_constants.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../service/cache.dart';
@@ -14,6 +13,7 @@ import 'pack_assembler.dart';
 /// client/server archives preserve side filtering without inventing CF fields.
 Map<String, dynamic> buildCurseForgeManifest({
   required ModsYaml yaml,
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required ModsLock lock,
   required PackTarget target,
   required bool publishable,
@@ -32,7 +32,7 @@ Map<String, dynamic> buildCurseForgeManifest({
       final eligible =
           section != Section.plugins ||
           (lock.loader.plugins != null &&
-              pluginLoaderEligibleForCurseforge(lock.loader.plugins!));
+              (registry[lock.loader.plugins]?.curseforgePlugins ?? false));
       if (cf == null ||
           !eligible ||
           yaml.sectionEntries(section)[entry.slug]?.allowHashMismatch == true) {
@@ -60,21 +60,18 @@ Map<String, dynamic> buildCurseForgeManifest({
       'mods.lock has no concrete loader version. Re-run `gitrinth get`.',
     );
   }
+  final archiveToken = registry[lock.loader.mods]?.curseforgeArchiveToken;
+  if (lock.loader.hasModRuntime && archiveToken == null) {
+    throw ValidationError(
+      'Loader ${lock.loader.mods.name} has no CurseForge archive metadata capability.',
+    );
+  }
   return {
     'minecraft': {
       'version': lock.mcVersion,
       'modLoaders': [
         if (lock.loader.hasModRuntime)
-          {
-            'id':
-                '${switch (lock.loader.mods) {
-                  ModLoader.fabric => 'fabric',
-                  ModLoader.neoforge => 'neoforge',
-                  ModLoader.forge => 'forge',
-                  ModLoader.vanilla => '',
-                }}-$version',
-            'primary': true,
-          },
+          {'id': '$archiveToken-$version', 'primary': true},
       ],
     },
     'manifestType': 'minecraftModpack',

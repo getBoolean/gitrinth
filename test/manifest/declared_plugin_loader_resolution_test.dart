@@ -98,7 +98,7 @@ mods:
 
   group('DeclaredPluginLoaderResolution.resolveWith', () {
     test('non-sponge declared loaders pass through every mod loader', () {
-      const passthrough = {
+      final passthrough = {
         DeclaredPluginLoader.bukkit: PluginLoader.bukkit,
         DeclaredPluginLoader.folia: PluginLoader.folia,
         DeclaredPluginLoader.paper: PluginLoader.paper,

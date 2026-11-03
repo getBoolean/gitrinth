@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../app/env.dart';
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -105,6 +106,16 @@ abstract class PublicationCommand extends GitrinthCommand {
       );
   }
 
+  String _publishLoaderToken(LoaderId id, String host) {
+    final token = read(loaderRegistryProvider)[id]?.modrinthTag(host);
+    if (token == null) {
+      throw ValidationError(
+        'Loader ${id.name} has no Modrinth publish mapping for $host.',
+      );
+    }
+    return token;
+  }
+
   @override
   Future<int> run() async {
     if (argResults!.rest.isNotEmpty) {
@@ -125,6 +136,7 @@ abstract class PublicationCommand extends GitrinthCommand {
         throw UserError('${target.name} is not selected by publish_to.');
       }
     }
+    await prepareLoaderRegistry(container, yaml, offline: true);
     final plans = _preparePublications(yaml, io, targets);
     final dryRun = argResults!['dry-run'] as bool;
     if (!dryRun && !(argResults!['force'] as bool)) {
@@ -216,6 +228,7 @@ abstract class PublicationCommand extends GitrinthCommand {
       if (lock != null) {
         if (target == SourceKind.modrinth) {
           buildIndex(
+            registry: read(loaderRegistryProvider),
             yaml: yaml,
             lock: lock,
             target: PackTarget.client,
@@ -223,6 +236,7 @@ abstract class PublicationCommand extends GitrinthCommand {
           );
         } else {
           buildCurseForgeManifest(
+            registry: read(loaderRegistryProvider),
             yaml: yaml,
             lock: lock,
             target: PackTarget.client,
@@ -273,7 +287,9 @@ abstract class PublicationCommand extends GitrinthCommand {
                   'dependencies': const <Map<String, dynamic>>[],
                   'game_versions': List<String>.unmodifiable([yaml.mcVersion]),
                   'version_type': versionType,
-                  'loaders': List<String>.unmodifiable([yaml.loader.mods.name]),
+                  'loaders': List<String>.unmodifiable([
+                    _publishLoaderToken(yaml.loader.mods, target.serverUrl),
+                  ]),
                   'featured': false,
                   'status': draft ? 'draft' : 'listed',
                   'project_id': yaml.slug,

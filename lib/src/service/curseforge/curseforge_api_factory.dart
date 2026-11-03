@@ -54,6 +54,29 @@ class CurseForgeApiFactory {
     return cf;
   }
 
+  /// Raw provider catalog retains numeric loader types and version names.
+  Future<List<Map<String, dynamic>>> listMinecraftLoaders() async {
+    api; // Initialize the same authenticated bundle used by resolution.
+    final client = dio;
+    if (client == null) {
+      throw StateError('CurseForge bundle was not initialized.');
+    }
+    final response = await client.get<dynamic>(
+      '$baseUrl/v1/minecraft/modloader',
+      options: Options(extra: const {kCurseForgeAuthRequired: true}),
+    );
+    final raw = response.data;
+    final data = raw is Map ? raw['data'] : null;
+    if (data is! List) {
+      throw const FormatException(
+        'CurseForge loader catalog must contain a data list.',
+      );
+    }
+    return data
+        .map((entry) => Map<String, dynamic>.from(entry as Map))
+        .toList();
+  }
+
   /// Returns the underlying [Dio] for the cached bundle. Visible for
   /// tests that need to inspect interceptor wiring.
   Dio? get dio => _bundle?.dio;
