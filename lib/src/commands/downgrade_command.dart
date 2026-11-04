@@ -6,7 +6,7 @@ import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
 import '../model/resolver/version_selection.dart';
 import '../service/manifest_io.dart';
-import '../service/solve_report.dart';
+import '../service/resolve/solve_report.dart';
 
 class DowngradeCommand extends GitrinthCommand with OfflineFlag {
   @override

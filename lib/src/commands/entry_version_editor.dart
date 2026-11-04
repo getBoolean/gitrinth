@@ -1,0 +1,44 @@
+import 'package:yaml/yaml.dart';
+import 'package:yaml_edit/yaml_edit.dart';
+
+import '../cli/exceptions.dart';
+import '../model/manifest/mods_yaml.dart';
+import '../util/yaml_root.dart';
+import 'add_command_editor.dart';
+
+String rewriteEntryVersion(
+  String yamlText, {
+  required Section section,
+  required String slug,
+  required String version,
+  required String missingVersionAction,
+}) {
+  final editor = YamlEditor(yamlText);
+  final sectionKey = sectionKeyFor(section);
+  final root = parseYamlRoot(editor, filename: 'mods.yaml');
+  final sectionNode = root.nodes[sectionKey];
+  if (sectionNode == null || sectionNode.value == null) {
+    throw UserError("'$slug' not found under '$sectionKey' in mods.yaml.");
+  }
+  if (sectionNode is! YamlMap) {
+    throw UserError(
+      "mods.yaml section '$sectionKey' is not a mapping; cannot edit.",
+    );
+  }
+  final entryNode = sectionNode.nodes[slug];
+  if (entryNode == null) {
+    throw UserError("'$slug' not found under '$sectionKey' in mods.yaml.");
+  }
+  if (entryNode is YamlMap) {
+    if (!entryNode.containsKey('version')) {
+      throw UserError(
+        "'$slug' has no `version:` field — likely a url/path source; "
+        'cannot $missingVersionAction.',
+      );
+    }
+    editor.update([sectionKey, slug, 'version'], version);
+  } else {
+    editor.update([sectionKey, slug], version);
+  }
+  return editor.toString();
+}

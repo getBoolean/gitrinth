@@ -40,8 +40,8 @@ void main() {
         expect(mods, contains('name: example_modpack'));
         expect(mods, contains('loader:'));
         expect(mods, contains('mods: neoforge'));
-        expect(mods, contains('mc-version: 1.21.1'));
-        expect(mods, contains('tooling:'));
+        expect(mods, contains('mc_version: 1.21.1'));
+        expect(mods, contains('gitrinth:'));
 
         expect(File(p.join(target, 'README.md')).existsSync(), isTrue);
         expect(File(p.join(target, '.gitignore')).existsSync(), isTrue);
@@ -127,7 +127,7 @@ void main() {
 
       final mods = File(p.join(target, 'mods.yaml')).readAsStringSync();
       expect(mods, contains('mods: fabric'));
-      expect(mods, contains('mc-version: 1.20.1'));
+      expect(mods, contains('mc_version: 1.20.1'));
     });
 
     test(

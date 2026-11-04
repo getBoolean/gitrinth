@@ -41,6 +41,13 @@ class ProjectMapper extends ClassMapperBase<Project> {
     opt: true,
     def: const [],
   );
+  static List<String> _$categories(Project v) => v.categories;
+  static const Field<Project, List<String>> _f$categories = Field(
+    'categories',
+    _$categories,
+    opt: true,
+    def: const [],
+  );
 
   @override
   final MappableFields<Project> fields = const {
@@ -49,6 +56,7 @@ class ProjectMapper extends ClassMapperBase<Project> {
     #title: _f$title,
     #projectType: _f$projectType,
     #loaders: _f$loaders,
+    #categories: _f$categories,
   };
 
   static Project _instantiate(DecodingData data) {
@@ -58,6 +66,7 @@ class ProjectMapper extends ClassMapperBase<Project> {
       title: data.dec(_f$title),
       projectType: data.dec(_f$projectType),
       loaders: data.dec(_f$loaders),
+      categories: data.dec(_f$categories),
     );
   }
 
@@ -119,12 +128,14 @@ extension ProjectValueCopy<$R, $Out> on ObjectCopyWith<$R, Project, $Out> {
 abstract class ProjectCopyWith<$R, $In extends Project, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get loaders;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get categories;
   $R call({
     String? id,
     String? slug,
     String? title,
     String? projectType,
     List<String>? loaders,
+    List<String>? categories,
   });
   ProjectCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -145,12 +156,20 @@ class _ProjectCopyWithImpl<$R, $Out>
         (v) => call(loaders: v),
       );
   @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get categories =>
+      ListCopyWith(
+        $value.categories,
+        (v, t) => ObjectCopyWith(v, $identity, t),
+        (v) => call(categories: v),
+      );
+  @override
   $R call({
     String? id,
     String? slug,
     String? title,
     String? projectType,
     List<String>? loaders,
+    List<String>? categories,
   }) => $apply(
     FieldCopyWithData({
       if (id != null) #id: id,
@@ -158,6 +177,7 @@ class _ProjectCopyWithImpl<$R, $Out>
       if (title != null) #title: title,
       if (projectType != null) #projectType: projectType,
       if (loaders != null) #loaders: loaders,
+      if (categories != null) #categories: categories,
     }),
   );
   @override
@@ -167,6 +187,7 @@ class _ProjectCopyWithImpl<$R, $Out>
     title: data.get(#title, or: $value.title),
     projectType: data.get(#projectType, or: $value.projectType),
     loaders: data.get(#loaders, or: $value.loaders),
+    categories: data.get(#categories, or: $value.categories),
   );
 
   @override

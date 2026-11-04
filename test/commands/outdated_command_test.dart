@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:gitrinth/src/model/manifest/emitter.dart';
+import 'package:gitrinth/src/model/manifest/mods_lock.dart';
+import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -50,7 +53,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -77,7 +80,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -103,7 +106,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -123,7 +126,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -141,6 +144,82 @@ mods:
     expect(entry['latest']['version'], '1.5.0');
     expect(entry['kind'], 'direct');
     expect(entry['source'], 'modrinth');
+    expect(entry['has_modrinth_source'], isTrue);
+  });
+
+  test('--json preserves source labels for all artifact kinds', () async {
+    await writeManifest('''
+slug: pack
+name: Pack
+version: 1.0.0
+description: test
+mc_version: 1.21.1
+loader:
+  mods: "neoforge:21.1.50"
+mods: {}
+''');
+    const mr = LockedModrinthSource(
+      projectId: 'p',
+      versionId: 'v',
+      file: LockedFile(name: 'mr.jar'),
+    );
+    const cf = LockedCurseforgeSource(
+      projectId: 42,
+      fileId: 7,
+      file: LockedFile(name: 'cf.jar'),
+    );
+    final lock = ModsLock(
+      gitrinthVersion: '0.1.0',
+      loader: const LoaderConfig(
+        mods: ModLoader.neoforge,
+        modLoaderVersion: '21.1.50',
+      ),
+      mcVersion: '1.21.1',
+      mods: const {
+        'mr': LockedEntry(
+          slug: 'mr',
+          kind: LockedEntryKind.resolved,
+          modrinth: mr,
+        ),
+        'cf': LockedEntry(
+          slug: 'cf',
+          kind: LockedEntryKind.resolved,
+          curseforge: cf,
+        ),
+        'dual': LockedEntry(
+          slug: 'dual',
+          kind: LockedEntryKind.resolved,
+          modrinth: mr,
+          curseforge: cf,
+        ),
+        'url': LockedEntry(
+          slug: 'url',
+          kind: LockedEntryKind.url,
+          url: 'https://example.com/mod.jar',
+        ),
+        'path': LockedEntry(
+          slug: 'path',
+          kind: LockedEntryKind.path,
+          path: './mod.jar',
+        ),
+      },
+    );
+    File(
+      p.join(packDir.path, 'mods.lock'),
+    ).writeAsStringSync(emitModsLock(lock));
+    final out = await runOutdated(['--json', '--offline']);
+    expect(out.exitCode, 0, reason: out.stderr);
+    final rows = (jsonDecode(out.stdout) as Map)['packages'] as List;
+    expect(
+      {for (final row in rows) row['slug']: row['source']},
+      {
+        'mr': 'modrinth',
+        'cf': 'curseforge',
+        'dual': 'modrinth',
+        'url': 'url',
+        'path': 'path',
+      },
+    );
   });
 
   test('errors out when mods.lock is missing', () async {
@@ -151,7 +230,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');

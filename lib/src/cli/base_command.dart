@@ -2,15 +2,25 @@ import 'package:args/command_runner.dart';
 import 'package:riverpod/riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/version_selection.dart';
 import '../service/console.dart';
 import '../service/manifest_io.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/resolve/resolve_and_sync.dart';
 import 'exceptions.dart';
 import 'runner.dart';
 
 abstract class GitrinthCommand extends Command<int> {
+  GitrinthCommand() {
+    argParser.addOption(
+      'loader-descriptors',
+      valueHelp: 'path',
+      help:
+          'User-level declarative loader mappings (defaults to loaders.yaml beside user config).',
+    );
+  }
+
   GitrinthRunner get gitrinthRunner => runner as GitrinthRunner;
 
   ProviderContainer get container => gitrinthRunner.container;
@@ -75,13 +85,21 @@ abstract class GitrinthCommand extends Command<int> {
     bool enforce = false,
     Set<String> freshSlugs = const {},
     Set<String> relaxConstraints = const {},
+    Set<String> allowMissingSourcesForSlugs = const {},
     ModsYaml? manifestOverride,
     SolveType solveType = SolveType.get,
-  }) {
+  }) async {
+    final registry = await prepareLoaderRegistry(
+      container,
+      manifestOverride ?? io.readModsYaml(),
+      offline: offline,
+    );
     return resolveAndSync(
       io: io,
+      loaderRegistry: registry,
       console: console,
-      api: read(modrinthApiProvider),
+      apiFactory: read(modrinthApiFactoryProvider),
+      cfFactory: read(curseForgeApiFactoryProvider),
       cache: read(cacheProvider),
       downloader: read(downloaderProvider),
       modLoaderResolver: read(modLoaderVersionResolverProvider),
@@ -89,8 +107,12 @@ abstract class GitrinthCommand extends Command<int> {
       offline: offline,
       dryRun: dryRun,
       enforce: enforce,
+      noSearch:
+          argResults?.options.contains('search') == true &&
+          !(argResults!['search'] as bool),
       freshSlugs: freshSlugs,
       relaxConstraints: relaxConstraints,
+      allowMissingSourcesForSlugs: allowMissingSourcesForSlugs,
       manifestOverride: manifestOverride,
       solveType: solveType,
     );

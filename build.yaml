@@ -27,4 +27,5 @@ targets:
       retrofit_generator:
         enabled: true
         generate_for:
-          - lib/src/service/modrinth_api.dart
+          - lib/src/service/modrinth/modrinth_api.dart
+          - lib/src/service/curseforge/curseforge_api.dart

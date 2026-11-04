@@ -37,13 +37,15 @@ loader:
   shaders: iris # Enum: iris, optifine, canvas, vanilla.
   # plugins: sponge # Enum: sponge, bukkit, folia, paper, spigot.
 
-mc-version: 1.21.1 # Exact version only — no ranges.
+mc_version: 1.21.1 # Exact version only — no ranges.
 
-tooling:
-  gitrinth: ">=1.0.0 < 2.0.0" # Semver range constraint on the gitrinth CLI version.
+gitrinth:
+  version: ">=1.0.0 < 2.0.0" # Semver range constraint on the gitrinth CLI version.
 
 mods:
-  # Keys are Modrinth project slugs (modrinth.com/mod/<slug>).
+  # Keys are local identifiers; default to the Modrinth project slug
+  # (modrinth.com/mod/<slug>). Use `modrinth:` / `curseforge:` to
+  # override the platform's slug when the section key differs.
   # Caution: `url` and `path` sources make the modpack unpublishable on modrinth.
   create: ^6.0.10 # Downloads version 6.0.10+mc1.21.1 or later stable 6.x releases.
   create-aeronautics: ^1.1.3 # 1.1.0+mc1.21.1
@@ -66,7 +68,7 @@ mods:
     # both. Set a side to `unsupported` to drop it there.
     client: required
     server: unsupported
-    accepts-mc:
+    accepts_mc:
       - 1.21.1 # Use a mod that doesn't declare mc-version support
   netherportalfix:
     version: ^21.1.1
@@ -75,7 +77,7 @@ mods:
     server: required
   appleskin:
     version: ^3.0.9
-    accepts-mc: 1.21.1 # Scalar shorthand for [1.21.1]
+    accepts_mc: 1.21.1 # Scalar shorthand for [1.21.1]
   globalpacks: ^21.0.6
   # Semver range constraint — quote because bare < and > would
   # confuse the YAML parser. Pairs of bounds intersect; either side
@@ -99,7 +101,7 @@ plugins:
 project_overrides:
   # jei:
   #   version: 19.27.0.340
-  #   # hosted: https://some-modrinth-server.com # Optional. Specify a custom modrinth server to download the mod from.
+  #   # modrinth_host: https://some-modrinth-server.com # Optional. Specify a custom Modrinth-compatible server to download the mod from.
   #   # url: https://example.com/path/to/jei.jar
   #   # path: ./path/to/jei.jar # Optional. Specify a local path to a mod instead of downloading it from modrinth.
 

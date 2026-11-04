@@ -15,7 +15,7 @@ version: 0.1.0
 description: x
 loader:
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
         final m = parseModsYaml(yaml, filePath: 'mods.yaml');
         expect(m.loader.mods, ModLoader.vanilla);
@@ -30,7 +30,7 @@ slug: pack
 name: Pack
 version: 0.1.0
 description: x
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.loader.mods, ModLoader.vanilla);
@@ -45,7 +45,7 @@ version: 0.1.0
 description: x
 loader:
   mods: vanilla
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       final m = parseModsYaml(yaml, filePath: 'mods.yaml');
       expect(m.loader.mods, ModLoader.vanilla);
@@ -60,7 +60,7 @@ version: 0.1.0
 description: x
 loader:
   mods: vanilla:1.0
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
       expect(
         () => parseModsYaml(yaml, filePath: 'mods.yaml'),
@@ -82,7 +82,7 @@ version: 0.1.0
 description: x
 loader:
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: release
 ''';
@@ -106,7 +106,7 @@ version: 0.1.0
 description: x
 loader:
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
 plugins:
   luckperms: release

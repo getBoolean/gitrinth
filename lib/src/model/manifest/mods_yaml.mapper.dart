@@ -58,180 +58,6 @@ extension SpongeLoaderMapperExtension on SpongeLoader {
   }
 }
 
-class ModLoaderMapper extends EnumMapper<ModLoader> {
-  ModLoaderMapper._();
-
-  static ModLoaderMapper? _instance;
-  static ModLoaderMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = ModLoaderMapper._());
-    }
-    return _instance!;
-  }
-
-  static ModLoader fromValue(dynamic value) {
-    ensureInitialized();
-    return MapperContainer.globals.fromValue(value);
-  }
-
-  @override
-  ModLoader decode(dynamic value) {
-    switch (value) {
-      case r'forge':
-        return ModLoader.forge;
-      case r'fabric':
-        return ModLoader.fabric;
-      case r'neoforge':
-        return ModLoader.neoforge;
-      case r'vanilla':
-        return ModLoader.vanilla;
-      default:
-        throw MapperException.unknownEnumValue(value);
-    }
-  }
-
-  @override
-  dynamic encode(ModLoader self) {
-    switch (self) {
-      case ModLoader.forge:
-        return r'forge';
-      case ModLoader.fabric:
-        return r'fabric';
-      case ModLoader.neoforge:
-        return r'neoforge';
-      case ModLoader.vanilla:
-        return r'vanilla';
-    }
-  }
-}
-
-extension ModLoaderMapperExtension on ModLoader {
-  String toValue() {
-    ModLoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<ModLoader>(this) as String;
-  }
-}
-
-class ShaderLoaderMapper extends EnumMapper<ShaderLoader> {
-  ShaderLoaderMapper._();
-
-  static ShaderLoaderMapper? _instance;
-  static ShaderLoaderMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = ShaderLoaderMapper._());
-    }
-    return _instance!;
-  }
-
-  static ShaderLoader fromValue(dynamic value) {
-    ensureInitialized();
-    return MapperContainer.globals.fromValue(value);
-  }
-
-  @override
-  ShaderLoader decode(dynamic value) {
-    switch (value) {
-      case r'iris':
-        return ShaderLoader.iris;
-      case r'optifine':
-        return ShaderLoader.optifine;
-      case r'canvas':
-        return ShaderLoader.canvas;
-      case r'vanilla':
-        return ShaderLoader.vanilla;
-      default:
-        throw MapperException.unknownEnumValue(value);
-    }
-  }
-
-  @override
-  dynamic encode(ShaderLoader self) {
-    switch (self) {
-      case ShaderLoader.iris:
-        return r'iris';
-      case ShaderLoader.optifine:
-        return r'optifine';
-      case ShaderLoader.canvas:
-        return r'canvas';
-      case ShaderLoader.vanilla:
-        return r'vanilla';
-    }
-  }
-}
-
-extension ShaderLoaderMapperExtension on ShaderLoader {
-  String toValue() {
-    ShaderLoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<ShaderLoader>(this) as String;
-  }
-}
-
-class PluginLoaderMapper extends EnumMapper<PluginLoader> {
-  PluginLoaderMapper._();
-
-  static PluginLoaderMapper? _instance;
-  static PluginLoaderMapper ensureInitialized() {
-    if (_instance == null) {
-      MapperContainer.globals.use(_instance = PluginLoaderMapper._());
-    }
-    return _instance!;
-  }
-
-  static PluginLoader fromValue(dynamic value) {
-    ensureInitialized();
-    return MapperContainer.globals.fromValue(value);
-  }
-
-  @override
-  PluginLoader decode(dynamic value) {
-    switch (value) {
-      case r'bukkit':
-        return PluginLoader.bukkit;
-      case r'folia':
-        return PluginLoader.folia;
-      case r'paper':
-        return PluginLoader.paper;
-      case r'spigot':
-        return PluginLoader.spigot;
-      case r'spongeneo':
-        return PluginLoader.spongeneo;
-      case r'spongeforge':
-        return PluginLoader.spongeforge;
-      case r'spongevanilla':
-        return PluginLoader.spongevanilla;
-      default:
-        throw MapperException.unknownEnumValue(value);
-    }
-  }
-
-  @override
-  dynamic encode(PluginLoader self) {
-    switch (self) {
-      case PluginLoader.bukkit:
-        return r'bukkit';
-      case PluginLoader.folia:
-        return r'folia';
-      case PluginLoader.paper:
-        return r'paper';
-      case PluginLoader.spigot:
-        return r'spigot';
-      case PluginLoader.spongeneo:
-        return r'spongeneo';
-      case PluginLoader.spongeforge:
-        return r'spongeforge';
-      case PluginLoader.spongevanilla:
-        return r'spongevanilla';
-    }
-  }
-}
-
-extension PluginLoaderMapperExtension on PluginLoader {
-  String toValue() {
-    PluginLoaderMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<PluginLoader>(this) as String;
-  }
-}
-
 class SideEnvMapper extends EnumMapper<SideEnv> {
   SideEnvMapper._();
 
@@ -390,6 +216,99 @@ extension ChannelMapperExtension on Channel {
   }
 }
 
+class SourceKindMapper extends EnumMapper<SourceKind> {
+  SourceKindMapper._();
+
+  static SourceKindMapper? _instance;
+  static SourceKindMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = SourceKindMapper._());
+    }
+    return _instance!;
+  }
+
+  static SourceKind fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  SourceKind decode(dynamic value) {
+    switch (value) {
+      case r'modrinth':
+        return SourceKind.modrinth;
+      case r'curseforge':
+        return SourceKind.curseforge;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(SourceKind self) {
+    switch (self) {
+      case SourceKind.modrinth:
+        return r'modrinth';
+      case SourceKind.curseforge:
+        return r'curseforge';
+    }
+  }
+}
+
+extension SourceKindMapperExtension on SourceKind {
+  String toValue() {
+    SourceKindMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<SourceKind>(this) as String;
+  }
+}
+
+class GitrinthPlatformStateMapper extends EnumMapper<GitrinthPlatformState> {
+  GitrinthPlatformStateMapper._();
+
+  static GitrinthPlatformStateMapper? _instance;
+  static GitrinthPlatformStateMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = GitrinthPlatformStateMapper._());
+    }
+    return _instance!;
+  }
+
+  static GitrinthPlatformState fromValue(dynamic value) {
+    ensureInitialized();
+    return MapperContainer.globals.fromValue(value);
+  }
+
+  @override
+  GitrinthPlatformState decode(dynamic value) {
+    switch (value) {
+      case r'enabled':
+        return GitrinthPlatformState.enabled;
+      case r'disabled':
+        return GitrinthPlatformState.disabled;
+      default:
+        throw MapperException.unknownEnumValue(value);
+    }
+  }
+
+  @override
+  dynamic encode(GitrinthPlatformState self) {
+    switch (self) {
+      case GitrinthPlatformState.enabled:
+        return r'enabled';
+      case GitrinthPlatformState.disabled:
+        return r'disabled';
+    }
+  }
+}
+
+extension GitrinthPlatformStateMapperExtension on GitrinthPlatformState {
+  String toValue() {
+    GitrinthPlatformStateMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<GitrinthPlatformState>(this)
+        as String;
+  }
+}
+
 class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   LoaderConfigMapper._();
 
@@ -397,9 +316,7 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   static LoaderConfigMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = LoaderConfigMapper._());
-      ModLoaderMapper.ensureInitialized();
-      ShaderLoaderMapper.ensureInitialized();
-      PluginLoaderMapper.ensureInitialized();
+      MapperContainer.globals.useAll([LoaderIdMapper()]);
     }
     return _instance!;
   }
@@ -407,8 +324,8 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
   @override
   final String id = 'LoaderConfig';
 
-  static ModLoader _$mods(LoaderConfig v) => v.mods;
-  static const Field<LoaderConfig, ModLoader> _f$mods = Field('mods', _$mods);
+  static LoaderId _$mods(LoaderConfig v) => v.mods;
+  static const Field<LoaderConfig, LoaderId> _f$mods = Field('mods', _$mods);
   static String? _$modLoaderVersion(LoaderConfig v) => v.modLoaderVersion;
   static const Field<LoaderConfig, String> _f$modLoaderVersion = Field(
     'modLoaderVersion',
@@ -416,14 +333,14 @@ class LoaderConfigMapper extends ClassMapperBase<LoaderConfig> {
     opt: true,
     def: 'stable',
   );
-  static ShaderLoader? _$shaders(LoaderConfig v) => v.shaders;
-  static const Field<LoaderConfig, ShaderLoader> _f$shaders = Field(
+  static LoaderId? _$shaders(LoaderConfig v) => v.shaders;
+  static const Field<LoaderConfig, LoaderId> _f$shaders = Field(
     'shaders',
     _$shaders,
     opt: true,
   );
-  static PluginLoader? _$plugins(LoaderConfig v) => v.plugins;
-  static const Field<LoaderConfig, PluginLoader> _f$plugins = Field(
+  static LoaderId? _$plugins(LoaderConfig v) => v.plugins;
+  static const Field<LoaderConfig, LoaderId> _f$plugins = Field(
     'plugins',
     _$plugins,
     opt: true,
@@ -517,10 +434,10 @@ extension LoaderConfigValueCopy<$R, $Out>
 abstract class LoaderConfigCopyWith<$R, $In extends LoaderConfig, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   $R call({
-    ModLoader? mods,
+    LoaderId? mods,
     String? modLoaderVersion,
-    ShaderLoader? shaders,
-    PluginLoader? plugins,
+    LoaderId? shaders,
+    LoaderId? plugins,
     String? pluginLoaderVersion,
   });
   LoaderConfigCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -536,7 +453,7 @@ class _LoaderConfigCopyWithImpl<$R, $Out>
       LoaderConfigMapper.ensureInitialized();
   @override
   $R call({
-    ModLoader? mods,
+    LoaderId? mods,
     Object? modLoaderVersion = $none,
     Object? shaders = $none,
     Object? plugins = $none,
@@ -637,8 +554,15 @@ class ModrinthEntrySourceMapper
   @override
   final String id = 'ModrinthEntrySource';
 
+  static String? _$host(ModrinthEntrySource v) => v.host;
+  static const Field<ModrinthEntrySource, String> _f$host = Field(
+    'host',
+    _$host,
+    opt: true,
+  );
+
   @override
-  final MappableFields<ModrinthEntrySource> fields = const {};
+  final MappableFields<ModrinthEntrySource> fields = const {#host: _f$host};
 
   @override
   final String discriminatorKey = 'kind';
@@ -649,7 +573,7 @@ class ModrinthEntrySourceMapper
       EntrySourceMapper.ensureInitialized();
 
   static ModrinthEntrySource _instantiate(DecodingData data) {
-    return ModrinthEntrySource();
+    return ModrinthEntrySource(host: data.dec(_f$host));
   }
 
   @override
@@ -723,7 +647,7 @@ abstract class ModrinthEntrySourceCopyWith<
 >
     implements EntrySourceCopyWith<$R, $In, $Out> {
   @override
-  $R call();
+  $R call({String? host});
   ModrinthEntrySourceCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
   );
@@ -738,9 +662,11 @@ class _ModrinthEntrySourceCopyWithImpl<$R, $Out>
   late final ClassMapperBase<ModrinthEntrySource> $mapper =
       ModrinthEntrySourceMapper.ensureInitialized();
   @override
-  $R call() => $apply(FieldCopyWithData({}));
+  $R call({Object? host = $none}) =>
+      $apply(FieldCopyWithData({if (host != $none) #host: host}));
   @override
-  ModrinthEntrySource $make(CopyWithData data) => ModrinthEntrySource();
+  ModrinthEntrySource $make(CopyWithData data) =>
+      ModrinthEntrySource(host: data.get(#host, or: $value.host));
 
   @override
   ModrinthEntrySourceCopyWith<$R2, ModrinthEntrySource, $Out2>
@@ -1004,6 +930,7 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       ChannelMapper.ensureInitialized();
       SideEnvMapper.ensureInitialized();
       EntrySourceMapper.ensureInitialized();
+      SourceKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1053,6 +980,43 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     opt: true,
     def: const [],
   );
+  static String? _$modrinthSlug(ModEntry v) => v.modrinthSlug;
+  static const Field<ModEntry, String> _f$modrinthSlug = Field(
+    'modrinthSlug',
+    _$modrinthSlug,
+    opt: true,
+  );
+  static String? _$curseforgeSlug(ModEntry v) => v.curseforgeSlug;
+  static const Field<ModEntry, String> _f$curseforgeSlug = Field(
+    'curseforgeSlug',
+    _$curseforgeSlug,
+    opt: true,
+  );
+  static Set<SourceKind>? _$sources(ModEntry v) => v.sources;
+  static const Field<ModEntry, Set<SourceKind>> _f$sources = Field(
+    'sources',
+    _$sources,
+    opt: true,
+  );
+  static int? _$hashScanDepth(ModEntry v) => v.hashScanDepth;
+  static const Field<ModEntry, int> _f$hashScanDepth = Field(
+    'hashScanDepth',
+    _$hashScanDepth,
+    opt: true,
+  );
+  static bool? _$allowHashMismatch(ModEntry v) => v.allowHashMismatch;
+  static const Field<ModEntry, bool> _f$allowHashMismatch = Field(
+    'allowHashMismatch',
+    _$allowHashMismatch,
+    opt: true,
+  );
+  static bool _$noCrossPlatformSearch(ModEntry v) => v.noCrossPlatformSearch;
+  static const Field<ModEntry, bool> _f$noCrossPlatformSearch = Field(
+    'noCrossPlatformSearch',
+    _$noCrossPlatformSearch,
+    opt: true,
+    def: false,
+  );
 
   @override
   final MappableFields<ModEntry> fields = const {
@@ -1063,6 +1027,12 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
     #server: _f$server,
     #source: _f$source,
     #acceptsMc: _f$acceptsMc,
+    #modrinthSlug: _f$modrinthSlug,
+    #curseforgeSlug: _f$curseforgeSlug,
+    #sources: _f$sources,
+    #hashScanDepth: _f$hashScanDepth,
+    #allowHashMismatch: _f$allowHashMismatch,
+    #noCrossPlatformSearch: _f$noCrossPlatformSearch,
   };
 
   static ModEntry _instantiate(DecodingData data) {
@@ -1074,6 +1044,12 @@ class ModEntryMapper extends ClassMapperBase<ModEntry> {
       server: data.dec(_f$server),
       source: data.dec(_f$source),
       acceptsMc: data.dec(_f$acceptsMc),
+      modrinthSlug: data.dec(_f$modrinthSlug),
+      curseforgeSlug: data.dec(_f$curseforgeSlug),
+      sources: data.dec(_f$sources),
+      hashScanDepth: data.dec(_f$hashScanDepth),
+      allowHashMismatch: data.dec(_f$allowHashMismatch),
+      noCrossPlatformSearch: data.dec(_f$noCrossPlatformSearch),
     );
   }
 
@@ -1144,6 +1120,12 @@ abstract class ModEntryCopyWith<$R, $In extends ModEntry, $Out>
     SideEnv? server,
     EntrySource? source,
     List<String>? acceptsMc,
+    String? modrinthSlug,
+    String? curseforgeSlug,
+    Set<SourceKind>? sources,
+    int? hashScanDepth,
+    bool? allowHashMismatch,
+    bool? noCrossPlatformSearch,
   });
   ModEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1175,6 +1157,12 @@ class _ModEntryCopyWithImpl<$R, $Out>
     SideEnv? server,
     EntrySource? source,
     List<String>? acceptsMc,
+    Object? modrinthSlug = $none,
+    Object? curseforgeSlug = $none,
+    Object? sources = $none,
+    Object? hashScanDepth = $none,
+    Object? allowHashMismatch = $none,
+    bool? noCrossPlatformSearch,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
@@ -1184,6 +1172,13 @@ class _ModEntryCopyWithImpl<$R, $Out>
       if (server != null) #server: server,
       if (source != null) #source: source,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
+      if (modrinthSlug != $none) #modrinthSlug: modrinthSlug,
+      if (curseforgeSlug != $none) #curseforgeSlug: curseforgeSlug,
+      if (sources != $none) #sources: sources,
+      if (hashScanDepth != $none) #hashScanDepth: hashScanDepth,
+      if (allowHashMismatch != $none) #allowHashMismatch: allowHashMismatch,
+      if (noCrossPlatformSearch != null)
+        #noCrossPlatformSearch: noCrossPlatformSearch,
     }),
   );
   @override
@@ -1195,12 +1190,181 @@ class _ModEntryCopyWithImpl<$R, $Out>
     server: data.get(#server, or: $value.server),
     source: data.get(#source, or: $value.source),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
+    modrinthSlug: data.get(#modrinthSlug, or: $value.modrinthSlug),
+    curseforgeSlug: data.get(#curseforgeSlug, or: $value.curseforgeSlug),
+    sources: data.get(#sources, or: $value.sources),
+    hashScanDepth: data.get(#hashScanDepth, or: $value.hashScanDepth),
+    allowHashMismatch: data.get(
+      #allowHashMismatch,
+      or: $value.allowHashMismatch,
+    ),
+    noCrossPlatformSearch: data.get(
+      #noCrossPlatformSearch,
+      or: $value.noCrossPlatformSearch,
+    ),
   );
 
   @override
   ModEntryCopyWith<$R2, ModEntry, $Out2> $chain<$R2, $Out2>(
     Then<$Out2, $R2> t,
   ) => _ModEntryCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class GitrinthConfigMapper extends ClassMapperBase<GitrinthConfig> {
+  GitrinthConfigMapper._();
+
+  static GitrinthConfigMapper? _instance;
+  static GitrinthConfigMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = GitrinthConfigMapper._());
+      GitrinthPlatformStateMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'GitrinthConfig';
+
+  static String? _$version(GitrinthConfig v) => v.version;
+  static const Field<GitrinthConfig, String> _f$version = Field(
+    'version',
+    _$version,
+    opt: true,
+  );
+  static GitrinthPlatformState _$modrinth(GitrinthConfig v) => v.modrinth;
+  static const Field<GitrinthConfig, GitrinthPlatformState> _f$modrinth = Field(
+    'modrinth',
+    _$modrinth,
+    opt: true,
+    def: GitrinthPlatformState.enabled,
+  );
+  static GitrinthPlatformState _$curseforge(GitrinthConfig v) => v.curseforge;
+  static const Field<GitrinthConfig, GitrinthPlatformState> _f$curseforge =
+      Field(
+        'curseforge',
+        _$curseforge,
+        opt: true,
+        def: GitrinthPlatformState.disabled,
+      );
+
+  @override
+  final MappableFields<GitrinthConfig> fields = const {
+    #version: _f$version,
+    #modrinth: _f$modrinth,
+    #curseforge: _f$curseforge,
+  };
+
+  static GitrinthConfig _instantiate(DecodingData data) {
+    return GitrinthConfig(
+      version: data.dec(_f$version),
+      modrinth: data.dec(_f$modrinth),
+      curseforge: data.dec(_f$curseforge),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static GitrinthConfig fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<GitrinthConfig>(map);
+  }
+
+  static GitrinthConfig fromJson(String json) {
+    return ensureInitialized().decodeJson<GitrinthConfig>(json);
+  }
+}
+
+mixin GitrinthConfigMappable {
+  String toJson() {
+    return GitrinthConfigMapper.ensureInitialized().encodeJson<GitrinthConfig>(
+      this as GitrinthConfig,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return GitrinthConfigMapper.ensureInitialized().encodeMap<GitrinthConfig>(
+      this as GitrinthConfig,
+    );
+  }
+
+  GitrinthConfigCopyWith<GitrinthConfig, GitrinthConfig, GitrinthConfig>
+  get copyWith => _GitrinthConfigCopyWithImpl<GitrinthConfig, GitrinthConfig>(
+    this as GitrinthConfig,
+    $identity,
+    $identity,
+  );
+  @override
+  String toString() {
+    return GitrinthConfigMapper.ensureInitialized().stringifyValue(
+      this as GitrinthConfig,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return GitrinthConfigMapper.ensureInitialized().equalsValue(
+      this as GitrinthConfig,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return GitrinthConfigMapper.ensureInitialized().hashValue(
+      this as GitrinthConfig,
+    );
+  }
+}
+
+extension GitrinthConfigValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, GitrinthConfig, $Out> {
+  GitrinthConfigCopyWith<$R, GitrinthConfig, $Out> get $asGitrinthConfig =>
+      $base.as((v, t, t2) => _GitrinthConfigCopyWithImpl<$R, $Out>(v, t, t2));
+}
+
+abstract class GitrinthConfigCopyWith<$R, $In extends GitrinthConfig, $Out>
+    implements ClassCopyWith<$R, $In, $Out> {
+  $R call({
+    String? version,
+    GitrinthPlatformState? modrinth,
+    GitrinthPlatformState? curseforge,
+  });
+  GitrinthConfigCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _GitrinthConfigCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, GitrinthConfig, $Out>
+    implements GitrinthConfigCopyWith<$R, GitrinthConfig, $Out> {
+  _GitrinthConfigCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<GitrinthConfig> $mapper =
+      GitrinthConfigMapper.ensureInitialized();
+  @override
+  $R call({
+    Object? version = $none,
+    GitrinthPlatformState? modrinth,
+    GitrinthPlatformState? curseforge,
+  }) => $apply(
+    FieldCopyWithData({
+      if (version != $none) #version: version,
+      if (modrinth != null) #modrinth: modrinth,
+      if (curseforge != null) #curseforge: curseforge,
+    }),
+  );
+  @override
+  GitrinthConfig $make(CopyWithData data) => GitrinthConfig(
+    version: data.get(#version, or: $value.version),
+    modrinth: data.get(#modrinth, or: $value.modrinth),
+    curseforge: data.get(#curseforge, or: $value.curseforge),
+  );
+
+  @override
+  GitrinthConfigCopyWith<$R2, GitrinthConfig, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  ) => _GitrinthConfigCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
 class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
@@ -1211,8 +1375,10 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = ModsYamlMapper._());
       LoaderConfigMapper.ensureInitialized();
+      GitrinthConfigMapper.ensureInitialized();
       ModEntryMapper.ensureInitialized();
       FileEntryMapper.ensureInitialized();
+      SourceKindMapper.ensureInitialized();
     }
     return _instance!;
   }
@@ -1240,6 +1406,19 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
   static const Field<ModsYaml, String> _f$mcVersion = Field(
     'mcVersion',
     _$mcVersion,
+  );
+  static String? _$modrinthHost(ModsYaml v) => v.modrinthHost;
+  static const Field<ModsYaml, String> _f$modrinthHost = Field(
+    'modrinthHost',
+    _$modrinthHost,
+    opt: true,
+  );
+  static GitrinthConfig _$gitrinth(ModsYaml v) => v.gitrinth;
+  static const Field<ModsYaml, GitrinthConfig> _f$gitrinth = Field(
+    'gitrinth',
+    _$gitrinth,
+    opt: true,
+    def: const GitrinthConfig(),
   );
   static Map<String, ModEntry> _$mods(ModsYaml v) => v.mods;
   static const Field<ModsYaml, Map<String, ModEntry>> _f$mods = Field(
@@ -1287,8 +1466,8 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     opt: true,
     def: const {},
   );
-  static String? _$publishTo(ModsYaml v) => v.publishTo;
-  static const Field<ModsYaml, String> _f$publishTo = Field(
+  static Map<SourceKind, String?>? _$publishTo(ModsYaml v) => v.publishTo;
+  static const Field<ModsYaml, Map<SourceKind, String?>> _f$publishTo = Field(
     'publishTo',
     _$publishTo,
     opt: true,
@@ -1302,6 +1481,8 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
     #description: _f$description,
     #loader: _f$loader,
     #mcVersion: _f$mcVersion,
+    #modrinthHost: _f$modrinthHost,
+    #gitrinth: _f$gitrinth,
     #mods: _f$mods,
     #resourcePacks: _f$resourcePacks,
     #dataPacks: _f$dataPacks,
@@ -1320,6 +1501,8 @@ class ModsYamlMapper extends ClassMapperBase<ModsYaml> {
       description: data.dec(_f$description),
       loader: data.dec(_f$loader),
       mcVersion: data.dec(_f$mcVersion),
+      modrinthHost: data.dec(_f$modrinthHost),
+      gitrinth: data.dec(_f$gitrinth),
       mods: data.dec(_f$mods),
       resourcePacks: data.dec(_f$resourcePacks),
       dataPacks: data.dec(_f$dataPacks),
@@ -1389,6 +1572,7 @@ extension ModsYamlValueCopy<$R, $Out> on ObjectCopyWith<$R, ModsYaml, $Out> {
 abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
   LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader;
+  GitrinthConfigCopyWith<$R, GitrinthConfig, GitrinthConfig> get gitrinth;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get mods;
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
@@ -1408,6 +1592,8 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     FileEntryCopyWith<$R, FileEntry, FileEntry>
   >
   get files;
+  MapCopyWith<$R, SourceKind, String?, ObjectCopyWith<$R, String?, String?>?>?
+  get publishTo;
   $R call({
     String? slug,
     String? name,
@@ -1415,6 +1601,8 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     String? description,
     LoaderConfig? loader,
     String? mcVersion,
+    String? modrinthHost,
+    GitrinthConfig? gitrinth,
     Map<String, ModEntry>? mods,
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
@@ -1422,7 +1610,7 @@ abstract class ModsYamlCopyWith<$R, $In extends ModsYaml, $Out>
     Map<String, ModEntry>? plugins,
     Map<String, ModEntry>? projectOverrides,
     Map<String, FileEntry>? files,
-    String? publishTo,
+    Map<SourceKind, String?>? publishTo,
   });
   ModsYamlCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
 }
@@ -1438,6 +1626,9 @@ class _ModsYamlCopyWithImpl<$R, $Out>
   @override
   LoaderConfigCopyWith<$R, LoaderConfig, LoaderConfig> get loader =>
       $value.loader.copyWith.$chain((v) => call(loader: v));
+  @override
+  GitrinthConfigCopyWith<$R, GitrinthConfig, GitrinthConfig> get gitrinth =>
+      $value.gitrinth.copyWith.$chain((v) => call(gitrinth: v));
   @override
   MapCopyWith<$R, String, ModEntry, ModEntryCopyWith<$R, ModEntry, ModEntry>>
   get mods => MapCopyWith(
@@ -1493,6 +1684,15 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     (v) => call(files: v),
   );
   @override
+  MapCopyWith<$R, SourceKind, String?, ObjectCopyWith<$R, String?, String?>?>?
+  get publishTo => $value.publishTo != null
+      ? MapCopyWith(
+          $value.publishTo!,
+          (v, t) => ObjectCopyWith(v, $identity, t),
+          (v) => call(publishTo: v),
+        )
+      : null;
+  @override
   $R call({
     String? slug,
     String? name,
@@ -1500,6 +1700,8 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     String? description,
     LoaderConfig? loader,
     String? mcVersion,
+    Object? modrinthHost = $none,
+    GitrinthConfig? gitrinth,
     Map<String, ModEntry>? mods,
     Map<String, ModEntry>? resourcePacks,
     Map<String, ModEntry>? dataPacks,
@@ -1516,6 +1718,8 @@ class _ModsYamlCopyWithImpl<$R, $Out>
       if (description != null) #description: description,
       if (loader != null) #loader: loader,
       if (mcVersion != null) #mcVersion: mcVersion,
+      if (modrinthHost != $none) #modrinthHost: modrinthHost,
+      if (gitrinth != null) #gitrinth: gitrinth,
       if (mods != null) #mods: mods,
       if (resourcePacks != null) #resourcePacks: resourcePacks,
       if (dataPacks != null) #dataPacks: dataPacks,
@@ -1534,6 +1738,8 @@ class _ModsYamlCopyWithImpl<$R, $Out>
     description: data.get(#description, or: $value.description),
     loader: data.get(#loader, or: $value.loader),
     mcVersion: data.get(#mcVersion, or: $value.mcVersion),
+    modrinthHost: data.get(#modrinthHost, or: $value.modrinthHost),
+    gitrinth: data.get(#gitrinth, or: $value.gitrinth),
     mods: data.get(#mods, or: $value.mods),
     resourcePacks: data.get(#resourcePacks, or: $value.resourcePacks),
     dataPacks: data.get(#dataPacks, or: $value.dataPacks),

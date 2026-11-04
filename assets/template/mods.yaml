@@ -5,10 +5,10 @@ description: {{description}}
 
 loader:
 {{loader-block}}
-mc-version: {{mc-version}}
+mc_version: {{mc_version}}
 
-tooling:
-  gitrinth: ">={{gitrinth-version}} <{{gitrinth-next-major}}"
+gitrinth:
+  version: ">={{gitrinth-version}} <{{gitrinth-next-major}}"
 
 mods:
   globalpacks: stable

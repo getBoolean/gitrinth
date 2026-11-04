@@ -21,34 +21,51 @@ Use [`--directory`](#global-options) to target a different modpack.
 
 ## Global options
 
-| Option                     | Description                                                                             |
-|----------------------------|-----------------------------------------------------------------------------------------|
-| `-h`, `--help`             | Print usage. After a command name, prints that command's usage.                         |
-| `--version`                | Print the `gitrinth` version and exit.                                                  |
+| Option                     | Description                                                                                                                            |
+|----------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| `-h`, `--help`             | Print usage. After a command name, prints that command's usage.                                                                        |
+| `--version`                | Print the `gitrinth` version and exit.                                                                                                 |
 | `--verbosity <level>`      | Set the output floor. One of `error`, `warning`, `normal` (default), `io`, `solver`, `all`. See [Verbosity levels](#verbosity-levels). |
-| `-v`, `--verbose`          | Shorthand for `--verbosity=all`. Mutually exclusive with `--quiet` and `--verbosity`.   |
-| `-q`, `--quiet`            | Shorthand for `--verbosity=warning`. Mutually exclusive with `--verbose` and `--verbosity`. |
-| `--color` / `--no-color`   | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).           |
-| `--config <path>`          | Use an alternate user config file. Overrides `GITRINTH_CONFIG` and the platform default. |
-| `-C`, `--directory <path>` | Run as if invoked from `<path>`.                                                        |
+| `-v`, `--verbose`          | Shorthand for `--verbosity=all`. Mutually exclusive with `--quiet` and `--verbosity`.                                                  |
+| `-q`, `--quiet`            | Shorthand for `--verbosity=warning`. Mutually exclusive with `--verbose` and `--verbosity`.                                            |
+| `--color` / `--no-color`   | Force ANSI colour on or off. Defaults to auto-detection (honours `NO_COLOR`).                                                          |
+| `--config <path>`          | Use an alternate user config file. Overrides `GITRINTH_CONFIG` and the platform default.                                               |
+| `-C`, `--directory <path>` | Run as if invoked from `<path>`.                                                                                                       |
 
 ## Commands
 
+### Platform defaults and credentials
+
+`gitrinth modrinth enable|disable` and `gitrinth curseforge enable|disable`
+edit the matching `gitrinth:` setting in `mods.yaml`, preserving its version
+constraint and existing entries. They do not resolve or download artifacts.
+
+`gitrinth token add <server-url> [--token <value>]`, `token list`, and
+`token remove <server-url>` manage credentials. Without `--token`, add reads
+a hidden prompt or piped stdin. Modrinth and labrinth URLs are validated against
+their `/user` endpoint before storage. `gitrinth token add curseforge.com`
+stores a CurseForge **publish** key without invoking a Modrinth endpoint; obtain
+it from https://authors-old.curseforge.com/account/api-tokens. Listing masks
+tokens and identifies environment overrides. `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`
+overrides the stored publish key. Downloads use the separate
+`GITRINTH_CURSEFORGE_TOKEN` or embedded official-build key, never this stored key.
+The existing `gitrinth modrinth token` commands remain available.
+
 ### Dependencies
 
-| Command                   | Purpose                                                         |
-|---------------------------|-----------------------------------------------------------------|
-| [`get`](#get)             | Resolve entries, write `mods.lock`, download into the cache.    |
-| [`upgrade`](#upgrade)     | Re-resolve to the newest version allowed by each constraint.    |
-| [`downgrade`](#downgrade) | Re-resolve to the oldest version allowed by each constraint.    |
+| Command                   | Purpose                                                          |
+|---------------------------|------------------------------------------------------------------|
+| [`get`](#get)             | Resolve entries, write `mods.lock`, download into the cache.     |
+| [`upgrade`](#upgrade)     | Re-resolve to the newest version allowed by each constraint.     |
+| [`downgrade`](#downgrade) | Re-resolve to the oldest version allowed by each constraint.     |
 | [`outdated`](#outdated)   | Report locked entries that are behind newer compatible versions. |
-| [`deps`](#deps)           | Print the resolved dependency tree.                             |
-| [`migrate`](#migrate)     | Re-target the pack to a new Minecraft version or loader.        |
-| [`add`](#add)             | Add an entry to a section.                                      |
-| [`remove`](#remove)       | Remove an entry.                                                |
-| [`override`](#override)   | Add a sticky override to `project_overrides`.                   |
-| [`pin`](#pin)             | Freeze an entry to its currently-locked version.                |
-| [`unpin`](#unpin)         | Restore a caret on a pinned entry.                              |
+| [`deps`](#deps)           | Print the resolved dependency tree.                              |
+| [`migrate`](#migrate)     | Re-target the pack to a new Minecraft version or loader.         |
+| [`add`](#add)             | Add an entry to a section.                                       |
+| [`remove`](#remove)       | Remove an entry.                                                 |
+| [`override`](#override)   | Add a sticky override to `project_overrides`.                    |
+| [`pin`](#pin)             | Freeze an entry to its currently-locked version.                 |
+| [`unpin`](#unpin)         | Restore a caret on a pinned entry.                               |
 
 ### Cache
 
@@ -119,6 +136,22 @@ available versions. [`create`](#create) also accepts `--offline`,
 where it skips the slug-availability round-trip; that's the only
 network call `create` makes.
 
+CurseForge offline resolution also requires the selected file's
+`<cache>/curseforge/<projectId>/<fileId>/metadata.json` sidecar.
+Missing or corrupt metadata fails before replacing `mods.lock`; run one
+online `gitrinth get` to refresh it. Older locks still support read-only
+inspection.
+
+## Loader descriptors
+
+Commands that use loader metadata accept `--loader-descriptors <path>`.
+The default is `loaders.yaml` beside the resolved user config; a repository
+file is not loaded automatically. Loader IDs remain strings in manifests
+and locks. Discovery can add provider tags and versions; packing requires
+archive metadata, and build/launch require an installed runtime adapter.
+Quilt has a built-in adapter. See [loader capabilities](loader-descriptors.md)
+for configuration, offline snapshots, and supported strategy families.
+
 ## Command details
 
 ### `get`
@@ -127,6 +160,14 @@ Resolve every entry in `mods.yaml`, apply
 [`project_overrides`](mods-yaml.md#project_overrides), write `mods.lock`, and download
 artifacts into the cache. Does not upgrade entries already locked to a
 satisfying version — use [`upgrade`](#upgrade) for that.
+
+CurseForge files must be available and their final selected relationships
+compatible. Listings query each accepted Minecraft version within the
+10,000-result API window; oversized or incomplete histories fail explicitly.
+For a file without a download URL, the error names its project/file IDs,
+filename, and exact cache destination. Download that file manually there
+and rerun `get`; the locked hash must match. Without a verifiable hash,
+use a `path:` source. Cached peer-platform bytes do not satisfy this check.
 
 ```text
 gitrinth get [--dry-run] [--enforce-lockfile] [--offline]
@@ -150,13 +191,13 @@ gitrinth upgrade [<slug>...] [--major-versions] [--tighten]
                  [--unlock-transitive] [--dry-run] [--offline]
 ```
 
-| Option                | Description                                                                                                                                                  |
-|-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--major-versions`    | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`.                                                        |
-| `--tighten`           | After resolving, raise each caret-bound entry's lower bound in `mods.yaml` to match the resolved version.                                                    |
-| `--unlock-transitive` | Also re-resolve every entry transitively reachable from the named targets via `mods.lock` dependency edges.                                                  |
-| `--dry-run`           | Print changes without writing.                                                                                                                               |
-| `--offline`           | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.                                                       |
+| Option                | Description                                                                                                 |
+|-----------------------|-------------------------------------------------------------------------------------------------------------|
+| `--major-versions`    | Ignore caret boundaries and pick the absolute newest version. Rewrites the constraint in `mods.yaml`.       |
+| `--tighten`           | After resolving, raise each caret-bound entry's lower bound in `mods.yaml` to match the resolved version.   |
+| `--unlock-transitive` | Also re-resolve every entry transitively reachable from the named targets via `mods.lock` dependency edges. |
+| `--dry-run`           | Print changes without writing.                                                                              |
+| `--offline`           | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.      |
 
 When `--major-versions` is set, `upgrade` auto-recovers existing
 `gitrinth:disabled-by-conflict` markers (set by an earlier `migrate`):
@@ -219,12 +260,12 @@ newer version. Read-only — never writes `mods.lock`.
 gitrinth outdated [--json] [--show-all] [--no-transitive] [--offline]
 ```
 
-| Option            | Description                                                                                            |
-|-------------------|--------------------------------------------------------------------------------------------------------|
-| `--json`          | Emit a machine-readable JSON report instead of the table.                                              |
-| `--show-all`      | Include up-to-date entries in the report. Off by default.                                              |
-| `--no-transitive` | Hide entries whose `dependency:` is `transitive`. On by default (transitives shown).                   |
-| `--offline`       | Use cached versions only; do not hit the network.                                                      |
+| Option            | Description                                                                          |
+|-------------------|--------------------------------------------------------------------------------------|
+| `--json`          | Emit a machine-readable JSON report instead of the table.                            |
+| `--show-all`      | Include up-to-date entries in the report. Off by default.                            |
+| `--no-transitive` | Hide entries whose `dependency:` is `transitive`. On by default (transitives shown). |
+| `--offline`       | Use cached versions only; do not hit the network.                                    |
 
 The report has three columns:
 
@@ -264,16 +305,16 @@ gitrinth deps [<slug>] [--style <compact|tree|list>]
               [--env <client|server|both>] [--json]
 ```
 
-| Option       | Description                                                                |
-|--------------|----------------------------------------------------------------------------|
-| `<slug>`     | Limit output to a single direct entry and its transitive dependencies.     |
-| `-s, --style`| Output style: `compact`, `tree` (default), or `list`.                      |
-| `--env`      | Filter by [`environment`](mods-yaml.md#per-mod-environment). Default `both`. |
-| `--json`     | Emit a machine-readable JSON report. Mutually exclusive with `--style`.    |
+| Option        | Description                                                                  |
+|---------------|------------------------------------------------------------------------------|
+| `<slug>`      | Limit output to a single direct entry and its transitive dependencies.       |
+| `-s, --style` | Output style: `compact`, `tree` (default), or `list`.                        |
+| `--env`       | Filter by [`environment`](mods-yaml.md#per-mod-environment). Default `both`. |
+| `--json`      | Emit a machine-readable JSON report. Mutually exclusive with `--style`.      |
 
-`tree` style indents children with `├── └── │   ` connectors when
+`tree` style indents children with `├── └── │` connectors when
 the terminal supports unicode/ANSI; falls back to ASCII (`|--
-'-- |   `) otherwise. Slugs that appear more than once in the
+'-- |`) otherwise. Slugs that appear more than once in the
 graph (typical for shared transitives) render as `<slug>...` in
 gray on second and later occurrences.
 
@@ -332,6 +373,22 @@ non-zero.
 
 ### `add`
 
+Platform entries resolve against the enabled, eligible platforms. Modrinth is
+enabled by default; CurseForge is disabled. `--modrinth`, `--no-modrinth`,
+`--curseforge`, and `--no-curseforge` override those defaults for the new entry.
+Explicit choices persist as `sources:` restrictions. An automatic dual-platform
+add writes shorthand when hashes align, or a one-platform restriction when only
+one requested platform has a compatible release. A hash mismatch fails before
+writing; `--allow-hash-mismatch` persists `allow_hash_mismatch: true` to accept it.
+`--no-search` suppresses peer discovery for both preview and final resolution.
+
+`gitrinth add cf:<slug>[@<constraint>]` selects CurseForge alone without changing
+the pack defaults. All sections support this syntax; CurseForge plugin entries
+require Bukkit, Spigot, or Paper. Use `--type plugin` to select the plugin section
+in a pack that also has mods. Sponge and Folia reject explicit CurseForge plugin
+requests before querying the network. The Modrinth side uses the pack's
+`modrinth_host`, including cross-platform hash comparison on hosted servers.
+
 Add an entry to [`mods`](mods-yaml.md#mods),
 [`resource_packs`](mods-yaml.md#resource_packs),
 [`data_packs`](mods-yaml.md#data_packs),
@@ -341,7 +398,7 @@ Add an entry to [`mods`](mods-yaml.md#mods),
 ```text
 gitrinth add <slug>[@<constraint>] [--env <client|server|both>]
             [--url <url> | --path <path>]
-            [--type <mod|resourcepack|datapack|shader>]
+            [--type <mod|resourcepack|datapack|shader|plugin>]
             [--accepts-mc <mc-version>]...
             [--exact | --pin] [--dry-run] [--offline]
 ```
@@ -367,9 +424,9 @@ whose filename doesn't uniquely identify a type (non-`.jar` files).
 
 `--accepts-mc <mc-version>` widens the Modrinth `game_versions` query
 when picking a default constraint, and persists the list under
-[`accepts-mc`](mods-yaml.md#per-entry-mc-version-tolerance-accepts-mc)
+[`accepts_mc`](mods-yaml.md#per-entry-mc-version-tolerance-accepts_mc)
 on the new entry (forces long form). Use when the mod works on the
-pack's [`mc-version`](mods-yaml.md#mc-version) but the author tagged
+pack's [`mc_version`](mods-yaml.md#mc_version) but the author tagged
 only adjacent versions on Modrinth. Incompatible with `--url` /
 `--path`.
 
@@ -433,21 +490,21 @@ want a particular mod in the pack despite a declared incompatibility.
 gitrinth override <slug>[@<constraint>] [arguments]
 ```
 
-| Option | Description |
-|--------|-------------|
-| `--env client\|server\|both` | Restrict the override to a side. |
-| `--url <url>` | Use a `url:` source. |
-| `--path <path>` | Use a `path:` source. |
+| Option                                       | Description                                                                                                            |
+|----------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `--env client\|server\|both`                 | Restrict the override to a side.                                                                                       |
+| `--url <url>`                                | Use a `url:` source.                                                                                                   |
+| `--path <path>`                              | Use a `path:` source.                                                                                                  |
 | `--type mod\|resourcepack\|datapack\|shader` | Force the section used for loader filtering. Useful when the slug is purely transitive and section inference is wrong. |
-| `--accepts-mc <mc-version>` | Additively widen the Minecraft version filter for this override (repeatable). |
-| `--exact` | Caret-pin including build metadata. |
-| `--pin` | Bare-version pin. |
-| `--standalone` | Write to `project_overrides.yaml` instead of `mods.yaml`. Creates the file if it doesn't exist. |
-| `--dry-run` | Report what would change without writing or resolving. |
-| `--offline` | Skip Modrinth queries; use the cache only. |
+| `--accepts-mc <mc-version>`                  | Additively widen the Minecraft version filter for this override (repeatable).                                          |
+| `--exact`                                    | Caret-pin including build metadata.                                                                                    |
+| `--pin`                                      | Bare-version pin.                                                                                                      |
+| `--standalone`                               | Write to `project_overrides.yaml` instead of `mods.yaml`. Creates the file if it doesn't exist.                        |
+| `--dry-run`                                  | Report what would change without writing or resolving.                                                                 |
+| `--offline`                                  | Skip Modrinth queries; use the cache only.                                                                             |
 
 With no `@<constraint>`, `override` picks the latest release matching
-loader and `mc-version`. The override version is sticky — other mods'
+loader and `mc_version`. The override version is sticky — other mods'
 constraints on the same slug are silently ignored.
 
 `override` does **not** run the incompatibility-prevention check
@@ -469,10 +526,10 @@ gitrinth pin <slug> [--type <mod|resourcepack|datapack|shader>]
                     [--dry-run]
 ```
 
-| Option      | Description                                                                  |
-|-------------|------------------------------------------------------------------------------|
-| `--type`    | Disambiguate `<slug>` when it lives in multiple sections of `mods.yaml`.     |
-| `--dry-run` | Print the edit without writing.                                              |
+| Option      | Description                                                              |
+|-------------|--------------------------------------------------------------------------|
+| `--type`    | Disambiguate `<slug>` when it lives in multiple sections of `mods.yaml`. |
+| `--dry-run` | Print the edit without writing.                                          |
 
 Only applies to Modrinth-sourced entries — `url:` / `path:` entries
 have no semver to pin. Does not re-resolve: the bare version still
@@ -489,10 +546,10 @@ gitrinth unpin <slug> [--type <mod|resourcepack|datapack|shader>]
                       [--dry-run]
 ```
 
-| Option      | Description                                                                  |
-|-------------|------------------------------------------------------------------------------|
-| `--type`    | Disambiguate `<slug>` when it lives in multiple sections of `mods.yaml`.     |
-| `--dry-run` | Print the edit without writing.                                              |
+| Option      | Description                                                              |
+|-------------|--------------------------------------------------------------------------|
+| `--type`    | Disambiguate `<slug>` when it lives in multiple sections of `mods.yaml`. |
+| `--dry-run` | Print the edit without writing.                                          |
 
 Errors if the constraint already has a caret, is a channel token
 (`release`, `beta`, `alpha`), or isn't semver-shaped.
@@ -520,15 +577,15 @@ slug must be 3–64 characters from Modrinth's allowed set
 (`a-zA-Z0-9!@$()` `` ` `` `.+,_"-`); pass `--slug` to override the
 derived value.
 
-| Option            | Description                                                                                                 |
-|-------------------|-------------------------------------------------------------------------------------------------------------|
-| `--mod-loader`   | Pre-fill [`loader.mods`](mods-yaml.md#loader). Defaults to `neoforge` when no plugin loader is specified.   |
+| Option            | Description                                                                                               |
+|-------------------|-----------------------------------------------------------------------------------------------------------|
+| `--mod-loader`    | Pre-fill [`loader.mods`](mods-yaml.md#loader). Defaults to `neoforge` when no plugin loader is specified. |
 | `--plugin-loader` | Pre-fill [`loader.plugins`](mods-yaml.md#plugin-loaders). Omit `--mod-loader` for a plugin-only scaffold. |
-| `--mc-version`    | Pre-fill [`mc-version`](mods-yaml.md#mc-version). Defaults to `1.21.1`.                                     |
-| `--slug`          | Override the derived slug.                                                                                  |
-| `--name`          | Override the display [`name`](mods-yaml.md#name).                                                           |
-| `--force`         | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`.                              |
-| `--offline`       | Skip the Modrinth slug-availability check.                                                                  |
+| `--mc-version`    | Pre-fill [`mc_version`](mods-yaml.md#mc_version). Defaults to `1.21.1`.                                   |
+| `--slug`          | Override the derived slug.                                                                                |
+| `--name`          | Override the display [`name`](mods-yaml.md#name).                                                         |
+| `--force`         | Allow scaffolding into a non-empty directory; overwrites existing `mods.yaml`.                            |
+| `--offline`       | Skip the Modrinth slug-availability check.                                                                |
 
 Refuses to run when `<directory>` exists and is non-empty without
 `--force`.
@@ -561,10 +618,10 @@ description: A new Modrinth modpack.
 
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 
-tooling:
-  gitrinth: ">=0.1.0 <1.0.0"
+gitrinth:
+  version: ">=0.1.0 <1.0.0"
 
 mods:
 
@@ -585,7 +642,7 @@ or server.
 
 The server distribution includes the matching server binary for
 [`loader`](mods-yaml.md#loader) and
-[`mc-version`](mods-yaml.md#mc-version), fetched and installed
+[`mc_version`](mods-yaml.md#mc_version), fetched and installed
 automatically from the upstream Maven repositories. Fabric drops in
 `fabric-server-launch.jar`; Forge and NeoForge run their official
 installer in `--installServer` mode against `build/server/`, so the
@@ -638,7 +695,7 @@ binary path and install marker.
 
 When neither `loader.plugins` nor a real `loader.mods` is declared
 (pure-vanilla pack), `gitrinth build server` downloads the official
-Mojang `server.jar` for the pack's `mc-version` from
+Mojang `server.jar` for the pack's `mc_version` from
 `piston-meta.mojang.com`.
 
 #### Prune behavior
@@ -709,17 +766,18 @@ Non-existent paths are a silent no-op.
 
 ### `pack`
 
-Modpack-specific. Produce Modrinth `.mrpack` archives.
+Modpack-specific. Produce Modrinth `.mrpack` archives or CurseForge `.zip` archives.
 
 ```text
-gitrinth pack [--output <path>] [--combined] [--publishable] [--offline]
+gitrinth pack [--output <path>] [--combined] [--curseforge] [--server-distribution] [--publishable] [--offline]
 ```
 
 | Option           | Description                                                                                                                                       |
 |------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--output`, `-o` | Override the base output path. Defaults to `./build/<slug>-<version>.mrpack`. The server pack is derived by inserting `-server` before `.mrpack`. |
 | `--combined`     | Produce a single `.mrpack` that contains both client and server files instead of a client + server pair.                                          |
-| `--publishable`  | Refuse to pack if any [`mods`](mods-yaml.md#mods) entry uses a `url` or `path` source. Other sections are unaffected.                             |
+| `--publishable` | Refuse entries unavailable on the selected platform or marked `allow_hash_mismatch: true`, scoped to the side being built. |
+| `--curseforge` | Write CurseForge `manifest.json` plus `overrides/` in `.zip` archives. |
 | `--offline`      | Use cached versions only; do not hit the network. Resolution narrows to versions already in the cache.                                            |
 
 By default `pack` produces two artifacts:
@@ -750,11 +808,25 @@ written, containing every file partitioned by the per-file `env` map.
 list because every entry there needs a Modrinth CDN URL, so they are
 packed as loose files under `overrides/<subdir>/<filename>` (routed to
 `client-overrides/` / `server-overrides/` when their `environment`
-narrows the side). `--publishable` gates this for the
-[`mods`](mods-yaml.md#mods) section only, since per Modrinth's policy
-executable mod artifacts require explicit author permission to
-redistribute. Resource packs, data packs, and shaders remain free to
-bundle non-Modrinth artifacts even with `--publishable`.
+narrows the side). Entries missing the selected target platform are
+also bundled loose, with author permission. `--publishable` rejects
+these entries across all content sections and also rejects entries
+marked `allow_hash_mismatch: true`.
+
+`--curseforge` changes the extension to `.zip`, writes CurseForge
+project/file references, and routes loose files through `overrides/`.
+Side filtering still produces client/server archives by default.
+Sponge and Folia plugins cannot be CurseForge project references;
+their loose overrides retain the `plugins/<jar>` path.
+
+`pack --curseforge --server-distribution` instead writes
+`build/<slug>-<version>-server-distribution.zip` with actual server-side
+artifacts and configs at their installation paths. The legacy `-server.zip`
+contains a CurseForge manifest and remains available through the default
+`pack --curseforge` invocation. The distribution excludes client-only files,
+private cache/credential paths, and EULA acceptance files. Explicit CurseForge
+redistribution denial prevents bundling those bytes. This mode does not bundle
+a runtime or start a server; install the matching runtime separately.
 
 [`files:`](mods-yaml.md#files) entries are bundled the same way: the
 destination key carries the full sub-path (e.g.
@@ -789,16 +861,16 @@ gitrinth launch server [--accept-eula] [--no-build] [--memory <size>]
                        [--offline] [-- <extra args>]
 ```
 
-| Option              | Description                                                                                            |
-|---------------------|--------------------------------------------------------------------------------------------------------|
-| `--accept-eula`     | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.          |
-| `--no-build`        | Skip the implicit `gitrinth build server`. Use when the build tree is already up to date.              |
-| `--memory`, `-m`    | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.              |
-| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                            |
-| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                      |
-| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.          |
-| `--offline`         | Forwarded to the auto-build step and to the JDK auto-download fallback (both refuse network).          |
-| `-- <args>`         | Trailing args after `--` are appended to the server JVM/script invocation (e.g. `-- --port 25566`).    |
+| Option              | Description                                                                                         |
+|---------------------|-----------------------------------------------------------------------------------------------------|
+| `--accept-eula`     | Write `eula=true` into `build/server/eula.txt` before starting. You agree to the Mojang EULA.       |
+| `--no-build`        | Skip the implicit `gitrinth build server`. Use when the build tree is already up to date.           |
+| `--memory`, `-m`    | JVM heap size, applied as `-Xmx`/`-Xms`. Examples: `2G`, `4G`, `6144M`. Defaults to `2G`.           |
+| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                         |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).                   |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.       |
+| `--offline`         | Forwarded to the auto-build step and to the JDK auto-download fallback (both refuse network).       |
+| `-- <args>`         | Trailing args after `--` are appended to the server JVM/script invocation (e.g. `-- --port 25566`). |
 
 `launch server` reads `mods.lock` to pick the right command per loader:
 
@@ -819,13 +891,13 @@ gitrinth launch client [--no-build] [--output <path>]
                        [--java <path>] [--no-managed-java] [--offline]
 ```
 
-| Option              | Description                                                                                     |
-|---------------------|-------------------------------------------------------------------------------------------------|
-| `--no-build`        | Skip the implicit `gitrinth build client`. Use when the build tree is already up to date.       |
-| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                     |
-| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).               |
-| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`.   |
-| `--offline`         | Rejected — the launcher needs network on first run to download libraries and assets.            |
+| Option              | Description                                                                                   |
+|---------------------|-----------------------------------------------------------------------------------------------|
+| `--no-build`        | Skip the implicit `gitrinth build client`. Use when the build tree is already up to date.     |
+| `--output`, `-o`    | Override the build output directory. Defaults to `./build`.                                   |
+| `--java`            | `java` binary or JDK home. See [Java runtime selection](#java-runtime-selection).             |
+| `--no-managed-java` | Refuse the auto-download fallback. Requires `--java` or a satisfying JAVA_HOME / PATH-`java`. |
+| `--offline`         | Rejected — the launcher needs network on first run to download libraries and assets.          |
 
 Each modpack gets its own `.minecraft`-shaped workdir under the
 gitrinth cache at `~/.gitrinth_cache/launchers/<slug>/`. The artifact
@@ -892,7 +964,7 @@ or `:` elsewhere) — useful for portable installs and CI.
 `launch server`, `launch client`, and `build server` all need a
 JVM — the server's launch script, the loader installer, and the
 Forge/NeoForge `--installServer` step. gitrinth picks one automatically
-based on the modpack's `mc-version` so you don't have to install or
+based on the modpack's `mc_version` so you don't have to install or
 switch JDKs yourself.
 
 ##### Required JDK feature per Minecraft version
@@ -972,9 +1044,9 @@ an invalid token never lands on disk.
 gitrinth modrinth login [--token <pat>]
 ```
 
-| Option         | Description                                                                                       |
-|----------------|---------------------------------------------------------------------------------------------------|
-| `--token <pat>`| Pass the PAT directly. Designed for headless / CI use; falls back to a hidden stdin prompt when omitted. The prompted form also accepts piped stdin (e.g. `echo $TOKEN | gitrinth modrinth login`). |
+| Option          | Description                                                                                                                                                                                          |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--token <pat>` | Pass the PAT directly. Designed for headless / CI use; falls back to a hidden stdin prompt when omitted. The prompted form also accepts piped stdin (e.g. `echo $TOKEN \| gitrinth modrinth login`). |
 
 The PAT for `gitrinth modrinth publish` must include these labrinth
 scopes: `USER_READ`, `PROJECT_READ`, `VERSION_CREATE`. Generate one
@@ -1011,11 +1083,11 @@ gitrinth modrinth token list
 gitrinth modrinth token remove <server-url>
 ```
 
-| Subcommand          | Description                                                                                  |
-|---------------------|----------------------------------------------------------------------------------------------|
-| `add <server-url>`  | Validate against `<server-url>/user` and store the PAT under the normalized URL key.         |
-| `list`              | Print every stored host with its token masked (first / last 4 chars, middle elided).         |
-| `remove <server-url>`| Clear the entry. Errors when no token is stored under that key.                              |
+| Subcommand            | Description                                                                          |
+|-----------------------|--------------------------------------------------------------------------------------|
+| `add <server-url>`    | Validate against `<server-url>/user` and store the PAT under the normalized URL key. |
+| `list`                | Print every stored host with its token masked (first / last 4 chars, middle elided). |
+| `remove <server-url>` | Clear the entry. Errors when no token is stored under that key.                      |
 
 Server URLs are normalized to scheme + host + port + path before being
 used as map keys, so `https://my.host/api` and `HTTPS://my.host/api/`
@@ -1034,16 +1106,16 @@ gitrinth modrinth publish [--dry-run] [--force] [--draft]
                           [--changelog <path>] [--pack <path>]
 ```
 
-| Option                         | Description                                                                                                                                |
-|--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `--dry-run`                    | Hash the artifact and emit the JSON payload without uploading.                                                                             |
-| `-f`, `--force`                | Skip the interactive `Publish <slug> v<version> to <host>? [y/N]` confirmation. Required when stdin is not a terminal.                     |
-| `--draft`                      | Set `status: draft` instead of `status: listed` on the new version.                                                                        |
-| `--version-type <channel>`     | Modrinth version channel. Defaults to `beta` when `mods.yaml.version` carries a pre-release suffix (e.g. `1.0.0-beta.2`), else `release`.  |
-| `--changelog <path>`           | Markdown changelog. Defaults to the matching `## [<version>]` section of `CHANGELOG.md` in the project directory; absent → empty changelog.|
-| `--pack <path>`                | Override the `.mrpack` location. Defaults to `build/<slug>-<version>.mrpack` (the path produced by `gitrinth pack`).                       |
+| Option                     | Description                                                                                                                                 |
+|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `--dry-run`                | Hash the artifact and emit the JSON payload without uploading.                                                                              |
+| `-f`, `--force`            | Skip the interactive `Publish <slug> v<version> to <host>? [y/N]` confirmation. Required when stdin is not a terminal.                      |
+| `--draft`                  | Set `status: draft` instead of `status: listed` on the new version.                                                                         |
+| `--version-type <channel>` | Modrinth version channel. Defaults to `beta` when `mods.yaml.version` carries a pre-release suffix (e.g. `1.0.0-beta.2`), else `release`.   |
+| `--changelog <path>`       | Markdown changelog. Defaults to the matching `## [<version>]` section of `CHANGELOG.md` in the project directory; absent → empty changelog. |
+| `--pack <path>`            | Override the `.mrpack` location. Defaults to `build/<slug>-<version>.mrpack` (the path produced by `gitrinth pack`).                        |
 
-The target server is resolved from `mods.yaml.publish_to` if set,
+The target server is resolved from `mods.yaml.publish_to.modrinth` if set,
 otherwise from `GITRINTH_MODRINTH_URL` / the built-in default. A
 `publish_to: 'none'` disables publishing for the pack.
 
@@ -1051,6 +1123,84 @@ Authentication uses the same token resolution as the rest of the
 CLI (`GITRINTH_TOKEN` → stored token for the resolved host). If
 neither source has a token, `publish` exits with code `4` before
 hitting the network.
+
+### `publish`
+
+Publish built artifacts to every platform selected by
+[`publish_to`](mods-yaml.md#publish_to), or the enabled `gitrinth`
+platforms when that field is omitted. Build each target with `pack`
+first. Credentials and artifact paths are checked for every target
+before the first upload; a remote failure can still leave an earlier
+target successfully published.
+
+```text
+gitrinth publish --dry-run --curseforge-project 12345
+gitrinth publish --force --curseforge-project 12345
+gitrinth curseforge publish --force --curseforge-project 12345
+```
+
+Common flags match `modrinth publish`. `--curseforge-project` supplies
+the numeric project ID required by CurseForge. The default CurseForge
+artifact is `build/<slug>-<version>.zip`; `--pack` overrides the path for
+a single target, and `--curseforge-pack` overrides the ZIP path when
+publishing both. `--publishable` rejects target-missing entries and
+hash-mismatch overrides using `mods.lock` (required with this flag).
+Without it, publishing warns about content bundled as loose overrides.
+
+CurseForge authenticates with `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`, falling
+back to `gitrinth token add curseforge.com`. Its resolver download key
+cannot authorize uploads. `--draft` requests manual release after
+CurseForge approval. `--dry-run` assembles metadata without upload.
+
+To publish a client release with its actual server distribution:
+
+```console
+$ gitrinth pack --curseforge
+$ gitrinth pack --curseforge --server-distribution
+$ gitrinth curseforge publish --with-server --curseforge-project 12345 --force
+```
+
+`--with-server` prevalidates both ZIPs, uploads the client first, then uses
+its returned file ID as the server file's `parentFileID`. Override the server
+path with `--curseforge-server-pack <path>`; the default is
+`build/<slug>-<version>-server-distribution.zip`. A missing or modified server
+distribution fails preflight. A legacy manifest-server ZIP is rejected.
+`--draft` deliberately applies manual-release marking to both uploads.
+
+The documented upload API creates a generic additional-file association.
+Unless read-back confirms both the child's server-pack flag and its parent's
+server-pack file ID, the command reports **classification pending**. Open the
+matching client release in the CurseForge author console and classify the
+additional file as its server pack. Rerun the same command to verify; completed
+uploads are reused. Moderation visibility can keep classification pending.
+
+If the client succeeds and the server fails, the command exits nonzero, prints
+the surviving IDs, and supplies an exact server-only retry:
+
+```console
+$ gitrinth curseforge publish --server-only --curseforge-project 12345 --curseforge-parent-file 67890 --force
+```
+
+The printed command includes the absolute project `-C` path and preserves
+explicit `--config` and `--loader-descriptors` paths, so it can be pasted from
+the original working directory. It contains paths and IDs, never token values.
+
+The explicit parent must belong to the project and match the intended client
+release display name (`<name> <version>`) and channel. Keep the original
+`--version-type` and `--draft` settings. Server-only retries do not upload a
+client or Modrinth release; use the `curseforge publish` command when
+`publish_to` selects both platforms.
+
+Token-free receipts live under
+`.gitrinth/publications/curseforge/<projectId>/<releaseKey>.json`; this tree is
+ignored by Git. They bind artifact SHA256 hashes and per-step outcomes to the
+project, release, and endpoint. Changed artifacts require a new release rather
+than silently replacing an existing receipt. In-flight, timeout, and invalid-ID
+outcomes are unknown: inspect remote files before retrying. A server retry
+proceeds only after a unique remote file matches its parent and artifact hash,
+or the missing client outcome is supplied as an explicit verified parent ID.
+CurseForge upload POSTs are not retried automatically. A dry run prints the dependent upload plan
+without creating receipts or remote files.
 
 ### `completion`
 
@@ -1089,38 +1239,42 @@ want a particular mod in the pack despite a declared incompatibility.
 
 ## Exit codes
 
-| Code | Meaning                                                                                |
-|------|----------------------------------------------------------------------------------------|
-| `0`  | Success.                                                                               |
-| `1`  | Recoverable user-facing error.                                                         |
-| `2`  | Validation or resolution failed.                                                       |
-| `4`  | Authentication failure — no PAT configured, or upstream rejected the supplied token.   |
-| `5`  | Cache corruption `cache repair` could not fix.                                         |
-| `64` | Usage error — matches `sysexits.h` `EX_USAGE`.                                         |
+| Code | Meaning                                                                              |
+|------|--------------------------------------------------------------------------------------|
+| `0`  | Success.                                                                             |
+| `1`  | Recoverable user-facing error.                                                       |
+| `2`  | Validation or resolution failed.                                                     |
+| `4`  | Authentication failure — no PAT configured, or upstream rejected the supplied token. |
+| `5`  | Cache corruption `cache repair` could not fix.                                       |
+| `64` | Usage error — matches `sysexits.h` `EX_USAGE`.                                       |
 
 ## Environment variables
 
-| Variable                                | Used by                  | Purpose                                                                                                                                                          |
-|-----------------------------------------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `GITRINTH_CACHE`                        | every command            | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                   |
-| `GITRINTH_CONFIG`                       | every command            | Override the user config file path. `--config` wins.                                                                                                             |
-| `GITRINTH_MODRINTH_URL`                 | every command            | Override the default Modrinth API base URL.                                                                                                                      |
-| `GITRINTH_TOKEN`                        | every command            | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix) per the Modrinth auth doc. Other hosts always use the stored token.      |
-| `HOME` / `USERPROFILE`                  | every command            | Resolves the default cache root and user config path. `USERPROFILE` on Windows; `HOME` elsewhere.                                                                |
-| `JAVA_HOME`                             | `launch` / `build`       | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc-version`.                                                          |
-| `GITRINTH_JAVA_METADATA_URL`            | `launch` / `build`       | Override Adoptium metadata URL.                                                                                                                                  |
-| `GITRINTH_FABRIC_META_URL`              | every command            | Override the fabric-meta loader-list URL.                                                                                                                        |
-| `GITRINTH_FORGE_PROMOTIONS_URL`         | every command            | Override the Forge `promotions_slim.json` URL.                                                                                                                   |
-| `GITRINTH_FORGE_VERSIONS_URL`           | every command            | Override the Forge `maven-metadata.json` URL.                                                                                                                    |
-| `GITRINTH_FORGE_INSTALLER_URL`          | `build` / `launch`       | Override the Forge installer-jar URL template (`{mc}` / `{v}` placeholders).                                                                                     |
-| `GITRINTH_NEOFORGE_VERSIONS_URL`        | every command            | Override the modern NeoForge versions endpoint (MC ≥ 1.20.2).                                                                                                    |
-| `GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL` | every command            | Override the legacy NeoForge versions endpoint (MC 1.20.1).                                                                                                      |
-| `GITRINTH_NEOFORGE_INSTALLER_URL`       | `build` / `launch`       | Override the modern NeoForge installer-jar URL template.                                                                                                         |
-| `GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL`| `build` / `launch`       | Override the legacy NeoForge installer-jar URL template.                                                                                                         |
-| `GITRINTH_LAUNCHER`                     | `launch client`          | Absolute path to the Minecraft Launcher executable; bypasses per-OS search.                                                                                      |
-| `GITRINTH_LAUNCHER_SEARCH_PATHS`        | `launch client`          | Custom search paths for the Minecraft Launcher (`;`-separated on Windows, `:`-separated elsewhere). Tried before the per-OS defaults.                            |
-| `NO_COLOR`                              | every command            | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                                                  |
-| `HTTPS_PROXY` / `HTTP_PROXY`            | every command            | Standard proxy variables, honoured by every HTTP request.                                                                                                        |
+| Variable                                      | Used by            | Purpose                                                                                                                                                     |
+|-----------------------------------------------|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_CACHE`                              | every command      | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                              |
+| `GITRINTH_CONFIG`                             | every command      | Override the user config file path. `--config` wins.                                                                                                        |
+| `GITRINTH_MODRINTH_URL`                       | every command      | Override the default Modrinth API base URL.                                                                                                                 |
+| `GITRINTH_TOKEN`                              | every command      | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix) per the Modrinth auth doc. Other hosts always use the stored token. |
+| `GITRINTH_CURSEFORGE_URL`                     | every command      | Override the CurseForge download API base URL. Defaults to `https://api.curseforge.com`.                                                                    |
+| `GITRINTH_CURSEFORGE_TOKEN`                   | every command      | Override the default CurseForge download API key. This is separate from the publish key stored by `gitrinth token add curseforge.com`.                      |
+| `GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64`     | build-time         | Base64-encoded default CurseForge download API key embedded into official builds.                                                                            |
+| `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`            | `publish`          | Override the stored CurseForge publish key. Falls back to the key stored by `gitrinth token add curseforge.com`.                                            |
+| `HOME` / `USERPROFILE`                        | every command      | Resolves the default cache root and user config path. `USERPROFILE` on Windows; `HOME` elsewhere.                                                           |
+| `JAVA_HOME`                                   | `launch` / `build` | Honored by the Java resolver if its major version matches the JDK required for the pack's `mc_version`.                                                     |
+| `GITRINTH_JAVA_METADATA_URL`                  | `launch` / `build` | Override Adoptium metadata URL.                                                                                                                             |
+| `GITRINTH_FABRIC_META_URL`                    | every command      | Override the fabric-meta loader-list URL.                                                                                                                   |
+| `GITRINTH_FORGE_PROMOTIONS_URL`               | every command      | Override the Forge `promotions_slim.json` URL.                                                                                                              |
+| `GITRINTH_FORGE_VERSIONS_URL`                 | every command      | Override the Forge `maven-metadata.json` URL.                                                                                                               |
+| `GITRINTH_FORGE_INSTALLER_URL`                | `build` / `launch` | Override the Forge installer-jar URL template (`{mc}` / `{v}` placeholders).                                                                                |
+| `GITRINTH_NEOFORGE_VERSIONS_URL`              | every command      | Override the modern NeoForge versions endpoint (MC ≥ 1.20.2).                                                                                               |
+| `GITRINTH_NEOFORGE_LEGACY_VERSIONS_URL`       | every command      | Override the legacy NeoForge versions endpoint (MC 1.20.1).                                                                                                 |
+| `GITRINTH_NEOFORGE_INSTALLER_URL`             | `build` / `launch` | Override the modern NeoForge installer-jar URL template.                                                                                                    |
+| `GITRINTH_NEOFORGE_LEGACY_INSTALLER_URL`      | `build` / `launch` | Override the legacy NeoForge installer-jar URL template.                                                                                                    |
+| `GITRINTH_LAUNCHER`                           | `launch client`    | Absolute path to the Minecraft Launcher executable; bypasses per-OS search.                                                                                 |
+| `GITRINTH_LAUNCHER_SEARCH_PATHS`              | `launch client`    | Custom search paths for the Minecraft Launcher (`;`-separated on Windows, `:`-separated elsewhere). Tried before the per-OS defaults.                       |
+| `NO_COLOR`                                    | every command      | Disable ANSI colour. `--color` overrides; `--no-color` matches.                                                                                             |
+| `HTTPS_PROXY` / `HTTP_PROXY`                  | every command      | Standard proxy variables, honoured by every HTTP request.                                                                                                   |
 
 ## Shell completion
 
@@ -1172,19 +1326,19 @@ gitrinth completion powershell >> $PROFILE
 
 ## Files
 
-| Path                              | Purpose                                                                                |
-|-----------------------------------|----------------------------------------------------------------------------------------|
-| `./mods.yaml`                     | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                     |
+| Path                              | Purpose                                                                                   |
+|-----------------------------------|-------------------------------------------------------------------------------------------|
+| `./mods.yaml`                     | Modpack manifest. See [`mods.yaml`](mods-yaml.md).                                        |
 | `./project_overrides.yaml`        | Optional standalone overrides. See [`project_overrides.yaml`](project-overrides-yaml.md). |
-| `./mods.lock`                     | Resolved versions. Commit to git.                                                      |
-| `./build/`                        | Default output directory for [`build`](#build).                                        |
-| `./build/<slug>-<version>.mrpack` | Default output path for [`pack`](#pack).                                               |
-| `~/.gitrinth_cache/`              | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`. |
+| `./mods.lock`                     | Resolved versions. Commit to git.                                                         |
+| `./build/`                        | Default output directory for [`build`](#build).                                           |
+| `./build/<slug>-<version>.mrpack` | Default output path for [`pack`](#pack).                                                  |
+| `~/.gitrinth_cache/`              | Cache root. `~` is `$HOME` (`$USERPROFILE` on Windows). Override via `GITRINTH_CACHE`.    |
 
 ## Compatibility
 
 `gitrinth` follows semver for its CLI surface.
-[`tooling.gitrinth`](mods-yaml.md#gitrinth) pins the expected
+[`gitrinth.version`](mods-yaml.md#gitrinth) pins the expected
 compatibility window.
 
 ## See also

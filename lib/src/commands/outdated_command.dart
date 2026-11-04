@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:pub_semver/pub_semver.dart' as semver;
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
@@ -15,7 +16,7 @@ import '../model/resolver/version_selection.dart';
 import '../service/cache.dart';
 import '../service/console.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_api.dart';
+import '../service/modrinth/modrinth_api.dart';
 import 'version_picker.dart';
 
 class OutdatedCommand extends GitrinthCommand with OfflineFlag {
@@ -66,11 +67,13 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       return exitUserError;
     }
     final manifest = io.readModsYaml();
+    await prepareLoaderRegistry(container, manifest, offline: offline);
     final overrides = io.readProjectOverrides();
     final overriddenSlugs = overrides.entries.keys.toSet();
 
-    final api = read(modrinthApiProvider);
+    final apiFactory = read(modrinthApiFactoryProvider);
     final cache = read(cacheProvider);
+    final defaultBaseUrl = apiFactory.defaultBaseUrl;
 
     final rows = <_Row>[];
     for (final section in Section.values) {
@@ -88,6 +91,9 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         }
         final manifestEntry = manifestSection[slug];
         final isOverridden = overriddenSlugs.contains(slug);
+        final entryHost = manifestEntry == null
+            ? (manifest.modrinthHost ?? defaultBaseUrl)
+            : manifest.effectiveModrinthHost(manifestEntry, defaultBaseUrl);
         final row = await _computeRow(
           slug: slug,
           section: section,
@@ -95,7 +101,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           manifestEntry: manifestEntry,
           mcVersion: lock.mcVersion,
           loaderConfig: lock.loader,
-          api: api,
+          api: apiFactory.forHost(entryHost),
+          host: entryHost,
           cache: cache,
           offline: offline,
           isOverridden: isOverridden,
@@ -120,6 +127,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     required String mcVersion,
     required LoaderConfig loaderConfig,
     required ModrinthApi api,
+    required String host,
     required GitrinthCache cache,
     required bool offline,
     required bool isOverridden,
@@ -128,12 +136,13 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
     final marker = manifestEntry == null
         ? null
         : _markerOf(manifestEntry.constraintRaw);
-    if (locked.sourceKind != LockedSourceKind.modrinth) {
+    if (locked.modrinth == null) {
       return _Row(
         slug: slug,
         section: section,
         kind: locked.dependency,
-        sourceKind: locked.sourceKind,
+        hasModrinthSource: locked.modrinth != null,
+        sourceKind: locked.kind,
         current: currentVersion,
         upgradable: null,
         latest: null,
@@ -146,7 +155,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
         slug: slug,
         section: section,
         kind: locked.dependency,
-        sourceKind: locked.sourceKind,
+        hasModrinthSource: locked.modrinth != null,
+        sourceKind: locked.kind,
         current: currentVersion,
         upgradable: null,
         latest: null,
@@ -157,19 +167,25 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
 
     final acceptsMc = manifestEntry?.acceptsMc ?? const <String>[];
     final gameVersions = <String>{mcVersion, ...acceptsMc}.toList();
-    final loaderFilter = filterLoadersForSection(loaderConfig, section);
+    final loaderFilter = filterLoadersForSection(
+      loaderConfig,
+      section,
+      registry: read(loaderRegistryProvider),
+      host: host,
+    );
     final channel = manifestEntry?.channel ?? Channel.alpha;
     final constraint = _safeParseConstraint(manifestEntry?.constraintRaw);
 
     final List<modrinth.Version> versions;
     if (offline) {
-      final pid = locked.projectId;
+      final pid = locked.modrinth?.projectId;
       if (pid == null) {
         return _Row(
           slug: slug,
           section: section,
           kind: locked.dependency,
-          sourceKind: locked.sourceKind,
+          hasModrinthSource: locked.modrinth != null,
+          sourceKind: locked.kind,
           current: currentVersion,
           upgradable: null,
           latest: null,
@@ -177,7 +193,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
           marker: marker,
         );
       }
-      versions = cache.listCachedVersions(pid).where((v) {
+      versions = cache.listCachedVersions(host, pid).where((v) {
         final loaderOk =
             loaderFilter == null || v.loaders.any(loaderFilter.contains);
         final mcOk = v.gameVersions.any(gameVersions.contains);
@@ -198,7 +214,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             slug: slug,
             section: section,
             kind: locked.dependency,
-            sourceKind: locked.sourceKind,
+            hasModrinthSource: locked.modrinth != null,
+            sourceKind: locked.kind,
             current: currentVersion,
             upgradable: null,
             latest: null,
@@ -225,7 +242,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
       slug: slug,
       section: section,
       kind: locked.dependency,
-      sourceKind: locked.sourceKind,
+      hasModrinthSource: locked.modrinth != null,
+      sourceKind: locked.kind,
       current: currentVersion,
       upgradable: upgradable?.versionNumber,
       latest: latest?.versionNumber,
@@ -256,7 +274,8 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
             'slug': r.slug,
             'section': r.section.name,
             'kind': r.kind.name,
-            'source': r.sourceKind.name,
+            'source': r.source,
+            'has_modrinth_source': r.hasModrinthSource,
             'current': r.current.isEmpty ? null : {'version': r.current},
             'upgradable': r.upgradable == null
                 ? null
@@ -407,7 +426,7 @@ class OutdatedCommand extends GitrinthCommand with OfflineFlag {
   }
 
   bool _isUpToDate(_Row r) {
-    if (r.sourceKind != LockedSourceKind.modrinth) return true;
+    if (!r.hasModrinthSource) return true;
     if (r.upgradable == null && r.latest == null) return true;
     if (r.latest == null) return r.upgradable == r.current;
     return r.current == r.latest;
@@ -441,7 +460,11 @@ class _Row {
   final String slug;
   final Section section;
   final LockedDependencyKind kind;
-  final LockedSourceKind sourceKind;
+  final bool hasModrinthSource;
+  final LockedEntryKind sourceKind;
+  String get source => sourceKind == LockedEntryKind.resolved
+      ? (hasModrinthSource ? 'modrinth' : 'curseforge')
+      : sourceKind.name;
   final String current;
   final String? upgradable;
   final String? latest;
@@ -451,6 +474,7 @@ class _Row {
     required this.slug,
     required this.section,
     required this.kind,
+    required this.hasModrinthSource,
     required this.sourceKind,
     required this.current,
     required this.upgradable,

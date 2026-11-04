@@ -4,13 +4,13 @@ gitrinth-version: 0.1.0
 loader:
   mods: "neoforge:21.1.228"
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     source: modrinth
     version: 3.0.9+mc1.21
-    project-id: EsAfCjCV
-    version-id: uAKA6Laj
+    project_id: EsAfCjCV
+    version_id: uAKA6Laj
     file:
       name: appleskin-neoforge-mc1.21-3.0.9.jar
       url: "https://cdn.modrinth.com/data/EsAfCjCV/versions/uAKA6Laj/appleskin-neoforge-mc1.21-3.0.9.jar"
@@ -19,13 +19,13 @@ mods:
       size: 75804
     client: required
     server: required
-    game-versions: ["1.21", 1.21.1, 1.21.2]
-    accepts-mc: [1.21.1]
+    game_versions: ["1.21", 1.21.1, 1.21.2]
+    accepts_mc: [1.21.1]
   balm:
     source: modrinth
     version: 21.0.57+neoforge-1.21.1
-    project-id: MBAkmtvl
-    version-id: XC1JUHmA
+    project_id: MBAkmtvl
+    version_id: XC1JUHmA
     file:
       name: balm-neoforge-1.21.1-21.0.57.jar
       url: "https://cdn.modrinth.com/data/MBAkmtvl/versions/XC1JUHmA/balm-neoforge-1.21.1-21.0.57.jar"
@@ -35,12 +35,12 @@ mods:
     client: required
     server: required
     dependency: transitive
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
   create:
     source: modrinth
     version: 6.0.10+mc1.21.1
-    project-id: LNytGWDc
-    version-id: UjX6dr61
+    project_id: LNytGWDc
+    version_id: UjX6dr61
     file:
       name: create-1.21.1-6.0.10.jar
       url: "https://cdn.modrinth.com/data/LNytGWDc/versions/UjX6dr61/create-1.21.1-6.0.10.jar"
@@ -49,12 +49,12 @@ mods:
       size: 19123767
     client: required
     server: required
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
   create-aeronautics:
     source: modrinth
     version: 1.1.3+mc1.21.1
-    project-id: oWaK0Q19
-    version-id: 1sv6OtSz
+    project_id: oWaK0Q19
+    version_id: 1sv6OtSz
     file:
       name: create-aeronautics-bundled-1.21.1-1.1.3.jar
       url: "https://cdn.modrinth.com/data/oWaK0Q19/versions/1sv6OtSz/create-aeronautics-bundled-1.21.1-1.1.3.jar"
@@ -63,12 +63,12 @@ mods:
       size: 33003314
     client: required
     server: required
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
   distanthorizons:
     source: modrinth
     version: 3.0.2-b-1.21.1
-    project-id: uCdwusMi
-    version-id: KkaaQtTD
+    project_id: uCdwusMi
+    version_id: KkaaQtTD
     file:
       name: DistantHorizons-3.0.2-b-1.21.1-fabric-neoforge.jar
       url: "https://cdn.modrinth.com/data/uCdwusMi/versions/KkaaQtTD/DistantHorizons-3.0.2-b-1.21.1-fabric-neoforge.jar"
@@ -77,12 +77,12 @@ mods:
       size: 30019727
     client: optional
     server: required
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
   ferrite-core:
     source: modrinth
     version: 7.0.3-neoforge
-    project-id: uXXizFIs
-    version-id: x7kQWVju
+    project_id: uXXizFIs
+    version_id: x7kQWVju
     file:
       name: ferritecore-7.0.3-neoforge.jar
       url: "https://cdn.modrinth.com/data/uXXizFIs/versions/x7kQWVju/ferritecore-7.0.3-neoforge.jar"
@@ -91,12 +91,12 @@ mods:
       size: 121559
     client: required
     server: required
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
   globalpacks:
     source: modrinth
     version: 21.0.6
-    project-id: NRLPy2mk
-    version-id: FPcUOp35
+    project_id: NRLPy2mk
+    version_id: FPcUOp35
     file:
       name: globalpacks-neoforge-1.21.1-21.0.6.jar
       url: "https://cdn.modrinth.com/data/NRLPy2mk/versions/FPcUOp35/globalpacks-neoforge-1.21.1-21.0.6.jar"
@@ -105,12 +105,12 @@ mods:
       size: 27239
     client: required
     server: required
-    game-versions: ["1.21", 1.21.1]
+    game_versions: ["1.21", 1.21.1]
   iris:
     source: modrinth
     version: 1.8.12+1.21.1-neoforge
-    project-id: YL57xq9U
-    version-id: t3ruzodq
+    project_id: YL57xq9U
+    version_id: t3ruzodq
     file:
       name: iris-neoforge-1.8.12+mc1.21.1.jar
       url: "https://cdn.modrinth.com/data/YL57xq9U/versions/t3ruzodq/iris-neoforge-1.8.12%2Bmc1.21.1.jar"
@@ -119,13 +119,13 @@ mods:
       size: 2438548
     client: required
     server: unsupported
-    game-versions: [1.21.1]
-    accepts-mc: [1.21.1]
+    game_versions: [1.21.1]
+    accepts_mc: [1.21.1]
   jei:
     source: modrinth
     version: 19.27.0.340
-    project-id: u6dRKJwZ
-    version-id: YAcQ6elZ
+    project_id: u6dRKJwZ
+    version_id: YAcQ6elZ
     file:
       name: jei-1.21.1-neoforge-19.27.0.340.jar
       url: "https://cdn.modrinth.com/data/u6dRKJwZ/versions/YAcQ6elZ/jei-1.21.1-neoforge-19.27.0.340.jar"
@@ -134,12 +134,12 @@ mods:
       size: 1529391
     client: required
     server: required
-    game-versions: ["1.21", 1.21.1]
+    game_versions: ["1.21", 1.21.1]
   netherportalfix:
     source: modrinth
     version: 21.1.1+neoforge-1.21.1
-    project-id: nPZr02ET
-    version-id: O09BGtgh
+    project_id: nPZr02ET
+    version_id: O09BGtgh
     file:
       name: netherportalfix-neoforge-1.21.1-21.1.1.jar
       url: "https://cdn.modrinth.com/data/nPZr02ET/versions/O09BGtgh/netherportalfix-neoforge-1.21.1-21.1.1.jar"
@@ -148,12 +148,12 @@ mods:
       size: 211972
     client: optional
     server: required
-    game-versions: ["1.21", 1.21.1]
+    game_versions: ["1.21", 1.21.1]
   sable:
     source: modrinth
     version: 1.1.3+mc1.21.1
-    project-id: T9PomCSv
-    version-id: g8CObHcP
+    project_id: T9PomCSv
+    version_id: g8CObHcP
     file:
       name: sable-neoforge-1.21.1-1.1.3.jar
       url: "https://cdn.modrinth.com/data/T9PomCSv/versions/g8CObHcP/sable-neoforge-1.21.1-1.1.3.jar"
@@ -162,12 +162,12 @@ mods:
       size: 24766579
     client: required
     server: required
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
   sodium:
     source: modrinth
     version: mc1.21.1-0.6.13-neoforge
-    project-id: AANobbMI
-    version-id: Pb3OXVqC
+    project_id: AANobbMI
+    version_id: Pb3OXVqC
     file:
       name: sodium-neoforge-0.6.13+mc1.21.1.jar
       url: "https://cdn.modrinth.com/data/AANobbMI/versions/Pb3OXVqC/sodium-neoforge-0.6.13%2Bmc1.21.1.jar"
@@ -176,13 +176,13 @@ mods:
       size: 1162994
     client: required
     server: required
-    game-versions: [1.21.1]
+    game_versions: [1.21.1]
 resource_packs:
   faithful-32x:
     source: modrinth
     version: 1.21.1-december-2025
-    project-id: w0TnApzs
-    version-id: Zlz4qPlw
+    project_id: w0TnApzs
+    version_id: Zlz4qPlw
     file:
       name: Faithful 32x - 1.21.1.zip
       url: "https://cdn.modrinth.com/data/w0TnApzs/versions/Zlz4qPlw/Faithful%2032x%20-%201.21.1.zip"
@@ -191,13 +191,13 @@ resource_packs:
       size: 10895511
     client: optional
     server: unsupported
-    game-versions: ["1.21", 1.21.1]
+    game_versions: ["1.21", 1.21.1]
 data_packs:
   terralith:
     source: modrinth
     version: 2.5.8
-    project-id: 8oi3bsk5
-    version-id: urbokcOc
+    project_id: 8oi3bsk5
+    version_id: urbokcOc
     file:
       name: Terralith_1.21_v2.5.8.zip
       url: "https://cdn.modrinth.com/data/8oi3bsk5/versions/urbokcOc/Terralith_1.21_v2.5.8.zip"
@@ -206,12 +206,12 @@ data_packs:
       size: 3112105
     client: required
     server: required
-    game-versions: ["1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4]
+    game_versions: ["1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4]
   terralith-restoned:
     source: modrinth
     version: 1.3.1
-    project-id: oTQsXi8U
-    version-id: QbaRDOcI
+    project_id: oTQsXi8U
+    version_id: QbaRDOcI
     file:
       name: Terralith_ReStoned_v1.3.1.zip
       url: "https://cdn.modrinth.com/data/oTQsXi8U/versions/QbaRDOcI/Terralith_ReStoned_v1.3.1.zip"
@@ -220,13 +220,13 @@ data_packs:
       size: 6937
     client: required
     server: required
-    game-versions: ["1.20", 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6, "1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, "26.1", 26.1.1, 26.1.2]
+    game_versions: ["1.20", 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6, "1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, "26.1", 26.1.1, 26.1.2]
 shaders:
   complementary-reimagined:
     source: modrinth
     version: r5.7.1
-    project-id: HVnmMxH1
-    version-id: 836bPNGo
+    project_id: HVnmMxH1
+    version_id: 836bPNGo
     file:
       name: ComplementaryReimagined_r5.7.1.zip
       url: "https://cdn.modrinth.com/data/HVnmMxH1/versions/836bPNGo/ComplementaryReimagined_r5.7.1.zip"
@@ -235,6 +235,6 @@ shaders:
       size: 522970
     client: required
     server: unsupported
-    game-versions: [1.7.10, "1.8", 1.8.1, 1.8.2, 1.8.3, 1.8.4, 1.8.5, 1.8.6, 1.8.7, 1.8.8, 1.8.9, "1.9", 1.9.1, 1.9.2, 1.9.3, 1.9.4, "1.10", 1.10.1, 1.10.2, "1.11", 1.11.1, 1.11.2, "1.12", 1.12.1, 1.12.2, "1.13", 1.13.1, 1.13.2, "1.14", 1.14.1, 1.14.2, 1.14.3, 1.14.4, "1.15", 1.15.1, 1.15.2, "1.16", 1.16.1, 1.16.2, 1.16.3, 1.16.4, 1.16.5, "1.17", 1.17.1, "1.18", 1.18.1, 1.18.2, "1.19", 1.19.1, 1.19.2, 1.19.3, 1.19.4, "1.20", 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6, "1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, "26.1", 26.1.1, 26.1.2]
+    game_versions: [1.7.10, "1.8", 1.8.1, 1.8.2, 1.8.3, 1.8.4, 1.8.5, 1.8.6, 1.8.7, 1.8.8, 1.8.9, "1.9", 1.9.1, 1.9.2, 1.9.3, 1.9.4, "1.10", 1.10.1, 1.10.2, "1.11", 1.11.1, 1.11.2, "1.12", 1.12.1, 1.12.2, "1.13", 1.13.1, 1.13.2, "1.14", 1.14.1, 1.14.2, 1.14.3, 1.14.4, "1.15", 1.15.1, 1.15.2, "1.16", 1.16.1, 1.16.2, 1.16.3, 1.16.4, 1.16.5, "1.17", 1.17.1, "1.18", 1.18.1, 1.18.2, "1.19", 1.19.1, 1.19.2, 1.19.3, 1.19.4, "1.20", 1.20.1, 1.20.2, 1.20.3, 1.20.4, 1.20.5, 1.20.6, "1.21", 1.21.1, 1.21.2, 1.21.3, 1.21.4, 1.21.5, 1.21.6, 1.21.7, 1.21.8, 1.21.9, 1.21.10, 1.21.11, "26.1", 26.1.1, 26.1.2]
 plugins: {}
 files: {}

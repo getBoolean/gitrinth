@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
@@ -9,6 +8,8 @@ import '../cli/exceptions.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import 'console.dart';
+import 'file_digest.dart';
+import 'modrinth/modrinth_url.dart';
 
 class GitrinthCache {
   final String root;
@@ -18,6 +19,7 @@ class GitrinthCache {
     : _console = console ?? const Console();
 
   String get modrinthRoot => p.normalize(p.join(root, 'modrinth'));
+  String get curseforgeRoot => p.normalize(p.join(root, 'curseforge'));
   String get urlRoot => p.normalize(p.join(root, 'url'));
   String get tmpRoot => p.normalize(p.join(root, 'tmp'));
   String get loadersRoot => p.normalize(p.join(root, 'loaders'));
@@ -73,6 +75,12 @@ class GitrinthCache {
     required String modLoaderVersion,
     required String filename,
   }) {
+    if (!isSafeRuntimeToken(mcVersion) ||
+        !isSafeRuntimeToken(modLoaderVersion)) {
+      throw const ValidationError(
+        'Unsafe runtime version in loader cache path.',
+      );
+    }
     return p.join(
       loadersRoot,
       loader.name,
@@ -97,14 +105,87 @@ class GitrinthCache {
     return p.join(pluginServersRoot, artifactKey, mcVersion, version, filename);
   }
 
-  /// Path where a Modrinth-sourced artifact should live.
+  /// Filesystem-safe segment of [hostUrl] used to scope cached Modrinth
+  /// artifacts per-host. Built from [normalizeServerKey] so the same
+  /// physical host always maps to the same segment regardless of how
+  /// callers spell its URL. Strips the `scheme://` prefix and replaces
+  /// path separators with `_`. The default modrinth.com host renders as
+  /// `api.modrinth.com_v2`, giving every host (including the default)
+  /// a stable cache segment.
+  static String hostCacheSegment(String hostUrl) {
+    final key = (() {
+      try {
+        return normalizeServerKey(hostUrl);
+      } on FormatException {
+        return hostUrl;
+      }
+    })();
+    final stripped = key.replaceFirst(
+      RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://'),
+      '',
+    );
+    return stripped
+        .replaceAll('/', '_')
+        .replaceAll('\\', '_')
+        .replaceAll(':', '_');
+  }
+
+  /// Path where a Modrinth-sourced artifact should live for [host].
+  /// Layout: `<modrinthRoot>/<hostSegment>/<projectId>/<versionId>/<filename>`.
   String modrinthPath({
+    required String host,
     required String projectId,
     required String versionId,
     required String filename,
   }) {
-    return p.join(modrinthRoot, projectId, versionId, filename);
+    return p.join(
+      modrinthRoot,
+      hostCacheSegment(host),
+      projectId,
+      versionId,
+      filename,
+    );
   }
+
+  /// Path where a CurseForge-sourced artifact lives. Layout:
+  /// `<curseforgeRoot>/<projectId>/<fileId>/<filename>`. The layout has
+  /// no host segment because CurseForge project/file IDs are canonical
+  /// even when `GITRINTH_CURSEFORGE_URL` points at a staging or proxy
+  /// read-API host.
+  String curseforgePath({
+    required int projectId,
+    required int fileId,
+    required String filename,
+  }) {
+    final destination = p.join(
+      curseforgeRoot,
+      projectId.toString(),
+      fileId.toString(),
+      filename,
+    );
+    final metadata = curseforgeMetadataPath(
+      projectId: projectId,
+      fileId: fileId,
+    );
+    if (p.equals(p.normalize(destination), metadata) ||
+        p.equals(p.normalize(destination), '$metadata.lock')) {
+      throw ValidationError(
+        'CurseForge project $projectId, file $fileId uses reserved artifact filename $filename. Use a path: source with a different filename.',
+      );
+    }
+    return destination;
+  }
+
+  /// Selected-file relations and verification metadata, separate from bytes.
+  String curseforgeMetadataPath({
+    required int projectId,
+    required int fileId,
+  }) => p.join(
+    curseforgeRoot,
+    projectId.toString(),
+    fileId.toString(),
+    'metadata.json',
+  );
 
   /// Path where the resolved Modrinth `Version`'s metadata (mainly its
   /// `dependencies` array) is persisted alongside the artifact. Mirrors
@@ -112,18 +193,30 @@ class GitrinthCache {
   /// the source of truth for `gitrinth upgrade --unlock-transitive`'s
   /// transitive-closure walk.
   String modrinthVersionMetadataPath({
+    required String host,
     required String projectId,
     required String versionId,
   }) {
-    return p.join(modrinthRoot, projectId, versionId, 'version.json');
+    return p.join(
+      modrinthRoot,
+      hostCacheSegment(host),
+      projectId,
+      versionId,
+      'version.json',
+    );
   }
 
-  /// Walks `<modrinthRoot>/<projectId>/*/version.json` and yields each
-  /// successfully-parsed [modrinth.Version]. Malformed sidecars are skipped
-  /// with a stderr warning so a single corrupt file doesn't abort an
-  /// `--offline` resolve.
-  Iterable<modrinth.Version> listCachedVersions(String projectId) sync* {
-    final dir = Directory(p.join(modrinthRoot, projectId));
+  /// Walks `<modrinthRoot>/<hostSegment>/<projectId>/*/version.json` and
+  /// yields each successfully-parsed [modrinth.Version]. Malformed
+  /// sidecars are skipped with a stderr warning so a single corrupt
+  /// file doesn't abort an `--offline` resolve.
+  Iterable<modrinth.Version> listCachedVersions(
+    String host,
+    String projectId,
+  ) sync* {
+    final dir = Directory(
+      p.join(modrinthRoot, hostCacheSegment(host), projectId),
+    );
     if (!dir.existsSync()) return;
     for (final entry in dir.listSync()) {
       if (entry is! Directory) continue;
@@ -169,8 +262,7 @@ class GitrinthCache {
 
   /// Verifies the contents of [file] against [expectedSha512].
   static Future<void> verifyFileSha512(File file, String expectedSha512) async {
-    final bytes = await file.readAsBytes();
-    verifySha512(Uint8List.fromList(bytes), expectedSha512);
+    await verifyFileDigest(file, sha512, expectedSha512);
   }
 
   /// Verifies [bytes] against [expectedSha256] (case-insensitive). Throws
@@ -186,8 +278,7 @@ class GitrinthCache {
 
   /// Verifies the contents of [file] against [expectedSha256].
   static Future<void> verifyFileSha256(File file, String expectedSha256) async {
-    final bytes = await file.readAsBytes();
-    verifySha256(Uint8List.fromList(bytes), expectedSha256);
+    await verifyFileDigest(file, sha256, expectedSha256);
   }
 
   /// Verifies [bytes] against [expectedSha1] (case-insensitive). Throws
@@ -202,7 +293,6 @@ class GitrinthCache {
 
   /// Verifies the contents of [file] against [expectedSha1].
   static Future<void> verifyFileSha1(File file, String expectedSha1) async {
-    final bytes = await file.readAsBytes();
-    verifySha1(Uint8List.fromList(bytes), expectedSha1);
+    await verifyFileDigest(file, sha1, expectedSha1);
   }
 }

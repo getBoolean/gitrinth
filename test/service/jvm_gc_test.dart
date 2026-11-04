@@ -10,21 +10,18 @@ void main() {
 
     test('Java 8-14 → unlock experimental + Shenandoah', () {
       for (final major in const [8, 11, 14]) {
-        expect(
-          gcFlagsForJavaMajor(major),
-          const ['-XX:+UnlockExperimentalVMOptions', '-XX:+UseShenandoahGC'],
-          reason: 'JDK $major needs unlocked Shenandoah',
-        );
+        expect(gcFlagsForJavaMajor(major), const [
+          '-XX:+UnlockExperimentalVMOptions',
+          '-XX:+UseShenandoahGC',
+        ], reason: 'JDK $major needs unlocked Shenandoah');
       }
     });
 
     test('Java 15-20 -> Shenandoah only', () {
       for (final major in const [15, 16, 17, 18, 19, 20]) {
-        expect(
-          gcFlagsForJavaMajor(major),
-          const ['-XX:+UseShenandoahGC'],
-          reason: 'JDK $major does not need the unlock flag',
-        );
+        expect(gcFlagsForJavaMajor(major), const [
+          '-XX:+UseShenandoahGC',
+        ], reason: 'JDK $major does not need the unlock flag');
       }
     });
 

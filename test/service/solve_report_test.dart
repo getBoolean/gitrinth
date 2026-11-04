@@ -1,8 +1,9 @@
+import 'package:gitrinth/src/service/source_identity.dart';
 import 'package:gitrinth/src/model/manifest/mods_lock.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/modrinth/version.dart' as modrinth;
 import 'package:gitrinth/src/service/console.dart';
-import 'package:gitrinth/src/service/solve_report.dart';
+import 'package:gitrinth/src/service/resolve/solve_report.dart';
 import 'package:test/test.dart';
 
 class _CaptureConsole extends Console {
@@ -25,27 +26,31 @@ LockedEntry _modrinth(
 }) {
   return LockedEntry(
     slug: slug,
-    sourceKind: LockedSourceKind.modrinth,
+    kind: LockedEntryKind.resolved,
     version: version,
-    projectId: projectId,
-    versionId: versionId,
-    file: LockedFile(
-      name: '$slug-$version.jar',
-      url: 'https://cdn/$slug-$version.jar',
-      sha512: sha512,
-      size: 1024,
+    modrinth: LockedModrinthSource(
+      projectId: projectId,
+      versionId: versionId,
+      versionNumber: version,
+      file: LockedFile(
+        name: '$slug-$version.jar',
+        url: 'https://cdn/$slug-$version.jar',
+        sha512: sha512,
+        size: 1024,
+      ),
     ),
   );
 }
 
 LockedEntry _url(String slug, String url) => LockedEntry(
   slug: slug,
-  sourceKind: LockedSourceKind.url,
-  file: LockedFile(name: 'x.jar', url: url),
+  kind: LockedEntryKind.url,
+  url: url,
+  urlFile: LockedFile(name: 'x.jar', url: url),
 );
 
 LockedEntry _path(String slug, String path) =>
-    LockedEntry(slug: slug, sourceKind: LockedSourceKind.path, path: path);
+    LockedEntry(slug: slug, kind: LockedEntryKind.path, path: path);
 
 ModsLock _lock({
   Map<String, LockedEntry> mods = const {},
@@ -433,14 +438,34 @@ void main() {
   });
 
   group('countOutdated', () {
+    test('same local name in two sections has independent candidates', () {
+      final lock = _lock(
+        mods: {'same': _modrinth('same', '1.0.0')},
+        shaders: {'same': _modrinth('same', '1.0.0')},
+      );
+      expect(
+        countOutdated(lock, {
+          const LocalEntryKey(Section.mods, 'same'): [_mrVersion('2.0.0')],
+          const LocalEntryKey(Section.shaders, 'same'): [_mrVersion('1.0.0')],
+        }),
+        1,
+      );
+    });
+
     test('sums across sections', () {
       final lock = _lock(
         mods: {'a': _modrinth('a', '1.0.0')},
         shaders: {'b': _modrinth('b', '1.0.0')},
       );
       final versions = {
-        'a': [_mrVersion('1.0.0'), _mrVersion('2.0.0')],
-        'b': [_mrVersion('1.0.0'), _mrVersion('1.0.1')],
+        const LocalEntryKey(Section.mods, 'a'): [
+          _mrVersion('1.0.0'),
+          _mrVersion('2.0.0'),
+        ],
+        const LocalEntryKey(Section.shaders, 'b'): [
+          _mrVersion('1.0.0'),
+          _mrVersion('1.0.1'),
+        ],
       };
       expect(countOutdated(lock, versions), 2);
     });
@@ -454,9 +479,18 @@ void main() {
         },
       );
       final versions = {
-        'a': [_mrVersion('1.0.0'), _mrVersion('2.0.0')],
-        'u': [_mrVersion('1.0.0'), _mrVersion('9.9.9')],
-        'p': [_mrVersion('1.0.0'), _mrVersion('9.9.9')],
+        const LocalEntryKey(Section.mods, 'a'): [
+          _mrVersion('1.0.0'),
+          _mrVersion('2.0.0'),
+        ],
+        const LocalEntryKey(Section.mods, 'u'): [
+          _mrVersion('1.0.0'),
+          _mrVersion('9.9.9'),
+        ],
+        const LocalEntryKey(Section.mods, 'p'): [
+          _mrVersion('1.0.0'),
+          _mrVersion('9.9.9'),
+        ],
       };
       expect(countOutdated(lock, versions), 1);
     });
@@ -464,7 +498,7 @@ void main() {
     test('returns 0 when everything is current', () {
       final lock = _lock(mods: {'a': _modrinth('a', '1.0.0')});
       final versions = {
-        'a': [_mrVersion('1.0.0')],
+        const LocalEntryKey(Section.mods, 'a'): [_mrVersion('1.0.0')],
       };
       expect(countOutdated(lock, versions), 0);
     });
@@ -514,7 +548,7 @@ void main() {
         newLock: lock,
         diff: const [],
         versionsPerSlug: {
-          'a': [_mrVersion('1.0.0')],
+          const LocalEntryKey(Section.mods, 'a'): [_mrVersion('1.0.0')],
         },
         overriddenSlugs: const {},
       );

@@ -4,7 +4,9 @@ import '../cli/exceptions.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/manifest/mrpack_index.dart';
+import '../model/curseforge/cf_constants.dart';
 import '../service/cache.dart';
+import '../service/modrinth/modrinth_url.dart';
 import 'build_assembler.dart';
 
 /// Which side of a modpack a single `.mrpack` artifact targets.
@@ -98,13 +100,11 @@ class OverridesPlan {
 /// Only modrinth-source entries land in `files[]`; url/path entries are
 /// routed to [collectOverrides] and packed loose under `overrides/`.
 ///
-/// When [publishable] is true and any url/path entry exists in
-/// [Section.mods], throws [ValidationError] listing every offending
-/// slug. Other sections (resource packs, data packs, shaders) are
-/// allowed under `--publishable` because Modrinth's permission policy
-/// targets executable code only.
+/// Publishable builds reject target-missing sources and explicit hash
+/// mismatch allowances across included content sections.
 MrpackIndex buildIndex({
   required ModsYaml yaml,
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required ModsLock lock,
   required PackTarget target,
   required bool publishable,
@@ -125,19 +125,22 @@ MrpackIndex buildIndex({
   }
 
   if (publishable) {
-    // --publishable is global, not per-target: even a server-only mod
-    // is published via the same Modrinth pipeline as the client pack.
     final offenders = <String>[];
-    for (final entry in lock.mods.values) {
-      if (entry.sourceKind != LockedSourceKind.modrinth) {
-        offenders.add('${entry.slug} (${entry.sourceKind.name})');
+    for (final section in Section.values) {
+      for (final entry in lock.sectionFor(section).values) {
+        if (!_includeForTarget(entry, target)) continue;
+        if (entry.modrinth == null ||
+            yaml.sectionEntries(section)[entry.slug]?.allowHashMismatch ==
+                true) {
+          offenders.add('${entry.slug} (${entry.kind.name})');
+        }
       }
     }
     if (offenders.isNotEmpty) {
       offenders.sort();
       throw ValidationError(
-        '--publishable refused: the following mods use a non-Modrinth '
-        'source and cannot be referenced by a publishable .mrpack:\n'
+        '--publishable refused: the following entries lack a Modrinth '
+        'source or enable allow_hash_mismatch:\n'
         '${offenders.map((o) => '  - $o').join('\n')}\n'
         'Re-run without --publishable to bundle them as loose files '
         'under overrides/, or remove them from mods.yaml.',
@@ -149,7 +152,7 @@ MrpackIndex buildIndex({
   for (final section in Section.values) {
     final subdir = mrpackSubdirFor(section);
     for (final entry in lock.sectionFor(section).values) {
-      if (entry.sourceKind != LockedSourceKind.modrinth) continue;
+      if (entry.modrinth == null) continue;
       if (!_includeForTarget(entry, target)) continue;
       files.add(_modrinthFileFor(entry, subdir));
     }
@@ -167,19 +170,20 @@ MrpackIndex buildIndex({
       // collection-if also lets the loader entry drop cleanly when
       // the pack is vanilla.
       if (lock.loader.hasModRuntime && modLoaderVersion != null)
-        mrpackLoaderKey(lock.loader.mods): modLoaderVersion,
+        mrpackLoaderKey(lock.loader.mods, registry: registry): modLoaderVersion,
     },
   );
 }
 
 MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
-  final file = entry.file;
-  if (file == null) {
+  final mr = entry.modrinth;
+  if (mr == null) {
     throw ValidationError(
-      'lockfile entry "${entry.slug}" is a modrinth source but has no '
-      '`file` block. Re-run `gitrinth get` to repopulate.',
+      'lockfile entry "${entry.slug}" has no Modrinth source block; '
+      'cannot include in a publishable .mrpack.',
     );
   }
+  final file = mr.file;
   final sha512 = file.sha512;
   if (sha512 == null) {
     throw ValidationError(
@@ -213,15 +217,16 @@ MrpackFile _modrinthFileFor(LockedEntry entry, String subdir) {
 }
 
 String _canonicalModrinthUrl(LockedEntry entry, LockedFile file) {
-  if (entry.projectId == null || entry.versionId == null) {
+  final mr = entry.modrinth;
+  if (mr == null) {
     throw ValidationError(
       'lockfile entry "${entry.slug}" has no download url and is missing '
-      'projectId/versionId; cannot synthesize a Modrinth CDN URL.',
+      'a Modrinth source block; cannot synthesize a Modrinth CDN URL.',
     );
   }
   final encodedName = Uri.encodeComponent(file.name);
-  return 'https://cdn.modrinth.com/data/${entry.projectId}/versions/'
-      '${entry.versionId}/$encodedName';
+  return 'https://cdn.modrinth.com/data/${mr.projectId}/versions/'
+      '${mr.versionId}/$encodedName';
 }
 
 /// Collects `overrides/<subdir>/<filename>` plans for every url/path
@@ -244,6 +249,8 @@ OverridesPlan collectOverrides({
   required GitrinthCache cache,
   required String projectDir,
   required PackTarget target,
+  SourceKind platform = SourceKind.modrinth,
+  String modrinthHost = defaultModrinthBaseUrl,
 }) {
   final entries = <OverridePlan>[];
   var hasModOverrides = false;
@@ -251,22 +258,38 @@ OverridesPlan collectOverrides({
   for (final section in Section.values) {
     final subdir = mrpackSubdirFor(section);
     for (final entry in lock.sectionFor(section).values) {
-      if (entry.sourceKind == LockedSourceKind.modrinth) continue;
+      // Skip entries that already participate in the publishable
+      // `files[]` mrpack list via Modrinth.
+      if (platform == SourceKind.modrinth && entry.modrinth != null) continue;
+      if (platform == SourceKind.curseforge &&
+          entry.curseforge != null &&
+          (section != Section.plugins ||
+              (lock.loader.plugins != null &&
+                  pluginLoaderEligibleForCurseforge(lock.loader.plugins!)))) {
+        continue;
+      }
       if (!_includeForTarget(entry, target)) continue;
+      // Resolve against the source host even when publishing to another
+      // platform; publication host selection does not relocate cached bytes.
       final sourcePath = resolveSourcePath(
         cache,
         entry,
         projectDir: projectDir,
+        modrinthHost: modrinthHost,
       );
       final destName = destFilenameFor(entry);
       entries.add(
         OverridePlan(
           slug: entry.slug,
           section: section,
-          sourceKind: entry.sourceKind.name,
+          sourceKind: entry.kind == LockedEntryKind.resolved
+              ? (entry.modrinth != null ? 'modrinth' : 'curseforge')
+              : entry.kind.name,
           sourcePath: sourcePath,
           zipPath: p.posix.join(
-            _overridesRootFor(entry.client, entry.server),
+            platform == SourceKind.curseforge
+                ? 'overrides'
+                : _overridesRootFor(entry.client, entry.server),
             subdir,
             destName,
           ),
@@ -316,7 +339,9 @@ OverridesPlan collectOverrides({
         sourceKind: 'file',
         sourcePath: sourcePath,
         zipPath: p.posix.join(
-          _overridesRootFor(entry.client, entry.server),
+          platform == SourceKind.curseforge
+              ? 'overrides'
+              : _overridesRootFor(entry.client, entry.server),
           entry.destination,
         ),
       ),

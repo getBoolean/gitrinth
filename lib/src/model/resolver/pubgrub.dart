@@ -2,13 +2,18 @@ import 'package:pub_semver/pub_semver.dart';
 
 import '../../cli/exceptions.dart';
 import '../manifest/mods_yaml.dart';
-import '../modrinth/dependency.dart';
-import '../modrinth/version.dart' as modrinth;
-import 'constraint.dart';
 import 'version_selection.dart';
+import 'version_solver_types.dart';
 
-typedef ListVersions = Future<List<modrinth.Version>> Function(String slug);
+typedef ListVersions = Future<List<SolverVersion>> Function(String slug);
 typedef ResolveSlug = Future<String?> Function(String projectId);
+
+/// Comparator: orders [SolverVersion]s "newest first" under the
+/// platform's selection rule. Constructor-injected on [PubGrubSolver]
+/// so the solver itself stays platform-agnostic — Modrinth callers
+/// pass `compareModrinthSolverOrder`, future CurseForge callers pass
+/// their own.
+typedef SelectionOrder = int Function(SolverVersion a, SolverVersion b);
 
 /// Thrown when the solver can't satisfy the graph after exhausting every
 /// candidate. Subclass of [ValidationError] so existing callers that catch
@@ -23,7 +28,7 @@ class UnsatisfiableGraphError extends ValidationError {
   UnsatisfiableGraphError(super.message, {required this.conflictingUserSlugs});
 }
 
-/// Pure-data root constraint (no Modrinth lookups required).
+/// Pure-data root constraint (no platform lookups required).
 class RootConstraint {
   final String slug;
   final VersionConstraint constraint;
@@ -56,13 +61,13 @@ class LockSuggestion {
 /// overridden slug or originate from one, are silently dropped.
 class OverridePin {
   final String slug;
-  final modrinth.Version version;
+  final SolverVersion version;
   const OverridePin(this.slug, this.version);
 }
 
 class PubGrubResult {
   /// slug -> chosen version
-  final Map<String, modrinth.Version> decisions;
+  final Map<String, SolverVersion> decisions;
 
   /// slug -> true if this slug was added transitively (not in roots).
   final Map<String, bool> auto;
@@ -75,28 +80,35 @@ class PubGrubResult {
 /// implement a backtracking depth-first search with version-list caching that
 /// preserves locked decisions where they remain compatible.
 ///
-/// This is sufficient for `gitrinth get`'s MVP scope: typical modpack graphs
-/// are small, mod versions usually carry no inter-mod ranges (`required`
-/// dependencies are presence-only on Modrinth's side), and conflict cases
-/// fall back to a clear error message.
+/// Platform-agnostic: operates on [SolverVersion] / [SolverDependency]
+/// abstractions so a single solver instance can take Modrinth versions
+/// (via `ModrinthSolverVersion`) today and CurseForge versions in the
+/// future via the same interface.
 class PubGrubSolver {
   final ListVersions listVersions;
   final ResolveSlug resolveSlugForProjectId;
+  final Future<String?> Function(String projectId, String parentSlug)?
+  resolveDependencySlug;
   final List<LockSuggestion> lockSuggestions;
   final List<OverridePin> overridePins;
+  final Map<String, String> requiredVersionIds;
+  final SelectionOrder selectionOrder;
 
   /// Selection direction — `get`/`upgrade` pick newest, `downgrade`
   /// picks oldest. `downgrade` also disables the lock-suggestion head
   /// promotion below: a downgrade is meant to ignore the existing pin.
   final SolveType solveType;
 
-  final Map<String, List<modrinth.Version>> _versionCache = {};
+  final Map<String, List<SolverVersion>> _versionCache = {};
 
   PubGrubSolver({
     required this.listVersions,
     required this.resolveSlugForProjectId,
+    this.resolveDependencySlug,
+    required this.selectionOrder,
     this.lockSuggestions = const [],
     this.overridePins = const [],
+    this.requiredVersionIds = const {},
     this.solveType = SolveType.get,
   });
 
@@ -126,21 +138,23 @@ class PubGrubSolver {
       //   - drop ALL incompatible deps (the user takes responsibility
       //     for whatever incompatibilities the override mod declares)
       for (final dep in pin.version.dependencies) {
-        if (dep.dependencyType == DependencyType.required) {
-          final depProjectId = dep.projectId;
+        if (dep.type == SolverDependencyType.required) {
+          final depProjectId = dep.targetProjectId;
           if (depProjectId == null) continue;
-          final depSlug = await resolveSlugForProjectId(depProjectId);
+          final depSlug =
+              await (resolveDependencySlug?.call(depProjectId, pin.slug) ??
+                  resolveSlugForProjectId(depProjectId));
           if (depSlug == null) continue;
           if (state.overriddenSlugs.contains(depSlug)) continue;
           final depConstraint = await _constraintFromVersionId(
             slug: depSlug,
-            versionId: dep.versionId,
+            versionId: dep.targetVersionId,
           );
           state.addConstraint(depSlug, depConstraint, parentSlug: pin.slug);
           state.addChannel(depSlug, Channel.alpha);
           state.recordIntroducer(depSlug, pin.slug, pin.version.versionNumber);
         }
-        // DependencyType.incompatible deps from an override are
+        // SolverDependencyType.incompatible deps from an override are
         // silently dropped — both endpoints. See spec case 6.
       }
     }
@@ -227,7 +241,7 @@ class PubGrubSolver {
     }
   }
 
-  Future<List<modrinth.Version>> _versionsFor(String slug) async {
+  Future<List<SolverVersion>> _versionsFor(String slug) async {
     final cached = _versionCache[slug];
     if (cached != null) return cached;
     final list = await listVersions(slug);
@@ -235,18 +249,17 @@ class PubGrubSolver {
     return list;
   }
 
-  /// Builds the lower-bound [VersionRange] implied by a Modrinth dependency
-  /// pinned to [versionId] for [slug]. Returns [VersionConstraint.any] when
-  /// the version isn't found in the listing or its `version_number` doesn't
-  /// parse as semver — both fall back to the permissive default the solver
-  /// uses when no pin is present.
+  /// Builds the lower-bound [VersionRange] implied by a dependency
+  /// pinned to [versionId] for [slug]. Returns [VersionConstraint.any]
+  /// when the version isn't found in the listing — which falls back to
+  /// the permissive default the solver uses when no pin is present.
   Future<VersionConstraint> _constraintFromVersionId({
     required String slug,
     required String? versionId,
   }) async {
     if (versionId == null) return VersionConstraint.any;
     final versions = await _versionsFor(slug);
-    modrinth.Version? pinned;
+    SolverVersion? pinned;
     for (final dv in versions) {
       if (dv.id == versionId) {
         pinned = dv;
@@ -254,12 +267,7 @@ class PubGrubSolver {
       }
     }
     if (pinned == null) return VersionConstraint.any;
-    try {
-      final floor = parseModrinthVersion(pinned.versionNumber);
-      return VersionRange(min: floor, includeMin: true);
-    } on FormatException {
-      return VersionConstraint.any;
-    }
+    return VersionRange(min: pinned.parsedVersion, includeMin: true);
   }
 
   Future<bool> _solveStep(_SolverState state) async {
@@ -280,7 +288,7 @@ class PubGrubSolver {
     final slug = picked.key;
     final constraint = picked.value;
     final channel = state.channels[slug] ?? Channel.alpha;
-    final allowed = allowedVersionTypes(channel);
+    final allowedChannels = _allowedChannels(channel);
 
     final allVersions = await _versionsFor(slug);
     if (allVersions.isEmpty) {
@@ -292,25 +300,14 @@ class PubGrubSolver {
       return false;
     }
 
-    // Collect (parsed_version, modrinth_version) candidates.
-    final candidates = <_Candidate>[];
+    // Collect candidates that pass the channel + constraint filter.
+    final candidates = <SolverVersion>[];
     for (final v in allVersions) {
-      final vt = v.versionType ?? 'release';
-      if (!allowed.contains(vt)) continue;
-      try {
-        // Best-effort: truly-weird Modrinth version strings fall back
-        // to `Version(0.0.0-<sanitised>)` so an exact-pin constraint on
-        // the same raw string can still match. Pure-symbol versions
-        // (empty after sanitisation) still throw and get skipped.
-        final parsed = parseModrinthVersionBestEffort(v.versionNumber);
-        if (constraint.allows(parsed)) {
-          candidates.add(_Candidate(parsed, v));
-        }
-      } on FormatException {
-        // Skip versions we cannot parse — recorded for diagnosis on failure.
-        state.unparseableVersions
-            .putIfAbsent(slug, () => <String>[])
-            .add(v.versionNumber);
+      final requiredId = requiredVersionIds[slug];
+      if (requiredId != null && v.id != requiredId) continue;
+      if (!allowedChannels.contains(v.channel)) continue;
+      if (constraint.allows(v.parsedVersion)) {
+        candidates.add(v);
       }
     }
     if (candidates.isEmpty) {
@@ -322,14 +319,7 @@ class PubGrubSolver {
       return false;
     }
 
-    candidates.sort(
-      (a, b) => compareModrinthSelectionOrder(
-        a.modrinthVersion,
-        a.parsed,
-        b.modrinthVersion,
-        b.parsed,
-      ),
-    );
+    candidates.sort(selectionOrder);
     if (solveType == SolveType.downgrade) {
       // Downgrade reverses the candidate order so the oldest matching
       // version is tried first. Lock-pin promotion still runs below:
@@ -345,9 +335,7 @@ class PubGrubSolver {
     // Lock-suggestion preference: if the current lock pin satisfies, try it first.
     final pin = state.lockSuggestions[slug];
     if (pin != null) {
-      final pinIdx = candidates.indexWhere(
-        (c) => c.modrinthVersion.versionNumber == pin,
-      );
+      final pinIdx = candidates.indexWhere((c) => c.versionNumber == pin);
       if (pinIdx > 0) {
         final pinned = candidates.removeAt(pinIdx);
         candidates.insert(0, pinned);
@@ -357,18 +345,20 @@ class PubGrubSolver {
     for (final cand in candidates) {
       // Snapshot state so we can backtrack.
       final snapshot = state.snapshot();
-      state.decisions[slug] = cand.modrinthVersion;
+      state.decisions[slug] = cand;
       var ok = true;
       // The user-root ancestor of `slug` — used to attribute any
       // constraint this candidate's deps add on a transitive back to a
       // user-controllable disable target. Computed once per candidate
       // because every dep below shares the same ancestor.
       final ancestor = _userRootAncestorOf(slug, state);
-      for (final dep in cand.modrinthVersion.dependencies) {
-        if (dep.dependencyType == DependencyType.required) {
-          final depProjectId = dep.projectId;
+      for (final dep in cand.dependencies) {
+        if (dep.type == SolverDependencyType.required) {
+          final depProjectId = dep.targetProjectId;
           if (depProjectId == null) continue;
-          final depSlug = await resolveSlugForProjectId(depProjectId);
+          final depSlug =
+              await (resolveDependencySlug?.call(depProjectId, slug) ??
+                  resolveSlugForProjectId(depProjectId));
           if (depSlug == null) {
             // Cannot resolve transitive dependency to a slug — skip.
             // The user can pin it explicitly if desired.
@@ -378,13 +368,13 @@ class PubGrubSolver {
           // from any other source on them are silently dropped (spec
           // cases 4 and 5).
           if (state.overriddenSlugs.contains(depSlug)) continue;
-          // A `version_id` on the dep is a lower-bound hint: Modrinth
-          // mods don't declare upper compatibility bounds, so two
+          // A `version_id` on the dep is a lower-bound hint: mods
+          // don't declare upper compatibility bounds, so two
           // parents pinning across majors should resolve to the higher
           // floor instead of conflicting.
           final depConstraint = await _constraintFromVersionId(
             slug: depSlug,
-            versionId: dep.versionId,
+            versionId: dep.targetVersionId,
           );
           state.addConstraint(depSlug, depConstraint, parentSlug: ancestor);
           // Transitive deps inherit the permissive default (all
@@ -395,15 +385,13 @@ class PubGrubSolver {
           // Record who pulled this transitive in so failure messages
           // can narrate "every <slug> depends on <depSlug>" — backtracking
           // restores the previous introducer if this candidate is abandoned.
-          state.recordIntroducer(
-            depSlug,
-            slug,
-            cand.modrinthVersion.versionNumber,
-          );
-        } else if (dep.dependencyType == DependencyType.incompatible) {
-          final depProjectId = dep.projectId;
+          state.recordIntroducer(depSlug, slug, cand.versionNumber);
+        } else if (dep.type == SolverDependencyType.incompatible) {
+          final depProjectId = dep.targetProjectId;
           if (depProjectId == null) continue;
-          final depSlug = await resolveSlugForProjectId(depProjectId);
+          final depSlug =
+              await (resolveDependencySlug?.call(depProjectId, slug) ??
+                  resolveSlugForProjectId(depProjectId));
           if (depSlug == null) continue;
           // Spec case 3: incompatible edges that target an override
           // slug are silently dropped. (Edges originating from an
@@ -417,7 +405,7 @@ class PubGrubSolver {
             ok = false;
             state.recordSpecificFailure(
               slug,
-              '$slug ${cand.modrinthVersion.versionNumber} is '
+              '$slug ${cand.versionNumber} is '
               'incompatible with $depSlug, which is already in the modpack',
               counterpartSlug: depSlug,
             );
@@ -472,10 +460,20 @@ class PubGrubSolver {
   }
 }
 
-class _Candidate {
-  final Version parsed;
-  final modrinth.Version modrinthVersion;
-  const _Candidate(this.parsed, this.modrinthVersion);
+/// Channels admissible under [floor]: `release` floor admits only
+/// `release`, `beta` admits release+beta, `alpha` admits everything.
+/// Mirrors `allowedVersionTypes` but operates on the [Channel] enum
+/// directly so the solver doesn't have to know platform-specific
+/// version-type strings.
+Set<Channel> _allowedChannels(Channel floor) {
+  switch (floor) {
+    case Channel.release:
+      return const {Channel.release};
+    case Channel.beta:
+      return const {Channel.release, Channel.beta};
+    case Channel.alpha:
+      return const {Channel.release, Channel.beta, Channel.alpha};
+  }
 }
 
 /// Records who introduced a transitive constraint on a slug. Used at
@@ -520,7 +518,7 @@ class _Failure {
 class _SolverState {
   final Map<String, VersionConstraint> constraints = {};
   final Map<String, Channel> channels = {};
-  final Map<String, modrinth.Version> decisions = {};
+  final Map<String, SolverVersion> decisions = {};
   final Set<String> incompatibleSlugs = {};
 
   /// Slugs decided at solve-start by an [OverridePin]. The solver
@@ -533,7 +531,7 @@ class _SolverState {
   /// Snapshot of override decisions taken at solve-start, used by
   /// [restore] to re-seat them after the search loop backtracks.
   /// Never mutated after `solve` populates it.
-  final Map<String, modrinth.Version> initialOverrideDecisions = {};
+  final Map<String, SolverVersion> initialOverrideDecisions = {};
 
   /// `incompatibleBy[depSlug] = parentSlug`: the slug whose dep loop
   /// added `depSlug` to [incompatibleSlugs]. Used at conflict-detection
@@ -550,7 +548,6 @@ class _SolverState {
   final Map<String, _Introducer> introducers = {};
   final Map<String, String> lockSuggestions;
   final Set<String> userSlugs;
-  final Map<String, List<String>> unparseableVersions = {};
 
   /// Real-cause failures collected across the entire solve. Not part of
   /// snapshot/restore — failures persist past backtracking so we still
@@ -665,15 +662,6 @@ class _SolverState {
       }
       buf.writeln('Version solving failed.');
     }
-    if (unparseableVersions.isNotEmpty) {
-      buf.writeln(
-        '\nNote: some Modrinth version strings could not be parsed and were skipped:',
-      );
-      unparseableVersions.forEach((slug, versions) {
-        buf.writeln('  - $slug: ${versions.join(', ')}');
-      });
-      buf.writeln('Pin an exact version in mods.yaml as a workaround.');
-    }
     return buf.toString().trimRight();
   }
 
@@ -755,7 +743,7 @@ class _SolverState {
 class _Snapshot {
   final Map<String, VersionConstraint> constraints;
   final Map<String, Channel> channels;
-  final Map<String, modrinth.Version> decisions;
+  final Map<String, SolverVersion> decisions;
   final Set<String> incompatibleSlugs;
   final Map<String, String> incompatibleBy;
   final Map<String, _Introducer> introducers;

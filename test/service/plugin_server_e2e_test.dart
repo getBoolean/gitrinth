@@ -94,7 +94,7 @@ void main() {
       expect(build.build, greaterThan(0));
       expect(build.filename, contains('paper-1.21.1-'));
       expect(build.filename, endsWith('.jar'));
-      expect(build.downloadUrl.host, 'api.papermc.io');
+      expect(build.downloadUrl.host, 'fill-data.papermc.io');
       await headOk(build.downloadUrl);
     });
 

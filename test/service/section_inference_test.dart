@@ -2,7 +2,7 @@ import 'package:test/test.dart';
 
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
-import 'package:gitrinth/src/service/section_inference.dart';
+import 'package:gitrinth/src/service/resolve/section_inference.dart';
 
 void main() {
   group('inferSectionFromProject', () {

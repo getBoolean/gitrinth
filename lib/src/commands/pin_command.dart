@@ -3,7 +3,6 @@ import 'dart:io';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
-import '../model/manifest/mods_lock.dart';
 import '../model/resolver/constraint.dart';
 import '../service/manifest_io.dart';
 import 'add_command_editor.dart';
@@ -70,10 +69,10 @@ class PinCommand extends GitrinthCommand {
         '— run `gitrinth get`.',
       );
     }
-    if (locked.sourceKind != LockedSourceKind.modrinth) {
+    if (locked.modrinth == null) {
       throw UserError(
-        "'$slug' is a ${locked.sourceKind.name} source; only Modrinth "
-        'entries can be pinned.',
+        "'$slug' has no Modrinth source block (kind: ${locked.kind.name}); "
+        'only Modrinth entries can be pinned.',
       );
     }
     final rawVersion = locked.version;

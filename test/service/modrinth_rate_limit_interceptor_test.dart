@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:gitrinth/src/service/console.dart';
-import 'package:gitrinth/src/service/modrinth_rate_limit_interceptor.dart';
+import 'package:gitrinth/src/service/modrinth/modrinth_rate_limit_interceptor.dart';
 import 'package:test/test.dart';
 
 typedef _ScriptedResponse = ({

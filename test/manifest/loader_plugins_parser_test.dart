@@ -16,7 +16,7 @@ description: x
 loader:
   mods: $mods
   plugins: $pluginsValue
-mc-version: 1.21.1
+mc_version: 1.21.1
 ''';
 
   group('loader.plugins parsing', () {
@@ -36,17 +36,20 @@ mc-version: 1.21.1
       expect(manifest.loader.plugins, PluginLoader.spongeforge);
     });
 
-    test('rejects an unknown value with a message listing every loader', () {
-      try {
-        parseModsYaml(yamlWithLoaderPlugins('bogus'), filePath: 'mods.yaml');
-        fail('expected a parse error');
-      } on ValidationError catch (e) {
-        expect(e.message, contains('bukkit'));
-        expect(e.message, contains('folia'));
-        expect(e.message, contains('paper'));
-        expect(e.message, contains('spigot'));
-        expect(e.message, contains('sponge'));
-      }
+    test('rejects a malformed plugin loader identity', () {
+      expect(
+        () => parseModsYaml(
+          yamlWithLoaderPlugins('bad/loader'),
+          filePath: 'mods.yaml',
+        ),
+        throwsA(
+          isA<ValidationError>().having(
+            (e) => e.message,
+            'message',
+            contains('Invalid lowercase loader identity'),
+          ),
+        ),
+      );
     });
 
     test('rejects a non-empty plugins: section with no loader.plugins', () {
@@ -57,7 +60,7 @@ version: 0.1.0
 description: x
 loader:
   mods: neoforge
-mc-version: 1.21.1
+mc_version: 1.21.1
 plugins:
   luckperms:
 ''';
@@ -121,7 +124,7 @@ description: x
 loader:
   mods: neoforge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium:
     version: ^1.0.0
@@ -143,7 +146,7 @@ description: x
 loader:
   mods: forge
   plugins: sponge
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium:
     version: ^1.0.0
@@ -163,7 +166,7 @@ description: x
 loader:
   mods: neoforge
   plugins: paper
-mc-version: 1.21.1
+mc_version: 1.21.1
 plugins:
   luckperms:
     version: ^5.0.0

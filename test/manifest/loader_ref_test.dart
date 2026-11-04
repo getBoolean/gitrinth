@@ -82,10 +82,10 @@ void main() {
       expect(msg, contains('more than one'));
     });
 
-    test('rejects an unknown loader name', () {
-      final msg = _captureError('quilt');
-      expect(msg, contains('quilt'));
-      expect(msg, contains('not a recognized loader'));
+    test('rejects a malformed loader identity', () {
+      final msg = _captureError('bad/loader');
+      expect(msg, contains('bad/loader'));
+      expect(msg, contains('Invalid lowercase loader identity'));
     });
   });
 }

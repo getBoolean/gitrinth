@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:gitrinth/src/app/env.dart';
 import 'package:gitrinth/src/cli/exceptions.dart';
 import 'package:gitrinth/src/commands/build_orchestrator.dart';
 import 'package:gitrinth/src/commands/launch_command.dart';
@@ -157,6 +158,44 @@ void main() {
     void writeLock(ModsLock lock) {
       File(io.modsLockPath).writeAsStringSync(emitModsLock(lock));
     }
+
+    test('metadata-only no-build launch has no side effects', () async {
+      container.dispose();
+      container = ProviderContainer(
+        overrides: [
+          environmentProvider.overrideWithValue({
+            'GITRINTH_CONFIG': p.join(tempRoot.path, 'config.yaml'),
+          }),
+        ],
+      );
+      writeLock(_lock(loader: LoaderId('future-runtime')));
+      final fake = _FakeRunProcess();
+      await expectLater(
+        runLaunchServer(
+          options: const LaunchServerOptions(
+            autoBuild: false,
+            acceptEula: true,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        ),
+        throwsA(isA<ValidationError>()),
+      );
+      expect(fakeResolver.lastMcVersion, isNull);
+      expect(File(p.join(serverDir.path, 'eula.txt')).existsSync(), isFalse);
+      expect(fake.executable, isNull);
+    });
 
     test('--accept-eula writes eula.txt with eula=true', () async {
       writeLock(_lock());
@@ -649,44 +688,40 @@ void main() {
         skip: Platform.isWindows ? 'POSIX-only' : null,
       );
 
-      test(
-        'on Windows, Forge launch shells out to run.bat',
-        () async {
-          writeLock(_lock(loader: ModLoader.forge));
-          File(
-            p.join(serverDir.path, 'run.bat'),
-          ).writeAsStringSync('@echo off\n');
-          final fake = _FakeRunProcess();
-          await runLaunchServer(
-            options: const LaunchServerOptions(
-              acceptEula: false,
-              autoBuild: false,
-              memoryMax: '6G',
-              memoryMin: '6G',
-              offline: false,
-              verbose: false,
-              extraArgs: [],
-              headless: false,
-              detach: false,
-              force: false,
-            ),
-            container: container,
-            console: const Console(),
-            io: io,
-            runProcess: fake.call,
-            resolver: fakeResolver,
-          );
-          expect(fake.executable, endsWith('run.bat'));
-          expect(fake.runInShell, isTrue);
-          // The chosen JDK's bin/ is prepended to PATH and JAVA_HOME
-          // points at its parent so the unmodified run.bat picks it up.
-          expect(fake.environment, isNotNull);
-          final fakeJavaBinDir = p.dirname(fakeResolver.javaPath);
-          expect(fake.environment!['PATH'], startsWith(fakeJavaBinDir));
-          expect(fake.environment!['JAVA_HOME'], p.dirname(fakeJavaBinDir));
-        },
-        skip: !Platform.isWindows ? 'Windows-only' : null,
-      );
+      test('on Windows, Forge launch shells out to run.bat', () async {
+        writeLock(_lock(loader: ModLoader.forge));
+        File(
+          p.join(serverDir.path, 'run.bat'),
+        ).writeAsStringSync('@echo off\n');
+        final fake = _FakeRunProcess();
+        await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '6G',
+            memoryMin: '6G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: false,
+            detach: false,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+        expect(fake.executable, endsWith('run.bat'));
+        expect(fake.runInShell, isTrue);
+        // The chosen JDK's bin/ is prepended to PATH and JAVA_HOME
+        // points at its parent so the unmodified run.bat picks it up.
+        expect(fake.environment, isNotNull);
+        final fakeJavaBinDir = p.dirname(fakeResolver.javaPath);
+        expect(fake.environment!['PATH'], startsWith(fakeJavaBinDir));
+        expect(fake.environment!['JAVA_HOME'], p.dirname(fakeJavaBinDir));
+      }, skip: !Platform.isWindows ? 'Windows-only' : null);
 
       test(
         'rewrites user_jvm_args.txt with managed GC and heap flags',
@@ -1058,39 +1093,35 @@ void main() {
         skip: Platform.isWindows ? 'POSIX-only gate' : null,
       );
 
-      test(
-        'Windows: --detach --headless without --force is allowed',
-        () async {
-          writeLock(_lock(loader: ModLoader.fabric));
-          File(
-            p.join(serverDir.path, 'fabric-server-launch.jar'),
-          ).writeAsStringSync('FAB');
-          final fake = _FakeRunProcess();
-          final code = await runLaunchServer(
-            options: const LaunchServerOptions(
-              acceptEula: false,
-              autoBuild: false,
-              memoryMax: '2G',
-              memoryMin: '2G',
-              offline: false,
-              verbose: false,
-              extraArgs: [],
-              headless: true,
-              detach: true,
-              force: false,
-            ),
-            container: container,
-            console: const Console(),
-            io: io,
-            runProcess: fake.call,
-            resolver: fakeResolver,
-          );
-          expect(code, 0);
-          expect(fake.mode, ProcessStartMode.detached);
-          expect(fake.args, contains('nogui'));
-        },
-        skip: !Platform.isWindows ? 'Windows-only behavior' : null,
-      );
+      test('Windows: --detach --headless without --force is allowed', () async {
+        writeLock(_lock(loader: ModLoader.fabric));
+        File(
+          p.join(serverDir.path, 'fabric-server-launch.jar'),
+        ).writeAsStringSync('FAB');
+        final fake = _FakeRunProcess();
+        final code = await runLaunchServer(
+          options: const LaunchServerOptions(
+            acceptEula: false,
+            autoBuild: false,
+            memoryMax: '2G',
+            memoryMin: '2G',
+            offline: false,
+            verbose: false,
+            extraArgs: [],
+            headless: true,
+            detach: true,
+            force: false,
+          ),
+          container: container,
+          console: const Console(),
+          io: io,
+          runProcess: fake.call,
+          resolver: fakeResolver,
+        );
+        expect(code, 0);
+        expect(fake.mode, ProcessStartMode.detached);
+        expect(fake.args, contains('nogui'));
+      }, skip: !Platform.isWindows ? 'Windows-only behavior' : null);
 
       test(
         '--detach --headless --force spawns detached and bypasses validation',

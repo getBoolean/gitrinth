@@ -164,6 +164,7 @@ void main() {
 
       test('pack', () async {
         final out = await runCli(['pack', '--help']);
+        expect(out.stdout, contains('--server-distribution'));
         expect(out.exitCode, 0);
         expect(out.stdout, contains('--output'));
       });

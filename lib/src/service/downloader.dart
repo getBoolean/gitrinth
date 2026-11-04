@@ -13,22 +13,31 @@ class Downloader {
 
   Downloader({required this.dio, required this.cache});
 
-  /// Downloads [url] into the cache at [destinationPath], verifies sha512
-  /// (when provided), then atomically renames the temp file into place.
+  /// Downloads [url], verifies each supplied hash, then atomically renames
+  /// the temporary file into [destinationPath]. Cached files are verified too.
   /// Returns the downloaded [File]. If the file already exists at the
-  /// destination, no download is performed; if [expectedSha512] is given the
-  /// existing file is verified.
+  /// destination and satisfies the supplied hashes, no download is performed.
   Future<File> downloadTo({
     required String url,
     required String destinationPath,
     String? expectedSha512,
+    String? expectedSha1,
   }) async {
+    Future<void> verify(File file) async {
+      if (expectedSha512 != null) {
+        await GitrinthCache.verifyFileSha512(file, expectedSha512);
+      }
+      if (expectedSha1 != null) {
+        await GitrinthCache.verifyFileSha1(file, expectedSha1);
+      }
+    }
+
     cache.ensureRoot();
     final destFile = File(destinationPath);
     if (destFile.existsSync()) {
-      if (expectedSha512 != null) {
+      if (expectedSha512 != null || expectedSha1 != null) {
         try {
-          await GitrinthCache.verifyFileSha512(destFile, expectedSha512);
+          await verify(destFile);
         } on UserError {
           destFile.deleteSync();
           // fall through and re-download
@@ -51,9 +60,7 @@ class Downloader {
         tmpPath,
         options: Options(responseType: ResponseType.bytes),
       );
-      if (expectedSha512 != null) {
-        await GitrinthCache.verifyFileSha512(tmpFile, expectedSha512);
-      }
+      await verify(tmpFile);
       if (destFile.existsSync()) destFile.deleteSync();
       tmpFile.renameSync(destinationPath);
       return File(destinationPath);

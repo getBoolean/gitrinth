@@ -6,6 +6,7 @@ const List<String> modLoaderRefNames = [
   'forge',
   'fabric',
   'neoforge',
+  'quilt',
   'vanilla',
 ];
 
@@ -24,7 +25,7 @@ typedef TaggedRef = (String name, String? tag);
 /// Parses a generic `<name>` or `<name>:<tag>` reference.
 ///
 /// This deliberately knows nothing about Minecraft loaders. Callers map
-/// [name] to their enum and decide whether [tag] is allowed or defaulted.
+/// [name] to its validated identity and decide whether [tag] is allowed or defaulted.
 TaggedRef parseTaggedRef(String raw, Never Function(String message) onError) {
   final colon = raw.indexOf(':');
   final namePart = (colon < 0 ? raw : raw.substring(0, colon)).toLowerCase();
@@ -77,18 +78,20 @@ LoaderRef parseModLoaderRef(
     return (ModLoader.vanilla, null);
   }
 
-  switch (namePart) {
-    case 'forge':
-      return (ModLoader.forge, tagPart);
-    case 'fabric':
-      return (ModLoader.fabric, tagPart);
-    case 'neoforge':
-      return (ModLoader.neoforge, tagPart);
+  final id = _parseId(namePart, onError);
+  final role = LoaderRegistry.builtins[id]?.role;
+  if (role != null && role != LoaderRole.mod) {
+    onError('"$namePart" is not a mod loader.');
   }
-  onError(
-    '"$namePart" is not a recognized loader '
-    '(allowed: forge, fabric, neoforge, vanilla).',
-  );
+  return (id, tagPart);
+}
+
+LoaderId _parseId(String raw, Never Function(String) onError) {
+  try {
+    return LoaderId(raw);
+  } on FormatException catch (e) {
+    onError(e.message);
+  }
 }
 
 /// Result of [parseDeclaredPluginLoaderRef].
@@ -100,29 +103,17 @@ DeclaredPluginLoaderRef parseDeclaredPluginLoaderRef(
   Never Function(String message) onError,
 ) {
   final (namePart, tagPart) = parseTaggedRef(raw, onError);
-  switch (namePart) {
-    case 'bukkit':
-      return (DeclaredPluginLoader.bukkit, tagPart);
-    case 'folia':
-      return (DeclaredPluginLoader.folia, tagPart);
-    case 'paper':
-      return (DeclaredPluginLoader.paper, tagPart);
-    case 'spigot':
-      return (DeclaredPluginLoader.spigot, tagPart);
-    case 'sponge':
-      return (DeclaredPluginLoader.sponge, tagPart);
-    case 'spongeforge':
-    case 'spongeneo':
-    case 'spongevanilla':
-      onError(
-        '"$namePart" is a resolved lockfile plugin loader; write '
-        '`sponge` in mods.yaml instead.',
-      );
+  if (const {'spongeforge', 'spongeneo', 'spongevanilla'}.contains(namePart)) {
+    onError(
+      '"$namePart" is a resolved lockfile plugin loader; write `sponge` in mods.yaml instead.',
+    );
   }
-  onError(
-    '"$namePart" is not a recognized plugin loader '
-    '(allowed: bukkit, folia, paper, spigot, sponge).',
-  );
+  final id = _parseId(namePart, onError);
+  final role = LoaderRegistry.builtins[id]?.role;
+  if (role != null && role != LoaderRole.plugin) {
+    onError('"$namePart" is not a plugin loader.');
+  }
+  return (id, tagPart);
 }
 
 /// Result of [parseResolvedPluginLoaderRef].
@@ -134,25 +125,5 @@ ResolvedPluginLoaderRef parseResolvedPluginLoaderRef(
   Never Function(String message) onError,
 ) {
   final (namePart, tagPart) = parseTaggedRef(raw, onError);
-  switch (namePart) {
-    case 'bukkit':
-      return (PluginLoader.bukkit, tagPart);
-    case 'folia':
-      return (PluginLoader.folia, tagPart);
-    case 'paper':
-      return (PluginLoader.paper, tagPart);
-    case 'spigot':
-      return (PluginLoader.spigot, tagPart);
-    case 'spongeforge':
-      return (PluginLoader.spongeforge, tagPart);
-    case 'spongeneo':
-      return (PluginLoader.spongeneo, tagPart);
-    case 'spongevanilla':
-      return (PluginLoader.spongevanilla, tagPart);
-  }
-  onError(
-    '"$namePart" is not a recognized resolved plugin loader '
-    '(allowed: bukkit, folia, paper, spigot, spongeforge, '
-    'spongeneo, spongevanilla).',
-  );
+  return (_parseId(namePart, onError), tagPart);
 }

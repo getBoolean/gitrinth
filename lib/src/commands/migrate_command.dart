@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
+import 'version_picker.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -11,10 +13,10 @@ import '../model/manifest/loader_ref.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/modrinth/version.dart' as modrinth;
 import '../model/resolver/constraint.dart';
-import '../service/conflict_disable.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_api.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/modrinth/modrinth_api.dart';
+import '../service/resolve/conflict_disable.dart';
+import '../service/resolve/resolve_and_sync.dart';
 import 'caret_rewriter.dart';
 import 'migrate_editor.dart';
 
@@ -175,10 +177,18 @@ Future<int> _runMigrate({
     newLoader: newLoader,
     newLoaderTag: newLoaderTag,
   );
+  final registry = await prepareLoaderRegistry(
+    command.container,
+    mutated,
+    offline: offline,
+  );
   final targetMc = mutated.mcVersion;
   final targetLoader = mutated.loader.mods;
 
-  final api = command.read(modrinthApiProvider);
+  // Migrate's recovery loop walks Modrinth-source entries; each one
+  // may have its own host. Pull the factory once and use it per
+  // entry inside the loop below.
+  final apiFactory = command.read(modrinthApiFactoryProvider);
 
   final available = <(Section, String)>{};
   final recovered = <(Section, String)>{};
@@ -213,11 +223,23 @@ Future<int> _runMigrate({
         // `^x.y.z` on success or re-mark on the next conflict catch.
         final isMarker = isAnyGitrinthMarker(entry.constraintRaw);
         final gameVersions = <String>{targetMc, ...entry.acceptsMc}.toList();
+        final entryApi = apiFactory.forHost(
+          manifest.effectiveModrinthHost(entry, apiFactory.defaultBaseUrl),
+        );
         List<modrinth.Version> versions;
         try {
-          versions = await api.listVersions(
+          final filters = filterLoadersForSection(
+            mutated.loader,
+            section,
+            registry: registry,
+            host: manifest.effectiveModrinthHost(
+              entry,
+              apiFactory.defaultBaseUrl,
+            ),
+          );
+          versions = await entryApi.listVersions(
             slug,
-            loadersJson: encodeFilterArray([targetLoader.name]),
+            loadersJson: filters == null ? null : encodeFilterArray(filters),
             gameVersionsJson: encodeFilterArray(gameVersions),
           );
         } on DioException catch (e) {
@@ -261,7 +283,7 @@ Future<int> _runMigrate({
   };
   final resolutionManifest = stripSlugs.isEmpty
       ? mutated
-      : _stripSlugs(mutated, stripSlugs);
+      : mutated.withoutEntrySlugs(stripSlugs);
 
   final targets = <String>{
     for (final s in available) s.$2,
@@ -277,6 +299,7 @@ Future<int> _runMigrate({
   };
 
   final cache = command.read(cacheProvider);
+  final cfFactory = command.read(curseForgeApiFactoryProvider);
   final downloader = command.read(downloaderProvider);
   final modLoaderResolver = command.read(modLoaderVersionResolverProvider);
   final pluginLoaderResolver = command.read(
@@ -295,9 +318,11 @@ Future<int> _runMigrate({
           required freshSlugs,
           required relaxConstraints,
         }) => resolveAndSync(
+          loaderRegistry: registry,
           io: io,
           console: console,
-          api: api,
+          apiFactory: apiFactory,
+          cfFactory: cfFactory,
           cache: cache,
           downloader: downloader,
           modLoaderResolver: modLoaderResolver,
@@ -333,7 +358,7 @@ Future<int> _runMigrate({
   if (newMcVersion != null) {
     yamlText = updateTopLevelScalar(
       yamlText,
-      path: const ['mc-version'],
+      path: const ['mc_version'],
       newValue: newMcVersion,
     );
   } else if (newLoader == ModLoader.vanilla) {
@@ -467,19 +492,6 @@ ModsYaml _applyTarget(
       plugins: resolvedPlugins,
       pluginLoaderVersion: manifest.loader.pluginLoaderVersion,
     ),
-  );
-}
-
-ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {
-  Map<String, ModEntry> strip(Map<String, ModEntry> m) => {
-    for (final e in m.entries)
-      if (!slugs.contains(e.key)) e.key: e.value,
-  };
-  return manifest.copyWith(
-    mods: strip(manifest.mods),
-    resourcePacks: strip(manifest.resourcePacks),
-    dataPacks: strip(manifest.dataPacks),
-    shaders: strip(manifest.shaders),
   );
 }
 

@@ -6,6 +6,7 @@ import 'package:riverpod/riverpod.dart';
 
 import '../app/env.dart';
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
@@ -296,6 +297,13 @@ Future<int> runLaunchServer({
     );
   }
 
+  final registry = container.read(loaderRegistryProvider);
+  if (registry[lock.loader.mods]?.installer == null) {
+    throw ValidationError(
+      'Loader ${lock.loader.mods.name} has no installed launch adapter.',
+    );
+  }
+
   final outputDir = Directory(
     p.normalize(
       p.absolute(
@@ -325,6 +333,7 @@ Future<int> runLaunchServer({
   }
 
   final (executable, args, useShell) = _serverLaunchCommand(
+    registry: registry,
     loader: lock.loader.mods,
     serverDir: serverDir,
     memoryMax: options.memoryMax,
@@ -381,6 +390,7 @@ Map<String, String> _spawnEnvironment({
 }
 
 (String executable, List<String> args, bool runInShell) _serverLaunchCommand({
+  LoaderRegistry registry = LoaderRegistry.builtins,
   required ModLoader loader,
   required Directory serverDir,
   required String memoryMax,
@@ -390,7 +400,13 @@ Map<String, String> _spawnEnvironment({
   required int javaMajor,
   required bool headless,
 }) {
-  final jar = loader.serverLaunchJar;
+  final descriptor = registry[loader];
+  if (descriptor?.installer == null) {
+    throw ValidationError(
+      'Loader ${loader.name} has no installed launch adapter.',
+    );
+  }
+  final jar = descriptor?.serverLaunchJar;
   if (jar != null) {
     return (
       javaPath,
@@ -786,6 +802,15 @@ Future<int> runLaunchClient({
       'launch client: pack has no mod runtime (loader.mods is vanilla). '
       'gitrinth does not install vanilla Minecraft launchers; use the '
       'official launcher to play this pack.',
+    );
+  }
+
+  if (container
+          .read(loaderRegistryProvider)[lock.loader.mods]
+          ?.canInstallClient !=
+      true) {
+    throw ValidationError(
+      'Loader ${lock.loader.mods.name} has no installed client launch adapter.',
     );
   }
 

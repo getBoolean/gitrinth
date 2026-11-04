@@ -57,6 +57,9 @@ void main() {
 
   String sha512Hex(List<int> bytes) => sha512.convert(bytes).toString();
 
+  const seedHost = 'https://api.modrinth.com/v2';
+  final seedHostSegment = GitrinthCache.hostCacheSegment(seedHost);
+
   void seedModrinth({
     required String projectId,
     required String versionId,
@@ -65,7 +68,9 @@ void main() {
     String? url,
     String? declaredSha512,
   }) {
-    final dir = Directory(p.join(cache.modrinthRoot, projectId, versionId));
+    final dir = Directory(
+      p.join(cache.modrinthRoot, seedHostSegment, projectId, versionId),
+    );
     dir.createSync(recursive: true);
     final bytes = utf8.encode(body);
     File(p.join(dir.path, filename)).writeAsBytesSync(bytes);
@@ -91,6 +96,7 @@ void main() {
     };
     File(
       cache.modrinthVersionMetadataPath(
+        host: seedHost,
         projectId: projectId,
         versionId: versionId,
       ),
@@ -192,7 +198,11 @@ void main() {
         // Sanity: version.json declares goodSha, not the tampered body's hash.
         expect(
           File(
-            cache.modrinthVersionMetadataPath(projectId: 'P', versionId: 'V'),
+            cache.modrinthVersionMetadataPath(
+              host: seedHost,
+              projectId: 'P',
+              versionId: 'V',
+            ),
           ).readAsStringSync(),
           contains(goodSha),
         );
@@ -211,6 +221,7 @@ void main() {
         expect(outcome.stillCorrupt, isEmpty);
         // The on-disk file is now the good content.
         final destPath = cache.modrinthPath(
+          host: seedHost,
           projectId: 'P',
           versionId: 'V',
           filename: 'mod.jar',
@@ -274,8 +285,9 @@ void main() {
     );
 
     test('skips modrinth jar with missing version.json (orphan)', () async {
-      final dir = Directory(p.join(cache.modrinthRoot, 'P', 'V'))
-        ..createSync(recursive: true);
+      final dir = Directory(
+        p.join(cache.modrinthRoot, seedHostSegment, 'P', 'V'),
+      )..createSync(recursive: true);
       File(p.join(dir.path, 'orphan.jar')).writeAsStringSync('garbage');
       final downloader = buildDownloader({});
       final inspector = CacheInspector(cache);
@@ -290,8 +302,9 @@ void main() {
     });
 
     test('skips modrinth jar when version.json lacks files array', () async {
-      final dir = Directory(p.join(cache.modrinthRoot, 'P', 'V'))
-        ..createSync(recursive: true);
+      final dir = Directory(
+        p.join(cache.modrinthRoot, seedHostSegment, 'P', 'V'),
+      )..createSync(recursive: true);
       File(p.join(dir.path, 'jar.jar')).writeAsStringSync('garbage');
       File(
         p.join(dir.path, 'version.json'),

@@ -31,17 +31,20 @@ typedef ProcessRunner =
 /// Idempotent via a sentinel marker file so re-runs of `gitrinth build` are
 /// fast.
 class ServerInstaller {
+  final LoaderRegistry _registry;
   final ProcessRunner? _runProcess;
   final Map<String, String> _environment;
   final JavaRuntimeResolver? _resolver;
   final Console _console;
 
   ServerInstaller({
+    LoaderRegistry registry = LoaderRegistry.builtins,
     ProcessRunner? runProcess,
     Map<String, String>? environment,
     JavaRuntimeResolver? resolver,
     Console? console,
-  }) : _runProcess = runProcess,
+  }) : _registry = registry,
+       _runProcess = runProcess,
        _environment = environment ?? Platform.environment,
        _resolver = resolver,
        _console = console ?? const Console();
@@ -59,6 +62,12 @@ class ServerInstaller {
     File? pluginServerJar,
     String? pluginInstallMarker,
   }) async {
+    if (!isSafeRuntimeToken(mcVersion) ||
+        (modLoaderVersion != null && !isSafeRuntimeToken(modLoaderVersion))) {
+      throw const ValidationError(
+        'Unsafe runtime version; installer versions cannot contain paths, URLs, or options.',
+      );
+    }
     // Plugin-loader installs don't use [loader] / [modLoaderVersion]; the
     // mod-loader path requires both. Caller must guard with
     // LoaderConfig.hasModRuntime — these throws are the last line of
@@ -77,6 +86,17 @@ class ServerInstaller {
         );
       }
     }
+    final family = _registry[loader]?.installer;
+    if (pluginServerJar == null &&
+        !const {
+          InstallerFamily.fabric,
+          InstallerFamily.forge,
+          InstallerFamily.quilt,
+        }.contains(family)) {
+      throw ValidationError(
+        'Loader ${loader.name} has no installed server adapter. Metadata resolution and packing remain available.',
+      );
+    }
     outputDir.createSync(recursive: true);
 
     if (pluginServerJar != null && pluginInstallMarker != null) {
@@ -91,6 +111,9 @@ class ServerInstaller {
       return;
     }
 
+    if (modLoaderVersion == null) {
+      throw StateError('Mod-loader installation requires a concrete version.');
+    }
     final marker = File(
       p.join(
         outputDir.path,
@@ -99,19 +122,19 @@ class ServerInstaller {
     );
     if (marker.existsSync()) return;
 
-    switch (loader) {
-      case ModLoader.vanilla:
+    switch (family) {
+      case InstallerFamily.vanilla:
         throw StateError(
           'installServer: mod-loader path entered with vanilla loader; '
           'caller must dispatch through the plugin-server path or guard '
           'on hasModRuntime.',
         );
-      case ModLoader.fabric:
+      case InstallerFamily.fabric:
         installerOrServerJar.copySync(
           p.join(outputDir.path, 'fabric-server-launch.jar'),
         );
-      case ModLoader.forge:
-      case ModLoader.neoforge:
+      case InstallerFamily.forge:
+      case InstallerFamily.quilt:
         if (offline) {
           throw UserError(
             '${loader.name} server install requires running its installer '
@@ -132,8 +155,17 @@ class ServerInstaller {
         final args = <String>[
           '-jar',
           installerOrServerJar.path,
-          '--installServer',
-          outputDir.path,
+          if (family == InstallerFamily.quilt) ...[
+            'install',
+            'server',
+            mcVersion,
+            modLoaderVersion,
+            '--install-dir="${outputDir.path}"',
+            '--download-server',
+          ] else ...[
+            '--installServer',
+            outputDir.path,
+          ],
         ];
         final environment = _spawnEnvironment(java.path);
         final injected = _runProcess;
@@ -157,8 +189,20 @@ class ServerInstaller {
             '(see installer output above).',
           );
         }
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no server installer adapter.',
+        );
     }
-
+    if (family == InstallerFamily.quilt &&
+        (!File(
+              p.join(outputDir.path, 'quilt-server-launch.jar'),
+            ).existsSync() ||
+            !File(p.join(outputDir.path, 'server.jar')).existsSync())) {
+      throw const UserError(
+        'Quilt installer did not produce its server launcher and server.jar; installation is incomplete.',
+      );
+    }
     marker.writeAsStringSync(DateTime.now().toIso8601String());
   }
 

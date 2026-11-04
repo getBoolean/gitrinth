@@ -3,7 +3,7 @@ import 'package:path/path.dart' as p;
 import '../cli/exceptions.dart';
 import '../model/manifest/mods_lock.dart';
 import '../model/manifest/mods_yaml.dart';
-import '../service/cache.dart';
+export '../service/artifact_locator.dart' show resolveSourcePath;
 
 enum BuildEnv { client, server }
 
@@ -71,56 +71,8 @@ String mrpackSubdirFor(Section section) => switch (section) {
   Section.plugins => 'plugins',
 };
 
-String resolveSourcePath(
-  GitrinthCache cache,
-  LockedEntry entry, {
-  required String projectDir,
-}) {
-  switch (entry.sourceKind) {
-    case LockedSourceKind.modrinth:
-      final file = entry.file;
-      final projectId = entry.projectId;
-      final versionId = entry.versionId;
-      if (file == null || projectId == null || versionId == null) {
-        throw ValidationError(
-          'lockfile entry "${entry.slug}" is missing modrinth source fields.',
-        );
-      }
-      return cache.modrinthPath(
-        projectId: projectId,
-        versionId: versionId,
-        filename: file.name,
-      );
-    case LockedSourceKind.url:
-      final file = entry.file;
-      if (file == null) {
-        throw ValidationError(
-          'lockfile entry "${entry.slug}" is missing url source fields.',
-        );
-      }
-      // When sha512 is known, the artifact lives at its sha-addressed
-      // path; otherwise the downloader stashed it under `_unverified`
-      // keyed by slug (same fallback resolve_and_sync uses). Mirroring
-      // that here avoids forcing callers to re-run `get` just to
-      // populate a hash they may never need.
-      final sha512 = file.sha512;
-      if (sha512 != null) {
-        return cache.urlPath(sha512: sha512, filename: file.name);
-      }
-      return cache.unverifiedUrlPath(entry.slug, file.name);
-    case LockedSourceKind.path:
-      final raw = entry.path;
-      if (raw == null) {
-        throw ValidationError(
-          'lockfile entry "${entry.slug}" is missing path source fields.',
-        );
-      }
-      return p.isAbsolute(raw) ? raw : p.normalize(p.join(projectDir, raw));
-  }
-}
-
 String destFilenameFor(LockedEntry entry) {
-  final file = entry.file;
+  final file = entry.primaryFile;
   if (file != null) return file.name;
   final path = entry.path;
   if (path != null) return p.basename(path);

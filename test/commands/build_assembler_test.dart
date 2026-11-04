@@ -13,14 +13,16 @@ LockedEntry _modrinth(
   SideEnv server = SideEnv.required,
 }) => LockedEntry(
   slug: slug,
-  sourceKind: LockedSourceKind.modrinth,
-  projectId: 'PRJ',
-  versionId: 'VER',
-  file: LockedFile(
-    name: '$slug.jar',
-    url: 'https://example.invalid/$slug.jar',
-    sha512: 'a' * 128,
-    size: 0,
+  kind: LockedEntryKind.resolved,
+  modrinth: LockedModrinthSource(
+    projectId: 'PRJ',
+    versionId: 'VER',
+    file: LockedFile(
+      name: '$slug.jar',
+      url: 'https://example.invalid/$slug.jar',
+      sha512: 'a' * 128,
+      size: 0,
+    ),
   ),
   client: client,
   server: server,
@@ -32,8 +34,9 @@ LockedEntry _url(
   SideEnv server = SideEnv.required,
 }) => LockedEntry(
   slug: slug,
-  sourceKind: LockedSourceKind.url,
-  file: LockedFile(
+  kind: LockedEntryKind.url,
+  url: 'https://example.invalid/$slug.jar',
+  urlFile: LockedFile(
     name: '$slug.jar',
     url: 'https://example.invalid/$slug.jar',
     sha512: 'b' * 128,
@@ -49,7 +52,7 @@ LockedEntry _path(
   SideEnv server = SideEnv.required,
 }) => LockedEntry(
   slug: slug,
-  sourceKind: LockedSourceKind.path,
+  kind: LockedEntryKind.path,
   path: path,
   client: client,
   server: server,
@@ -184,16 +187,19 @@ void main() {
 
   group('resolveSourcePath', () {
     final cache = GitrinthCache(root: p.join('tmpcache', 'root'));
+    const host = 'https://api.modrinth.com/v2';
 
     test('modrinth source resolves via cache.modrinthPath', () {
       final path = resolveSourcePath(
         cache,
         _modrinth('jei'),
         projectDir: p.join('some', 'proj'),
+        modrinthHost: host,
       );
       expect(
         path,
         cache.modrinthPath(
+          host: host,
           projectId: 'PRJ',
           versionId: 'VER',
           filename: 'jei.jar',
@@ -207,10 +213,11 @@ void main() {
         cache,
         entry,
         projectDir: p.join('some', 'proj'),
+        modrinthHost: host,
       );
       expect(
         path,
-        cache.urlPath(sha512: entry.file!.sha512!, filename: 'custom.jar'),
+        cache.urlPath(sha512: entry.urlFile!.sha512!, filename: 'custom.jar'),
       );
     });
 
@@ -220,6 +227,7 @@ void main() {
         cache,
         _path('local', p.join('mods', 'local.jar')),
         projectDir: projectDir,
+        modrinthHost: host,
       );
       expect(path, p.normalize(p.join(projectDir, 'mods', 'local.jar')));
     });
@@ -230,18 +238,23 @@ void main() {
         cache,
         _path('abs', abs),
         projectDir: p.join(p.separator, 'elsewhere'),
+        modrinthHost: host,
       );
       expect(path, abs);
     });
 
-    test('modrinth entry missing projectId throws ValidationError', () {
+    test('resolved entry without source blocks throws ValidationError', () {
       final broken = LockedEntry(
         slug: 'broken',
-        sourceKind: LockedSourceKind.modrinth,
-        file: const LockedFile(name: 'broken.jar'),
+        kind: LockedEntryKind.resolved,
       );
       expect(
-        () => resolveSourcePath(cache, broken, projectDir: '.'),
+        () => resolveSourcePath(
+          cache,
+          broken,
+          projectDir: '.',
+          modrinthHost: host,
+        ),
         throwsA(isA<ValidationError>()),
       );
     });
@@ -251,10 +264,16 @@ void main() {
       () {
         final entry = LockedEntry(
           slug: 'unhashed',
-          sourceKind: LockedSourceKind.url,
-          file: const LockedFile(name: 'unhashed.jar'),
+          kind: LockedEntryKind.url,
+          url: 'https://example.invalid/unhashed.jar',
+          urlFile: const LockedFile(name: 'unhashed.jar'),
         );
-        final path = resolveSourcePath(cache, entry, projectDir: '.');
+        final path = resolveSourcePath(
+          cache,
+          entry,
+          projectDir: '.',
+          modrinthHost: host,
+        );
         expect(path, contains('_unverified'));
         expect(path, contains('unhashed'));
         expect(path, endsWith('unhashed.jar'));

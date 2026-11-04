@@ -4,8 +4,9 @@ Map<String, ModEntry> _parseSection(
   dynamic raw,
   String sectionName,
   String filePath,
-  Section section,
-) {
+  Section section, {
+  LoaderConfig? loader,
+}) {
   if (raw == null) return const {};
   if (raw is! Map) {
     throw _err('$filePath: $sectionName must be a mapping.');
@@ -16,7 +17,14 @@ Map<String, ModEntry> _parseSection(
     if (slug == null || slug.isEmpty) {
       throw _err('$filePath: $sectionName has an empty key.');
     }
-    result[slug] = _parseEntry(slug, value, sectionName, filePath, section);
+    result[slug] = _parseEntry(
+      slug,
+      value,
+      sectionName,
+      filePath,
+      section,
+      loader: loader,
+    );
   });
   return result;
 }
@@ -26,8 +34,9 @@ ModEntry _parseEntry(
   dynamic raw,
   String sectionName,
   String filePath,
-  Section section,
-) {
+  Section section, {
+  LoaderConfig? loader,
+}) {
   final defaults = defaultSidesFor(section);
   // Short forms: null (latest), a channel token, or a scalar version constraint.
   if (raw == null) {
@@ -63,23 +72,39 @@ ModEntry _parseEntry(
     );
   }
   final m = _toPlainMap(raw);
-  final hosted = m['hosted'];
+  final modrinthHostRaw = m['modrinth_host'];
   final url = m['url'];
   final path = m['path'];
-  final sourceCount =
-      (hosted == null ? 0 : 1) + (url == null ? 0 : 1) + (path == null ? 0 : 1);
-  if (sourceCount > 1) {
+  // `modrinth_host` co-exists with the Modrinth source kind (it's a
+  // host override on `modrinth:`-style entries), but is mutually
+  // exclusive with `url:` / `path:` because those select different
+  // source kinds entirely. The schema's `not` clauses already enforce
+  // this; mirror the check here so the parser-only path also gets a
+  // clear error.
+  if (modrinthHostRaw != null && (url != null || path != null)) {
     throw _err(
-      '$filePath: $sectionName/$slug declares more than one of '
-      'hosted/url/path. Choose at most one.',
+      '$filePath: $sectionName/$slug declares modrinth_host with '
+      '${url != null ? 'url' : 'path'}; modrinth_host applies to the '
+      'Modrinth source kind only.',
     );
   }
-  if (hosted != null) {
-    throw const UserError(
-      'hosted source is deferred; use a default-Modrinth slug, url:, or path:.',
+  if (url != null && path != null) {
+    throw _err(
+      '$filePath: $sectionName/$slug declares both url: and path:. '
+      'Choose at most one.',
     );
   }
-  EntrySource source = const ModrinthEntrySource();
+  String? modrinthHost;
+  if (modrinthHostRaw != null) {
+    if (modrinthHostRaw is! String || modrinthHostRaw.isEmpty) {
+      throw _err(
+        '$filePath: $sectionName/$slug modrinth_host must be a '
+        'non-empty URL string.',
+      );
+    }
+    modrinthHost = modrinthHostRaw;
+  }
+  EntrySource source = ModrinthEntrySource(host: modrinthHost);
   if (url != null) {
     if (url is! String || url.isEmpty) {
       throw _err(
@@ -94,6 +119,44 @@ ModEntry _parseEntry(
       );
     }
     source = PathEntrySource(path: path);
+  }
+  final modrinthSlug = _parseOptionalStringField(
+    m,
+    'modrinth',
+    '$sectionName/$slug',
+    filePath,
+  );
+  final curseforgeSlug = _parseOptionalStringField(
+    m,
+    'curseforge',
+    '$sectionName/$slug',
+    filePath,
+  );
+  final sourceSet = _parseSourcesField(
+    m['sources'],
+    '$sectionName/$slug',
+    filePath,
+  );
+
+  // CurseForge eligibility check. The plan locates this with the
+  // existing plugin/shader validation pass (lines around 173) so all
+  // section-aware policy lives in one place. CurseForge resolution
+  // proper ships in a later part of the bridge — this guard already
+  // applies because `curseforge:` and `sources: curseforge` are now
+  // syntactically valid.
+  if (loader != null) {
+    final wantsCurseforge =
+        (sourceSet?.contains(SourceKind.curseforge) ?? false) ||
+        curseforgeSlug != null;
+    if (wantsCurseforge && !sectionAllowsCurseforge(section, loader.plugins)) {
+      throw _err(
+        '$filePath: $sectionName/$slug declares a CurseForge source '
+        '(sources: curseforge or curseforge:) but the section/loader '
+        'combination does not allow CurseForge. CurseForge plugin '
+        'entries are limited to bukkit/spigot/paper. See '
+        'docs/curseforge-bridge.md#source-eligibility-matrix.',
+      );
+    }
   }
 
   // `version:` accepts the same union the short form does: a channel
@@ -187,10 +250,46 @@ ModEntry _parseEntry(
   }
 
   final acceptsMc = _parseAcceptsMc(
-    m['accepts-mc'],
+    m['accepts_mc'],
     '$sectionName/$slug',
     filePath,
   );
+
+  final hashScanDepth = _parseHashScanDepth(
+    m['hash_scan_depth'],
+    '$sectionName/$slug',
+    filePath,
+  );
+  final allowHashMismatch = _parseAllowHashMismatch(
+    m['allow_hash_mismatch'],
+    '$sectionName/$slug',
+    filePath,
+  );
+  final noSearch = m['no_cross_platform_search'];
+  if (noSearch != null && noSearch is! bool) {
+    throw _err(
+      '$filePath: $sectionName/$slug no_cross_platform_search must be a boolean.',
+    );
+  }
+  // Both fields only make sense when both Modrinth and CurseForge
+  // participate. A single-element `sources:` already pins the entry to
+  // one platform — there's nothing to scan or mismatch against.
+  if (sourceSet != null && sourceSet.length == 1) {
+    if (hashScanDepth != null) {
+      throw _err(
+        '$filePath: $sectionName/$slug declares hash_scan_depth with '
+        'sources: [${sourceSet.first.name}]; the cross-platform hash '
+        'scan only applies when both platforms participate.',
+      );
+    }
+    if (allowHashMismatch != null) {
+      throw _err(
+        '$filePath: $sectionName/$slug declares allow_hash_mismatch with '
+        'sources: [${sourceSet.first.name}]; mismatch handling only '
+        'applies when both platforms participate.',
+      );
+    }
+  }
 
   return ModEntry(
     slug: slug,
@@ -200,7 +299,114 @@ ModEntry _parseEntry(
     server: server,
     source: source,
     acceptsMc: acceptsMc,
+    modrinthSlug: modrinthSlug,
+    curseforgeSlug: curseforgeSlug,
+    sources: sourceSet,
+    hashScanDepth: hashScanDepth,
+    allowHashMismatch: allowHashMismatch,
+    noCrossPlatformSearch: noSearch as bool? ?? false,
   );
+}
+
+int? _parseHashScanDepth(dynamic raw, String where, String filePath) {
+  if (raw == null) return null;
+  if (raw is! int || raw < 0) {
+    throw _err(
+      '$filePath: $where hash_scan_depth must be a non-negative integer; '
+      'got $raw.',
+    );
+  }
+  return raw;
+}
+
+bool? _parseAllowHashMismatch(dynamic raw, String where, String filePath) {
+  if (raw == null) return null;
+  if (raw is! bool) {
+    throw _err(
+      '$filePath: $where allow_hash_mismatch must be a boolean; got '
+      '${raw.runtimeType}.',
+    );
+  }
+  return raw;
+}
+
+String? _parseOptionalStringField(
+  Map<String, dynamic> m,
+  String key,
+  String where,
+  String filePath,
+) {
+  if (!m.containsKey(key)) return null;
+  final raw = m[key];
+  if (raw == null) return null;
+  if (raw is! String || raw.isEmpty) {
+    throw _err('$filePath: $where $key must be a non-empty string.');
+  }
+  return raw.trim();
+}
+
+Set<SourceKind>? _parseSourcesField(
+  dynamic raw,
+  String where,
+  String filePath,
+) {
+  if (raw == null) return null;
+  final List<dynamic> items;
+  if (raw is String) {
+    if (raw.trim().isEmpty) {
+      throw _err(
+        '$filePath: $where sources must be a non-empty platform name '
+        'or list (modrinth, curseforge).',
+      );
+    }
+    items = [raw];
+  } else if (raw is List) {
+    if (raw.isEmpty) {
+      throw _err(
+        '$filePath: $where sources must declare at least one '
+        'platform when present.',
+      );
+    }
+    items = raw;
+  } else {
+    throw _err(
+      '$filePath: $where sources must be a platform name or a list '
+      '(e.g. `modrinth`, `[modrinth, curseforge]`).',
+    );
+  }
+  final seen = <SourceKind>{};
+  for (final item in items) {
+    if (item is! String) {
+      throw _err(
+        '$filePath: $where sources entries must be strings; got '
+        '${item.runtimeType}.',
+      );
+    }
+    final parsed = _parseSourceKind(item);
+    if (parsed == null) {
+      throw _err(
+        '$filePath: $where sources entry "$item" is not a known platform. '
+        'Use `modrinth` or `curseforge`.',
+      );
+    }
+    if (!seen.add(parsed)) {
+      throw _err(
+        '$filePath: $where sources lists "${parsed.name}" more than once.',
+      );
+    }
+  }
+  return seen;
+}
+
+SourceKind? _parseSourceKind(String raw) {
+  switch (raw.trim()) {
+    case 'modrinth':
+      return SourceKind.modrinth;
+    case 'curseforge':
+      return SourceKind.curseforge;
+    default:
+      return null;
+  }
 }
 
 Map<String, LockedEntry> _parseLockSection(
@@ -222,12 +428,7 @@ Map<String, LockedEntry> _parseLockSection(
       throw _err('$filePath: $sectionName/$slug must be a mapping.');
     }
     final m = _toPlainMap(value);
-    final sourceKind = _parseLockSourceKind(
-      m['source'],
-      sectionName,
-      slug,
-      filePath,
-    );
+    final kind = _parseLockEntryKind(m['kind'], sectionName, slug, filePath);
     final client = _parseSideEnv(
       m['client'] ?? 'required',
       '$sectionName/$slug',
@@ -241,66 +442,137 @@ Map<String, LockedEntry> _parseLockSection(
       filePath,
     );
     final dependency = _parseLockDependencyKind(m['dependency'], m['auto']);
-    LockedFile? file;
-    final fileRaw = m['file'];
-    if (fileRaw != null) {
-      if (fileRaw is! Map) {
-        throw _err('$filePath: $sectionName/$slug file must be a mapping.');
-      }
-      final fm = _toPlainMap(fileRaw);
-      file = LockedFile(
-        name: (fm['name'] as String?) ?? '',
-        url: fm['url'] as String?,
-        sha1: (fm['sha1'] as String?)?.toLowerCase(),
-        sha512: (fm['sha512'] as String?)?.toLowerCase(),
-        size: fm['size'] is int
-            ? fm['size'] as int
-            : (fm['size'] as num?)?.toInt(),
+    final requiredByRaw = m['required_by'];
+    if (requiredByRaw != null &&
+        (requiredByRaw is! List ||
+            requiredByRaw.any((v) => v is! String || v.isEmpty))) {
+      throw _err(
+        '$filePath: $sectionName/$slug required_by must be a list of non-empty strings.',
       );
     }
-    final gameVersionsRaw = m['game-versions'];
-    final gameVersions = gameVersionsRaw is List
-        ? List<String>.unmodifiable(gameVersionsRaw.map((v) => v.toString()))
-        : const <String>[];
-    final acceptsMcRaw = m['accepts-mc'];
+    final requiredBy = requiredByRaw == null
+        ? <String>[]
+        : List<String>.from(requiredByRaw as List);
+    final acceptsMcRaw = m['accepts_mc'];
     final acceptsMc = acceptsMcRaw is List
         ? List<String>.unmodifiable(acceptsMcRaw.map((v) => v.toString()))
         : const <String>[];
+
+    LockedModrinthSource? modrinthSource;
+    final modrinthRaw = m['modrinth'];
+    if (modrinthRaw is Map) {
+      final mm = _toPlainMap(modrinthRaw);
+      final file = _parseLockedFile(
+        mm['file'],
+        '$sectionName/$slug.modrinth',
+        filePath,
+      );
+      if (file == null) {
+        throw _err(
+          '$filePath: $sectionName/$slug.modrinth must include a file: block.',
+        );
+      }
+      final gameVersionsRaw = mm['game_versions'];
+      final gameVersions = gameVersionsRaw is List
+          ? List<String>.unmodifiable(gameVersionsRaw.map((v) => v.toString()))
+          : const <String>[];
+      modrinthSource = LockedModrinthSource(
+        projectId: (mm['project_id'] as String?) ?? '',
+        versionId: (mm['version_id'] as String?) ?? '',
+        versionNumber: mm['version_number'] as String?,
+        host: mm['host'] as String?,
+        discoveredViaSearch: mm['discovered_via_search'] == true,
+        file: file,
+        gameVersions: gameVersions,
+      );
+    }
+
+    LockedCurseforgeSource? curseforgeSource;
+    final curseforgeRaw = m['curseforge'];
+    if (curseforgeRaw is Map) {
+      final cm = _toPlainMap(curseforgeRaw);
+      final file = _parseLockedFile(
+        cm['file'],
+        '$sectionName/$slug.curseforge',
+        filePath,
+      );
+      if (file == null) {
+        throw _err(
+          '$filePath: $sectionName/$slug.curseforge must include a '
+          'file: block.',
+        );
+      }
+      final gameVersionsRaw = cm['game_versions'];
+      final gameVersions = gameVersionsRaw is List
+          ? List<String>.unmodifiable(gameVersionsRaw.map((v) => v.toString()))
+          : const <String>[];
+      final allow = cm['allow_mod_distribution'];
+      curseforgeSource = LockedCurseforgeSource(
+        projectId: (cm['project_id'] as num?)?.toInt() ?? 0,
+        fileId: (cm['file_id'] as num?)?.toInt() ?? 0,
+        slug: cm['slug'] as String?,
+        file: file,
+        gameVersions: gameVersions,
+        allowModDistribution: allow is bool ? allow : true,
+        discoveredViaSearch: cm['discovered_via_search'] == true,
+      );
+    }
+
+    final urlFile = kind == LockedEntryKind.url
+        ? _parseLockedFile(m['file'], '$sectionName/$slug', filePath)
+        : null;
+
     result[slug] = LockedEntry(
       slug: slug,
-      sourceKind: sourceKind,
+      kind: kind,
       version: m['version'] as String?,
-      projectId: m['project-id'] as String?,
-      versionId: m['version-id'] as String?,
-      file: file,
+      modrinth: modrinthSource,
+      curseforge: curseforgeSource,
+      url: m['url'] as String?,
+      urlFile: urlFile,
       path: m['path'] as String?,
       client: client,
       server: server,
       dependency: dependency,
-      gameVersions: gameVersions,
+      requiredBy: requiredBy,
       acceptsMc: acceptsMc,
     );
   });
   return result;
 }
 
-LockedSourceKind _parseLockSourceKind(
+LockedFile? _parseLockedFile(dynamic raw, String where, String filePath) {
+  if (raw == null) return null;
+  if (raw is! Map) {
+    throw _err('$filePath: $where file must be a mapping.');
+  }
+  final fm = _toPlainMap(raw);
+  return LockedFile(
+    name: (fm['name'] as String?) ?? '',
+    url: fm['url'] as String?,
+    sha1: (fm['sha1'] as String?)?.toLowerCase(),
+    sha512: (fm['sha512'] as String?)?.toLowerCase(),
+    size: fm['size'] is int ? fm['size'] as int : (fm['size'] as num?)?.toInt(),
+  );
+}
+
+LockedEntryKind _parseLockEntryKind(
   dynamic raw,
   String sectionName,
   String slug,
   String filePath,
 ) {
   switch (raw?.toString()) {
-    case 'modrinth':
-      return LockedSourceKind.modrinth;
+    case 'resolved':
+      return LockedEntryKind.resolved;
     case 'url':
-      return LockedSourceKind.url;
+      return LockedEntryKind.url;
     case 'path':
-      return LockedSourceKind.path;
+      return LockedEntryKind.path;
     default:
       throw _err(
-        '$filePath: $sectionName/$slug source "$raw" must be one of '
-        'modrinth, url, path.',
+        '$filePath: $sectionName/$slug kind "$raw" must be one of '
+        'resolved, url, path.',
       );
   }
 }

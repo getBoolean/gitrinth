@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../model/manifest/mods_lock.dart';
@@ -14,9 +15,9 @@ import '../service/console.dart';
 import '../service/loader_binary_fetcher.dart';
 import '../service/manifest_io.dart';
 import '../service/plugin_server_source.dart';
-import '../service/resolve_and_sync.dart';
+import '../service/resolve/resolve_and_sync.dart';
+import '../service/resolve/solve_report.dart';
 import '../service/server_installer.dart';
-import '../service/solve_report.dart';
 import '../service/vanilla_server_source.dart';
 import '../version.dart';
 import 'build_assembler.dart';
@@ -80,13 +81,21 @@ Future<int> runBuild({
       );
     }
   } else {
-    final api = container.read(modrinthApiProvider);
+    final apiFactory = container.read(modrinthApiFactoryProvider);
+    final cfFactory = container.read(curseForgeApiFactoryProvider);
     final downloader = container.read(downloaderProvider);
     final modLoaderResolver = container.read(modLoaderVersionResolverProvider);
+    final registry = await prepareLoaderRegistry(
+      container,
+      manifestIo.readModsYaml(),
+      offline: options.offline,
+    );
     final result = await resolveAndSync(
+      loaderRegistry: registry,
       io: manifestIo,
       console: console,
-      api: api,
+      apiFactory: apiFactory,
+      cfFactory: cfFactory,
       cache: cache,
       downloader: downloader,
       modLoaderResolver: modLoaderResolver,
@@ -105,6 +114,16 @@ Future<int> runBuild({
     }
   }
 
+  final registry = container.read(loaderRegistryProvider);
+  if (envs.contains(BuildEnv.server)) {
+    final id = lock.loader.plugins ?? lock.loader.mods;
+    if (!(registry[id]?.canInstallServer ?? false)) {
+      throw ValidationError(
+        'Loader ${id.name} has no installed server adapter. Resolve and pack remain supported; build requires a runtime adapter.',
+      );
+    }
+  }
+
   final outputDir = Directory(
     p.normalize(
       p.absolute(
@@ -117,9 +136,13 @@ Future<int> runBuild({
   }
 
   final projectDir = manifestIo.directory.path;
+  final defaultBaseUrl = container
+      .read(modrinthApiFactoryProvider)
+      .defaultBaseUrl;
   for (final env in envs) {
     final result = _assembleEnv(
       env: env,
+      defaultModrinthBaseUrl: defaultBaseUrl,
       lock: lock,
       cache: cache,
       outputDir: outputDir,
@@ -157,6 +180,7 @@ Future<int> runBuild({
         installer: container.read(serverInstallerProvider),
         source: PluginServerSource.forLoader(
           pluginLoader,
+          registry: registry,
           paperApi: container.read(paperApiClientProvider),
           spongeApi: container.read(spongeApiClientProvider),
           buildTools: container.read(buildToolsRunnerProvider),
@@ -175,6 +199,7 @@ Future<int> runBuild({
         cache: cache,
         serverDir: serverDir,
         fetcher: container.read(loaderBinaryFetcherProvider),
+        registry: registry,
         installer: container.read(serverInstallerProvider),
         skipDownload: options.skipDownload,
         offline: options.offline,
@@ -286,6 +311,7 @@ Future<void> _installModdedServerBinary({
   required GitrinthCache cache,
   required Directory serverDir,
   required LoaderBinaryFetcher fetcher,
+  required LoaderRegistry registry,
   required ServerInstaller installer,
   required bool skipDownload,
   required bool offline,
@@ -306,6 +332,7 @@ Future<void> _installModdedServerBinary({
 
   if (skipDownload) {
     final cachedPath = _expectedCachedInstallerPath(
+      registry: registry,
       cache: cache,
       loader: loader,
       mcVersion: mcVersion,
@@ -343,43 +370,22 @@ Future<void> _installModdedServerBinary({
 }
 
 String _expectedCachedInstallerPath({
+  required LoaderRegistry registry,
   required GitrinthCache cache,
   required ModLoader loader,
   required String mcVersion,
   required String modLoaderVersion,
-}) {
-  switch (loader) {
-    case ModLoader.vanilla:
-      throw StateError(
-        '_expectedCachedInstallerPath called for vanilla; gate on '
-        'LoaderConfig.hasModRuntime.',
-      );
-    case ModLoader.forge:
-      return cache.loaderArtifactPath(
-        loader: loader,
-        mcVersion: mcVersion,
-        modLoaderVersion: modLoaderVersion,
-        filename: 'forge-$mcVersion-$modLoaderVersion-installer.jar',
-      );
-    case ModLoader.neoforge:
-      final filename = mcVersion == '1.20.1'
-          ? 'forge-$mcVersion-$modLoaderVersion-installer.jar'
-          : 'neoforge-$modLoaderVersion-installer.jar';
-      return cache.loaderArtifactPath(
-        loader: loader,
-        mcVersion: mcVersion,
-        modLoaderVersion: modLoaderVersion,
-        filename: filename,
-      );
-    case ModLoader.fabric:
-      return cache.loaderArtifactPath(
-        loader: loader,
-        mcVersion: mcVersion,
-        modLoaderVersion: modLoaderVersion,
-        filename: 'fabric-server-launch.jar',
-      );
-  }
-}
+}) => cache.loaderArtifactPath(
+  loader: loader,
+  mcVersion: mcVersion,
+  modLoaderVersion: modLoaderVersion,
+  filename: LoaderBinaryFetcher.serverArtifactFilename(
+    loader,
+    mcVersion,
+    modLoaderVersion,
+    registry: registry,
+  ),
+);
 
 /// Result of [_assembleEnv]: count of newly-written/copied files plus
 /// the count of obsolete files pruned from the prior ledger.
@@ -391,6 +397,7 @@ class _AssembleResult {
 
 _AssembleResult _assembleEnv({
   required BuildEnv env,
+  required String defaultModrinthBaseUrl,
   required ModsLock lock,
   required GitrinthCache cache,
   required Directory outputDir,
@@ -469,6 +476,7 @@ _AssembleResult _assembleEnv({
         cache,
         entry,
         projectDir: projectDir,
+        modrinthHost: defaultModrinthBaseUrl,
       );
       final sourceFile = File(sourcePath);
       if (!sourceFile.existsSync()) {
@@ -517,7 +525,7 @@ _AssembleResult _assembleEnv({
       ledgerFiles[relKey] = LedgerModSource(
         section: section.name,
         slug: entry.slug,
-        sha512: entry.file?.sha512,
+        sha512: entry.primaryFile?.sha512,
       );
       count++;
     }

@@ -1,97 +1,46 @@
 import 'package:dart_mappable/dart_mappable.dart';
 
 import 'file_entry.dart';
+import '../loader/loader_id.dart';
+import '../loader/loader_descriptor.dart';
+export '../loader/loader_id.dart';
+export '../loader/loader_descriptor.dart';
 
 part 'mods_yaml.mapper.dart';
 
 @MappableEnum()
 enum SpongeLoader { vanilla, forge, neoforge }
 
-/// Mod loader the pack targets.
-/// `vanilla` means no mod runtime.
-@MappableEnum()
-enum ModLoader { forge, fabric, neoforge, vanilla }
+/// Compatibility spellings share one open, serialized loader identity.
+typedef ModLoader = LoaderId;
+typedef ShaderLoader = LoaderId;
+typedef PluginLoader = LoaderId;
+typedef DeclaredPluginLoader = LoaderId;
 
-@MappableEnum()
-enum ShaderLoader { iris, optifine, canvas, vanilla }
+extension LoaderRuntimeTraits on LoaderId {
+  String? get serverLaunchJar => LoaderRegistry.builtins[this]?.serverLaunchJar;
+  bool get usesServerRunScript =>
+      LoaderRegistry.builtins[this]?.serverRunScript ?? false;
+  LoaderId toDeclared() => LoaderRegistry.builtins[this]?.declaredId ?? this;
+  LoaderId resolveWith(LoaderId mods) {
+    final descriptor = LoaderRegistry.builtins[this];
+    if (descriptor == null || descriptor.variants.isEmpty) return this;
+    final variant = descriptor.variants[mods.name];
+    if (variant == null) {
+      throw FormatException(
+        'Loader $name has no declared compatibility with ${mods.name}.',
+      );
+    }
+    return variant;
+  }
 
-/// Resolved plugin loader stored in `mods.lock`.
-/// `mods.yaml` uses [DeclaredPluginLoader]; the parser resolves it.
-@MappableEnum()
-enum PluginLoader {
-  bukkit,
-  folia,
-  paper,
-  spigot,
-  spongeneo,
-  spongeforge,
-  spongevanilla,
-}
-
-/// Plugin loader as declared in `mods.yaml`.
-/// Sponge variants are resolved later from `loader.mods`.
-enum DeclaredPluginLoader { bukkit, folia, paper, spigot, sponge }
-
-/// Runtime entry point for a built server distribution.
-/// `null` means the loader uses `run.bat` / `run.sh`.
-extension ModLoaderServerInvocation on ModLoader {
-  String? get serverLaunchJar => switch (this) {
-    ModLoader.vanilla => 'server.jar',
-    ModLoader.fabric => 'fabric-server-launch.jar',
-    ModLoader.forge || ModLoader.neoforge => null,
-  };
-
-  bool get usesServerRunScript => serverLaunchJar == null;
-}
-
-extension PluginLoaderToDeclared on PluginLoader {
-  /// Maps a resolved [PluginLoader] back to the declared `mods.yaml` value.
-  DeclaredPluginLoader toDeclared() => switch (this) {
-    PluginLoader.bukkit => DeclaredPluginLoader.bukkit,
-    PluginLoader.folia => DeclaredPluginLoader.folia,
-    PluginLoader.paper => DeclaredPluginLoader.paper,
-    PluginLoader.spigot => DeclaredPluginLoader.spigot,
-    PluginLoader.spongeforge ||
-    PluginLoader.spongeneo ||
-    PluginLoader.spongevanilla => DeclaredPluginLoader.sponge,
-  };
-}
-
-/// Resolves `(declared plugin loader, mod loader)` to [PluginLoader].
-extension DeclaredPluginLoaderResolution on DeclaredPluginLoader {
-  PluginLoader resolveWith(ModLoader mods) => switch (this) {
-    DeclaredPluginLoader.bukkit => PluginLoader.bukkit,
-    DeclaredPluginLoader.folia => PluginLoader.folia,
-    DeclaredPluginLoader.paper => PluginLoader.paper,
-    DeclaredPluginLoader.spigot => PluginLoader.spigot,
-    DeclaredPluginLoader.sponge => switch (mods) {
-      ModLoader.forge => PluginLoader.spongeforge,
-      ModLoader.neoforge => PluginLoader.spongeneo,
-      ModLoader.fabric || ModLoader.vanilla => PluginLoader.spongevanilla,
-    },
-  };
-}
-
-/// Per-loader behavior helpers.
-extension PluginLoaderTraits on PluginLoader {
-  /// True when this server platform also runs server-side mods.
   bool get runsServerMods =>
-      this == PluginLoader.spongeforge || this == PluginLoader.spongeneo;
-
-  /// Modrinth `loaders` filter token for this loader.
-  String get modrinthLoaderToken => switch (this) {
-    PluginLoader.spongeforge ||
-    PluginLoader.spongeneo ||
-    PluginLoader.spongevanilla => 'sponge',
-    _ => name,
-  };
-
-  /// Mod loaders this plugin loader's server runtime accepts.
-  Set<ModLoader> get compatibleModLoaders => switch (this) {
-    PluginLoader.spongeforge ||
-    PluginLoader.spongeneo => const {ModLoader.forge, ModLoader.neoforge},
-    _ => const <ModLoader>{},
-  };
+      LoaderRegistry.builtins[this]?.runsServerMods ?? false;
+  String get modrinthLoaderToken =>
+      LoaderRegistry.builtins[this]?.modrinthTag('*') ?? name;
+  Set<LoaderId> get compatibleModLoaders =>
+      (LoaderRegistry.builtins[this]?.compatibleMods ?? const <LoaderId>[])
+          .toSet();
 }
 
 /// Per-side install state.
@@ -125,9 +74,12 @@ enum Section { mods, resourcePacks, dataPacks, shaders, plugins }
 /// Forces `server: unsupported` for mods on pure plugin-server platforms.
 Map<String, ModEntry> coerceModsForPluginLoader(
   Map<String, ModEntry> mods,
-  PluginLoader? pluginLoader,
-) {
-  if (pluginLoader == null || pluginLoader.runsServerMods) {
+  PluginLoader? pluginLoader, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+}) {
+  if (pluginLoader == null ||
+      registry[pluginLoader] == null ||
+      (registry[pluginLoader]?.runsServerMods ?? false)) {
     return mods;
   }
   return {
@@ -139,9 +91,34 @@ Map<String, ModEntry> coerceModsForPluginLoader(
 @MappableEnum()
 enum Channel { release, beta, alpha }
 
+/// Cross-platform source kinds an entry can resolve against.
+/// `modrinth` covers any Modrinth-protocol host (default modrinth.com
+/// or a labrinth deployment named via [ModrinthEntrySource.host] /
+/// [ModsYaml.modrinthHost]).
+@MappableEnum()
+enum SourceKind { modrinth, curseforge }
+
+/// Pack-level toggle for a platform's default participation.
+@MappableEnum()
+enum GitrinthPlatformState { enabled, disabled }
+
+/// Section + plugin loader → CurseForge eligibility. Single source of
+/// truth for the source-eligibility matrix in
+/// `docs/curseforge-bridge.md`. The CurseForge bridge defers to this
+/// helper before parser validation, `add`, resolver dispatch, search,
+/// and publish all touch the same predicate.
+bool sectionAllowsCurseforge(
+  Section section,
+  PluginLoader? pluginLoader, {
+  LoaderRegistry registry = LoaderRegistry.builtins,
+}) {
+  if (section != Section.plugins) return true;
+  return registry[pluginLoader]?.curseforgePlugins ?? (pluginLoader != null);
+}
+
 /// Per-section loader configuration.
 /// `mods.yaml` is declared; `mods.lock` is resolved.
-@MappableClass()
+@MappableClass(includeCustomMappers: [LoaderIdMapper()])
 class LoaderConfig with LoaderConfigMappable {
   final ModLoader mods;
 
@@ -174,7 +151,12 @@ sealed class EntrySource with EntrySourceMappable {
 
 @MappableClass(discriminatorValue: 'modrinth')
 class ModrinthEntrySource extends EntrySource with ModrinthEntrySourceMappable {
-  const ModrinthEntrySource();
+  /// Per-entry override for the Modrinth-protocol base URL. `null`
+  /// means "use the pack-level default" ([ModsYaml.modrinthHost]),
+  /// which itself falls back to `defaultModrinthBaseUrl`.
+  final String? host;
+
+  const ModrinthEntrySource({this.host});
 }
 
 @MappableClass(discriminatorValue: 'url')
@@ -205,10 +187,35 @@ class ModEntry with ModEntryMappable {
 
   final EntrySource source;
 
-  /// Additional Minecraft versions to union with the pack's `mc-version`
+  /// Additional Minecraft versions to union with the pack's `mc_version`
   /// when querying Modrinth for this entry. Query-time only; does not
   /// influence pack-level decisions.
   final List<String> acceptsMc;
+
+  /// Modrinth project slug override. Used when the section-map key is
+  /// a local identifier and the entry's slug on Modrinth differs.
+  final String? modrinthSlug;
+
+  /// CurseForge project slug or numeric project ID.
+  final String? curseforgeSlug;
+
+  /// Explicit restriction on which platforms participate for this
+  /// entry. `null` means "fall back to `gitrinth.modrinth` /
+  /// `gitrinth.curseforge` pack-level defaults".
+  final Set<SourceKind>? sources;
+
+  /// Per-entry override for the "scan older versions on both platforms
+  /// looking for a SHA1 match" depth used when both Modrinth and
+  /// CurseForge participate. `null` falls back to the global default
+  /// (10). `0` disables the scan; only the newest pair is compared.
+  /// Mutually exclusive with a single-element [sources].
+  final int? hashScanDepth;
+
+  /// Per-entry override allowing a Modrinth/CurseForge SHA1 mismatch to
+  /// be locked despite no match in the scan window. `null` falls back
+  /// to `false`. Mutually exclusive with a single-element [sources].
+  final bool? allowHashMismatch;
+  final bool noCrossPlatformSearch;
 
   const ModEntry({
     required this.slug,
@@ -218,7 +225,43 @@ class ModEntry with ModEntryMappable {
     this.server = SideEnv.required,
     this.source = const ModrinthEntrySource(),
     this.acceptsMc = const [],
+    this.modrinthSlug,
+    this.curseforgeSlug,
+    this.sources,
+    this.hashScanDepth,
+    this.allowHashMismatch,
+    this.noCrossPlatformSearch = false,
   });
+}
+
+/// Top-level `gitrinth:` block. Holds the semver constraint on the
+/// running gitrinth CLI and the platform default toggles consumed by
+/// the source-eligibility logic. Replaces the legacy `tooling:` block
+/// (which only ever held `tooling.gitrinth`).
+@MappableClass()
+class GitrinthConfig with GitrinthConfigMappable {
+  /// Semver constraint string, e.g. "^1.0.0" or ">=1.0.0 <2.0.0".
+  /// Stored verbatim — enforcement against the running CLI version is
+  /// deferred to a later task.
+  final String? version;
+
+  /// Modrinth participation default; on by default.
+  final GitrinthPlatformState modrinth;
+
+  /// CurseForge participation default; off by default.
+  final GitrinthPlatformState curseforge;
+
+  const GitrinthConfig({
+    this.version,
+    this.modrinth = GitrinthPlatformState.enabled,
+    this.curseforge = GitrinthPlatformState.disabled,
+  });
+
+  /// True when [kind] participates by default for this pack.
+  bool isPlatformEnabled(SourceKind kind) => switch (kind) {
+    SourceKind.modrinth => modrinth == GitrinthPlatformState.enabled,
+    SourceKind.curseforge => curseforge == GitrinthPlatformState.enabled,
+  };
 }
 
 @MappableClass()
@@ -229,6 +272,17 @@ class ModsYaml with ModsYamlMappable {
   final String description;
   final LoaderConfig loader;
   final String mcVersion;
+
+  /// Pack-level default for the Modrinth-source base URL. Per-entry
+  /// `modrinth_host:` wins; otherwise this is consulted before the
+  /// hard-coded `defaultModrinthBaseUrl` fallback.
+  final String? modrinthHost;
+
+  /// `gitrinth:` block — semver constraint plus per-platform default
+  /// toggles. Defaults: Modrinth enabled, CurseForge disabled,
+  /// version null.
+  final GitrinthConfig gitrinth;
+
   final Map<String, ModEntry> mods;
   final Map<String, ModEntry> resourcePacks;
   final Map<String, ModEntry> dataPacks;
@@ -242,10 +296,17 @@ class ModsYaml with ModsYamlMappable {
   /// pubgrub, mrpack `files[]` resolution, or the globalpacks tree.
   final Map<String, FileEntry> files;
 
-  /// Modrinth-compatible server URL `gitrinth modrinth publish`
-  /// uploads to. `null` means the default (modrinth.com); the literal
-  /// string `none` means publishing is disabled for this pack.
-  final String? publishTo;
+  /// Explicit publish targets with optional Modrinth publishing host.
+  /// Null follows enabled gitrinth platforms; empty disables publication.
+  final Map<SourceKind, String?>? publishTo;
+
+  /// Null follows enabled platforms; an empty map disables publishing.
+  Map<SourceKind, String?> get publishTargets =>
+      publishTo ??
+      {
+        for (final kind in SourceKind.values)
+          if (gitrinth.isPlatformEnabled(kind)) kind: null,
+      };
 
   const ModsYaml({
     required this.slug,
@@ -254,6 +315,8 @@ class ModsYaml with ModsYamlMappable {
     required this.description,
     required this.loader,
     required this.mcVersion,
+    this.modrinthHost,
+    this.gitrinth = const GitrinthConfig(),
     this.mods = const {},
     this.resourcePacks = const {},
     this.dataPacks = const {},
@@ -263,6 +326,15 @@ class ModsYaml with ModsYamlMappable {
     this.files = const {},
     this.publishTo,
   });
+
+  /// Effective Modrinth-protocol base URL for [entry]. Single source
+  /// of truth so callers don't repeat the per-entry → pack-level →
+  /// global default chain inline.
+  String effectiveModrinthHost(ModEntry entry, String defaultBaseUrl) {
+    final source = entry.source;
+    final entryHost = source is ModrinthEntrySource ? source.host : null;
+    return entryHost ?? modrinthHost ?? defaultBaseUrl;
+  }
 
   Map<String, ModEntry> sectionEntries(Section section) {
     switch (section) {
@@ -278,4 +350,38 @@ class ModsYaml with ModsYamlMappable {
         return plugins;
     }
   }
+
+  /// Transforms each artifact section while preserving pack configuration,
+  /// project overrides, and loose files.
+  ModsYaml mapSectionEntries(
+    Map<String, ModEntry> Function(
+      Section section,
+      Map<String, ModEntry> entries,
+    )
+    transform,
+  ) {
+    final sections = {
+      for (final section in Section.values)
+        section: transform(section, sectionEntries(section)),
+    };
+    return copyWith(
+      mods: sections[Section.mods]!,
+      resourcePacks: sections[Section.resourcePacks]!,
+      dataPacks: sections[Section.dataPacks]!,
+      shaders: sections[Section.shaders]!,
+      plugins: sections[Section.plugins]!,
+    );
+  }
+
+  ModsYaml withSectionEntries(Section section, Map<String, ModEntry> entries) =>
+      mapSectionEntries(
+        (current, previous) => current == section ? entries : previous,
+      );
+
+  ModsYaml withoutEntrySlugs(Set<String> slugs) => mapSectionEntries(
+    (_, entries) => {
+      for (final entry in entries.entries)
+        if (!slugs.contains(entry.key)) entry.key: entry.value,
+    },
+  );
 }

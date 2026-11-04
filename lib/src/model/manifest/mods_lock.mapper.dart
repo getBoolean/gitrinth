@@ -8,53 +8,53 @@
 
 part of 'mods_lock.dart';
 
-class LockedSourceKindMapper extends EnumMapper<LockedSourceKind> {
-  LockedSourceKindMapper._();
+class LockedEntryKindMapper extends EnumMapper<LockedEntryKind> {
+  LockedEntryKindMapper._();
 
-  static LockedSourceKindMapper? _instance;
-  static LockedSourceKindMapper ensureInitialized() {
+  static LockedEntryKindMapper? _instance;
+  static LockedEntryKindMapper ensureInitialized() {
     if (_instance == null) {
-      MapperContainer.globals.use(_instance = LockedSourceKindMapper._());
+      MapperContainer.globals.use(_instance = LockedEntryKindMapper._());
     }
     return _instance!;
   }
 
-  static LockedSourceKind fromValue(dynamic value) {
+  static LockedEntryKind fromValue(dynamic value) {
     ensureInitialized();
     return MapperContainer.globals.fromValue(value);
   }
 
   @override
-  LockedSourceKind decode(dynamic value) {
+  LockedEntryKind decode(dynamic value) {
     switch (value) {
-      case r'modrinth':
-        return LockedSourceKind.modrinth;
+      case r'resolved':
+        return LockedEntryKind.resolved;
       case r'url':
-        return LockedSourceKind.url;
+        return LockedEntryKind.url;
       case r'path':
-        return LockedSourceKind.path;
+        return LockedEntryKind.path;
       default:
         throw MapperException.unknownEnumValue(value);
     }
   }
 
   @override
-  dynamic encode(LockedSourceKind self) {
+  dynamic encode(LockedEntryKind self) {
     switch (self) {
-      case LockedSourceKind.modrinth:
-        return r'modrinth';
-      case LockedSourceKind.url:
+      case LockedEntryKind.resolved:
+        return r'resolved';
+      case LockedEntryKind.url:
         return r'url';
-      case LockedSourceKind.path:
+      case LockedEntryKind.path:
         return r'path';
     }
   }
 }
 
-extension LockedSourceKindMapperExtension on LockedSourceKind {
+extension LockedEntryKindMapperExtension on LockedEntryKind {
   String toValue() {
-    LockedSourceKindMapper.ensureInitialized();
-    return MapperContainer.globals.toValue<LockedSourceKind>(this) as String;
+    LockedEntryKindMapper.ensureInitialized();
+    return MapperContainer.globals.toValue<LockedEntryKind>(this) as String;
   }
 }
 
@@ -268,6 +268,461 @@ class _LockedFileCopyWithImpl<$R, $Out>
   ) => _LockedFileCopyWithImpl<$R2, $Out2>($value, $cast, t);
 }
 
+class LockedModrinthSourceMapper extends ClassMapperBase<LockedModrinthSource> {
+  LockedModrinthSourceMapper._();
+
+  static LockedModrinthSourceMapper? _instance;
+  static LockedModrinthSourceMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = LockedModrinthSourceMapper._());
+      LockedFileMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'LockedModrinthSource';
+
+  static String _$projectId(LockedModrinthSource v) => v.projectId;
+  static const Field<LockedModrinthSource, String> _f$projectId = Field(
+    'projectId',
+    _$projectId,
+  );
+  static String _$versionId(LockedModrinthSource v) => v.versionId;
+  static const Field<LockedModrinthSource, String> _f$versionId = Field(
+    'versionId',
+    _$versionId,
+  );
+  static String? _$versionNumber(LockedModrinthSource v) => v.versionNumber;
+  static const Field<LockedModrinthSource, String> _f$versionNumber = Field(
+    'versionNumber',
+    _$versionNumber,
+    opt: true,
+  );
+  static String? _$host(LockedModrinthSource v) => v.host;
+  static const Field<LockedModrinthSource, String> _f$host = Field(
+    'host',
+    _$host,
+    opt: true,
+  );
+  static bool _$discoveredViaSearch(LockedModrinthSource v) =>
+      v.discoveredViaSearch;
+  static const Field<LockedModrinthSource, bool> _f$discoveredViaSearch = Field(
+    'discoveredViaSearch',
+    _$discoveredViaSearch,
+    opt: true,
+    def: false,
+  );
+  static LockedFile _$file(LockedModrinthSource v) => v.file;
+  static const Field<LockedModrinthSource, LockedFile> _f$file = Field(
+    'file',
+    _$file,
+  );
+  static List<String> _$gameVersions(LockedModrinthSource v) => v.gameVersions;
+  static const Field<LockedModrinthSource, List<String>> _f$gameVersions =
+      Field('gameVersions', _$gameVersions, opt: true, def: const []);
+
+  @override
+  final MappableFields<LockedModrinthSource> fields = const {
+    #projectId: _f$projectId,
+    #versionId: _f$versionId,
+    #versionNumber: _f$versionNumber,
+    #host: _f$host,
+    #discoveredViaSearch: _f$discoveredViaSearch,
+    #file: _f$file,
+    #gameVersions: _f$gameVersions,
+  };
+
+  static LockedModrinthSource _instantiate(DecodingData data) {
+    return LockedModrinthSource(
+      projectId: data.dec(_f$projectId),
+      versionId: data.dec(_f$versionId),
+      versionNumber: data.dec(_f$versionNumber),
+      host: data.dec(_f$host),
+      discoveredViaSearch: data.dec(_f$discoveredViaSearch),
+      file: data.dec(_f$file),
+      gameVersions: data.dec(_f$gameVersions),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static LockedModrinthSource fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<LockedModrinthSource>(map);
+  }
+
+  static LockedModrinthSource fromJson(String json) {
+    return ensureInitialized().decodeJson<LockedModrinthSource>(json);
+  }
+}
+
+mixin LockedModrinthSourceMappable {
+  String toJson() {
+    return LockedModrinthSourceMapper.ensureInitialized()
+        .encodeJson<LockedModrinthSource>(this as LockedModrinthSource);
+  }
+
+  Map<String, dynamic> toMap() {
+    return LockedModrinthSourceMapper.ensureInitialized()
+        .encodeMap<LockedModrinthSource>(this as LockedModrinthSource);
+  }
+
+  LockedModrinthSourceCopyWith<
+    LockedModrinthSource,
+    LockedModrinthSource,
+    LockedModrinthSource
+  >
+  get copyWith =>
+      _LockedModrinthSourceCopyWithImpl<
+        LockedModrinthSource,
+        LockedModrinthSource
+      >(this as LockedModrinthSource, $identity, $identity);
+  @override
+  String toString() {
+    return LockedModrinthSourceMapper.ensureInitialized().stringifyValue(
+      this as LockedModrinthSource,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return LockedModrinthSourceMapper.ensureInitialized().equalsValue(
+      this as LockedModrinthSource,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return LockedModrinthSourceMapper.ensureInitialized().hashValue(
+      this as LockedModrinthSource,
+    );
+  }
+}
+
+extension LockedModrinthSourceValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, LockedModrinthSource, $Out> {
+  LockedModrinthSourceCopyWith<$R, LockedModrinthSource, $Out>
+  get $asLockedModrinthSource => $base.as(
+    (v, t, t2) => _LockedModrinthSourceCopyWithImpl<$R, $Out>(v, t, t2),
+  );
+}
+
+abstract class LockedModrinthSourceCopyWith<
+  $R,
+  $In extends LockedModrinthSource,
+  $Out
+>
+    implements ClassCopyWith<$R, $In, $Out> {
+  LockedFileCopyWith<$R, LockedFile, LockedFile> get file;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get gameVersions;
+  $R call({
+    String? projectId,
+    String? versionId,
+    String? versionNumber,
+    String? host,
+    bool? discoveredViaSearch,
+    LockedFile? file,
+    List<String>? gameVersions,
+  });
+  LockedModrinthSourceCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _LockedModrinthSourceCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, LockedModrinthSource, $Out>
+    implements LockedModrinthSourceCopyWith<$R, LockedModrinthSource, $Out> {
+  _LockedModrinthSourceCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<LockedModrinthSource> $mapper =
+      LockedModrinthSourceMapper.ensureInitialized();
+  @override
+  LockedFileCopyWith<$R, LockedFile, LockedFile> get file =>
+      $value.file.copyWith.$chain((v) => call(file: v));
+  @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+  get gameVersions => ListCopyWith(
+    $value.gameVersions,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(gameVersions: v),
+  );
+  @override
+  $R call({
+    String? projectId,
+    String? versionId,
+    Object? versionNumber = $none,
+    Object? host = $none,
+    bool? discoveredViaSearch,
+    LockedFile? file,
+    List<String>? gameVersions,
+  }) => $apply(
+    FieldCopyWithData({
+      if (projectId != null) #projectId: projectId,
+      if (versionId != null) #versionId: versionId,
+      if (versionNumber != $none) #versionNumber: versionNumber,
+      if (host != $none) #host: host,
+      if (discoveredViaSearch != null)
+        #discoveredViaSearch: discoveredViaSearch,
+      if (file != null) #file: file,
+      if (gameVersions != null) #gameVersions: gameVersions,
+    }),
+  );
+  @override
+  LockedModrinthSource $make(CopyWithData data) => LockedModrinthSource(
+    projectId: data.get(#projectId, or: $value.projectId),
+    versionId: data.get(#versionId, or: $value.versionId),
+    versionNumber: data.get(#versionNumber, or: $value.versionNumber),
+    host: data.get(#host, or: $value.host),
+    discoveredViaSearch: data.get(
+      #discoveredViaSearch,
+      or: $value.discoveredViaSearch,
+    ),
+    file: data.get(#file, or: $value.file),
+    gameVersions: data.get(#gameVersions, or: $value.gameVersions),
+  );
+
+  @override
+  LockedModrinthSourceCopyWith<$R2, LockedModrinthSource, $Out2>
+  $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
+      _LockedModrinthSourceCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
+class LockedCurseforgeSourceMapper
+    extends ClassMapperBase<LockedCurseforgeSource> {
+  LockedCurseforgeSourceMapper._();
+
+  static LockedCurseforgeSourceMapper? _instance;
+  static LockedCurseforgeSourceMapper ensureInitialized() {
+    if (_instance == null) {
+      MapperContainer.globals.use(_instance = LockedCurseforgeSourceMapper._());
+      LockedFileMapper.ensureInitialized();
+    }
+    return _instance!;
+  }
+
+  @override
+  final String id = 'LockedCurseforgeSource';
+
+  static int _$projectId(LockedCurseforgeSource v) => v.projectId;
+  static const Field<LockedCurseforgeSource, int> _f$projectId = Field(
+    'projectId',
+    _$projectId,
+  );
+  static int _$fileId(LockedCurseforgeSource v) => v.fileId;
+  static const Field<LockedCurseforgeSource, int> _f$fileId = Field(
+    'fileId',
+    _$fileId,
+  );
+  static String? _$slug(LockedCurseforgeSource v) => v.slug;
+  static const Field<LockedCurseforgeSource, String> _f$slug = Field(
+    'slug',
+    _$slug,
+    opt: true,
+  );
+  static LockedFile _$file(LockedCurseforgeSource v) => v.file;
+  static const Field<LockedCurseforgeSource, LockedFile> _f$file = Field(
+    'file',
+    _$file,
+  );
+  static List<String> _$gameVersions(LockedCurseforgeSource v) =>
+      v.gameVersions;
+  static const Field<LockedCurseforgeSource, List<String>> _f$gameVersions =
+      Field('gameVersions', _$gameVersions, opt: true, def: const []);
+  static bool _$allowModDistribution(LockedCurseforgeSource v) =>
+      v.allowModDistribution;
+  static const Field<LockedCurseforgeSource, bool> _f$allowModDistribution =
+      Field(
+        'allowModDistribution',
+        _$allowModDistribution,
+        opt: true,
+        def: true,
+      );
+  static bool _$discoveredViaSearch(LockedCurseforgeSource v) =>
+      v.discoveredViaSearch;
+  static const Field<LockedCurseforgeSource, bool> _f$discoveredViaSearch =
+      Field(
+        'discoveredViaSearch',
+        _$discoveredViaSearch,
+        opt: true,
+        def: false,
+      );
+
+  @override
+  final MappableFields<LockedCurseforgeSource> fields = const {
+    #projectId: _f$projectId,
+    #fileId: _f$fileId,
+    #slug: _f$slug,
+    #file: _f$file,
+    #gameVersions: _f$gameVersions,
+    #allowModDistribution: _f$allowModDistribution,
+    #discoveredViaSearch: _f$discoveredViaSearch,
+  };
+
+  static LockedCurseforgeSource _instantiate(DecodingData data) {
+    return LockedCurseforgeSource(
+      projectId: data.dec(_f$projectId),
+      fileId: data.dec(_f$fileId),
+      slug: data.dec(_f$slug),
+      file: data.dec(_f$file),
+      gameVersions: data.dec(_f$gameVersions),
+      allowModDistribution: data.dec(_f$allowModDistribution),
+      discoveredViaSearch: data.dec(_f$discoveredViaSearch),
+    );
+  }
+
+  @override
+  final Function instantiate = _instantiate;
+
+  static LockedCurseforgeSource fromMap(Map<String, dynamic> map) {
+    return ensureInitialized().decodeMap<LockedCurseforgeSource>(map);
+  }
+
+  static LockedCurseforgeSource fromJson(String json) {
+    return ensureInitialized().decodeJson<LockedCurseforgeSource>(json);
+  }
+}
+
+mixin LockedCurseforgeSourceMappable {
+  String toJson() {
+    return LockedCurseforgeSourceMapper.ensureInitialized()
+        .encodeJson<LockedCurseforgeSource>(this as LockedCurseforgeSource);
+  }
+
+  Map<String, dynamic> toMap() {
+    return LockedCurseforgeSourceMapper.ensureInitialized()
+        .encodeMap<LockedCurseforgeSource>(this as LockedCurseforgeSource);
+  }
+
+  LockedCurseforgeSourceCopyWith<
+    LockedCurseforgeSource,
+    LockedCurseforgeSource,
+    LockedCurseforgeSource
+  >
+  get copyWith =>
+      _LockedCurseforgeSourceCopyWithImpl<
+        LockedCurseforgeSource,
+        LockedCurseforgeSource
+      >(this as LockedCurseforgeSource, $identity, $identity);
+  @override
+  String toString() {
+    return LockedCurseforgeSourceMapper.ensureInitialized().stringifyValue(
+      this as LockedCurseforgeSource,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return LockedCurseforgeSourceMapper.ensureInitialized().equalsValue(
+      this as LockedCurseforgeSource,
+      other,
+    );
+  }
+
+  @override
+  int get hashCode {
+    return LockedCurseforgeSourceMapper.ensureInitialized().hashValue(
+      this as LockedCurseforgeSource,
+    );
+  }
+}
+
+extension LockedCurseforgeSourceValueCopy<$R, $Out>
+    on ObjectCopyWith<$R, LockedCurseforgeSource, $Out> {
+  LockedCurseforgeSourceCopyWith<$R, LockedCurseforgeSource, $Out>
+  get $asLockedCurseforgeSource => $base.as(
+    (v, t, t2) => _LockedCurseforgeSourceCopyWithImpl<$R, $Out>(v, t, t2),
+  );
+}
+
+abstract class LockedCurseforgeSourceCopyWith<
+  $R,
+  $In extends LockedCurseforgeSource,
+  $Out
+>
+    implements ClassCopyWith<$R, $In, $Out> {
+  LockedFileCopyWith<$R, LockedFile, LockedFile> get file;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get gameVersions;
+  $R call({
+    int? projectId,
+    int? fileId,
+    String? slug,
+    LockedFile? file,
+    List<String>? gameVersions,
+    bool? allowModDistribution,
+    bool? discoveredViaSearch,
+  });
+  LockedCurseforgeSourceCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(
+    Then<$Out2, $R2> t,
+  );
+}
+
+class _LockedCurseforgeSourceCopyWithImpl<$R, $Out>
+    extends ClassCopyWithBase<$R, LockedCurseforgeSource, $Out>
+    implements
+        LockedCurseforgeSourceCopyWith<$R, LockedCurseforgeSource, $Out> {
+  _LockedCurseforgeSourceCopyWithImpl(super.value, super.then, super.then2);
+
+  @override
+  late final ClassMapperBase<LockedCurseforgeSource> $mapper =
+      LockedCurseforgeSourceMapper.ensureInitialized();
+  @override
+  LockedFileCopyWith<$R, LockedFile, LockedFile> get file =>
+      $value.file.copyWith.$chain((v) => call(file: v));
+  @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
+  get gameVersions => ListCopyWith(
+    $value.gameVersions,
+    (v, t) => ObjectCopyWith(v, $identity, t),
+    (v) => call(gameVersions: v),
+  );
+  @override
+  $R call({
+    int? projectId,
+    int? fileId,
+    Object? slug = $none,
+    LockedFile? file,
+    List<String>? gameVersions,
+    bool? allowModDistribution,
+    bool? discoveredViaSearch,
+  }) => $apply(
+    FieldCopyWithData({
+      if (projectId != null) #projectId: projectId,
+      if (fileId != null) #fileId: fileId,
+      if (slug != $none) #slug: slug,
+      if (file != null) #file: file,
+      if (gameVersions != null) #gameVersions: gameVersions,
+      if (allowModDistribution != null)
+        #allowModDistribution: allowModDistribution,
+      if (discoveredViaSearch != null)
+        #discoveredViaSearch: discoveredViaSearch,
+    }),
+  );
+  @override
+  LockedCurseforgeSource $make(CopyWithData data) => LockedCurseforgeSource(
+    projectId: data.get(#projectId, or: $value.projectId),
+    fileId: data.get(#fileId, or: $value.fileId),
+    slug: data.get(#slug, or: $value.slug),
+    file: data.get(#file, or: $value.file),
+    gameVersions: data.get(#gameVersions, or: $value.gameVersions),
+    allowModDistribution: data.get(
+      #allowModDistribution,
+      or: $value.allowModDistribution,
+    ),
+    discoveredViaSearch: data.get(
+      #discoveredViaSearch,
+      or: $value.discoveredViaSearch,
+    ),
+  );
+
+  @override
+  LockedCurseforgeSourceCopyWith<$R2, LockedCurseforgeSource, $Out2>
+  $chain<$R2, $Out2>(Then<$Out2, $R2> t) =>
+      _LockedCurseforgeSourceCopyWithImpl<$R2, $Out2>($value, $cast, t);
+}
+
 class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
   LockedEntryMapper._();
 
@@ -275,7 +730,9 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
   static LockedEntryMapper ensureInitialized() {
     if (_instance == null) {
       MapperContainer.globals.use(_instance = LockedEntryMapper._());
-      LockedSourceKindMapper.ensureInitialized();
+      LockedEntryKindMapper.ensureInitialized();
+      LockedModrinthSourceMapper.ensureInitialized();
+      LockedCurseforgeSourceMapper.ensureInitialized();
       LockedFileMapper.ensureInitialized();
       SideEnvMapper.ensureInitialized();
       LockedDependencyKindMapper.ensureInitialized();
@@ -288,10 +745,10 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
 
   static String _$slug(LockedEntry v) => v.slug;
   static const Field<LockedEntry, String> _f$slug = Field('slug', _$slug);
-  static LockedSourceKind _$sourceKind(LockedEntry v) => v.sourceKind;
-  static const Field<LockedEntry, LockedSourceKind> _f$sourceKind = Field(
-    'sourceKind',
-    _$sourceKind,
+  static LockedEntryKind _$kind(LockedEntry v) => v.kind;
+  static const Field<LockedEntry, LockedEntryKind> _f$kind = Field(
+    'kind',
+    _$kind,
   );
   static String? _$version(LockedEntry v) => v.version;
   static const Field<LockedEntry, String> _f$version = Field(
@@ -299,22 +756,28 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     _$version,
     opt: true,
   );
-  static String? _$projectId(LockedEntry v) => v.projectId;
-  static const Field<LockedEntry, String> _f$projectId = Field(
-    'projectId',
-    _$projectId,
+  static LockedModrinthSource? _$modrinth(LockedEntry v) => v.modrinth;
+  static const Field<LockedEntry, LockedModrinthSource> _f$modrinth = Field(
+    'modrinth',
+    _$modrinth,
     opt: true,
   );
-  static String? _$versionId(LockedEntry v) => v.versionId;
-  static const Field<LockedEntry, String> _f$versionId = Field(
-    'versionId',
-    _$versionId,
+  static LockedCurseforgeSource? _$curseforge(LockedEntry v) => v.curseforge;
+  static const Field<LockedEntry, LockedCurseforgeSource> _f$curseforge = Field(
+    'curseforge',
+    _$curseforge,
     opt: true,
   );
-  static LockedFile? _$file(LockedEntry v) => v.file;
-  static const Field<LockedEntry, LockedFile> _f$file = Field(
-    'file',
-    _$file,
+  static String? _$url(LockedEntry v) => v.url;
+  static const Field<LockedEntry, String> _f$url = Field(
+    'url',
+    _$url,
+    opt: true,
+  );
+  static LockedFile? _$urlFile(LockedEntry v) => v.urlFile;
+  static const Field<LockedEntry, LockedFile> _f$urlFile = Field(
+    'urlFile',
+    _$urlFile,
     opt: true,
   );
   static String? _$path(LockedEntry v) => v.path;
@@ -344,10 +807,11 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
     opt: true,
     def: LockedDependencyKind.direct,
   );
-  static List<String> _$gameVersions(LockedEntry v) => v.gameVersions;
-  static const Field<LockedEntry, List<String>> _f$gameVersions = Field(
-    'gameVersions',
-    _$gameVersions,
+  static List<String> _$requiredBy(LockedEntry v) => v.requiredBy;
+  static const Field<LockedEntry, List<String>> _f$requiredBy = Field(
+    'requiredBy',
+    _$requiredBy,
+    key: r'required_by',
     opt: true,
     def: const [],
   );
@@ -362,32 +826,34 @@ class LockedEntryMapper extends ClassMapperBase<LockedEntry> {
   @override
   final MappableFields<LockedEntry> fields = const {
     #slug: _f$slug,
-    #sourceKind: _f$sourceKind,
+    #kind: _f$kind,
     #version: _f$version,
-    #projectId: _f$projectId,
-    #versionId: _f$versionId,
-    #file: _f$file,
+    #modrinth: _f$modrinth,
+    #curseforge: _f$curseforge,
+    #url: _f$url,
+    #urlFile: _f$urlFile,
     #path: _f$path,
     #client: _f$client,
     #server: _f$server,
     #dependency: _f$dependency,
-    #gameVersions: _f$gameVersions,
+    #requiredBy: _f$requiredBy,
     #acceptsMc: _f$acceptsMc,
   };
 
   static LockedEntry _instantiate(DecodingData data) {
     return LockedEntry(
       slug: data.dec(_f$slug),
-      sourceKind: data.dec(_f$sourceKind),
+      kind: data.dec(_f$kind),
       version: data.dec(_f$version),
-      projectId: data.dec(_f$projectId),
-      versionId: data.dec(_f$versionId),
-      file: data.dec(_f$file),
+      modrinth: data.dec(_f$modrinth),
+      curseforge: data.dec(_f$curseforge),
+      url: data.dec(_f$url),
+      urlFile: data.dec(_f$urlFile),
       path: data.dec(_f$path),
       client: data.dec(_f$client),
       server: data.dec(_f$server),
       dependency: data.dec(_f$dependency),
-      gameVersions: data.dec(_f$gameVersions),
+      requiredBy: data.dec(_f$requiredBy),
       acceptsMc: data.dec(_f$acceptsMc),
     );
   }
@@ -452,21 +918,30 @@ extension LockedEntryValueCopy<$R, $Out>
 
 abstract class LockedEntryCopyWith<$R, $In extends LockedEntry, $Out>
     implements ClassCopyWith<$R, $In, $Out> {
-  LockedFileCopyWith<$R, LockedFile, LockedFile>? get file;
-  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get gameVersions;
+  LockedModrinthSourceCopyWith<$R, LockedModrinthSource, LockedModrinthSource>?
+  get modrinth;
+  LockedCurseforgeSourceCopyWith<
+    $R,
+    LockedCurseforgeSource,
+    LockedCurseforgeSource
+  >?
+  get curseforge;
+  LockedFileCopyWith<$R, LockedFile, LockedFile>? get urlFile;
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get requiredBy;
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc;
   $R call({
     String? slug,
-    LockedSourceKind? sourceKind,
+    LockedEntryKind? kind,
     String? version,
-    String? projectId,
-    String? versionId,
-    LockedFile? file,
+    LockedModrinthSource? modrinth,
+    LockedCurseforgeSource? curseforge,
+    String? url,
+    LockedFile? urlFile,
     String? path,
     SideEnv? client,
     SideEnv? server,
     LockedDependencyKind? dependency,
-    List<String>? gameVersions,
+    List<String>? requiredBy,
     List<String>? acceptsMc,
   });
   LockedEntryCopyWith<$R2, $In, $Out2> $chain<$R2, $Out2>(Then<$Out2, $R2> t);
@@ -481,15 +956,26 @@ class _LockedEntryCopyWithImpl<$R, $Out>
   late final ClassMapperBase<LockedEntry> $mapper =
       LockedEntryMapper.ensureInitialized();
   @override
-  LockedFileCopyWith<$R, LockedFile, LockedFile>? get file =>
-      $value.file?.copyWith.$chain((v) => call(file: v));
+  LockedModrinthSourceCopyWith<$R, LockedModrinthSource, LockedModrinthSource>?
+  get modrinth => $value.modrinth?.copyWith.$chain((v) => call(modrinth: v));
   @override
-  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>>
-  get gameVersions => ListCopyWith(
-    $value.gameVersions,
-    (v, t) => ObjectCopyWith(v, $identity, t),
-    (v) => call(gameVersions: v),
-  );
+  LockedCurseforgeSourceCopyWith<
+    $R,
+    LockedCurseforgeSource,
+    LockedCurseforgeSource
+  >?
+  get curseforge =>
+      $value.curseforge?.copyWith.$chain((v) => call(curseforge: v));
+  @override
+  LockedFileCopyWith<$R, LockedFile, LockedFile>? get urlFile =>
+      $value.urlFile?.copyWith.$chain((v) => call(urlFile: v));
+  @override
+  ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get requiredBy =>
+      ListCopyWith(
+        $value.requiredBy,
+        (v, t) => ObjectCopyWith(v, $identity, t),
+        (v) => call(requiredBy: v),
+      );
   @override
   ListCopyWith<$R, String, ObjectCopyWith<$R, String, String>> get acceptsMc =>
       ListCopyWith(
@@ -500,46 +986,49 @@ class _LockedEntryCopyWithImpl<$R, $Out>
   @override
   $R call({
     String? slug,
-    LockedSourceKind? sourceKind,
+    LockedEntryKind? kind,
     Object? version = $none,
-    Object? projectId = $none,
-    Object? versionId = $none,
-    Object? file = $none,
+    Object? modrinth = $none,
+    Object? curseforge = $none,
+    Object? url = $none,
+    Object? urlFile = $none,
     Object? path = $none,
     SideEnv? client,
     SideEnv? server,
     LockedDependencyKind? dependency,
-    List<String>? gameVersions,
+    List<String>? requiredBy,
     List<String>? acceptsMc,
   }) => $apply(
     FieldCopyWithData({
       if (slug != null) #slug: slug,
-      if (sourceKind != null) #sourceKind: sourceKind,
+      if (kind != null) #kind: kind,
       if (version != $none) #version: version,
-      if (projectId != $none) #projectId: projectId,
-      if (versionId != $none) #versionId: versionId,
-      if (file != $none) #file: file,
+      if (modrinth != $none) #modrinth: modrinth,
+      if (curseforge != $none) #curseforge: curseforge,
+      if (url != $none) #url: url,
+      if (urlFile != $none) #urlFile: urlFile,
       if (path != $none) #path: path,
       if (client != null) #client: client,
       if (server != null) #server: server,
       if (dependency != null) #dependency: dependency,
-      if (gameVersions != null) #gameVersions: gameVersions,
+      if (requiredBy != null) #requiredBy: requiredBy,
       if (acceptsMc != null) #acceptsMc: acceptsMc,
     }),
   );
   @override
   LockedEntry $make(CopyWithData data) => LockedEntry(
     slug: data.get(#slug, or: $value.slug),
-    sourceKind: data.get(#sourceKind, or: $value.sourceKind),
+    kind: data.get(#kind, or: $value.kind),
     version: data.get(#version, or: $value.version),
-    projectId: data.get(#projectId, or: $value.projectId),
-    versionId: data.get(#versionId, or: $value.versionId),
-    file: data.get(#file, or: $value.file),
+    modrinth: data.get(#modrinth, or: $value.modrinth),
+    curseforge: data.get(#curseforge, or: $value.curseforge),
+    url: data.get(#url, or: $value.url),
+    urlFile: data.get(#urlFile, or: $value.urlFile),
     path: data.get(#path, or: $value.path),
     client: data.get(#client, or: $value.client),
     server: data.get(#server, or: $value.server),
     dependency: data.get(#dependency, or: $value.dependency),
-    gameVersions: data.get(#gameVersions, or: $value.gameVersions),
+    requiredBy: data.get(#requiredBy, or: $value.requiredBy),
     acceptsMc: data.get(#acceptsMc, or: $value.acceptsMc),
   );
 

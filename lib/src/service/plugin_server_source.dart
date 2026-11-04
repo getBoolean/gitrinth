@@ -34,51 +34,57 @@ abstract class PluginServerSource {
   /// without consulting `loader.mods`.
   static PluginServerSource forLoader(
     PluginLoader loader, {
+    LoaderRegistry registry = LoaderRegistry.builtins,
     required PaperApiClient paperApi,
     required SpongeApiClient spongeApi,
     required BuildToolsRunner buildTools,
     required GitrinthCache cache,
     required Downloader downloader,
   }) {
-    switch (loader) {
-      case PluginLoader.paper:
-      case PluginLoader.folia:
+    final descriptor = registry[loader];
+    switch (descriptor?.installer) {
+      case InstallerFamily.paper:
         return _PaperLikeSource(
-          loader: loader,
+          loader: LoaderId(descriptor?.runtimeArtifact ?? loader.name),
           paperApi: paperApi,
           cache: cache,
           downloader: downloader,
         );
-      case PluginLoader.spongeforge:
+      case InstallerFamily.sponge:
+        final artifact = descriptor?.runtimeArtifact;
+        final modLoader = switch (artifact) {
+          'spongeforge' => SpongeLoader.forge,
+          'spongeneo' => SpongeLoader.neoforge,
+          'spongevanilla' => SpongeLoader.vanilla,
+          _ => null,
+        };
+        if (modLoader == null) {
+          throw ValidationError(
+            'Loader ${loader.name} has no trusted Sponge artifact recipe.',
+          );
+        }
         return _SpongeSource(
-          modLoader: SpongeLoader.forge,
+          modLoader: modLoader,
           spongeApi: spongeApi,
           cache: cache,
           downloader: downloader,
         );
-      case PluginLoader.spongeneo:
-        return _SpongeSource(
-          modLoader: SpongeLoader.neoforge,
-          spongeApi: spongeApi,
-          cache: cache,
-          downloader: downloader,
-        );
-      case PluginLoader.spongevanilla:
-        return _SpongeSource(
-          modLoader: SpongeLoader.vanilla,
-          spongeApi: spongeApi,
-          cache: cache,
-          downloader: downloader,
-        );
-      case PluginLoader.spigot:
+      case InstallerFamily.buildtools:
+        final artifact = descriptor?.runtimeArtifact;
+        if (artifact != 'spigot' && artifact != 'craftbukkit') {
+          throw ValidationError(
+            'Loader ${loader.name} has no trusted BuildTools artifact recipe.',
+          );
+        }
         return _BuildToolsSource(
-          flavor: SpigotFlavor.spigot,
+          flavor: artifact == 'spigot'
+              ? SpigotFlavor.spigot
+              : SpigotFlavor.craftbukkit,
           buildTools: buildTools,
         );
-      case PluginLoader.bukkit:
-        return _BuildToolsSource(
-          flavor: SpigotFlavor.craftbukkit,
-          buildTools: buildTools,
+      default:
+        throw ValidationError(
+          'Loader ${loader.name} has no installed plugin server adapter.',
         );
     }
   }

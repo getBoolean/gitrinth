@@ -28,104 +28,317 @@ CLI, and publishing parts depend on the CF client but can be built
 against fakes in parallel. The hosted-Modrinth slice can land first
 and independently.
 
-- [ ] [Part 1: Foundation and hosted Modrinth](#part-1-foundation-and-hosted-modrinth) — normalize hyphenated manifest fields to underscores, rename schema/parser `hosted:` → `modrinth_host:`, drop the deferred-source guard, thread the host through `ModrinthApi`, wire tokens via `UserConfig.tokens[host]`, accept pack-level `modrinth_host:` as a default.
-- [ ] [Part 2: Manifest source model](#part-2-manifest-source-model) — `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction (scalar or list), `tooling.modrinth` / `tooling.curseforge` defaults, `cf:<slug>` short-form sugar, section-aware source eligibility, plugin source limits.
-- [ ] [Part 3: CurseForge API client](#part-3-curseforge-api-client) — typed client, token lookup for `curseforge.com`, content-type filters, loader/version filters, file/hash/dependency models, cache boundaries.
-- [ ] [Part 4: Resolver and lockfile](#part-4-resolver-and-lockfile) — multi-source resolution, per-platform lock blocks, `not_found` markers, plugin lock behavior, cross-platform SHA1 verification, `hash_scan_depth`, `allow_hash_mismatch`.
-- [ ] [Part 5: Search fallback](#part-5-search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, section-aware search filters, `no_cross_platform_search` / `--no-search` opt-outs.
-- [ ] [Part 6: Transitive dependencies and deduplication](#part-6-transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
-- [ ] [Part 7: CLI integration](#part-7-cli-integration) — `add` entry-write matrix, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, `cf:` handling, token commands.
-- [ ] [Part 8: Pack and publish](#part-8-pack-and-publish) — `publish_to` target selector/config map, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`, plugin publishing constraints.
+- [x] [Part 1: Foundation and hosted Modrinth](#part-1-foundation-and-hosted-modrinth) — normalize hyphenated manifest fields to underscores, rename schema/parser `hosted:` → `modrinth_host:`, drop the deferred-source guard, thread the host through `ModrinthApi`, wire tokens via `UserConfig.tokens[host]`, accept pack-level `modrinth_host:` as a default.
+- [x] [Part 2: Manifest source model](#part-2-manifest-source-model) — `curseforge:` / `modrinth:` peer fields, `sources: [...]` restriction (scalar or list), top-level `gitrinth:` block (with `gitrinth.version` semver constraint plus `gitrinth.modrinth` / `gitrinth.curseforge` defaults — replaces the old `tooling:` block), `cf:<slug>` short-form sugar, section-aware source eligibility, plugin source limits.
+- [x] [Part 3: CurseForge API client](#part-3-curseforge-api-client) — typed client, env-only download key lookup, content-type filters, loader/version filters, file/hash/dependency models, cache boundaries.
+- [x] [Part 4: Resolver and lockfile](#part-4-resolver-and-lockfile) — multi-source resolution, per-platform lock blocks, hard-fail on missing platforms (no `not_found` lockfile state), plugin lock behavior, cross-platform SHA1 verification, `hash_scan_depth`, `allow_hash_mismatch`. Includes a refactor of PubGrub to drop its Modrinth-specific imports so future cross-platform graph work can plug in.
+- [x] [Part 5: Search fallback](#part-5-search-fallback) — slug-not-found and hash-mismatch triggers, hash-first ranking, section-aware search filters, `no_cross_platform_search` / `--no-search` opt-outs.
+- [x] [Part 6: Transitive dependencies and deduplication](#part-6-transitive-dependencies-and-deduplication) — slug-table index, synthetic entries, cross-platform synthetic promotion, slug-divergence post-merge.
+- [x] [Part 7: CLI integration](#part-7-cli-integration) — `add` entry-write matrix, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, `cf:` handling, token commands.
+- [x] [Part 8: Pack and publish](#part-8-pack-and-publish) — `publish_to` target selector/config map, CF manifest emitter, `--curseforge` flag on `pack`, platform-aware `publish`, plugin publishing constraints.
 
 The [Mixing CF and Modrinth in one pack](#mixing-cf-and-modrinth-in-one-pack)
 section describes the resulting lockfile shape — it's not a task on
 its own, but a consolidated view of what the parts above produce.
 
+### Resolution and manual recovery
+
+The bridge resolves, locks, downloads, assembles, and publishes packs.
+CurseForge ZIP import, desktop integration, and general author metadata
+editing remain separate features.
+
+File listings query each distinct `mc_version` / `accepts_mc` version,
+retain the loader filter, and deduplicate file IDs before sorting.
+A filtered history above 10,000 results fails explicitly; an incomplete
+listing never counts as a complete candidate set. Authentication and
+service failures retain their cause. Unavailable files cannot be selected,
+and a project with unknown content type fails with its project identity.
+
+After cross-platform hash selection, incompatible CurseForge relations
+are checked against the final numeric project identities, including local
+aliases and transitive dependencies. Pin a compatible file explicitly;
+the bridge does not search older files to solve incompatibilities.
+`project_overrides` retain their explicit incompatibility bypass.
+Optional, embedded, tool, and unknown relations do not install projects.
+
+An online resolve saves selected-file metadata at
+`<cache>/curseforge/<projectId>/<fileId>/metadata.json` before replacing
+`mods.lock`. Offline resolution requires this sidecar to validate the
+selected file's availability and relationships. Older locks still parse;
+run one online `gitrinth get` if their sidecars are missing or corrupt.
+Read-only lock inspection and existing build artifacts remain usable.
+
+When a file has no download URL, download that exact file from CurseForge
+and save it at the destination printed by the error:
+`<cache>/curseforge/<projectId>/<fileId>/<filename>`. Rerun the command.
+Only bytes matching the locked hash count as a cache hit, regardless of
+the project's distribution setting. Missing or corrupt bytes fail;
+without a verifiable hash, use an explicit `path:` source instead.
+A cached Modrinth peer does not replace the required CurseForge artifact.
+No CDN URL is reconstructed. Cache verification does not grant permission
+to redistribute manually downloaded bytes.
+
 ## Implementation plan
+
+### Server distributions and parent-linked publication
+
+`pack --curseforge --server-distribution` produces actual server artifacts and
+configs in `<slug>-<version>-server-distribution.zip`, with a versioned
+`gitrinth-server-distribution.json` marker and SHA256 file inventory. The marker
+preserves mod and plugin loader identities and concrete locked versions.
+Client-only files, credential/cache paths, and EULA acceptance files are
+excluded. A denied CurseForge redistribution flag blocks physical bundling.
+The distribution does not include a runtime; metadata-only loaders can still
+produce it. The existing `-server.zip` manifest-based archive remains available.
+
+`publish --with-server` uploads the client, requires its positive returned ID,
+and uploads the server ZIP as an additional file with that exact `parentFileID`.
+Child uploads omit `gameVersions` and `gameVersionNames`; channel and
+manual-release settings are propagated deliberately. All selected artifacts,
+credentials, descriptors, and existing receipts are checked before the first
+upload. `--server-only --curseforge-parent-file <id>` retries against a verified
+matching project and client release without reuploading the client or Modrinth.
+
+The public [upload API](https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-upload-api)
+does not document a server-classification switch. A generic parent association
+is reported as pending manual classification in the author console until
+read-back confirms `isServerPack` and the parent's `serverPackFileId`. No private
+classification endpoint is used. Successful additional-file uploads can remain
+pending while moderation/read visibility catches up.
+
+Atomic, token-free receipts under `.gitrinth/publications/curseforge/` record
+artifact identities, returned IDs, dependent-step outcomes, and classification.
+They preserve partial successes across retries and prevent duplicate POSTs
+after an ambiguous timeout or crash. Unknown server outcomes require a unique
+remote parent/hash match before proceeding; unknown client outcomes require an
+explicit verified parent. Changed artifacts cannot resume the old receipt.
+See [publish recovery](cli.md#publish) for flags and the tested retry workflow.
 
 ### Part 1: Foundation and hosted Modrinth
 
-Ship first because it is independently useful and forces the resolver
-to stop assuming one global Modrinth host. Details live in
-[Hosted Modrinth (labrinth)](#hosted-modrinth-labrinth).
+Shipped. The foundational refactor lands the multi-host resolver, the
+underscore field rename, and the `modrinth_host:` per-entry / pack
+default. Details live in [Hosted Modrinth (labrinth)](#hosted-modrinth-labrinth).
 
-Done means:
+What landed:
 
 - `hosted:` is renamed to `modrinth_host:` in schema, parser, docs,
-  and examples.
-- Existing hyphenated manifest fields are renamed to underscores for
-  consistency: `mc-version` → `mc_version`, `accepts-mc` →
-  `accepts_mc`, `modrinth-host` → `modrinth_host`,
-  `hash-scan-depth` → `hash_scan_depth`,
-  `allow-hash-mismatch` → `allow_hash_mismatch`,
-  `no-cross-platform-search` → `no_cross_platform_search`,
-  `discovered-via-search` → `discovered_via_search`, and
-  `required-by` → `required_by`.
-- Pack-level and per-entry Modrinth host defaults are parsed.
-- The resolver can obtain a host-scoped `ModrinthApi` and token.
-- Existing default-host Modrinth behavior is unchanged.
+  and examples; the parser also accepts a top-level `modrinth_host:`
+  as the pack-wide default.
+- Hyphenated manifest fields are normalized to underscore form:
+  `mc-version` → `mc_version`, `accepts-mc` → `accepts_mc`,
+  plus the lockfile-only fields `project-id` → `project_id`,
+  `version-id` → `version_id`, and `game-versions` →
+  `game_versions`. Old hyphenated keys stop parsing — fixtures and
+  example packs were updated in the same change. (The bridge spec's
+  remaining hyphenated fields — `hash-scan-depth`,
+  `allow-hash-mismatch`, `no-cross-platform-search`,
+  `discovered-via-search`, `required-by` — land underscored when their
+  parts ship.)
+- The resolver dispatches against a host-keyed `ModrinthApiFactory`
+  with one `Dio` + rate-limit interceptor per host. The cache layout
+  is host-segmented: `<modrinthRoot>/<hostSegment>/<projectId>/<versionId>/...`
+  (default host renders to a stable segment so the layout is
+  uniform).
+- `ModrinthAuthInterceptor` already handled per-host token lookup;
+  the factory wires one auth interceptor per host instance so
+  `GITRINTH_TOKEN` continues to apply only to the default host.
+- Default-host Modrinth behavior is unchanged on the wire — the
+  cache layout is a one-time break (existing caches are re-fetched
+  on first run after upgrade).
 
 ### Part 2: Manifest source model
 
-Add the cross-platform source grammar before adding live CF behavior.
-Details live in [Fetching mods](#fetching-mods) and
-[Host overrides](#host-overrides).
+Shipped. The cross-platform grammar is parsed today even though the
+CurseForge resolver itself lands later — manifests can be authored
+ahead of CF resolver support. Details live in [Fetching mods](#fetching-mods)
+and [Host overrides](#host-overrides).
 
-Done means:
+What landed:
 
-- Entries accept `modrinth:`, `curseforge:`, and `sources:`.
-- `sources:` normalizes scalar and list forms into one internal set.
-- `tooling.modrinth` and `tooling.curseforge` toggle default
-  participation for each platform; Modrinth defaults enabled and
-  CurseForge defaults disabled.
-- Local section keys are identifiers, not necessarily platform slugs.
-- Source eligibility is section-aware: `plugins:` can only include
-  CurseForge when the plugin loader is Bukkit, Spigot, or Paper.
+- Entries accept `modrinth:` / `curseforge:` peer slug fields and
+  `sources:` (scalar or list); the parser normalizes both source
+  forms into a single internal `Set<SourceKind>`. Empty lists,
+  duplicates, and unknown enum values fail at parse time.
+- The legacy `tooling:` block is replaced by a top-level `gitrinth:`
+  block. `gitrinth.version` carries the semver constraint formerly
+  written as `tooling.gitrinth`; `gitrinth.modrinth` and
+  `gitrinth.curseforge` toggle default participation for each
+  platform (Modrinth enabled, CurseForge disabled). Examples and
+  the schema were updated in the same change.
+- Local section keys are treated as opaque identifiers; the model
+  already used `Map<String, ModEntry>` keys generically, and the
+  docs were tightened to call them out as identifiers rather than
+  slugs.
+- Source eligibility is enforced at parse time: `plugins:` entries
+  with `sources: curseforge` (or a `curseforge:` peer) require
+  `loader.plugins ∈ {bukkit, spigot, paper}` and otherwise throw a
+  manifest error pointing at the
+  [Source eligibility matrix](#source-eligibility-matrix).
+- The `cf:<slug>[@<version>]` short-form sugar is intentionally an
+  `add` CLI feature only — it lands with Part 7 and the parser
+  never sees raw `cf:` strings as values.
 
 ### Part 3: CurseForge API client
 
-Build a typed client and adapter layer that returns resolver-friendly
-project/version/file/dependency data. Keep CurseForge details out of
-the manifest parser.
+Shipped. The CurseForge read API is callable in isolation and ready
+for Part 4's resolver dispatch to consume. Resolver and CLI exposure
+remain out of scope.
 
-Done means:
+What landed:
 
-- `lib/src/service/curseforge_api.dart` can look up projects by slug
-  or numeric project ID.
-- The adapter can list compatible files by Minecraft version,
-  section, loader, and channel floor.
-- File models expose SHA1 and any dependency relation data needed by
-  [Transitive dependencies](#transitive-dependencies-and-deduplication).
-- CF requests use the configured CurseForge token and have cache keys
-  separated from Modrinth/labrinth hosts.
+- New `lib/src/service/curseforge_api.dart` is a retrofit-generated
+  abstract client with `getMod`, `searchMods`, `listFiles`, and
+  `getFile` endpoints. Every endpoint is gated on
+  `@Extra({kCurseForgeAuthRequired: true})` so the auth interceptor
+  controls when the API key is attached.
+- `CurseForgeAuthInterceptor` injects `x-api-key:` for requests
+  destined for the resolved CurseForge read-API host. Download-key resolution is
+  environment-only: `GITRINTH_CURSEFORGE_TOKEN` at runtime overrides
+  the official build default decoded from
+  `kCurseForgeDefaultApiKeyB64`, which is populated from
+  `GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64` at build time. User
+  config tokens are intentionally not consulted for downloads;
+  `gitrinth token add curseforge.com` is reserved for the separate
+  CurseForge publish key.
+- `defaultCurseForgeUploadBaseUrl`, `curseForgeUploadTokenKey`, and
+  `resolveCurseForgeUploadToken(...)` are declared in
+  `curseforge_url.dart` so Parts 7 and 8 have a stable shape to
+  build the publish path against. The publish token has *no*
+  embedded default by design: uploads attribute artifacts to a
+  specific developer account, so each developer must supply their
+  own with `GITRINTH_CURSEFORGE_UPLOAD_TOKEN` or
+  `gitrinth token add curseforge.com`.
+- `CurseForgeRateLimitInterceptor` is reactive only (CF publishes
+  no budget headers). On a 429 it sleeps using `Retry-After` if
+  present or an attempt-ramped backoff capped at 65s, retrying up
+  to 5 times before propagating the original `DioException`.
+- `CurseForgeErrorInterceptor` mirrors `ModrinthErrorInterceptor`:
+  401/403 → `AuthenticationError`, 404 on `/v1/mods/<id>` names
+  the missing project, other non-2xx codes wrap as `UserError`
+  with the request URI.
+- `CurseForgeApiFactory` composes one cached `Dio` + interceptor
+  bundle (offline guard → auth → rate-limit → error) with the
+  standard `gitrinth/<version>` User-Agent. Unlike
+  `ModrinthApiFactory` it caches a single bundle rather than a
+  host-keyed map because CF has one canonical host.
+- DTOs live under `lib/src/model/curseforge/`: `Mod`, `ModFile`,
+  `FileHash` (with a `HashAlgo` decoder), `FileRelation` (with a
+  `RelationType` decoder), `Pagination`, `ModSearchResponse`,
+  `ModFileSearchResponse`, `ModEnvelope`, `ModFileEnvelope`. All
+  use `dart_mappable` and round-trip via fixtures captured under
+  `test/fixtures/curseforge/`. `Mod.allowModDistribution` is
+  exposed (defaulting to `true` when the API omits it) so Parts 4
+  and 8 can branch on it; `ModFile.downloadUrl` is nullable so the
+  `allowModDistribution: false` case can surface to the resolver
+  without an attempted fetch.
+- CurseForge taxonomy is encoded as extension methods on the
+  `Section` and `Channel` enums plus registered loader identities.
+  `cf_constants.dart` exposes `Section.cfClassId`,
+  the built-in `ModLoader.cfModLoaderType`, `cfReleaseTypesFor(Channel)`,
+  `pluginLoaderEligibleForCurseforge(PluginLoader)`. The plugin
+  eligibility predicate delegates to `sectionAllowsCurseforge`
+  rather than restating the rule.
+  Resolution uses the operation's immutable loader registry for provider
+  mappings. See [loader capabilities](loader-descriptors.md) for discovery,
+  explicit user mappings, archive metadata, and runtime boundaries.
+- `listCompatibleFiles(...)` in `curseforge_filters.dart` is the
+  single entry point Part 4 will call. It accepts pack context
+  (section, optional mod loader, plugin loader for plugin
+  sections, the union of `mc_version` + `accepts_mc`, channel),
+  queries CF's `/files` endpoint per accepted game version within
+  the API window, filters by channel and availability, and returns
+  deduplicated files sorted newest-first. Plugin-loader
+  eligibility is checked before any HTTP request — Folia/Sponge
+  throw `ArgumentError` immediately. `findModBySlug(...)` is the
+  exact-slug lookup path.
+- `cache.dart` gained `curseforgeRoot` and a
+  `curseforgePath({projectId, fileId, filename})` helper. The
+  layout is `<cacheRoot>/curseforge/<projectId>/<fileId>/<filename>`
+  with no host segment because CF has a single host. The cache is
+  for local-developer testing only — CF mods are never bundled
+  into a published `.mrpack` per the project policy on CurseForge
+  mod distribution.
+- `build.yaml` now generates retrofit code for both the Modrinth
+  and CurseForge clients.
 
 ### Part 4: Resolver and lockfile
 
-Turn the existing single-source resolver into a platform-dispatching
-resolver. Details live in
-[Cross-platform hash verification](#cross-platform-hash-verification)
+Shipped. The single-source resolver became a platform-dispatching one
+and `mods.lock` now carries per-platform source blocks. Details live
+in [Cross-platform hash verification](#cross-platform-hash-verification)
 and [Mixing CF and Modrinth in one pack](#mixing-cf-and-modrinth-in-one-pack).
 
-Done means:
+What landed:
 
-- Each requested eligible source resolves independently, with
-  `not_found` recorded when a declared or tooling-enabled default
-  source is missing.
-- Dual-source entries compare SHA1, scan older compatible versions,
-  and respect `allow_hash_mismatch`.
-- `mods.lock` records per-platform IDs and hashes for every section,
-  including `plugins:`.
-- Lockfile source states are explicit: resolved, `not_found`, or
-  omitted because the source was excluded, ineligible, or not
-  requested.
-- Unsupported source/section combinations fail early with manifest
-  errors instead of surfacing as resolver misses.
+- PubGrub is platform-agnostic — `lib/src/model/resolver/pubgrub.dart`
+  imports nothing from `lib/src/model/modrinth/` and operates on a
+  small `SolverVersion` / `SolverDependency` interface in
+  `version_solver_types.dart`. The Modrinth side feeds in via
+  `ModrinthSolverVersion` (adapter in `modrinth_solver_adapter.dart`);
+  selection-order is constructor-injected so a future CurseForge-side
+  transitive graph adds its own adapter without touching the solver.
+- The `Resolver` accepts an optional `Set<String> modrinthSlugs`
+  dispatch gate so entries whose effective sources exclude Modrinth
+  (e.g. `sources: [curseforge]` or pack-default-disabled) skip the
+  Modrinth root constraints and are handled by the CurseForge
+  resolver pass.
+- `service/resolve/curseforge_resolver.dart` walks the merged
+  manifest, calling `findModBySlug` / `getMod` (numeric short-form)
+  and `listCompatibleFiles`, picking the newest compatible file per
+  CF-eligible entry. Slug-not-found / no-compatible-files cases
+  accumulate into `CfNotFound`.
+- Modrinth and CurseForge "missing on a requested platform"
+  outcomes aggregate into a single `ValidationError` listing every
+  affected entry plus the three remediation options. `not_found`
+  is **not** a lockfile state; it remains a `mods.yaml`
+  `constraintRaw` marker written exclusively by `gitrinth migrate`.
+- Dual-source entries run `service/resolve/hash_scan.dart` —
+  newest-pair SHA1 compare, then a windowed scan of `hash_scan_depth`
+  additional pairs (default 10, `0` disables) looking for a match.
+  `allow_hash_mismatch: true` accepts the newest pair with a
+  console warn; otherwise the depth-exhausted case throws a
+  `ValidationError` carrying both hashes and the three remediations.
+- `mods.lock` is a clean break: each entry has `kind: resolved | url
+  | path`. `kind: resolved` carries one or both of `modrinth:` /
+  `curseforge:` per-platform blocks (each with `project_id`,
+  `version_id` / `file_id`, `file:` payload, and `game_versions`).
+  Per-platform blocks are either fully populated (resolved) or
+  entirely omitted (excluded by `sources:`, ineligible per the
+  matrix, or pack-default-disabled) — no `status` enum, no
+  `not_found` lockfile state. The lockfile builder is now a free
+  function `buildLock(...)` rather than `part of resolve_and_sync`.
+- The artifact-fetch loop is extracted into
+  `service/resolve/download_artifacts.dart`. Each per-platform
+  source block downloads independently. A CurseForge entry with no
+  download URL requires verified bytes in its canonical cache path;
+  otherwise the error identifies the exact file and manual recovery.
+- Folder reorganization: `lib/src/service/` now has
+  `modrinth/`, `curseforge/`, and `resolve/` feature subfolders
+  for the touched-by-Part-4 files. Cross-cutting utilities
+  (`console`, `cache`, `downloader`, etc.) stay flat.
 
 ### Part 5: Search fallback
 
-Implement search only after deterministic resolution and hash
-verification are in place. Details live in
+Shipped. Search runs after deterministic lookup or an exhausted hash
+scan, using the resolved peer as a hash anchor. Details live in
 [Search fallback](#search-fallback).
+
+What landed:
+
+- Both missing-slug and hash-mismatch paths search the eligible peer
+  platform, including hosted Modrinth. A unique project with a SHA1
+  match within `hash_scan_depth` is selected; fuzzy and ambiguous
+  matches remain candidate diagnostics.
+- Search respects source restrictions, section, loader, Minecraft
+  versions, channel, and Modrinth version constraints. Hash-selected
+  Modrinth versions go through dependency solving before locking.
+- Per-entry `no_cross_platform_search: true` and `--no-search` on
+  `get`, `add`, and `upgrade` suppress fallback. Offline runs never
+  search and preserve the lock's discovery markers.
+- Source blocks record `discovered_via_search: true`; notices suggest
+  explicit peer slugs. Search responses are cached for the resolution
+  session, with host and compatibility filters in the cache key.
 
 Done means:
 
@@ -139,11 +352,11 @@ Done means:
 
 ### Part 6: Transitive dependencies and deduplication
 
-Layer graph behavior on top of stable source resolution. Details live
+Shipped. The graph resolver builds on stable source resolution. Details live
 in
 [Transitive dependencies and deduplication](#transitive-dependencies-and-deduplication).
 
-Done means:
+What landed:
 
 - Top-level entries are indexed by source/host/slug.
 - Transitive dependencies are assigned to lockfile sections by the
@@ -151,16 +364,19 @@ Done means:
 - Synthetic entries are created only when no top-level entry matches.
 - Cross-platform synthetics merge only on hash evidence.
 - `required_by:` is retained for `deps` output.
+- Hash-selected files are re-walked until both dependency graphs stabilize;
+  obsolete children are pruned. Offline resolution retains reachable peers
+  from the lock and cached metadata without network access.
 
 ### Part 7: CLI integration
 
-Expose the new behavior through commands after parser and resolver
-semantics are stable. Details live in
+Shipped. The CLI exposes source selection, peer discovery, and credentials.
+Details live in
 [`add` command cross-platform behavior](#add-command-cross-platform-behavior)
 and the command docs linked from
 [Implementation touches](#implementation-touches).
 
-Done means:
+What landed:
 
 - `gitrinth add` writes the minimal source shape for one-sided or
   dual-source entries.
@@ -168,17 +384,17 @@ Done means:
 - `--[no-]modrinth`, `--[no-]curseforge`,
   `--allow-hash-mismatch`, and `--no-search` are wired.
 - `gitrinth curseforge enable/disable` and
-  `gitrinth modrinth enable/disable` edit the matching `tooling`
+  `gitrinth modrinth enable/disable` edit the matching `gitrinth`
   platform toggle in `mods.yaml`.
-- `token add/list/remove` can manage both host URLs and
-  `curseforge.com`.
+- `token add/list/remove` can manage Modrinth/labrinth host URLs and
+  the CurseForge publish credential at `curseforge.com`.
 
 ### Part 8: Pack and publish
 
-Finish with archive output and remote upload behavior. Details live
+Shipped. Archive output and remote upload share the target selection model. Details live
 in [Publishing to CurseForge](#publishing-to-curseforge).
 
-Done means:
+What landed:
 
 - `pack --curseforge` emits a CF-compatible archive.
 - `publish` can target Modrinth, CurseForge, or both.
@@ -186,12 +402,15 @@ Done means:
   target config map; `publish_to.modrinth` can carry a
   Modrinth-compatible publishing host independently from
   `modrinth_host:`. When `publish_to` is unset, publish targets
-  follow the enabled `tooling` platforms.
+  follow the enabled `gitrinth` platforms.
 - Entries unavailable on a target are handled as target-scoped
   overrides or publish errors according to command flags.
 - Plugin publishing is limited to Bukkit/Spigot/Paper-compatible
   plugin entries; Sponge and Folia plugin entries are excluded from
   the CurseForge target unless represented as loose overrides.
+
+Archive contents and multipart uploads are covered by local HTTP tests;
+verification does not publish a release to either service.
 
 ## Reference architecture
 
@@ -230,8 +449,8 @@ Other sections should reference it rather than restating policy.
 | `plugins:` with `folia`  | enabled Modrinth only | manifest error                         | no                    | no         |
 | `plugins:` with `sponge` | enabled Modrinth only | manifest error                         | no                    | no         |
 
-"Enabled platforms" are controlled by `tooling.modrinth` and
-`tooling.curseforge`. Modrinth defaults to `enabled`; CurseForge
+"Enabled platforms" are controlled by `gitrinth.modrinth` and
+`gitrinth.curseforge`. Modrinth defaults to `enabled`; CurseForge
 defaults to `disabled`. Explicit entry-level `sources: curseforge`
 or `cf:<slug>` opts that entry into CurseForge without changing the
 pack-wide CurseForge default, as long as the section and loader are
@@ -248,27 +467,35 @@ Each source block in `mods.lock` has one of these meanings:
 
 - **Resolved** — serialized as the platform-specific project/file ID
   and hash block.
-- **Not found** — serialized as `{ status: not_found }` only when an
-  eligible declared or tooling-enabled default platform was queried,
-  including any allowed search fallback, and no compatible
-  project/file was found.
-- **Omitted** — used when the platform was excluded by `sources:`,
-  ineligible under the [Source eligibility matrix](#source-eligibility-matrix),
-  or never requested.
+- **Omitted** — the field is entirely absent from the entry's YAML.
+  Used when the platform was excluded by `sources:`, ineligible under
+  the [Source eligibility matrix](#source-eligibility-matrix), or
+  never requested (pack-default disabled).
+
+There is no `not_found` lockfile state. A requested eligible platform
+that is missing the project (or has it but lacks a satisfying version,
+or — in Part 5 — fails search fallback) raises a `ValidationError` at
+resolution time; the lockfile is not written. Users resolve this by
+adding `modrinth:` / `curseforge:` peer slug overrides, restricting
+the entry's `sources:` to platforms that have it, or running
+`gitrinth migrate <target>` — which writes the `not_found` marker as
+the entry's `mods.yaml` `constraintRaw` value, keeping the manifest
+parseable while removing the entry from active resolution.
 
 Explicitly requesting an ineligible source is a manifest error, not a
 lockfile state. For example, `sources: curseforge` on a Folia
 `plugins:` entry fails before resolution.
 
-## Platform tooling toggles
+## Platform toggles (`gitrinth:` block)
 
 The bridge keeps the expanded `mods.yaml` source grammar available
-while leaving CurseForge off by default. Platform defaults live under
-`tooling`:
+while leaving CurseForge off by default. Platform defaults and the
+`gitrinth` CLI semver constraint live under a top-level `gitrinth:`
+block:
 
 ```yaml
-tooling:
-  gitrinth: ^1.0.0
+gitrinth:
+  version: ^1.0.0
   modrinth: enabled
   curseforge: disabled
 ```
@@ -279,13 +506,13 @@ These toggles affect implicit platform participation only. They do
 not make an otherwise invalid source valid, and they do not block an
 entry from explicitly selecting a platform with `sources:` or `cf:`.
 Peer slug fields such as `curseforge:` only override the slug after
-that platform is selected by tooling defaults, `sources:`, or `cf:`.
+that platform is selected by `gitrinth` defaults, `sources:`, or `cf:`.
 
-`gitrinth curseforge enable` writes `tooling.curseforge: enabled`.
-`gitrinth curseforge disable` writes `tooling.curseforge: disabled`.
-`gitrinth modrinth enable` writes `tooling.modrinth: enabled`.
-`gitrinth modrinth disable` writes `tooling.modrinth: disabled`.
-The command writers preserve any existing `tooling.gitrinth`
+`gitrinth curseforge enable` writes `gitrinth.curseforge: enabled`.
+`gitrinth curseforge disable` writes `gitrinth.curseforge: disabled`.
+`gitrinth modrinth enable` writes `gitrinth.modrinth: enabled`.
+`gitrinth modrinth disable` writes `gitrinth.modrinth: disabled`.
+The command writers preserve any existing `gitrinth.version`
 constraint.
 
 ## Fetching mods
@@ -293,12 +520,12 @@ constraint.
 Every platform-backed entry resolves on the enabled sources that
 support that entry's section and loader according to the
 [Source eligibility matrix](#source-eligibility-matrix). With no
-`tooling` override, this means Modrinth only. When
-`tooling.curseforge: enabled` is present, eligible entries also
+`gitrinth` overrides, this means Modrinth only. When
+`gitrinth.curseforge: enabled` is present, eligible entries also
 resolve on CurseForge by default. The Modrinth side of that
 resolution can be redirected at a labrinth deployment via
-`modrinth_host:` (per-entry or pack-wide); the CurseForge side always
-targets `api.curseforge.com`.
+`modrinth_host:` (per-entry or pack-wide); the CurseForge side targets
+`GITRINTH_CURSEFORGE_URL` when set, otherwise `api.curseforge.com`.
 
 The examples below use `mods:`, but the same source grammar applies
 to `resource_packs:`, `data_packs:`, `shaders:`, and supported
@@ -334,7 +561,7 @@ mods:
     version: ^2.3.0
 
   # Explicit CurseForge-only entry; works even when
-  # tooling.curseforge is disabled globally.
+  # gitrinth.curseforge is disabled globally.
   ae2:
     sources: curseforge
     curseforge: applied-energistics-2
@@ -354,7 +581,7 @@ loader:
   plugins: paper
 
 plugins:
-  # Default: resolves on Modrinth unless tooling.curseforge is enabled.
+  # Default: resolves on Modrinth unless gitrinth.curseforge is enabled.
   luckperms: ^5.5.17
 
   # Slug differs on CurseForge — override CF side only when
@@ -381,24 +608,30 @@ peer fields override that platform's slug when it differs.
 use it when an entry only exists on one side, or when you want to pin
 an entry to one platform even though another enabled source has it.
 Explicit `sources: curseforge` opts that entry into CurseForge even
-when `tooling.curseforge` is disabled. The schema accepts both a
+when `gitrinth.curseforge` is disabled. The schema accepts both a
 scalar (`sources: curseforge`) and a list
 (`sources: [curseforge]`) form via a `oneOf` of string-or-array; the
 parser normalizes both into a single internal `Set<SourceKind>`.
 
-If a declared or tooling-enabled default platform doesn't have the
-entry, that platform gets a `not_found` marker in the matching
-`mods.lock` section and a warning is emitted; the entry still
-succeeds as long as at least one platform resolves. `mods-yaml.md`
-will be updated alongside this task to document the relaxed key
-semantics and the new fields.
+If a declared or `gitrinth`-enabled default platform doesn't have the
+entry, resolution fails with `ValidationError` listing each platform
+queried and the slug used; the lockfile is not written. The user
+fixes this by adding `modrinth:` / `curseforge:` peer slug overrides
+when the slug differs across platforms, restricting `sources:` to a
+single platform when the entry only exists on one side, or running
+`gitrinth migrate <target>` to mark the entry not-found in the
+manifest. (Part 5's [Search fallback](#search-fallback) inserts a
+search step before the failure for slug-not-found and hash-mismatch
+paths.) `mods-yaml.md` will be updated alongside this task to
+document the relaxed key semantics and the new fields.
 
 The resolver uses the same `loader` + `mc_version` filters (plus
 per-entry [`accepts_mc`](todo.md#accepts-mc--per-entry-mc-version-tolerance))
 and the same channel floor (`release`/`beta`/`alpha`) across
-platforms. Downloads hit each platform's CDN. The CF API requires a
-key, managed via [`token` add curseforge.com](todo.md#token-command);
-labrinth hosts named via `modrinth_host:` look up
+platforms. Downloads hit each platform's CDN. The CF download API key
+is supplied from `GITRINTH_CURSEFORGE_TOKEN` or from the official
+build's `GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64`; it is not read from
+the user token store. Labrinth hosts named via `modrinth_host:` look up
 `UserConfig.tokens[<host>]` through the same store.
 
 ### Plugin source eligibility
@@ -468,8 +701,8 @@ Rules:
 
 `gitrinth add <slug>` resolves on every enabled, eligible platform by
 default and writes the minimal entry that captures what it found. With
-no `tooling` override, this means Modrinth only. When
-`tooling.curseforge: enabled` is present, most sections resolve on
+no `gitrinth` overrides, this means Modrinth only. When
+`gitrinth.curseforge: enabled` is present, most sections resolve on
 both Modrinth and CurseForge. For `plugins:`, CurseForge is eligible
 only under `loader.plugins: bukkit`, `spigot`, or `paper`; Sponge and
 Folia plugin packs default to Modrinth only. The resolved form depends
@@ -494,11 +727,11 @@ makes one-sided entries visible in the manifest.
 
 `add` CLI flags:
 
-| Flag                    | Effect                                                                                                                                                                                            |
-|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `--[no-]modrinth`       | Toggle Modrinth resolution. `--no-modrinth` forces `sources: [curseforge]` even when Modrinth has the entry.                                                                                      |
-| `--[no-]curseforge`     | Toggle CurseForge resolution for this add. `--curseforge` opts into CF without changing `tooling.curseforge`; `--no-curseforge` forces `sources: [modrinth]` when CF would otherwise participate. |
-| `--allow-hash-mismatch` | Accept divergent hashes on both platforms; writes `allow_hash_mismatch: true` on the entry.                                                                                                       |
+| Flag                    | Effect                                                                                                                                                                                             |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--[no-]modrinth`       | Toggle Modrinth resolution. `--no-modrinth` forces `sources: [curseforge]` even when Modrinth has the entry.                                                                                       |
+| `--[no-]curseforge`     | Toggle CurseForge resolution for this add. `--curseforge` opts into CF without changing `gitrinth.curseforge`; `--no-curseforge` forces `sources: [modrinth]` when CF would otherwise participate. |
+| `--allow-hash-mismatch` | Accept divergent hashes on both platforms; writes `allow_hash_mismatch: true` on the entry.                                                                                                        |
 
 `cf:<slug>` short-form sugar (`gitrinth add cf:applied-energistics-2`)
 implies `--no-modrinth` and writes a single-platform entry with
@@ -593,12 +826,12 @@ scanning when the user is explicitly accepting divergence.
 
 ## Search fallback
 
-When a declared or tooling-enabled default eligible platform returns
+When a declared or `gitrinth`-enabled default eligible platform returns
 no project for the declared slug, gitrinth runs a search on that
-platform before marking it `not_found`. This handles the common case
-where an entry exists on both platforms but the CurseForge project
-carries a different slug than the Modrinth one — e.g., Modrinth
-`fabric-api` vs CurseForge `fabric-api-0-102-0`.
+platform before failing the entry with `ValidationError`. This handles
+the common case where an entry exists on both platforms but the
+CurseForge project carries a different slug than the Modrinth one —
+e.g., Modrinth `fabric-api` vs CurseForge `fabric-api-0-102-0`.
 
 ### When search runs
 
@@ -639,16 +872,10 @@ scored using the already-resolved platform's entry as the anchor:
 3. **Author** match against the anchor's author.
 4. **Category** compatibility.
 
-A hash match is definitive. Without a hash match, behavior depends
-on the triggering path:
-
-- **Slug-not-found path** — at least one of name or author must
-  align for auto-lock; otherwise fail with a candidate list.
-- **Hash-mismatch path** — auto-lock requires a hash match.
-  Name/author matches are listed as candidates in the error output
-  but never auto-applied, because a declared slug already matches
-  (just with divergent content) and silently switching to a
-  different slug based on fuzzy signals is too risky.
+A unique hash match is definitive. On both triggering paths,
+name, author, and category matches rank candidate diagnostics but
+are never auto-applied. Multiple projects with matching hashes are
+ambiguous and require an explicit peer slug override.
 
 ### Outcomes
 
@@ -682,10 +909,11 @@ listed (project title, author, latest compatible version each). User
 resolves via explicit `curseforge:` override, `sources: [...]`
 restriction, or `allow_hash_mismatch: true`.
 
-**Search returns nothing** — falls through to the existing
-`not_found` behavior: the missing platform gets the marker, the
-entry succeeds as long as at least one platform resolved, and a
-warning is emitted.
+**Search returns nothing** — resolution fails with `ValidationError`
+listing the platform queried, the slug used, and the
+[remediation options](#fetching-mods) (peer slug overrides,
+`sources: [...]` restriction, or `gitrinth migrate`). The lockfile
+is not written.
 
 ### Transitive deps
 
@@ -721,10 +949,11 @@ debugging resolver behavior.
 ### Performance
 
 Search adds at most one API call per platform per not-found slug.
-Results are cached in the gitrinth cache keyed by `(host, platform,
-query, loader, mc_version)` for the resolution session, so repeated
-`get`/`upgrade` runs don't re-query and labrinth queries don't
-pollute the modrinth.com cache (or vice versa). To avoid search entirely at
+Search responses are cached in memory for the resolution session,
+keyed by host, platform, query, section, loader, and Minecraft versions.
+Repeated lookups within that session reuse the response, and labrinth
+queries remain separate from modrinth.com queries. A new CLI run
+starts a new session. To avoid search entirely at
 scale, migrate discovered slugs into explicit `modrinth:` /
 `curseforge:` overrides in `mods.yaml`; gitrinth's notice output
 includes the exact override to paste.
@@ -789,7 +1018,7 @@ When one path requires `flywheel` from CF and another requires
 2. Apply the same hash check as top-level entries — match →
    dual-source synthetic; mismatch → scan; scan-exhaust → error.
 3. If only one platform has it, lock the synthetic as single-source
-   with a `not_found` marker on the missing platform.
+   with the missing platform's source block omitted (no marker).
 
 ### Cross-platform slug divergence
 
@@ -917,22 +1146,25 @@ mods:
   jei:
     version: 19.27.0
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
-    curseforge: { project_id: 238222, file_id: ..., sha512: ... }
+    curseforge: { project_id: 238222, file_id: ..., file: { sha1: ... } }
   distanthorizons:
     version: 2.3.0
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
-    # curseforge excluded via sources: [modrinth]
+    # curseforge excluded via sources: [modrinth] — field is absent
   some-modrinth-only-mod:
     version: 1.2.3
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
-    curseforge: { status: not_found }
+    # curseforge omitted because the entry sets sources: [modrinth].
+    # If the entry had requested CurseForge and CF lacked it,
+    # resolution would have failed instead — there is no not_found
+    # lockfile state.
 
 plugins:
   # In a Paper/Bukkit/Spigot plugin pack, plugins can be dual-source.
   luckperms:
     version: 5.5.17
     modrinth: { project_id: ..., version_id: ..., sha512: ... }
-    curseforge: { project_id: ..., file_id: ..., sha512: ... }
+    curseforge: { project_id: ..., file_id: ..., file: { sha1: ... } }
 ```
 
 [`deps`](todo.md#deps-command) surfaces per-platform source
@@ -949,8 +1181,8 @@ selector rather than a Modrinth host field. `modrinth_host:` remains
 the default Modrinth/labrinth source host for resolving entries; it
 does not opt the pack into publishing and does not select the
 Modrinth publish destination. When `publish_to` is unset, publishing
-targets the enabled platform set from `tooling` (Modrinth only by
-default). Explicit `publish_to` values can target one or both
+targets the enabled platform set from the `gitrinth:` block (Modrinth
+only by default). Explicit `publish_to` values can target one or both
 platforms in a single
 [`publish`](todo.md#publish-command) run.
 
@@ -980,7 +1212,12 @@ mapping if future config fields are needed). URL strings are no longer
 accepted as the top-level `publish_to` scalar. Explicit
 `publish_to: curseforge`, `[curseforge]`, or a `curseforge:` map key
 opts that publish operation into CurseForge even when
-`tooling.curseforge` is disabled by default.
+`gitrinth.curseforge` is disabled by default.
+
+Publishing requires a CurseForge publish API key, which is distinct
+from the download key used by the resolver. It is resolved from
+`GITRINTH_CURSEFORGE_UPLOAD_TOKEN` first, then from the user token
+store entry managed by `gitrinth token add curseforge.com`.
 
 ```yaml
 # Resolve Modrinth-source entries against a labrinth instance by
@@ -1072,20 +1309,20 @@ Concrete work:
 
 ## Implementation touches
 
-| Path                                                                                                                                                                      | Status | Role in bridge                                                                                                                                                                                                                                                                                                                                                   |
-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart)                                                                                       | exists | Add `modrinth:` / `curseforge:` slug overrides, `sources:` (scalar or list), hash flags, source eligibility helpers, and `tooling.modrinth` / `tooling.curseforge` platform toggles; grow `ModrinthEntrySource` with an optional host (or add a peer); add pack-level `modrinth_host:` and normalized `publish_to` target config to the top-level manifest model |
-| [`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart)                                                                                             | exists | Rename `hosted` → `modrinth_host`, normalize hyphenated fields to underscores, drop the deferred-source guard, parse the new entry and pack-level fields plus `tooling` platform toggles, reject CurseForge plugin sources outside Bukkit/Spigot/Paper loaders                                                                                                   |
-| [`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart)                                                                                       | exists | Per-source hash blocks for every section, `not_found` markers, `discovered_via_search`, `required_by:`, plugin lock blocks                                                                                                                                                                                                                                       |
-| [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart) and [`lib/src/model/resolver/resolver.dart`](../lib/src/model/resolver/resolver.dart) | exists | Multi-source branching; today's single-source `if (entry.source is! ModrinthEntrySource)` early-out (in both files) becomes the dispatch point; apply section-aware source eligibility before network resolution                                                                                                                                                 |
-| [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart)                                                                                               | exists | Already supports per-call `baseUrl`; needs a host-keyed factory so each labrinth host gets its own client + rate-limit budget                                                                                                                                                                                                                                    |
-| `lib/src/service/curseforge_api.dart`                                                                                                                                     | new    | Retrofit client mirroring `ModrinthApi` shape, including content-type filters and Bukkit/Spigot/Paper plugin compatibility filters                                                                                                                                                                                                                               |
-| [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart)                                                                                                 | exists | Token lookup by host already supported via `tokens: Map<String, String>`                                                                                                                                                                                                                                                                                         |
-| [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart)                                                                                                                   | exists | Wire new commands, including `gitrinth curseforge enable/disable` and `gitrinth modrinth enable/disable`                                                                                                                                                                                                                                                         |
-| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart)                                                                                               | exists | `cf:` short form that writes `sources: curseforge` without enabling pack-wide CF, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, plugin-source eligibility errors                                                                                                                                                                      |
-| [`lib/src/commands/pack_assembler.dart`](../lib/src/commands/pack_assembler.dart) and [`lib/src/commands/pack_command.dart`](../lib/src/commands/pack_command.dart)       | exists | Add CF archive/manifest output, target-scoped publishability checks, and `plugins/<jar>` override paths for plugin entries                                                                                                                                                                                                                                       |
-| `lib/src/commands/curseforge.dart`                                                                                                                                        | new    | Hosts CF-specific subcommands, starting with `enable` / `disable` for `tooling.curseforge`                                                                                                                                                                                                                                                                       |
-| `lib/src/commands/token_command.dart`                                                                                                                                     | new    | `token add` / `list` / `remove` (also referenced from [`todo.md`](todo.md#token-command))                                                                                                                                                                                                                                                                        |
-| [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml)                                                                                                     | exists | Rename `hosted` → `modrinth_host`; normalize hyphenated fields to underscores; add new entry fields; add `tooling.modrinth` / `tooling.curseforge` enum toggles; add pack-level `modrinth_host:` and `publish_to` target config; express plugin-source eligibility where schema can, leaving loader-dependent checks to the parser                               |
-| [`docs/mods-yaml.md`](mods-yaml.md)                                                                                                                                       | exists | Update `hosted:` → `modrinth_host:` in docs and examples; document renamed underscore fields; document new entry shape; remove "Modrinth-only" framing where it's no longer accurate; document CurseForge plugin limits                                                                                                                                          |
-| [`docs/cli.md`](cli.md)                                                                                                                                                   | exists | `cf:` short form, new `add` flags, platform enable/disable commands, plugin-source errors, `token` subcommands, `--curseforge` on `pack`                                                                                                                                                                                                                         |
+| Path                                                                                                                                                                      | Status | Role in bridge                                                                                                                                                                                                                                                                                                                                                                                                       |
+|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [`lib/src/model/manifest/mods_yaml.dart`](../lib/src/model/manifest/mods_yaml.dart)                                                                                       | exists | Add `modrinth:` / `curseforge:` slug overrides, `sources:` (scalar or list), hash flags, source eligibility helpers, and `gitrinth.modrinth` / `gitrinth.curseforge` platform toggles; grow `ModrinthEntrySource` with an optional host (or add a peer); add pack-level `modrinth_host:` and normalized `publish_to` target config to the top-level manifest model                                                   |
+| [`lib/src/model/manifest/parser.dart`](../lib/src/model/manifest/parser.dart)                                                                                             | exists | Rename `hosted` → `modrinth_host`, normalize hyphenated fields to underscores, drop the deferred-source guard, parse the new entry and pack-level fields plus the top-level `gitrinth:` block (with `gitrinth.version` semver constraint and `gitrinth.modrinth` / `gitrinth.curseforge` platform toggles, replacing the old `tooling:` block), reject CurseForge plugin sources outside Bukkit/Spigot/Paper loaders |
+| [`lib/src/model/manifest/mods_lock.dart`](../lib/src/model/manifest/mods_lock.dart)                                                                                       | exists | Per-source hash blocks for every section, present-or-omitted (no `not_found` lockfile state), `discovered_via_search`, `required_by:`, plugin lock blocks                                                                                                                                                                                                                                                            |
+| [`lib/src/service/resolve_and_sync.dart`](../lib/src/service/resolve_and_sync.dart) and [`lib/src/model/resolver/resolver.dart`](../lib/src/model/resolver/resolver.dart) | exists | Multi-source branching; today's single-source `if (entry.source is! ModrinthEntrySource)` early-out (in both files) becomes the dispatch point; apply section-aware source eligibility before network resolution                                                                                                                                                                                                     |
+| [`lib/src/service/modrinth_api.dart`](../lib/src/service/modrinth_api.dart)                                                                                               | exists | Already supports per-call `baseUrl`; needs a host-keyed factory so each labrinth host gets its own client + rate-limit budget                                                                                                                                                                                                                                                                                        |
+| `lib/src/service/curseforge_api.dart`                                                                                                                                     | new    | Retrofit client mirroring `ModrinthApi` shape, including content-type filters and Bukkit/Spigot/Paper plugin compatibility filters                                                                                                                                                                                                                                                                                   |
+| [`lib/src/service/user_config.dart`](../lib/src/service/user_config.dart)                                                                                                 | exists | Token lookup by host already supported via `tokens: Map<String, String>`                                                                                                                                                                                                                                                                                                                                             |
+| [`lib/src/cli/runner.dart`](../lib/src/cli/runner.dart)                                                                                                                   | exists | Wire new commands, including `gitrinth curseforge enable/disable` and `gitrinth modrinth enable/disable`                                                                                                                                                                                                                                                                                                             |
+| [`lib/src/commands/add_command.dart`](../lib/src/commands/add_command.dart)                                                                                               | exists | `cf:` short form that writes `sources: curseforge` without enabling pack-wide CF, `--[no-]modrinth` / `--[no-]curseforge` / `--allow-hash-mismatch` flags, plugin-source eligibility errors                                                                                                                                                                                                                          |
+| [`lib/src/commands/pack_assembler.dart`](../lib/src/commands/pack_assembler.dart) and [`lib/src/commands/pack_command.dart`](../lib/src/commands/pack_command.dart)       | exists | Add CF archive/manifest output, target-scoped publishability checks, and `plugins/<jar>` override paths for plugin entries                                                                                                                                                                                                                                                                                           |
+| `lib/src/commands/curseforge.dart`                                                                                                                                        | new    | Hosts CF-specific subcommands, starting with `enable` / `disable` for `gitrinth.curseforge`                                                                                                                                                                                                                                                                                                                          |
+| `lib/src/commands/token_command.dart`                                                                                                                                     | new    | `token add` / `list` / `remove` (also referenced from [`todo.md`](todo.md#token-command))                                                                                                                                                                                                                                                                                                                            |
+| [`assets/schema/mods.schema.yaml`](../assets/schema/mods.schema.yaml)                                                                                                     | exists | Rename `hosted` → `modrinth_host`; normalize hyphenated fields to underscores; add new entry fields; add `gitrinth.modrinth` / `gitrinth.curseforge` enum toggles; add pack-level `modrinth_host:` and `publish_to` target config; express plugin-source eligibility where schema can, leaving loader-dependent checks to the parser                                                                                 |
+| [`docs/mods-yaml.md`](mods-yaml.md)                                                                                                                                       | exists | Update `hosted:` → `modrinth_host:` in docs and examples; document renamed underscore fields; document new entry shape; remove "Modrinth-only" framing where it's no longer accurate; document CurseForge plugin limits                                                                                                                                                                                              |
+| [`docs/cli.md`](cli.md)                                                                                                                                                   | exists | `cf:` short form, new `add` flags, platform enable/disable commands, plugin-source errors, `token` subcommands, `--curseforge` on `pack`                                                                                                                                                                                                                                                                             |

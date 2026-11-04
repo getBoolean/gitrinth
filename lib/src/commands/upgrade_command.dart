@@ -1,20 +1,22 @@
+import 'version_picker.dart';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 
 import '../app/providers.dart';
+import '../app/loader_registry_provider.dart';
 import '../cli/base_command.dart';
 import '../cli/exceptions.dart';
 import '../cli/exit_codes.dart';
 import '../cli/offline_flag.dart';
 import '../model/manifest/mods_yaml.dart';
 import '../model/resolver/constraint.dart';
-import '../service/conflict_disable.dart';
-import '../service/lock_graph.dart';
 import '../service/manifest_io.dart';
-import '../service/modrinth_api.dart';
-import '../service/resolve_and_sync.dart';
-import '../service/solve_report.dart';
+import '../service/modrinth/modrinth_api.dart';
+import '../service/resolve/conflict_disable.dart';
+import '../service/resolve/lock_graph.dart';
+import '../service/resolve/resolve_and_sync.dart';
+import '../service/resolve/solve_report.dart';
 import 'caret_rewriter.dart';
 import 'migrate_editor.dart';
 
@@ -31,6 +33,12 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
 
   UpgradeCommand() {
     argParser
+      ..addFlag(
+        'search',
+        defaultsTo: true,
+        help:
+            'Search for cross-platform peers when a slug is missing or hashes differ.',
+      )
       ..addFlag(
         'major-versions',
         negatable: false,
@@ -71,6 +79,11 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
 
     final io = ManifestIo();
     final manifest = io.readModsYaml();
+    final registry = await prepareLoaderRegistry(
+      container,
+      manifest,
+      offline: offline,
+    );
 
     final modrinthByEntry = <(Section, String), ModEntry>{};
     final markerByEntry = <(Section, String), ModEntry>{};
@@ -96,23 +109,35 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     final markerSlugs = {for (final k in markerByEntry.keys) k.$2};
     final allSlugs = {...modrinthSlugs, ...markerSlugs, ...nonModrinthSlugs};
 
-    final api = read(modrinthApiProvider);
+    final apiFactory = read(modrinthApiFactoryProvider);
 
     // Recovery rewrites a constraint, so it's gated on --major-versions.
     final recovered = <(Section, String)>{};
     if (majorVersions && !offline && markerByEntry.isNotEmpty) {
       for (final pair in markerByEntry.entries) {
-        final (_, slug) = pair.key;
+        final (section, slug) = pair.key;
         final entry = pair.value;
         final gameVersions = <String>{
           manifest.mcVersion,
           ...entry.acceptsMc,
         }.toList();
+        final api = apiFactory.forHost(
+          manifest.effectiveModrinthHost(entry, apiFactory.defaultBaseUrl),
+        );
         List versions;
         try {
+          final filters = filterLoadersForSection(
+            manifest.loader,
+            section,
+            registry: registry,
+            host: manifest.effectiveModrinthHost(
+              entry,
+              apiFactory.defaultBaseUrl,
+            ),
+          );
           versions = await api.listVersions(
             slug,
-            loadersJson: encodeFilterArray([manifest.loader.mods.name]),
+            loadersJson: filters == null ? null : encodeFilterArray(filters),
             gameVersionsJson: encodeFilterArray(gameVersions),
           );
         } on DioException catch (e) {
@@ -171,6 +196,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
         targets,
         io.readModsLock(),
         read(cacheProvider),
+        defaultHost: apiFactory.defaultBaseUrl,
         console: console,
         verboseLabel: 'upgrade --unlock-transitive',
       );
@@ -193,7 +219,7 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     };
     final manifestForResolve = unrecoverableMarkers.isEmpty
         ? null
-        : _stripSlugs(manifest, unrecoverableMarkers);
+        : manifest.withoutEntrySlugs(unrecoverableMarkers);
 
     final reporter = SolveReporter(console);
 
@@ -330,17 +356,4 @@ class UpgradeCommand extends GitrinthCommand with OfflineFlag {
     }
     return exitOk;
   }
-}
-
-ModsYaml _stripSlugs(ModsYaml manifest, Set<String> slugs) {
-  Map<String, ModEntry> strip(Map<String, ModEntry> m) => {
-    for (final e in m.entries)
-      if (!slugs.contains(e.key)) e.key: e.value,
-  };
-  return manifest.copyWith(
-    mods: strip(manifest.mods),
-    resourcePacks: strip(manifest.resourcePacks),
-    dataPacks: strip(manifest.dataPacks),
-    shaders: strip(manifest.shaders),
-  );
 }

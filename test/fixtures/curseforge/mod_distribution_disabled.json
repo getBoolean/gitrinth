@@ -1,0 +1,62 @@
+{
+  "data": [
+    {
+      "id": 555555,
+      "gameId": 432,
+      "name": "Closed Source Mod",
+      "slug": "closed-source-mod",
+      "summary": "A mod whose author opted out of API distribution.",
+      "status": 4,
+      "downloadCount": 12345,
+      "isFeatured": false,
+      "primaryCategoryId": 423,
+      "categories": [],
+      "classId": 6,
+      "authors": [{"id": 99, "name": "someauthor", "url": "https://example.com/someauthor"}],
+      "logo": null,
+      "screenshots": [],
+      "mainFileId": 4000000,
+      "latestFiles": [
+        {
+          "id": 4000000,
+          "gameId": 432,
+          "modId": 555555,
+          "isAvailable": true,
+          "displayName": "closed-source-mod-1.0.0.jar",
+          "fileName": "closed-source-mod-1.0.0.jar",
+          "releaseType": 1,
+          "fileStatus": 4,
+          "hashes": [
+            {"value": "feedfeedfeedfeedfeedfeedfeedfeedfeedfeed", "algo": 1}
+          ],
+          "fileDate": "2025-09-01T00:00:00Z",
+          "fileLength": 1000000,
+          "downloadCount": 100,
+          "downloadUrl": null,
+          "gameVersions": ["1.21.1", "Fabric"],
+          "sortableGameVersions": [],
+          "dependencies": [],
+          "alternateFileId": 0,
+          "isServerPack": false,
+          "fileFingerprint": 0,
+          "modules": []
+        }
+      ],
+      "latestFilesIndexes": [],
+      "latestEarlyAccessFilesIndexes": [],
+      "dateCreated": "2024-01-01T00:00:00Z",
+      "dateModified": "2025-09-01T00:00:00Z",
+      "dateReleased": "2025-09-01T00:00:00Z",
+      "allowModDistribution": false,
+      "gamePopularityRank": 1000,
+      "isAvailable": true,
+      "thumbsUpCount": 0
+    }
+  ],
+  "pagination": {
+    "index": 0,
+    "pageSize": 50,
+    "resultCount": 1,
+    "totalCount": 1
+  }
+}

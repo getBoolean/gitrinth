@@ -5,6 +5,7 @@ import 'package:gitrinth/src/commands/build_assembler.dart';
 import 'package:gitrinth/src/commands/build_orchestrator.dart';
 import 'package:gitrinth/src/commands/build_pruner.dart';
 import 'package:gitrinth/src/service/console.dart';
+import 'package:gitrinth/src/service/cache.dart';
 import 'package:gitrinth/src/service/manifest_io.dart';
 import 'package:path/path.dart' as p;
 import 'package:riverpod/riverpod.dart';
@@ -23,7 +24,7 @@ void _writeFixture(
     'name: Test Pack\n'
     'version: 0.1.0\n'
     'description: integration test fixture\n'
-    'mc-version: 1.21.1\n'
+    'mc_version: 1.21.1\n'
     'loader:\n'
     '  mods: fabric:0.17.3\n',
   );
@@ -36,7 +37,7 @@ void _writeFixture(
     for (final pth in modPaths) {
       final slug = p.basenameWithoutExtension(pth);
       modBlocks.writeln('  $slug:');
-      modBlocks.writeln('    source: path');
+      modBlocks.writeln('    kind: path');
       modBlocks.writeln('    path: $pth');
       modBlocks.writeln('    client: required');
       modBlocks.writeln('    server: required');
@@ -63,7 +64,7 @@ void _writeFixture(
     'gitrinth-version: 0.1.0\n'
     'loader:\n'
     '  mods: fabric:0.17.3\n'
-    'mc-version: 1.21.1\n'
+    'mc_version: 1.21.1\n'
     '$modBlocks'
     'resource_packs: {}\n'
     'data_packs: {}\n'
@@ -114,6 +115,51 @@ void main() {
 
     String clientPath(String relPath) =>
         p.join(packDir.path, 'build', 'client', relPath);
+
+    test(
+      'custom pack builds default-host declared and synthetic locked entries',
+      () async {
+        _writeFixture(packDir, modPaths: [], files: const {});
+        final manifest = File(p.join(packDir.path, 'mods.yaml'));
+        manifest.writeAsStringSync(
+          '${manifest.readAsStringSync()}modrinth_host: https://hosted.example/v2\nmods:\n  declared:\n    modrinth_host: https://api.modrinth.com/v2\n',
+        );
+        final lockFile = File(p.join(packDir.path, 'mods.lock'));
+        var lock = lockFile.readAsStringSync();
+        final entries = StringBuffer('mods:\n');
+        final cache = GitrinthCache(root: cacheRoot.path);
+        for (final slug in ['declared', 'synthetic']) {
+          entries.write(
+            '  $slug:\n    kind: resolved\n    modrinth:\n      project_id: $slug\n      version_id: V\n      file:\n        name: $slug.jar\n',
+          );
+          final artifact = File(
+            cache.modrinthPath(
+              host: 'https://api.modrinth.com/v2',
+              projectId: slug,
+              versionId: 'V',
+              filename: '$slug.jar',
+            ),
+          );
+          artifact.parent.createSync(recursive: true);
+          artifact.writeAsStringSync(slug);
+        }
+        lockFile.writeAsStringSync(
+          lock.replaceFirst('mods: {}', entries.toString().trimRight()),
+        );
+        expect(
+          await runBuild(
+            options: const BuildOptions(envFlag: 'client', skipDownload: true),
+            container: container,
+            console: const Console(),
+            io: io,
+          ),
+          0,
+        );
+        for (final slug in ['declared', 'synthetic']) {
+          expect(File(clientPath('mods/$slug.jar')).readAsStringSync(), slug);
+        }
+      },
+    );
 
     test('first build writes ledger and copies files: entries', () async {
       File(p.join(packDir.path, 'sodium.jar')).writeAsStringSync('SODIUM');

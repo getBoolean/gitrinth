@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:gitrinth/src/service/cache.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
@@ -69,7 +70,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -79,6 +80,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -89,8 +91,16 @@ mods:
       expect(lockText, contains('jei:'));
       expect(lockText, contains('version: 1.0.0'));
 
+      final hostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
       final cachedJar = File(
-        p.join(cacheDir.path, 'modrinth', 'JEI_ID', 'JEI_V1', 'jei-1.0.0.jar'),
+        p.join(
+          cacheDir.path,
+          'modrinth',
+          hostSeg,
+          'JEI_ID',
+          'JEI_V1',
+          'jei-1.0.0.jar',
+        ),
       );
       expect(cachedJar.existsSync(), isTrue);
       expect(cachedJar.readAsBytesSync(), jarBytes);
@@ -127,7 +137,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a:
 ''');
@@ -137,6 +147,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 2, reason: out.stderr);
@@ -157,7 +168,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: ^1.0.0
 ''');
@@ -166,6 +177,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 2, reason: out.stderr);
@@ -190,7 +202,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei:
 ''');
@@ -200,6 +212,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -234,7 +247,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a: beta
 ''');
@@ -244,6 +257,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -285,7 +299,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   a:
     channel: release
@@ -297,6 +311,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -315,7 +330,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   does-not-exist: ^1.0.0
 ''');
@@ -325,6 +340,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, isNot(0), reason: out.stderr);
@@ -365,7 +381,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   b: ^1.0.0
 ''');
@@ -373,6 +389,7 @@ mods:
     final env = {
       'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
       'GITRINTH_CACHE': cacheDir.path,
+      'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
     };
     final first = await runCli(['-C', packDir.path, 'get'], environment: env);
     expect(first.exitCode, 0, reason: first.stderr);
@@ -423,7 +440,7 @@ description: x
 loader:
   mods: "neoforge:21.1.50"
   shaders: iris
-mc-version: 1.21.1
+mc_version: 1.21.1
 shaders:
   complementary-reimagined: ^r5.7.1
 ''');
@@ -433,6 +450,7 @@ shaders:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -486,7 +504,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 resource_packs:
   faithful-32x: ^1.21.1-december-2025
 ''');
@@ -496,6 +514,7 @@ resource_packs:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -548,7 +567,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 data_packs:
   terralith: ^2.5.8
 ''');
@@ -558,6 +577,7 @@ data_packs:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -619,7 +639,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
   local-a:
@@ -633,6 +653,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, isNot(0), reason: out.stdout);
@@ -646,11 +667,13 @@ mods:
       );
       // The modrinth download still has to have happened — proving the error
       // surfaced AFTER the loop completed rather than short-circuiting it.
+      final pathHostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
       expect(
         File(
           p.join(
             cacheDir.path,
             'modrinth',
+            pathHostSeg,
             'JEI_ID',
             'JEI_V1',
             'jei-1.0.0.jar',
@@ -674,7 +697,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -684,6 +707,7 @@ mods:
           environment: {
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -701,7 +725,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.99.99
+mc_version: 1.99.99
 mods: {}
 ''');
 
@@ -710,6 +734,7 @@ mods: {}
           environment: {
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 2, reason: out.stdout);
@@ -729,7 +754,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -737,6 +762,7 @@ mods:
         final env = {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
         final first = await runCli([
           '-C',
@@ -767,7 +793,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -775,6 +801,7 @@ mods:
       final env = {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       };
       await runCli(['-C', packDir.path, 'get'], environment: env);
       expect(modrinth.requestCounts['/v2/tag/game_version'], 1);
@@ -792,7 +819,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   jei: ^2.0.0
 ''');
@@ -817,7 +844,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -828,6 +855,7 @@ mods:
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -854,7 +882,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:stable"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -865,6 +893,7 @@ mods:
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -896,7 +925,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:latest"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -907,6 +936,7 @@ mods:
             'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
             'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
             'GITRINTH_CACHE': cacheDir.path,
+            'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
           },
         );
         expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -932,7 +962,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -941,6 +971,7 @@ mods:
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
         await runCli(['-C', packDir.path, 'get'], environment: env);
         await runCli(['-C', packDir.path, 'get'], environment: env);
@@ -963,7 +994,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:stable"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -972,6 +1003,7 @@ mods:
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       };
       await runCli(['-C', packDir.path, 'get'], environment: env);
       await runCli(['-C', packDir.path, 'get'], environment: env);
@@ -999,7 +1031,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:stable"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1038,6 +1070,7 @@ mods:
           'GITRINTH_FORGE_VERSIONS_URL': modrinth.forgeVersionsUrl,
           'GITRINTH_FORGE_PROMOTIONS_URL': modrinth.forgePromotionsUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
 
         await writeManifest('''
@@ -1047,7 +1080,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "forge:47.2.0"
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1066,7 +1099,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "forge:47.4.10"
-mc-version: 1.20.1
+mc_version: 1.20.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1100,6 +1133,7 @@ mods:
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_FABRIC_META_URL': modrinth.fabricMetaUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         };
 
         await writeManifest('''
@@ -1109,7 +1143,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.17.3"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -1130,7 +1164,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "fabric:0.99.99-unvalidated"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   sodium: ^0.6.0
 ''');
@@ -1167,7 +1201,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   jei: ^1.0.0
 ''');
@@ -1177,6 +1211,7 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1200,11 +1235,11 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21]
+    accepts_mc: [1.21]
 ''');
 
       final out = await runCli(
@@ -1212,6 +1247,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1224,8 +1260,8 @@ mods:
         p.join(packDir.path, 'mods.lock'),
       ).readAsStringSync();
       expect(lockText, contains('appleskin:'));
-      expect(lockText, contains('game-versions: ["1.21"]'));
-      expect(lockText, contains('accepts-mc: ["1.21"]'));
+      expect(lockText, contains('game_versions: ["1.21"]'));
+      expect(lockText, contains('accepts_mc: ["1.21"]'));
     },
   );
 
@@ -1251,11 +1287,11 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin:
     version: ^3.0.9
-    accepts-mc: [1.21]
+    accepts_mc: [1.21]
 ''');
 
       final out = await runCli(
@@ -1263,6 +1299,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1270,8 +1307,8 @@ mods:
       final lockText = File(
         p.join(packDir.path, 'mods.lock'),
       ).readAsStringSync();
-      expect(lockText, contains('game-versions: ["1.21", 1.21.1]'));
-      expect(lockText, contains('accepts-mc: ["1.21"]'));
+      expect(lockText, contains('game_versions: ["1.21", 1.21.1]'));
+      expect(lockText, contains('accepts_mc: ["1.21"]'));
     },
   );
 
@@ -1292,7 +1329,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   appleskin: ^3.0.9
 ''');
@@ -1302,12 +1339,13 @@ mods:
       environment: {
         'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
         'GITRINTH_CACHE': cacheDir.path,
+        'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
       },
     );
     expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
     final lockText = File(p.join(packDir.path, 'mods.lock')).readAsStringSync();
-    expect(lockText, isNot(contains('accepts-mc:')));
+    expect(lockText, isNot(contains('accepts_mc:')));
   });
 
   // Regression: a long-form entry with `version:` set to a channel
@@ -1339,7 +1377,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   distanthorizons:
     version: beta
@@ -1352,6 +1390,7 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
@@ -1363,7 +1402,7 @@ mods:
       // Channel `beta` admits both `release` and `beta` versions; the
       // higher version (3.0.1-b, the beta) wins under semver ordering.
       expect(lockText, contains('version: 3.0.1-b'));
-      expect(lockText, contains('version-id: $betaId'));
+      expect(lockText, contains('version_id: $betaId'));
       expect(lockText, contains('client: optional'));
       expect(lockText, contains('server: optional'));
     },
@@ -1389,7 +1428,7 @@ version: 0.1.0
 description: x
 loader:
   mods: "neoforge:21.1.50"
-mc-version: 1.21.1
+mc_version: 1.21.1
 mods:
   create: ^6.0.10
 ''');
@@ -1399,13 +1438,16 @@ mods:
         environment: {
           'GITRINTH_MODRINTH_URL': modrinth.baseUrl,
           'GITRINTH_CACHE': cacheDir.path,
+          'GITRINTH_NEOFORGE_VERSIONS_URL': modrinth.neoforgeVersionsUrl,
         },
       );
       expect(out.exitCode, 0, reason: '${out.stderr}\n${out.stdout}');
 
+      final hostSeg = GitrinthCache.hostCacheSegment(modrinth.baseUrl);
       final metadataPath = p.join(
         cacheDir.path,
         'modrinth',
+        hostSeg,
         'create_ID',
         'create_6_0_10',
         'version.json',

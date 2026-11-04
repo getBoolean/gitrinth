@@ -2,10 +2,17 @@ import 'package:gitrinth/src/model/manifest/mods_yaml.dart';
 import 'package:gitrinth/src/model/modrinth/dependency.dart';
 import 'package:gitrinth/src/model/modrinth/version.dart' as modrinth;
 import 'package:gitrinth/src/model/modrinth/version_file.dart';
+import 'package:gitrinth/src/model/resolver/modrinth_solver_adapter.dart';
 import 'package:gitrinth/src/model/resolver/pubgrub.dart';
 import 'package:gitrinth/src/model/resolver/version_selection.dart';
 import 'package:pub_semver/pub_semver.dart';
 import 'package:test/test.dart';
+
+/// Wraps a Modrinth-typed version DB into the PubGrub agnostic surface.
+ListVersions _adapt(Map<String, List<modrinth.Version>> db) =>
+    (slug) async => (db[slug] ?? const <modrinth.Version>[])
+        .map(ModrinthSolverVersion.new)
+        .toList();
 
 modrinth.Version v({
   required String slug,
@@ -39,8 +46,9 @@ void main() {
       ],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (_) async => null,
+      selectionOrder: compareModrinthSolverOrder,
       // SolveType.get is the default; spelled out for clarity.
       solveType: SolveType.get,
     );
@@ -63,8 +71,9 @@ void main() {
       ],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (_) async => null,
+      selectionOrder: compareModrinthSolverOrder,
       solveType: SolveType.downgrade,
     );
     final out = await solver.solve([
@@ -88,8 +97,9 @@ void main() {
       ],
     };
     final solver = PubGrubSolver(
-      listVersions: (slug) async => db[slug] ?? [],
+      listVersions: _adapt(db),
       resolveSlugForProjectId: (_) async => null,
+      selectionOrder: compareModrinthSolverOrder,
       lockSuggestions: const [LockSuggestion('create', '6.0.11')],
       solveType: SolveType.downgrade,
     );

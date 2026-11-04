@@ -259,13 +259,17 @@ metadata fetches at a local fake server.
 
 ### Locations & credentials
 
-| Variable                | Used by       | Purpose                                                                                                                                                             |
-|-------------------------|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `GITRINTH_CACHE`        | every command | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                      |
-| `GITRINTH_CONFIG`       | every command | Override the user config file path. `--config` wins.                                                                                                                |
-| `GITRINTH_MODRINTH_URL` | every command | Override the default Modrinth API base URL. Used to point at a self-hosted labrinth instance for the default host.                                                  |
-| `GITRINTH_TOKEN`        | every command | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix). Other hosts always use the token stored via `gitrinth modrinth token add`. |
-| `HOME` / `USERPROFILE`  | every command | Resolves the default cache root and user config path. `USERPROFILE` is consulted on Windows; `HOME` everywhere else.                                                |
+| Variable                                      | Used by            | Purpose                                                                                                                                                             |
+|-----------------------------------------------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `GITRINTH_CACHE`                              | every command      | Override the cache root. Defaults to `<home>/.gitrinth/cache`.                                                                                                      |
+| `GITRINTH_CONFIG`                             | every command      | Override the user config file path. `--config` wins.                                                                                                                |
+| `GITRINTH_MODRINTH_URL`                       | every command      | Override the default Modrinth API base URL. Used to point at a self-hosted labrinth instance for the default host.                                                  |
+| `GITRINTH_TOKEN`                              | every command      | Override the stored Modrinth PAT for the *default* host. Sent bare (no `Bearer` prefix). Other hosts always use the token stored via `gitrinth modrinth token add`. |
+| `GITRINTH_CURSEFORGE_URL`                     | every command      | Override the CurseForge download API base URL. Defaults to `https://api.curseforge.com`.                                                                            |
+| `GITRINTH_CURSEFORGE_TOKEN`                   | every command      | Override the default CurseForge download API key. This is separate from the publish key stored by `gitrinth token add curseforge.com`.                              |
+| `GITRINTH_CURSEFORGE_DEFAULT_API_KEY_B64`     | build-time         | Base64-encoded default CurseForge download API key embedded into official builds.                                                                                    |
+| `GITRINTH_CURSEFORGE_UPLOAD_TOKEN`            | `publish`          | Override the stored CurseForge publish key. Falls back to the key stored by `gitrinth token add curseforge.com`.                                                    |
+| `HOME` / `USERPROFILE`                        | every command      | Resolves the default cache root and user config path. `USERPROFILE` is consulted on Windows; `HOME` everywhere else.                                                |
 
 ### Java runtime
 

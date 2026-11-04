@@ -25,6 +25,14 @@ class FakeModrinth {
   /// Extra slugs treated as taken by `/v2/project/<slug>/check`.
   final Set<String> _takenSlugs = <String>{};
 
+  final List<Map<String, dynamic>> loaderTags = [
+    {
+      'name': 'neoforge',
+      'supported_project_types': ['mod', 'modpack'],
+      'icon': '',
+    },
+  ];
+
   /// Versions returned by `/v2/tag/game_version`.
   List<Map<String, dynamic>> gameVersions = [
     {
@@ -58,6 +66,8 @@ class FakeModrinth {
 
   /// Request count by route.
   final Map<String, int> requestCounts = {};
+  List<Map<String, dynamic>> searchHits = [];
+  Map<String, String>? lastSearchQuery;
 
   FakeModrinth({
     Map<String, Map<String, dynamic>>? projects,
@@ -69,6 +79,9 @@ class FakeModrinth {
 
   String get baseUrl => 'http://127.0.0.1:${_server.port}/v2';
   String get downloadBaseUrl => 'http://127.0.0.1:${_server.port}/downloads';
+
+  String get paperBuildsUrl =>
+      'http://127.0.0.1:${_server.port}/paper/{project}/{mc}/builds';
 
   /// Fake fabric-meta loader-list URL.
   String get fabricMetaUrl =>
@@ -311,9 +324,32 @@ class FakeModrinth {
             jsonEncode({'id': 'fake-user-id', 'username': username}),
           );
         }
+      } else if (path == '/v2/search') {
+        lastSearchQuery = req.uri.queryParameters;
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode({'hits': searchHits}));
+      } else if (path == '/v2/tag/loader') {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(jsonEncode(loaderTags));
       } else if (path == '/v2/tag/game_version') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode(gameVersions));
+      } else if (path.startsWith('/paper/') && path.endsWith('/builds')) {
+        req.response.headers.contentType = ContentType.json;
+        req.response.write(
+          jsonEncode([
+            {
+              'id': 100,
+              'channel': 'STABLE',
+              'downloads': {
+                'server:default': {
+                  'name': 'paper-100.jar',
+                  'url': '$downloadBaseUrl/paper/paper-100.jar',
+                },
+              },
+            },
+          ]),
+        );
       } else if (path == '/fabric/v2/versions/loader') {
         req.response.headers.contentType = ContentType.json;
         req.response.write(jsonEncode(fabricLoaderVersions));
@@ -469,7 +505,12 @@ class FakeModrinth {
           lastVersionQuery[slug] = Map<String, String>.from(
             req.uri.queryParameters,
           );
-          final list = versions[slug];
+          final list =
+              versions[slug] ??
+              versions[projects.values
+                  .where((p) => p['id'] == slug)
+                  .map((p) => p['slug'])
+                  .firstOrNull];
           if (list == null) {
             req.response.statusCode = 404;
             req.response.write(jsonEncode({'error': 'unknown slug $slug'}));
