@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -191,6 +192,143 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('CurseForgeAuthInterceptor origin check', () {
+    test('does not attach x-api-key when only the port differs', () async {
+      final dio = _buildDio(
+        envToken: 'ENV',
+        baseUrl: 'https://cf-proxy.example.test:8443',
+      );
+
+      await dio.get(
+        'https://cf-proxy.example.test/v1/mods/1',
+        options: _authed(),
+      );
+
+      expect(
+        _adapterOf(dio).requests.single.headers.containsKey('x-api-key'),
+        isFalse,
+      );
+    });
+
+    test('does not attach x-api-key when only the scheme differs', () async {
+      final dio = _buildDio(envToken: 'ENV');
+
+      await dio.get('http://api.curseforge.com/v1/mods/1', options: _authed());
+
+      expect(
+        _adapterOf(dio).requests.single.headers.containsKey('x-api-key'),
+        isFalse,
+      );
+    });
+  });
+
+  group('CurseForgeAuthInterceptor redirects over real HTTP', () {
+    late HttpServer source;
+    late HttpServer target;
+    late List<String?> targetKeys;
+    late Dio dio;
+    late String base;
+
+    setUp(() async {
+      source = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      target = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      targetKeys = [];
+      target.listen((request) async {
+        targetKeys.add(request.headers.value('x-api-key'));
+        request.response.headers.contentType = ContentType.json;
+        request.response.write('{}');
+        await request.response.close();
+      });
+      base = 'http://127.0.0.1:${source.port}';
+      dio = Dio()
+        ..interceptors.add(
+          CurseForgeAuthInterceptor(
+            envTokenLookup: () => 'fixture-only',
+            baseUrl: base,
+          ),
+        );
+    });
+
+    tearDown(() async {
+      dio.close(force: true);
+      await source.close(force: true);
+      await target.close(force: true);
+    });
+
+    void redirectTo(String location, {int status = 302}) {
+      source.listen((request) async {
+        request.response.statusCode = status;
+        request.response.headers.set('location', location);
+        await request.response.close();
+      });
+    }
+
+    Matcher refusedRedirect() => throwsA(
+      isA<DioException>().having(
+        (e) => e.error,
+        'error',
+        isA<UserError>().having(
+          (e) => e.message,
+          'message',
+          allOf(contains('redirected'), contains('GITRINTH_CURSEFORGE_URL')),
+        ),
+      ),
+    );
+
+    for (final (label, location) in [
+      ('host', (int port) => 'http://localhost:$port/capture'),
+      ('port', (int port) => 'http://127.0.0.1:$port/capture'),
+    ]) {
+      test('refuses a cross-origin redirect that changes the $label', () async {
+        redirectTo(location(target.port));
+
+        await expectLater(
+          dio.get('$base/v1/mods/1', options: _authed()),
+          refusedRedirect(),
+        );
+
+        expect(targetKeys, isEmpty, reason: 'the key must not be replayed');
+      });
+    }
+
+    test('refuses a redirect that changes the scheme', () async {
+      redirectTo('https://127.0.0.1:${target.port}/capture', status: 307);
+
+      await expectLater(
+        dio.get('$base/v1/mods/1', options: _authed()),
+        refusedRedirect(),
+      );
+
+      expect(targetKeys, isEmpty);
+    });
+
+    test(
+      'refuses redirects even when the caller accepts every status',
+      () async {
+        redirectTo('http://localhost:${target.port}/capture');
+
+        await expectLater(
+          dio.get(
+            '$base/v1/mods/1',
+            options: _authed()..validateStatus = (_) => true,
+          ),
+          refusedRedirect(),
+        );
+
+        expect(targetKeys, isEmpty);
+      },
+    );
+
+    test('unauthenticated requests keep default redirect handling', () async {
+      redirectTo('http://localhost:${target.port}/capture');
+
+      final response = await dio.get<dynamic>('$base/v1/mods/1');
+
+      expect(response.statusCode, 200);
+      expect(targetKeys, [null]);
     });
   });
 }

@@ -13,6 +13,7 @@ import 'package:gitrinth/src/service/cache.dart';
 import 'package:gitrinth/src/service/curseforge/curseforge_upload_client.dart';
 import 'package:test/test.dart';
 import '../helpers/capture.dart';
+import '../helpers/multipart.dart';
 
 const base = '''slug: test
 name: Test
@@ -50,16 +51,23 @@ void main() {
       File('${temp.path}/build/test-1.0.0.zip').writeAsBytesSync([2]);
       final uploads = <String>[];
       server.listen((request) async {
-        final body = await utf8.decoder.bind(request).join();
         uploads.add(request.uri.path);
-        expect(body, contains('Original release notes'));
         if (request.uri.path == '/project/test/version') {
+          final body = await utf8.decoder.bind(request).join();
+          expect(body, contains('Original release notes'));
           expect(request.headers.value('Authorization'), 'captured-mr-token');
           config.writeAsStringSync('tokens: {}\n');
           changelog.writeAsStringSync('Changed after first upload');
         } else {
           expect(request.uri.path, '/api/projects/42/upload-file');
           expect(request.headers.value('X-Api-Token'), 'captured-cf-token');
+          final parts = await readMultipart(request);
+          expect(parts.keys, unorderedEquals(['metadata', 'file']));
+          expect(parts['metadata']!.text, contains('Original release notes'));
+          final upload = parts['file']!;
+          expect(upload.filename, 'test-1.0.0.zip');
+          expect(upload.contentType, 'application/zip');
+          expect(upload.bytes, [2], reason: 'the captured CF archive');
         }
         request.response.headers.contentType = ContentType.json;
         request.response.write('{"id":123}');
@@ -431,7 +439,9 @@ void main() {
     () async {
       final temp = Directory.systemTemp.createTempSync('cf_upload_');
       addTearDown(() => temp.deleteSync(recursive: true));
-      final file = File('${temp.path}/pack.zip')..writeAsBytesSync([1, 2, 3]);
+      // Every byte value, so encoding or truncation bugs cannot hide.
+      final payload = [for (var i = 0; i < 4096; i++) i % 256];
+      final file = File('${temp.path}/pack.zip')..writeAsBytesSync(payload);
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(() => server.close(force: true));
       final requestFuture = server.first.then((request) async {
@@ -439,10 +449,13 @@ void main() {
         expect(request.uri.path, '/api/projects/42/upload-file');
         expect(request.headers.value('X-Api-Token'), 'upload-secret');
         expect(request.headers.value('x-api-key'), isNull);
-        final body = await utf8.decoder.bind(request).join();
-        expect(body, contains('name="metadata"'));
-        expect(body, contains('"releaseType":"release"'));
-        expect(body, contains('filename="pack.zip"'));
+        final parts = await readMultipart(request);
+        expect(parts.keys, unorderedEquals(['metadata', 'file']));
+        expect(parts['metadata']!.json, {'releaseType': 'release'});
+        final upload = parts['file']!;
+        expect(upload.filename, 'pack.zip');
+        expect(upload.contentType, 'application/zip');
+        expect(upload.bytes, payload);
         request.response.headers.contentType = ContentType.json;
         request.response.write('{"id":123}');
         await request.response.close();

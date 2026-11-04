@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../helpers/capture.dart';
+import '../helpers/multipart.dart';
 
 void main() {
   List<int> clientArchive({
@@ -42,6 +43,7 @@ void main() {
   late HttpServer server;
   late String host;
   late List<Map<String, dynamic>> uploads;
+  late List<ReceivedPart> uploadedFiles;
   late List<String> paths;
   late bool rejectChild;
   late bool rejectParent;
@@ -57,6 +59,7 @@ void main() {
     server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     host = 'http://127.0.0.1:${server.port}';
     uploads = [];
+    uploadedFiles = [];
     paths = [];
     rejectChild = false;
     rejectParent = false;
@@ -121,17 +124,11 @@ publish_to: curseforge
           return;
         }
         expect(request.headers.value('X-Api-Token'), 'private-upload-token');
-        final body = await latin1.decoder.bind(request).join();
-        final metadataPart = body
-            .split('name="metadata"')
-            .last
-            .split('\r\n\r\n')
-            .skip(1)
-            .join('\r\n\r\n')
-            .split('\r\n--')
-            .first;
-        final metadata = jsonDecode(metadataPart) as Map<String, dynamic>;
+        final parts = await readMultipart(request);
+        expect(parts.keys, unorderedEquals(['metadata', 'file']));
+        final metadata = parts['metadata']!.json;
         uploads.add(metadata);
+        uploadedFiles.add(parts['file']!);
         final child = metadata.containsKey('parentFileID');
         if ((child && rejectChild) || (!child && rejectParent)) {
           request.response.statusCode = 400;
@@ -231,6 +228,32 @@ publish_to: curseforge
       expect(uploads.last.containsKey('gameVersions'), isFalse);
       expect(uploads.last.containsKey('gameVersionNames'), isFalse);
       expect(uploads.last['isMarkedForManualRelease'], isTrue);
+      final build = p.join(root.path, 'build');
+      final client = File(p.join(build, 'test-1.0.0.zip'));
+      final server = File(p.join(build, 'test-1.0.0-server-distribution.zip'));
+      expect(uploadedFiles, hasLength(2));
+      final (parentFile, childFile) = (uploadedFiles.first, uploadedFiles.last);
+      for (final (part, artifact) in [
+        (parentFile, client),
+        (childFile, server),
+      ]) {
+        expect(part.filename, p.basename(artifact.path));
+        expect(part.contentType, 'application/zip');
+        expect(part.bytes, artifact.readAsBytesSync());
+      }
+      expect(parentFile.zipEntries.keys, contains('manifest.json'));
+      expect(
+        parentFile.zipEntries.keys,
+        isNot(contains('gitrinth-server-distribution.json')),
+      );
+      expect(
+        childFile.zipEntries.keys,
+        containsAll(['gitrinth-server-distribution.json', 'mods/server.jar']),
+      );
+      expect(
+        utf8.decode(childFile.zipEntries['mods/server.jar']!),
+        'actual server bytes',
+      );
       expect(
         result.stdout,
         allOf(

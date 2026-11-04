@@ -68,14 +68,14 @@ class CurseForgeApiFactory {
     );
     final raw = response.data;
     final data = raw is Map ? raw['data'] : null;
-    if (data is! List) {
-      throw const FormatException(
-        'CurseForge loader catalog must contain a data list.',
+    // A malformed upstream catalog is invalid provider data, not a usage
+    // error, and must never be cached.
+    if (data is! List || data.any((entry) => entry is! Map)) {
+      throw const ValidationError(
+        'CurseForge loader discovery returned no valid catalog.',
       );
     }
-    return data
-        .map((entry) => Map<String, dynamic>.from(entry as Map))
-        .toList();
+    return [for (final entry in data) Map<String, dynamic>.from(entry as Map)];
   }
 
   /// Returns the underlying [Dio] for the cached bundle. Visible for
