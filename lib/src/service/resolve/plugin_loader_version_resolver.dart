@@ -10,6 +10,7 @@ import '../../util/url_template.dart';
 import '../dio_error_helpers.dart';
 import '../paper_api_client.dart';
 import '../sponge_api_client.dart';
+
 class PluginLoaderVersionResolver {
   final Dio _dio;
   final PaperApiClient _paperApi;

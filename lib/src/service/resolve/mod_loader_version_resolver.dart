@@ -8,6 +8,7 @@ import 'catalog_loader_version.dart';
 import '../../cli/exceptions.dart';
 import '../../model/manifest/mods_yaml.dart';
 import '../../util/mc_version.dart';
+
 /// Resolves the docker-style `<loader>:<tag>` syntax in `mods.yaml` to a
 /// concrete loader version.
 ///
